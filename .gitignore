@@ -1,0 +1,7 @@
+# PYTHON DEFAULTS
+.venv
+**/__pycache__
+
+# PROJECT SPECIFICS
+recordings
+data
