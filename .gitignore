@@ -1,7 +1,9 @@
 # PYTHON DEFAULTS
 .venv
+.venv-browser
 **/__pycache__
 
 # PROJECT SPECIFICS
 recordings
+models
 data

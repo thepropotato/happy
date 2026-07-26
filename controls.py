@@ -19,10 +19,15 @@ POLL_SECONDS = 0.2  # WAITING IN SHORT HOPS KEEPS CTRL+C RESPONSIVE.
 
 
 class PushToTalk:
-    def __init__(self, key=KEY, key_name=KEY_NAME):
+    def __init__(self, key=KEY, key_name=KEY_NAME, on_press=None):
         self.key = key
         self.key_name = key_name
         self.held = False
+
+        # CALLED THE INSTANT THE KEY GOES DOWN, FROM THE LISTENER'S OWN THREAD.
+        # THE MAIN LOOP IS USUALLY BUSY WHEN A PERSON DECIDES TO INTERRUPT, SO
+        # ANYTHING THAT HAS TO HAPPEN AT ONCE HANGS OFF HERE AND NOT OFF THE QUEUE.
+        self.notify = on_press
 
         # EDGES GO THROUGH A QUEUE, SO A TAP TOO FAST TO POLL IS NEVER MISSED.
         self.events = queue.Queue()
@@ -59,6 +64,9 @@ class PushToTalk:
         if key == self.key and not self.held:  # AUTOREPEAT IS NOT A NEW PRESS.
             self.held = True
             self.events.put(PRESS)
+
+            if self.notify:
+                self.notify()
 
     def on_release(self, key):
         if key == self.key and self.held:
