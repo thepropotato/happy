@@ -40,6 +40,23 @@ delete the line when it stops being interesting.
 
 ## Known rough edges
 
+- [ ] **`list_controls` hides things behind "and 17 more".** `MAX_PER_KIND` is 12 and
+      `MAX_CHARS` 1400, and the chat being asked for was cut by both, so the model chose from
+      a list the answer was not in. Cutting is right, cutting silently is not: it should say
+      what kind of thing it dropped, or drop the least useful rather than the last.
+- [ ] **Nothing says which conversation is open.** The tree holds a group called *Messages in
+      chat with Aunty* and the heading never mentions it, so the model clicks to open a chat
+      that is already open. The heading has room for the context, not just the app name.
+- [ ] **OCR reads the whole screen, not the front window.** `eyes.spot` searches the entire
+      screenshot, so a word in a window sitting behind can be found and clicked. The tree is
+      asked first and is correctly scoped, so this only bites when the tree has no answer.
+      Tightening the spelling cutoff has taken the sting out of it, not the cause.
+- [ ] **A target that is only part of a two word label scores badly.** "Send" against a button
+      labelled *Send message* comes to exactly 0.5 and so does not clear the cutoff, because
+      coverage is counted in characters. Counting it in words would be the honest fix.
+- [ ] **`brain.calls` is 14 rounds**, and an errand that clicks its way through an app can
+      spend them all and be cut off mid task, which reads as Happy giving up. Fewer round
+      trips is the better answer than a bigger number.
 - [ ] `hands/controls/` is only tested on macOS. Every Windows path is written and unrun.
 - [ ] The window is only run on macOS. The tray, the placing and the icons are written for
       Windows and unrun there. On macOS a menu bar with no room left hides the icon and then
@@ -57,6 +74,31 @@ delete the line when it stops being interesting.
 
 ## Done
 
+- [x] **Every request for approval crashed in the window.** `panel.send` took its line kind as
+      `what`, and the confirm line carries a field of its own called `what`, so asking about
+      anything guarded raised `got multiple values for argument 'what'` instead of asking.
+      Sending, deleting, buying, installing, quitting and shutting down were all unreachable
+      through the window from the day it was built. The console path never had it.
+- [x] **Two things with one name.** WhatsApp calls both the chat in the list and the forty
+      pixel chip above the conversation "Aunty", they scored the same, and the tie went to
+      whichever was a button — the chip, which leaves the chat for the contact's settings.
+      A tie is now read as one thing described twice only when the boxes overlap. Apart, it
+      is two things, the bigger one is the row being pointed at, and the other is named out
+      loud instead of being silently passed over.
+- [x] **A click that only moved the caret was called a failure.** WhatsApp's search is a
+      button, not a field, so clicking it while it already held the keyboard changed no pixels
+      and reported "nothing changed". The typing that should have followed never happened.
+      The keyboard landing in the thing pressed now counts as a yes on its own.
+- [x] **`attach_file` no longer clicks a box that already has the caret**, which is the usual
+      state of a chat that has just opened.
+- [x] **Sending a file to a person.** `attach_file` puts the file itself on the clipboard and
+      pastes it where the cursor is, which is what a paperclip does anyway. Hunting for the
+      paperclip was six clicks that each might land somewhere else, and once did.
+- [x] **A fuzzy match has to be a misheard word, not a different one.** "Attachment" spells
+      sixty per cent like "ENTERTAINMENT", cleared the click cutoff, and pressed a video in
+      the window behind. Spelling alone now has to be nearly right.
+- [x] **Telling a person something means sending it.** Happy read a message out loud instead
+      of sending it, and did not ask which app. Both are in the standing prompt now.
 - [x] **Built the window** — `face/window/`, an Electron app that owns the process and runs
       Happy as a child over one JSON line at a time. An icon in the menu bar, a panel that
       drops out of it, an orb that moves with the real microphone level and the real clip

@@ -9,6 +9,7 @@ A CHECK MAY COME BACK None, WHICH IS NOT FAILURE. IT MEANS NOTHING WE CAN SENSE
 WOULD HAVE CHANGED EITHER WAY, AND SAYING SO IS BETTER THAN INVENTING A VERDICT.
 """
 
+from pathlib import Path
 from typing import NamedTuple
 
 from eyes import estimating
@@ -93,7 +94,20 @@ def for_click(found):
 
         return Expectation(f"the keyboard should end up in {label}", caught)
 
-    return Expectation(f"the screen should change after clicking {found.label}", stirred)
+    # THE KEYBOARD LANDING IN THE THING WE PRESSED IS A YES ON ITS OWN, AND IT IS
+    # THE ONLY ONE AVAILABLE WHEN THAT THING ALREADY HELD THE CARET. WHATSAPP'S
+    # SEARCH IS A BUTTON RATHER THAN A FIELD, SO CLICKING IT TWICE MOVED NO PIXELS
+    # AND WAS REPORTED AS "I CLICKED SEARCH BUT NOTHING CHANGED" WHILE THE CARET
+    # SAT IN IT, AND THE TYPING THAT WOULD HAVE FOLLOWED NEVER HAPPENED.
+    label = found.label
+
+    def landed(before, after):
+        if after.focus and settled(after.focus, label):
+            return True
+
+        return stirred(before, after)
+
+    return Expectation(f"the screen should change after clicking {found.label}", landed)
 
 
 def settled(focus, label):
@@ -117,6 +131,22 @@ def for_typing(text):
         return None if not after.senses or after.blind else stirred(before, after)
 
     return Expectation(f'"{shorten(text)}" should appear where the keyboard was', arrived)
+
+
+def for_attaching(name):
+    """A PASTED FILE SHOWS ITSELF: A PREVIEW, A ROW, A CHIP WITH ITS NAME ON IT.
+
+    THE NAME IS TRIED WITHOUT ITS ENDING TOO, BECAUSE A MESSAGE APP OFTEN DRAWS
+    THE PREVIEW WITH THE KIND OF FILE WRITTEN OUT SEPARATELY FROM THE NAME.
+    """
+
+    def arrived(before, after):
+        if holding(after, name) or holding(after, Path(name).stem):
+            return True
+
+        return None if not after.senses or after.blind else stirred(before, after)
+
+    return Expectation(f"{name} should appear where it was pasted", arrived)
 
 
 def for_keys(keys):

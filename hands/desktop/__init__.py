@@ -11,6 +11,7 @@ REPORTS SUCCESS THAT IT HAS NOT CHECKED THE SCREEN FOR.
 """
 
 from hands.desktop.acting import clicked, pressed, scrolled, typed
+from hands.desktop.attaching import attached
 from hands.desktop.tools import TOOLS
 
-__all__ = ["TOOLS", "clicked", "pressed", "scrolled", "typed"]
+__all__ = ["TOOLS", "attached", "clicked", "pressed", "scrolled", "typed"]

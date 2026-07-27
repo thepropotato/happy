@@ -62,8 +62,14 @@ def clicked(target, times=1, button="left"):
     # BETWEEN A REPORT AND A CLAIM.
     sure = found.confidence > estimating.POINTED
     did = f"Clicked {found.label}" if sure else f"Clicked where I think {target} is"
+    done = report(did, answer, after, at, ours=(found.x, found.y))
 
-    return report(did, answer, after, at, ours=(found.x, found.y))
+    # SAYING SO BEATS GUESSING SILENTLY. TWO THINGS CALLED "AUNTY" ARE A CHAT AND
+    # A TITLE, AND PRESSING THE WRONG ONE LEAVES THE CONVERSATION WITHOUT SAYING SO.
+    if found.rivals:
+        return Done(f"{done.said} Something else here is called {found.label} too.", done.worked)
+
+    return done
 
 
 def typed(text, into=""):

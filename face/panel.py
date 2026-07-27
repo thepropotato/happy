@@ -30,7 +30,9 @@ asked = {}
 counter = 0
 
 
-def send(what, **fields):
+def send(what, /, **fields):
+    """POSITIONAL ONLY, SO A LINE MAY CARRY A FIELD OF ITS OWN CALLED "what".
+    THE CONFIRM LINE DOES, AND EVERY REQUEST FOR APPROVAL DIED ON THE CLASH."""
     line = json.dumps({"is": what, **fields}, default=str)
 
     with writing:

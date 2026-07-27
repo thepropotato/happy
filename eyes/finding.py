@@ -63,7 +63,7 @@ def told(target, elements=None):
         elements = structure.tree()
 
     wants = typing(target)
-    best, found = None, None
+    worth = []
 
     for element in elements:
         if not element.said:
@@ -74,18 +74,54 @@ def told(target, elements=None):
         if mark <= CLICK_CUTOFF:
             continue
 
-        # SOMEWHERE TO TYPE OUTRANKS A BETTER SCORE WHEN THAT IS WHAT WAS ASKED
-        # FOR. AFTER THAT A TIE GOES TO THE THING YOU COULD ACTUALLY PRESS, AND
-        # THEN TO THE ONE THAT IS NOT GREYED OUT.
-        rank = (wants and element.kind in ENTRY, mark, element.kind in ACTIONABLE, element.enabled)
+        # SOMEWHERE TO TYPE OUTRANKS A BETTER SCORE WHEN THAT IS WHAT WAS ASKED FOR.
+        worth.append(((wants and element.kind in ENTRY, mark), element))
 
-        if best is None or rank > best:
-            best, found = rank, element
-
-    if found is None:
+    if not worth:
         return None
 
-    return Found(*found.centre, found.said, "the application named it", TOLD, found)
+    found, rivals = decided(worth)
+
+    return Found(*found.centre, found.said, "the application named it", TOLD, found, rivals)
+
+
+def area(element):
+    return element.width * element.height
+
+
+def overlapping(one, other):
+    """TRUE WHEN TWO BOXES SHARE ANY GROUND AT ALL."""
+    return (
+        one.left < other.left + other.width
+        and other.left < one.left + one.width
+        and one.top < other.top + other.height
+        and other.top < one.top + one.height
+    )
+
+
+def decided(worth):
+    """THE ONE MEANT, AND ANYTHING ELSE ANSWERING TO THE SAME NAME.
+
+    TWO THINGS SCORING THE SAME ARE EITHER ONE THING DESCRIBED TWICE OR TWO REAL
+    THINGS, AND WHICH ONE DECIDES THE ANSWER. LYING ON TOP OF EACH OTHER MEANS A
+    LABEL AND ITS BUTTON, AND THEY MEAN THE BUTTON. SITTING APART MEANS TWO
+    THINGS, AND THEN THE BIG ONE IS THE ROW OR CARD BEING POINTED AT WHILE THE
+    SMALL ONE IS AN ICON OR A TITLE: WHATSAPP CALLS BOTH THE CHAT IN THE LIST AND
+    THE FORTY PIXEL CHIP ABOVE IT "AUNTY", AND PRESSING THE CHIP LEAVES THE
+    CONVERSATION FOR THE CONTACT'S SETTINGS.
+    """
+    top = max(rank for rank, _ in worth)
+    tied = [element for rank, element in worth if rank == top]
+
+    if len(tied) == 1:
+        return tied[0], ()
+
+    if all(overlapping(tied[0], other) for other in tied[1:]):
+        return max(tied, key=lambda each: (each.enabled, each.kind in ACTIONABLE, area(each))), ()
+
+    found = max(tied, key=lambda each: (each.enabled, area(each)))
+
+    return found, tuple(each for each in tied if each is not found)
 
 
 def where(target, shot=None, seen=None, ask=True, elements=None):

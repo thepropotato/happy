@@ -20,6 +20,13 @@ PUNCTUATION = " .,:;!?'\"()[[]{}"
 # NAMES: OPENING THE WRONG APP IS A SHRUG, CLICKING THE WRONG THING IS ANYTHING.
 CLICK_CUTOFF = 0.5
 
+# AND HOW WELL IT HAS TO MATCH WHEN SPELLING IS THE ONLY THING THEY SHARE. A
+# FUZZY MATCH IS MEANT TO FORGIVE A MISHEARD WORD, NOT TO FIND A DIFFERENT ONE:
+# "ATTACHMENT" SPELLS SIXTY PER CENT LIKE "ENTERTAINMENT" AND MEANS NOTHING LIKE
+# IT, AND CLICKING ONE FOR THE OTHER IS HOW ASKING TO ATTACH A FILE ENDED UP
+# PRESSING A VIDEO IN THE WINDOW BEHIND. A MISHEARING SCORES FAR HIGHER THAN THIS.
+SPELLING_CUTOFF = 0.75
+
 # THE WORDS THAT MEAN "SOMEWHERE I TYPE" RATHER THAN "SOMETHING I PRESS". THEY
 # ARE NOISE FOR SCORING A LABEL AND ARE THROWN AWAY ABOVE, WHICH IS RIGHT, BUT
 # THEY ARE THE WHOLE ANSWER WHEN TWO THINGS BOTH MATCH: "THE MESSAGE FIELD"
@@ -77,6 +84,9 @@ def likeness(wanted, label):
     CONTAINS IT AS MUCH AS A TAB LABELLED OUTPUT DOES. SO A MATCH IS WORTH HOW
     MUCH OF THE LABEL IT ACCOUNTS FOR: ALL OF A BUTTON, ALMOST NONE OF A
     PARAGRAPH.
+
+    SHARING NEITHER THE WHOLE WORD NOR A WHOLE WORD INSIDE IT LEAVES ONLY
+    SPELLING, WHICH HAS TO BE NEARLY RIGHT BEFORE IT IS WORTH ANYTHING.
     """
     if not label:
         return 0.0
@@ -86,7 +96,18 @@ def likeness(wanted, label):
 
     spelling = difflib.SequenceMatcher(None, wanted, label).ratio()
 
-    return max(len(wanted) / len(label), spelling) if wanted in label else spelling
+    if wanted in label:
+        return max(len(wanted) / len(label), spelling)
+
+    if apart(wanted) & apart(label):
+        return spelling
+
+    return spelling if spelling >= SPELLING_CUTOFF else 0.0
+
+
+def apart(said):
+    """THE WHOLE WORDS IN SOMETHING, FOR ASKING WHETHER TWO THINGS SHARE ONE."""
+    return {word for word in (part.strip(PUNCTUATION) for part in said.split()) if word}
 
 
 def spot(reading, target):

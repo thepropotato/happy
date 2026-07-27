@@ -9,7 +9,7 @@ WRONG ONE, AND THAT IS NOT A WRONG ANSWER, IT IS A THING THAT HAPPENED.
 from langchain_core.tools import tool
 
 import eyes
-from hands.desktop import acting
+from hands.desktop import acting, attaching
 
 
 @tool
@@ -76,6 +76,26 @@ def press_keys(keys: str) -> str:
 
 
 @tool
+def attach_file(path: str, into: str = "") -> str:
+    """Attach a file to a message, an email or an upload box: a resume, a photo,
+    a document, anything someone asks you to send or share with a person. Give
+    the file as a full path or just a name like "resume", and optionally give
+    into as the box it belongs in, for example into="the message box".
+
+    Use this rather than looking for a paperclip or an attach button. Those
+    icons often have no name for you to click, and this does what pressing one
+    ends up doing: it puts the file itself on the clipboard and pastes it where
+    the cursor is. It works anywhere a file can be dropped.
+
+    Open the right chat, mail or page first, so the file lands in the right
+    place. Afterwards the screen is checked for the file's name and you are told
+    if it did not arrive. This attaches only. Nothing is sent until you press
+    Enter or click Send, which you should do once you are told the file is
+    there."""
+    return attaching.attached(path, into).said
+
+
+@tool
 def scroll(direction: str, amount: int = 1) -> str:
     """Scroll whatever is under the pointer. Direction is "up", "down", "left"
     or "right", and amount is how many steps, defaulting to one.
@@ -86,4 +106,4 @@ def scroll(direction: str, amount: int = 1) -> str:
     return acting.scrolled(direction, amount).said
 
 
-TOOLS = [list_controls, click_on, type_text, press_keys, scroll]
+TOOLS = [list_controls, click_on, type_text, attach_file, press_keys, scroll]

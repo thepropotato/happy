@@ -179,3 +179,4 @@ class Found(NamedTuple):
     how: str
     confidence: float = 0.0
     element: object = None  # THE Element IT CAME FROM, WHEN A TREE SUPPLIED IT.
+    rivals: tuple = ()  # OTHER THINGS ANSWERING TO THE SAME NAME SOMEWHERE ELSE.

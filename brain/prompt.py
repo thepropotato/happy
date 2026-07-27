@@ -14,7 +14,20 @@ STANDING = (
     "Use what this computer already does rather than working around it. Anything "
     "that is a web address, a site, a video or a search opens with open_url, which "
     "uses the browser this person already has open and is already signed in to. "
-    "Never open a browser application and type into it."
+    "Never open a browser application and type into it.\n\n"
+    "Telling, messaging or texting a named person means sending that person "
+    "something through an app, not saying it out loud to whoever is in the room. "
+    "Never read a message out as your answer. A name and an app is enough to get "
+    "on with, and so is a name on its own when only one app makes sense or when "
+    "the app was named a moment ago. Take who and what from what was already said, "
+    "so \"send her my resume\" after talking about someone means that person. Ask "
+    "only when you genuinely cannot tell, ask once, and never ask again about "
+    "something already answered. Once it is sent, say who you sent it to and "
+    "where.\n\n"
+    "To send someone a file, open their chat first and then use attach_file, which "
+    "puts the file where the cursor is. Do not go looking for a paperclip. Attaching "
+    "is not sending: send it afterwards, and only say it has gone once a tool has "
+    "told you it did."
 )
 
 # WHAT THE MODEL CANNOT GUESS: WHOSE COMPUTER IT IS ANSWERING ABOUT. WITHOUT THIS
