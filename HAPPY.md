@@ -33,58 +33,72 @@ not finished.
 ## How one turn works
 
 ```
-  hold key ─► record ─► transcribe ─► graph ─► speak
-   controls   audio/    audio/stt    brain.py  audio/tts
-              recorder                  │
-                                        ▼
-                                   agents/*.py
+  hold key ─► record ─► transcribe ─► think ─► speak
+    ears        ears        ears       brain    voice
+                                         │
+                                         ▼
+                                  hands/ and eyes/
                                   (tools it calls)
 ```
 
-1. `controls.py` watches globally for the push-to-talk key. Global, so the terminal does not
-   have to be the focused window — on macOS that needs Accessibility permission.
-2. `audio/recorder.py` keeps the microphone stream open for the life of the process and only
+1. `ears/trigger.py` watches globally for the push-to-talk key. Global, so the terminal does
+   not have to be the focused window — on macOS that needs Accessibility permission.
+2. `ears/microphone.py` keeps the microphone stream open for the life of the process and only
    gates whether it *keeps* what it hears. Opening a device costs about a tenth of a second,
    which is enough to swallow your first word. Each take is padded at both ends because
    nobody presses a key exactly on the first syllable.
-3. `audio/stt.py` runs WhisperX locally. The model is loaded at startup so the first take
-   isn't the one that pays for it.
-4. `brain.py` runs the transcribed speech through the graph. The model may call tools; when it is
-   done it streams an answer back in pieces.
-5. `audio/tts.py` speaks those pieces as they land. It gathers them until a sentence ends,
-   then sends that sentence to be spoken while the next one is still being written. Waiting
-   for the whole answer first would add all of the model's thinking to the silence.
+3. `ears/transcribing.py` runs WhisperX locally. The model is loaded at startup so the first
+   take isn't the one that pays for it.
+4. `brain/thinking.py` runs the transcribed speech through the graph. The model may call
+   tools; when it is done it streams an answer back in pieces.
+5. `voice/` speaks those pieces as they land. It gathers them until a sentence ends, then
+   sends that sentence to be spoken while the next one is still being written. Waiting for
+   the whole answer first would add all of the model's thinking to the silence.
+
+## The parts are named after a person
+
+Every module is a folder, and the folder is named for the part of a person that does the job:
+**brain** thinks, **ears** hear, **voice** speaks, **eyes** see, **hands** do, **memory**
+remembers, **face** is what you see of him, and **conscience** is what asks before something
+that cannot be undone. A new capability gets the name of the part of a person that would do
+it. No file is longer than 200 lines; when one grows past that it splits by job.
 
 ## Layout
 
-| File | What it owns |
+| Folder | What it owns |
 | --- | --- |
 | `main.py` | The loop. Hold, speak, release, hear an answer. Nothing else. |
-| `brain.py` | The graph. Speech in, spoken answer out, tools called along the way. |
-| `llm.py` | Which model, at which URL, told what. The system prompt lives here too. |
-| `providers.py` | The backends. One entry each, and the only file that knows a server's habits. |
-| `agents/__init__.py` | The registry. Collects every tool from every module into one flat list. |
-| `agents/system.py` | The machine: what's installed, what it is, opening apps and paths. |
-| `agents/files.py` | Finding files and reading what is inside them, whatever the format. |
-| `agents/vision.py` | Seeing: text off a picture or off the screen, and where on the screen it is. |
-| `agents/desktop.py` | The pointer and the keyboard. Clicking what `vision.py` found. |
-| `agents/bash.py` | The shell. One command in, what it printed back out. |
-| `agents/browser.py` | The browser errand: starts it, watches it, reports back — and, below the line in the same file, runs it in a child process. |
-| `audio/recorder.py` | Microphone capture, one WAV per take. |
-| `audio/stt.py` | Speech to text. |
-| `audio/tts.py` | Saying it out loud: the voice, sentence streaming, playback, barge-in. |
-| `controls.py` | Push to talk. |
-| `console.py` | What the terminal shows: one block per turn, and where the time went. |
-| `chat.py` | The conversation: every message ever, and how to read it back. |
-| `store.py` | The database. Owns the file and the schema, nothing else. |
-| `logs.py` | Silences the libraries. Must be called before anything imports whisperx. |
+| `brain/thinking.py` | The graph. Speech in, spoken answer out, tools called along the way. |
+| `brain/model.py` | Which model, at which URL, with which settings. |
+| `brain/prompt.py` | What the model is told before it hears anything. |
+| `brain/providers.py` | The backends. One entry each, and the only file that knows a server's habits. |
+| `ears/trigger.py` | Push to talk. |
+| `ears/microphone.py` | Microphone capture, one WAV per take. |
+| `ears/transcribing.py` | Speech to text. |
+| `voice/piper.py` | The voice model itself, and the mute stand-in when it will not load. |
+| `voice/sentences.py` | Where one spoken sentence ends and the next begins. |
+| `voice/speaker.py` | Saying it out loud: synthesis, playback, barge-in. |
+| `hands/__init__.py` | The registry. Collects every tool from every module into one flat list. |
+| `hands/apps/` | The machine: what's installed, what it is, opening apps, paths and addresses. |
+| `hands/controls/` | The machine's settings: sound, brightness, media, display, power, Wi-Fi, clipboard. |
+| `hands/files/` | Finding files and reading what is inside them, whatever the format. |
+| `hands/shell/` | The shell. One command in, what it printed back out. |
+| `hands/desktop/` | The pointer and the keyboard. **Blank — being rebuilt.** |
+| `hands/browser/` | The browser errand. **Blank — being rebuilt.** |
+| `eyes/` | Seeing: text off a picture or off the screen, and where on the screen it is. |
+| `memory/conversation.py` | The conversation: every message ever, and how to read it back. |
+| `memory/storage.py` | The database. Owns the file and the schema, nothing else. |
+| `face/console.py` | What the terminal shows: one block per turn, and where the time went. |
+| `face/silence.py` | Silences the libraries. Must be called before anything imports whisperx. |
+| `conscience/` | Asking before something that cannot be undone. |
 | `AGENTS.md` | How to write code in this repo. Read it before you write any. |
+| `TODO.md` | What is still pending. |
 
 ## The agent model — read this before adding one
 
-The word "agent" in `agents/` is aspirational. **These are tool namespaces, not minds.**
-There is exactly one model loop, in `brain.py`. It sees every tool from every module at
-once, calls what it needs, and answers.
+The folders under `hands/` are **tool namespaces, not minds.** There is exactly one model
+loop, in `brain/thinking.py`. It sees every tool from every module at once, calls what it
+needs, and answers.
 
 The alternative — a supervisor model that routes to a sub-agent, which runs its own loop and
 reports back — is the more fashionable shape and the wrong one here. It costs two to three
@@ -93,12 +107,14 @@ person standing in their kitchen waiting for a sentence. Happy does not stall.
 
 So: **a module here exports tools and thinks about nothing.**
 
-The one exception is the browser, and it now exists. "Find the cheapest flight on Friday" is a
-dozen looks and clicks, each one decided by what the last one put on screen, and that does not
-belong in the main loop where it would bury every other tool under page text. So it has its
-own loop, its own model and its own context — and it *still* exports one ordinary tool,
-`browse(task)`. The main graph hands it a sentence and gets an answer back, and never sees the
-clicks. **The shape of the registry did not change.**
+The one exception is the browser. "Find the cheapest flight on Friday" is a dozen looks and
+clicks, each one decided by what the last one put on screen, and that does not belong in the
+main loop where it would bury every other tool under page text. So it gets its own loop, its
+own model and its own context — and it *still* exports one ordinary tool. The main graph
+hands it a sentence and gets an answer back, and never sees the clicks. **The shape of the
+registry does not change.** `hands/browser/` is blank right now and being rebuilt; the
+registry skips a module with no `TOOLS` rather than breaking, so it can stay in the list
+while it is empty.
 
 ### Why not MCP
 
@@ -110,30 +126,31 @@ rather than pattern-checked. Not before.
 
 ### Adding a capability
 
-1. Write `agents/yourthing.py`.
+1. Write `hands/yourthing/`, as a folder with an `__init__.py`. Put the work in files named
+   after what they do, and the tools in `tools.py`.
 2. Decorate functions with `@tool` from `langchain_core.tools`. **The docstring is the
    prompt** — it is the only thing the model reads to decide whether to call you. Write it as
    plain prose for a reader, say when to use it *and when not to*, and give an example of the
-   argument. This is the highest-leverage text in the file.
-3. Export `TOOLS = [...]`.
-4. Add the module to `MODULES` in `agents/__init__.py`.
+   argument. This is the highest-leverage text in the folder.
+3. Export `TOOLS = [...]` from the package.
+4. Add the module to `MODULES` in `hands/__init__.py`.
 
-That is the whole extension point. A module exporting `TOOLS = []` is valid and registers
-nothing, which is a useful way to stub something you have not built yet.
+That is the whole extension point. A module with no `TOOLS` at all is valid and registers
+nothing, which is how something being rebuilt stays in the list without breaking startup.
 
 ## Things that are easy to get wrong here
 
 **Tool output is not speech.** Whatever a tool returns lands in the model's context and may
-end up spoken. Return short, plain, already-summarised text. `agents/bash.py` truncates
-command output for exactly this reason.
+end up spoken. Return short, plain, already-summarised text. `hands/shell/` truncates command
+output for exactly this reason.
 
 **Never stream the tool-calling turn.** The model's turn that *decides* on a tool arrives
 through the same stream as the answer, as half-built JSON arguments. Streaming it is the
-assistant muttering JSON at you. `brain.spoken()` in `brain.py` is the filter that stops
+assistant muttering JSON at you. `spoken()` in `brain/thinking.py` is the filter that stops
 this; if you touch streaming, keep it.
 
 **Speech arrives misheard, not wrong.** "Saffari", "Vishwal Studio Code". Anything that takes
-a name from the user should match loosely — see `system.resolve()`.
+a name from the user should match loosely — see `hands/apps/installed.py`, `resolve()`.
 
 **But loosely is not the same as certainly.** "slack" and "clock" score exactly 0.6 against
 each other, "photoshop" and "Photos" score 0.8, and "word" sits inside "Passwords". Asked
@@ -145,11 +162,11 @@ never act on a guess it could have asked about. And it says in its own descripti
 is not how you check whether an app exists — that is `list_installed_apps`, which opens
 nothing.
 
-**Bound the loop.** `MAX_MODEL_CALLS` in `brain.py` caps how many times the model may go
-round before it has to answer. A loop that keeps going is a person staring at a silent
+**Bound the loop.** `MAX_MODEL_CALLS` in `brain/thinking.py` caps how many times the model
+may go round before it has to answer. A loop that keeps going is a person staring at a silent
 assistant, which is worse than a half answer.
 
-**History is trimmed, not kept.** `brain.recent()` keeps the last `HISTORY_MESSAGES`
+**History is trimmed, not kept.** `recent()` keeps the last `HISTORY_MESSAGES`
 messages, starting on a human message so a tool reply never appears whose tool call was
 trimmed away. That orphan is an API error, not a degradation.
 
@@ -174,13 +191,16 @@ besides the voice file and it behaves the same on Windows. Any Piper voice works
 — and half a download is not a voice, so `find()` requires both rather than failing later with
 a confusing traceback.
 
-If no voice is there, `tts.create()` returns a `Mute` voice and the reason. Happy carries on
+If no voice is there, `voice.create()` returns a `Mute` voice and the reason. Happy carries on
 answering in writing, and nothing downstream has to check whether there is a voice.
 
 ### How speaking works
 
 Two threads behind a queue each: one turns sentences into sound, the other plays it. They are
 separate so sentence three is being synthesised while sentence two is still in the air.
+
+The splitting rules live on their own in `voice/sentences.py`; the threads and the queues
+live in `voice/speaker.py`.
 
 - **The first sentence of a reply goes out fast.** `MIN_CHARS_FIRST` is deliberately tiny, so
   "Done." is said immediately rather than waiting to be joined to the paragraph after it.
@@ -189,16 +209,22 @@ separate so sentence three is being synthesised while sentence two is still in t
   is on the phone" likely to break in half, so `SHORTENED` and the single-initial rule catch
   it. Decimals are already safe — the split needs whitespace after the full stop.
 - **Barge-in is `Speaker.stop()`**, wired to the push-to-talk key going down via the
-  `on_press` callback in `controls.py`. It fires from the listener's own thread, because the
+  `on_press` callback in `ears/trigger.py`. It fires from the listener's own thread, because the
   main loop is usually busy exactly when someone decides to interrupt. Everything queued is
   dropped and playback is cut — someone who has started talking has stopped listening, and
   the microphone must not hear Happy either.
 - **In-flight work is cancelled by an era counter**, not by trying to kill a thread. `stop()`
   bumps it; work stamped with an older era is thrown away when it surfaces.
 
-## The browser
+## The browser — blank, being rebuilt
 
-Built on [browser-use](https://github.com/browser-use/browser-use), driving the local model
+> `hands/browser/` is empty on purpose and is being written again from scratch. Everything
+> below is what the first one learned the hard way. None of it is code any more, and all of
+> it is still true about this machine, so read it before writing the next one. What went with
+> it: unprompted speech is no longer wired up in `main.py`, though `face.console.unprompted()`
+> is still there waiting, and nothing sets the `unprompted` column any more.
+
+The first one was built on [browser-use](https://github.com/browser-use/browser-use), driving the local model
 text-only (`use_vision=False`) — the accessibility/DOM representation is read as text, so no
 vision model is needed. That stays true now that Happy *has* eyes: a web page exposes its own
 structure, and reading it beats squinting at a picture of it. Pixels are for what has no such
@@ -216,22 +242,21 @@ tolerates, so a future bump to it may force another. That is worth knowing befor
 
 The child process stays, because the two reasons for it were never about packages. A browser
 that crashes cannot take Happy with it, and `browser-use` owns an asyncio loop that has no
-business running under a voice assistant. So `agents/browser.py` runs *itself* again with
-`--run`, hands the task on argv, and reads back one marked line of JSON. Everything above the
-line in that file is Happy's side and never imports `browser-use`; everything below it is the
-child's. The task is all that crosses — the child reads the backend out of `llm.py` directly,
-the same as every other module.
+business running under a voice assistant. So the module ran *itself* again with `--run`,
+handed the task on argv, and read back one marked line of JSON. Happy's half never imported
+`browser-use` at all. The task is all that crosses — the child read the backend out of
+`brain/model.py` directly, the same as every other module.
 
 **It returns immediately.** `browse(task)` starts the job and answers "Started, I will say
 when it is done." Happy stays responsive, you keep talking to him, and the job speaks up
-unprompted when it lands. That announcement is wired in `main.py` via `browser.announces()`
-and **waits for a gap** — it will not cut across you mid-sentence, because being a sentence
-late is better than talking over someone. `browsing_status()` covers "is it done yet".
+unprompted when it lands. That announcement was wired in `main.py` and **waited for a gap** —
+it will not cut across you mid-sentence, because being a sentence late is better than talking
+over someone. A status tool covered "is it done yet".
 
 **It needs a real context window.** See below — this is the thing most likely to waste your
 afternoon.
 
-**It uses the browser you chose.** `system.drivable_browser()` reads the actual `https`
+**It uses the browser you chose.** `hands.apps.drivable_browser()` reads the actual `https`
 handler — Launch Services on macOS, the registry on Windows, `xdg-settings` on Linux — and
 hands `browser-use` that binary. No hardcoded Chrome. Whether a browser can be driven at all
 is answered by looking at it rather than by a list: every Chromium bundle ships its engine as
@@ -258,7 +283,7 @@ QR code nobody can see is a task that hangs forever without saying why.
 
 ## Opening a page: your browser, your profile
 
-`system.open_url` is for anything an address reaches — a site, a video, a search. It lands in
+`open_url`, in `hands/apps/`, is for anything an address reaches — a site, a video, a search. It lands in
 the browser you already use, signed in to your accounts, and it is what "play this on
 YouTube" should always have done. Before it existed the model had no tool for an address at
 all, so it reached for `open_app` — whose docstring offered **"Safari"** as its example — and
@@ -273,37 +298,39 @@ unknown platforms fall back to the system opener.
 
 **Do not test this on the exit code.** Opera prints `Opening in existing browser session.`
 and exits **24** having done exactly what was asked. A browser that genuinely could not open
-the page says so on stderr, so that is what `released()` checks. A quick exit means it
-forwarded; still being alive means it *is* the browser now. Both are success.
+the page says so on stderr, so that is what `released()` in `hands/apps/running.py` checks. A
+quick exit means it forwarded; still being alive means it *is* the browser now. Both are
+success.
 
-Telemetry is disabled explicitly in both files. `browser-use` sets `ANONYMIZED_TELEMETRY` to
-`'true'` by default and cloud sync follows it, which is not what "completely local" means.
+Telemetry has to be disabled explicitly wherever `browser-use` is used: it sets
+`ANONYMIZED_TELEMETRY` to `'true'` by default and cloud sync follows it, which is not what
+"completely local" means.
 
 ## Swapping the model out
 
 A model here is inference and nothing else. The flow belongs to LangGraph, the tools belong to
-`agents/`, the prompt belongs to `llm.py`. What is left is a name, an address and a few
-settings — so changing backend is two lines at the top of `llm.py`:
+`hands/` and `eyes/`, the prompt belongs to `brain/prompt.py`. What is left is a name, an
+address and a few settings — so changing backend is two lines at the top of `brain/model.py`:
 
 ```python
-PROVIDER = providers.OLLAMA    # anything in providers.py
+PROVIDER = providers.OLLAMA    # anything in brain/providers.py
 URL = None                     # None takes that backend's own default
 ```
 
-`providers.py` holds one builder per backend and is **the only file that knows a particular
-server's habits.** Adding one is writing the builder and putting it in `PROVIDERS`; nothing
-else moves. Two things actually differ between them, and both are named there: where the
-context length goes, and what the thinking knob is called.
+`brain/providers.py` holds one builder per backend and is **the only file that knows a
+particular server's habits.** Adding one is writing the builder and putting it in `PROVIDERS`;
+nothing else moves. Two things actually differ between them, and both are named there: where
+the context length goes, and what the thinking knob is called.
 
 A backend that cannot do something **says so instead of dropping it.** `SETS_CONTEXT` records
-whether a request can carry a context length — the OpenAI shape cannot — and `llm.caveat()`
+whether a request can carry a context length — the OpenAI shape cannot — and `brain.caveat()`
 turns that into a line printed at startup. Silence about a dropped setting is the failure mode
 this whole file exists to prevent.
 
-The browser is the one place the client is mirrored rather than shared: `browser-use` will not
-take a LangChain model, so the child half of `agents/browser.py` maps the same provider name
-onto `browser-use`'s own client. Only the client differs — the name comes from `providers.py`
-and the model, address and key come from `llm.py`, so the choice is still made in one place.
+The browser is the one place the client has to be mirrored rather than shared: `browser-use`
+will not take a LangChain model, so it needs the same provider name mapped onto its own
+client. Only the client differs — the name comes from `brain/providers.py` and the model,
+address and key come from `brain/model.py`, so the choice is still made in one place.
 
 ## The context window, or: why the model looks stupid
 
@@ -311,11 +338,11 @@ Ollama serves **4096 tokens** unless told otherwise, no matter that `gpt-oss:20b
 131072. It does not warn you. It just forgets the oldest thing you said.
 
 This is not a tuning knob, it is a correctness bug waiting to happen. One resume PDF read
-through `agents/files.py` is ~1250 tokens. A verbose shell command is ~1000. The system prompt
+through `hands/files/` is ~1250 tokens. A verbose shell command is ~1000. The system prompt
 and tool schemas are ~1100 before you open your mouth. browser-use's system prompt **alone is
 ~6000** and never fit in 4096 at all.
 
-**Happy runs at the full 131072 now**, as `CONTEXT` in `llm.py`, sent with every request.
+**Happy runs at the full 131072 now**, as `CONTEXT` in `brain/model.py`, sent with every request.
 There is no `Modelfile` and no `ollama create` step. The models are the ones you pulled.
 
 Measured on an M-series with 26 GB: it loads at **12 GB, 100% GPU, no CPU spill**, and replies
@@ -327,7 +354,7 @@ What works and what does not — the first row is the trap, because it looks lik
 | | Result |
 | --- | --- |
 | `extra_body={"options": {"num_ctx": N}}` via `/v1` | **Silently ignored.** Still loads at 4096. |
-| `ChatOllama(num_ctx=N)` via `/api/chat` | Works. This is what `providers.py` does. |
+| `ChatOllama(num_ctx=N)` via `/api/chat` | Works. This is what `brain/providers.py` does. |
 | A `Modelfile` with `PARAMETER num_ctx N` | Works, and was how this used to be done. |
 
 The Modelfile was the right fix for the wrong problem. It only existed because the OpenAI
@@ -354,7 +381,7 @@ tells you the truth.
 
 ## The terminal
 
-`console.py` owns everything the terminal shows. One block per turn, separated by a rule and
+`face/console.py` owns everything the terminal shows. One block per turn, separated by a rule and
 stamped with the time, so turns never run together.
 
 ```
@@ -375,9 +402,9 @@ so when it feels slow there is no way to tell *which part* was slow. Now there i
   person actually feels.
 - **total** — the whole turn
 
-Tools report themselves from the middleware in `brain.py`, so a tool added later appears here
-with nobody wiring it up. `brain.watches()` takes the callback — the brain does not know a
-terminal exists, the same way `bash.asks()` and `browser.announces()` work.
+Tools report themselves from the middleware in `brain/thinking.py`, so a tool added later
+appears here with nobody wiring it up. `brain.watches()` takes the callback — the brain does
+not know a terminal exists, the same way `conscience.asks()` works.
 
 **What it immediately showed:** tools are noise (7 ms for `system_info`) and the voice is noise
 (15 ms). The model is essentially the entire turn. A question needing a tool costs two model
@@ -386,8 +413,9 @@ amount of TTS tuning touches it.
 
 ## The conversation
 
-Everything ever said lives in a **SQLite database** at `data/happy.db`. `store.py` owns the
-file and the schema; `chat.py` owns what a message is and how it reads back.
+Everything ever said lives in a **SQLite database** at `data/happy.db`. `memory/storage.py`
+owns the file and the schema; `memory/conversation.py` owns what a message is and how it
+reads back; `memory/transcript.py` lays it out for a person.
 
 One running conversation — not one per day, not one per session, because talking to someone you
 live with does not restart at midnight. **The time is a column on the message and never a
@@ -403,7 +431,7 @@ Tuesday*. `messages` carries `who`, `text`, `at`, `epoch`, and — on the rows t
 here briefly. It worked, and it quietly brought four shadow tables and three triggers with it —
 all created by SQLite on your behalf, none of them ever read by anything here. That is a lot of
 machinery to avoid a scan that takes **159 ms across two hundred thousand messages**, which is
-more than anyone will ever say to Happy. So `chat.search()` is a `LIKE` now.
+more than anyone will ever say to Happy. So `memory.search()` is a `LIKE` now.
 
 What that costs: no relevance ranking, and no stemming, so "meet" will not find "meeting". What
 it buys: `sqlite_master` has two rows in it and you can read the whole schema at a glance. The
@@ -414,20 +442,20 @@ messages is **123 ms without it and 0.1 ms with it** at that same scale.
 "75%" finds the message about response times, not every message.
 
 ```sh
-python chat.py               # the whole conversation, as a chat
-python chat.py --tools       # with the plumbing shown
-python chat.py dentist       # full-text search
+python -m memory.transcript             # the whole conversation, as a chat
+python -m memory.transcript --tools     # with the plumbing shown
+python -m memory.transcript dentist     # search
 ```
 
-`store.py` gives each thread its own connection, because SQLite objects do not travel between
-threads and a browser errand finishing on its own thread writes at the same moment the voice
-loop does. WAL mode lets a reader read while a writer writes. A failed write never costs you a
-turn. `chat.add(at=...)` exists so messages can be carried in from elsewhere with their own
-times on them — everything live leaves it alone and means now.
+`memory/storage.py` gives each thread its own connection, because SQLite objects do not travel
+between threads and a background errand finishing on its own thread writes at the same moment
+the voice loop does. WAL mode lets a reader read while a writer writes. A failed write never
+costs you a turn. `add(at=...)` exists so messages can be carried in from elsewhere with their
+own times on them — everything live leaves it alone and means now.
 
 ## Reading files
 
-`agents/files.py` is the answer to "I don't have the ability to read that file", which was a
+`hands/files/` is the answer to "I don't have the ability to read that file", which was a
 real gap and not a design choice. `read_file` handles PDF, Word, spreadsheets, presentations,
 RTF, and anything textual, and always returns plain text — the model should not have to know
 which kind of file it is before it asks.
@@ -442,13 +470,13 @@ Long files are cut at `MAX_CHARS` with a marker, and `start` reads on from there
 Images used to be **named, not guessed at** — "that's a PNG, I can't see it" was worth more
 than a confident hallucination. That is no longer the trade, because OCR is not guessing.
 `.png`, `.jpg`, `.bmp`, `.tiff` and `.webp` are now formats like any other in `READERS` and
-go to `agents/vision.py`; `.gif` and `.heic` stay named, because OpenCV will not reliably
+go to `eyes/`; `.gif` and `.heic` stay named, because OpenCV will not reliably
 decode either. Happy still does not *look* at a photograph — he reads the text off it, so a
 screenshot of a message reads fine and a picture of a dog comes back empty.
 
 ## Seeing the screen
 
-`agents/vision.py` answers two different questions and it matters which is which. **What does
+`eyes/` answers two different questions and it matters which is which. **What does
 it say** is OCR: exact, and about a second and a half for a full screen. **What does it look
 like** is a vision model: several seconds, and needed far less often than it looks. `read_screen`
 is the first, `look_at_screen(question)` is the second, and the tool descriptions push the model
@@ -510,19 +538,24 @@ does. A match is now worth **how much of the label it accounts for**, which is a
 and almost none of a paragraph. Below the floor, the model is asked; that is slower and better
 than a confident wrong click.
 
-## Working the desktop
+## Working the desktop — blank, being rebuilt
 
-`agents/desktop.py` is the other half of seeing. `click_on`, `type_text`, `press_keys`, `scroll`.
+> `hands/desktop/` is empty on purpose and is being written again from scratch. `eyes.where()`
+> — the whole grounding stack above — is untouched and still works, so the rebuild starts from
+> a working answer to "where is that on the screen". Everything below is what the first one
+> settled, and none of it has stopped being true.
 
-**No tool here takes a coordinate.** They take a description — "Send", "the search box" — the
+It was the other half of seeing: `click_on`, `type_text`, `press_keys`, `scroll`.
+
+**No tool there took a coordinate.** They took a description — "Send", "the search box" — the
 screen is read fresh on every call, and the pointer goes where the words actually are. One act
 per call, and the screen is never assumed to have stayed still between two of them: a menu that
 opened half a second late makes every remembered position a lie. The model looks, does one
 thing, and looks again. That costs a grab plus an OCR pass, about two seconds, per act.
 
 The guard is the same shape as the shell's, applied to what is written on the thing being
-clicked: delete, send, spend, install, grant permission, quit. `desktop.asks(handler)` is
-pluggable exactly like `bash.asks()`, so it becomes a spoken question for free.
+clicked: delete, send, spend, install, grant permission, quit. It goes through `conscience/`,
+the one place that asks, so it becomes a spoken question for free.
 
 The pointer and the keyboard needed nothing new — pynput, screeninfo and Pillow were already
 here for push-to-talk and the recorder. Seeing added two: `pytesseract` and
@@ -541,26 +574,49 @@ answer "I can read the screen but I cannot look at it yet."
 `run_command` is the widest thing Happy has and the one holding the knife. A misheard word is
 a different command.
 
-`agents/bash.py` matches the command against a list of shapes — deletes, disk writes, `sudo`,
-piping the internet into a shell, kills, schedulers — and anything that matches goes past a
-person first. This catches a **careless** model, not a **hostile** one; it is a guardrail, not
-a sandbox. Do not add a capability that assumes it is more than that.
+`hands/shell/guard.py` matches the command against a list of shapes — deletes, disk writes,
+`sudo`, piping the internet into a shell, kills, schedulers — and anything that matches goes
+past a person first. This catches a **careless** model, not a **hostile** one; it is a
+guardrail, not a sandbox. Do not add a capability that assumes it is more than that.
 
-How the asking happens is pluggable. `bash.asks(handler)` takes a
-`handler(command, reason) -> bool`. The default reads from the console. When TTS lands, that
-becomes a spoken "Happy wants to run something that deletes files — okay?" and the reason
-strings in `RISKY` are already written to be said out loud.
+**Asking lives in one place: `conscience/`.** `conscience.asks(handler)` takes a
+`handler(what, reason) -> bool` and `conscience.allowed(what, reason)` is what a tool calls.
+The default reads from the console. When a spoken confirmation lands it is wired once and
+covers every knife at once — the shell, the desktop when it comes back, and shutting the
+machine down. The reason strings are already written to be said out loud.
 
-`desktop.asks()` is the same handler shape over what is written on the thing being clicked, so
-one spoken confirmation covers both knives.
+## The machine's own settings
+
+`hands/controls/` is the ordinary stuff a person asks for out loud: turn it down, make the
+screen brighter, pause that, lock it, how much battery is left, what wifi am I on, what did I
+just copy. One file per part of the machine — `sound`, `screen`, `power`, `network`, `media`,
+`clipboard` — and **both systems are written side by side in the same function**, so a control
+that only works on one of them is visible in the diff rather than discovered later.
+
+**Seven tools, not twenty.** One per part of the machine, each taking an action: `sound_control
+("up")`, `power_control("battery")`, `clipboard_control("write", text)`. Every extra tool costs
+prompt tokens on every single turn and one more thing for a 20B model to pick wrongly between,
+so grouping wins. The allowed actions are spelled out in the docstring, and anything else comes
+back as "I can set, step, mute or report the volume, not *that*", which the model can recover
+from.
+
+**No shelling out to a command that might not be there.** Sound on macOS is AppleScript, which
+is always installed; on Windows it is the audio endpoint addressed directly through a small
+C# shim, because Windows ships no command for the volume at all and the media keys can only
+step it. Brightness is WMI on Windows and, on macOS, the arrow keys — because macOS genuinely
+has no way to set an exact brightness, so it says so and names the Homebrew helper rather than
+pretending. **A control that cannot do something says which, and how to fix it.**
+
+Anything that loses unsaved work — sleep, restart, shut down — goes through `conscience/`
+first. The battery and the lock do not, because neither costs you anything.
 
 ## What is not built
 
-- **The accessibility tree.** Native GUI control *is* built now, but through pixels — see
-  "Seeing the screen". This section used to say the answer was an `agents/screen.py` reading
-  the tree — `AXUIElement` on macOS, UI Automation on Windows — and to reach for screenshots
-  and a vision model was called out as the wrong move. That was overridden on purpose, and the
-  module landed as `agents/vision.py` plus `agents/desktop.py` instead.
+- **The accessibility tree.** Native GUI control was built through pixels — see "Seeing the
+  screen". This section used to say the answer was reading the tree — `AXUIElement` on macOS,
+  UI Automation on Windows — and reaching for screenshots and a vision model was called out as
+  the wrong move. That was overridden on purpose, and it landed as `eyes/` plus a desktop
+  module instead.
   The tree is still the better answer where it exists, and is worth building: it knows an
   element's *kind* and *state* — is that checkbox ticked, is that button disabled — it reaches
   what is scrolled out of view or behind another window, and it costs no model call and no OCR
@@ -574,9 +630,9 @@ one spoken confirmation covers both knives.
 - **Anything on the web that needs a login** works only after you have signed in once, by
   hand, in Happy's own browser profile. There is no credential handling and there should not
   be one.
-- **`setup.py`.** Meant to be one-command setup — Ollama, the model pull, the STT weights.
-  Currently a stub with a TODO.
-- **Gmail.** There was an `agents/gmail.py`. It was removed on purpose: it is a remote
+- **A setup script.** Meant to be one-command setup — Ollama, the model pull, the STT weights,
+  a voice, Tesseract. There is none; see `TODO.md`.
+- **Gmail.** There was a Gmail module. It was removed on purpose: it is a remote
   service behind OAuth, not computer control, and it was the odd one out. Happy is about
   this machine for now. Revisit once bash, system and browser are solid.
 
@@ -593,18 +649,17 @@ winget install UB-Mannheim.TesseractOCR         # Windows, and it does not add i
 
 # the voice. any piper voice works, this one is a plain American man.
 .venv/bin/python -m piper.download_voices en_US-hfc_male-medium --download-dir models/piper
-.venv/bin/python audio/tts.py --voices      # which voice files are installed
+.venv/bin/python -m voice --voices    # which voice files are installed
 
-.venv/bin/python main.py     # the real thing: hold RIGHT OPTION to talk
-.venv/bin/python brain.py    # the same brain, typed at instead of spoken to
-.venv/bin/python audio/tts.py "say this out loud"   # just the voice
-.venv/bin/python agents/browser.py "find the top story on hacker news"   # one errand
-.venv/bin/python agents/files.py "resume"   # find and read one file
-.venv/bin/python agents/vision.py shot.png [--thorough]  # read a picture, or compare recipes
-.venv/bin/python agents/desktop.py "Send"   # where would it click, without clicking
-.venv/bin/python chat.py [--tools] [words]  # the conversation, or search it
-.venv/bin/python agents/bash.py    # one shell command, straight through the tool
-.venv/bin/python agents/system.py  # list installed apps
+.venv/bin/python main.py              # the real thing: hold RIGHT OPTION to talk
+.venv/bin/python -m brain             # the same brain, typed at instead of spoken to
+.venv/bin/python -m voice "say this out loud"        # just the voice
+.venv/bin/python -m eyes shot.png [--thorough]       # read a picture, or compare recipes
+.venv/bin/python -m hands.files resume               # find and read one file
+.venv/bin/python -m hands.apps                       # installed apps, and the default browser
+.venv/bin/python -m hands.controls                   # every setting, as it stands now
+.venv/bin/python -m hands.shell "ls ~"               # one command, straight through the tool
+.venv/bin/python -m memory.transcript [--tools] [words]   # the conversation, or search it
 ```
 
 If a download fails with `CERTIFICATE_VERIFY_FAILED`, this Python has no root certificates —
@@ -612,8 +667,8 @@ run `/Applications/Python\ 3.13/Install\ Certificates.command` once, or prefix t
 with ``SSL_CERT_FILE=`.venv/bin/python -c "import certifi;print(certifi.where())"` ``. pip
 carries its own certificates, which is why it works when nothing else does.
 
-`brain.py` is the one to use while developing. It skips the microphone and WhisperX entirely
-and exercises the graph, the tools and the guard — everything except audio.
+`python -m brain` is the one to use while developing. It skips the microphone and WhisperX
+entirely and exercises the graph, the tools and the guard — everything except audio.
 
 **Two permissions, both granted to whatever runs Happy, not to Happy.** Accessibility, which
 push-to-talk already needed and which the pointer and keyboard also use; and Screen Recording,
@@ -621,6 +676,7 @@ which capture needs. macOS refuses the second silently — you get a black pictu
 — so if Happy says he cannot see the screen, that is the one to check. Both live in System
 Settings, Privacy & Security, and both need the app restarting after they are given.
 
-Pointing at a different model or a hosted one is the four constants at the top of `llm.py`.
+Pointing at a different model or a hosted one is the four constants at the top of
+`brain/model.py`.
 Ollama, LM Studio, llama.cpp, vLLM and the hosted providers all speak the same request shape,
 so a swap is a URL and possibly a key in `$LLM_API_KEY`.
