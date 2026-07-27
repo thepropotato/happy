@@ -183,9 +183,21 @@ never act on a guess it could have asked about. And it says in its own descripti
 is not how you check whether an app exists — that is `list_installed_apps`, which opens
 nothing.
 
+**Opening is not the same as being in front.** `open -a` launches an application but does not
+reliably raise one that is already running, and the old `open_app` reported "Opened WhatsApp"
+on a zero exit code without looking. WhatsApp never came forward, Opera stayed in front, and
+every look afterwards read Opera's window — so the model hunted for a chat in a browser and
+eventually opened `web.whatsapp.com`. It now tells the application to activate, waits until it
+really is the one in front, and when it is not it says so and says not to click. Everything
+downstream reads whatever is in front, so this is the one claim the rest of a task rests on.
+
 **Bound the loop.** `brain.calls` caps how many times the model
 may go round before it has to answer. A loop that keeps going is a person staring at a silent
-assistant, which is worse than a half answer.
+assistant, which is worse than a half answer. **But bound it above the real work.** Six was the
+first guess and it was one short: opening an app, finding a chat, typing and sending is six
+rounds with nothing going wrong, and the glance to see where the click landed makes seven. Asked
+to send a message, Happy did every step right and then died on the limit. The default is
+fourteen now, and it costs a short answer nothing — a cap only bites when the work is long.
 
 **History is trimmed, not kept.** `recent()` keeps the last `brain.history`
 messages, starting on a human message so a tool reply never appears whose tool call was
@@ -590,8 +602,17 @@ Measured on this machine: a Finder window is **160 elements in 124 ms**, and eve
 arrives knowing its own box, its kind, whether it is enabled and whether it is ticked. The same
 window through OCR is a second and a half and a list of words with no idea what any of them are.
 
-Three things had to be got right before it was useful:
+Four things had to be got right before it was useful:
 
+- **An application's windows are not among its children.** `AXChildren` on the application hands
+  back the menu bar and nothing else — for Finder, for a browser, for WhatsApp, for everything
+  measured here. The windows have to be asked for by name, and not always the same name: most
+  answer `AXWindows`, and a Catalyst application like WhatsApp leaves that empty and only answers
+  `AXFocusedWindow` and `AXMainWindow`. Walking children alone made every application look like
+  one that describes nothing, which is not a blind spot you notice — it reads as *"there is no
+  message field"*, and everything quietly fell through to OCR and the vision model. All four are
+  walked now, deduplicated with `CFEqual`, because the same window is usually both the main one
+  and the focused one.
 - **A closed menu keeps its entire subtree**, all of it invisible and unclickable, reported at
   position `(0, 982)` with size `0×0`. That was most of the walk for none of the answer, so a
   zero-sized menu is not descended into and nothing without a real box is ever returned.
@@ -602,11 +623,16 @@ Three things had to be got right before it was useful:
   on top of it, and both were being offered as targets. Nameless rows, cells, columns and scroll
   bars are scaffolding and go; a named group stays, because it is often the only thing holding a
   dialog's title.
+- **Labels carry characters that draw nothing.** An application built for Arabic and Hebrew as
+  well as English puts a left-to-right mark in front of nearly every label, so WhatsApp's *New
+  Chat* is really `‎New Chat`. It looks identical, it reads aloud identically, and it is not
+  an exact match for anything a person says. The direction marks are stripped in `wording()`,
+  where both systems pass through.
 
-**Not every application answers.** VS Code hands back a window and essentially nothing inside it,
-and a browser gives you the page title and three empty groups. That is not a bug to fix, it is
-why `eyes/` still has pixels — and it is detected rather than assumed, which is what `thin()` is
-for.
+**Not every application answers.** That is not a bug to fix, it is why `eyes/` still has pixels —
+and it is detected rather than assumed, which is what `thin()` is for. It is worth being slow to
+conclude it, though: a browser was written off here as "the page title and three empty groups"
+when the real answer was that nobody had asked it for its window.
 
 ### Reading a picture
 
@@ -668,6 +694,15 @@ Ties are broken towards **the thing you could actually press**, and then towards
 not greyed out. A label and the button under it very often say the same word, and the person
 meant the button.
 
+**Except when the person named somewhere to type.** People put words around what they mean, so
+`tidy()` strips "the", "button", "field", "box" before scoring — right for matching, and it threw
+away the one word that mattered. `"the message field"` became `"message"`, which scores *better*
+against WhatsApp's **Voice message** button than against its **Compose message** box; pressing
+that starts recording a voice note instead of writing a message. So the target is checked for
+"field", "box", "input" or "bar" *as said*, before tidying, and when one is there a thing you can
+type into outranks any score. Everything being ranked has already passed the floor, and only one
+of them takes words.
+
 ## The screenshot is not the state
 
 This is the idea the whole desktop half is built on, and it is worth stating plainly because the
@@ -725,11 +760,15 @@ Every act has the same shape, and the last step is the one that matters:
 
 **Nothing reports success it has not checked for.** Before acting, the act writes down what
 should become true; afterwards the screen is read again and that question is asked. A click on a
-checkbox is checked exactly, because the application reports the tick. Everything else is
-checked as "the screen should not be identical", which is weak and still catches the failure
-that actually happens, which is nothing happening at all. When nothing can tell us either way it
-says so rather than inventing a verdict — `Verdict.sure` is a separate field from `Verdict.ok`
-for exactly that reason.
+checkbox is checked exactly, because the application reports the tick. Somewhere to type is
+checked exactly too, and had to be: focusing a text box changes nothing a glance can see, and
+WhatsApp's compose box already holds the keyboard the moment a chat opens, so "the screen should
+not be identical" called every one of them a failure — `type_text` found the right box, was told
+it had failed, and gave up before typing a letter. What is checked there is that the keyboard
+ended up in it. Everything else is still "the screen should not be identical", which is weak and
+still catches the failure that actually happens, which is nothing happening at all. When nothing
+can tell us either way it says so rather than inventing a verdict — `Verdict.sure` is a separate
+field from `Verdict.ok` for exactly that reason.
 
 It came up immediately in testing. Clicking a Finder sidebar item straight after bringing Finder
 to the front does nothing at all: the first click activates the window. The old code would have
@@ -813,9 +852,14 @@ from.
 **No shelling out to a command that might not be there.** Sound on macOS is AppleScript, which
 is always installed; on Windows it is the audio endpoint addressed directly through a small
 C# shim, because Windows ships no command for the volume at all and the media keys can only
-step it. Brightness is WMI on Windows and, on macOS, the arrow keys — because macOS genuinely
-has no way to set an exact brightness, so it says so and names the Homebrew helper rather than
-pretending. **A control that cannot do something says which, and how to fix it.**
+step it. Brightness is WMI on Windows and, on macOS, `DisplayServices` — the private framework
+the slider in System Settings and the keys on the keyboard both go through, called directly
+through `ctypes`. It was the Homebrew `brightness` helper, which is built on `IODisplay` calls
+Apple silicon no longer answers: on every recent Mac it is both missing and, once installed,
+wrong, so telling someone to go and brew it was not even good advice. The helper and then the
+brightness keys remain as fallbacks for the Macs that predate the framework, and a level that
+can only be stepped is stepped rather than refused. **A control that cannot do something says
+which, and how to fix it — but it tries everything it has first.**
 
 Anything that loses unsaved work — sleep, restart, shut down — goes through `conscience/`
 first. The battery and the lock do not, because neither costs you anything.

@@ -39,7 +39,11 @@ BRAIN = [
     number("brain.temperature", "Temperature", 0, 2, 0.05, 0.7, "Higher wanders further."),
     number("brain.history", "History carried", 2, 64, 2, 24, "Messages of backchat.", "msgs",
            whole=True),
-    number("brain.calls", "Tool rounds", 1, 12, 1, 6, "Before it has to answer.", "max",
+    # SIX WAS ONE SHORT OF THE REAL TASKS. OPENING AN APP, FINDING A CHAT, TYPING
+    # AND SENDING IS SIX ROUNDS WITH NOTHING GOING WRONG, AND THE FIRST GLANCE TO
+    # SEE WHERE IT LANDED MAKES SEVEN. A LIMIT ONLY BITES WHEN THE WORK IS LONG,
+    # SO A HIGHER ONE COSTS A SHORT ANSWER NOTHING.
+    number("brain.calls", "Tool rounds", 1, 20, 1, 14, "Before it has to answer.", "max",
            whole=True),
     number("brain.timeout", "Timeout", 30, 900, 10, 300, "A cold load is not a dead server.",
            "sec", whole=True),

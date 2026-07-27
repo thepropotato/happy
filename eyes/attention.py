@@ -72,7 +72,12 @@ def front():
         if running is None:
             return "", None
 
-        return str(running.localizedName() or ""), running.processIdentifier()
+        # THROUGH wording() FOR THE INVISIBLE DIRECTION MARKS: THE APPLICATION
+        # IN FRONT IS REPORTED AS "‎WhatsApp", NOT "WhatsApp", AND THAT NAME IS
+        # COMPARED AGAINST WHAT A PERSON SAID.
+        from eyes.naming import wording
+
+        return wording(running.localizedName()), running.processIdentifier()
 
     if on_windows():
         try:

@@ -3,6 +3,7 @@
 import re
 import shutil
 
+from hands.controls import backlight
 from hands.controls.commands import (
     REFUSED,
     UNSUPPORTED,
@@ -15,8 +16,9 @@ from hands.controls.commands import (
     run,
 )
 
-# MACOS HAS NO BUILT IN WAY TO READ OR SET AN EXACT BRIGHTNESS. THE KEYS ALWAYS
-# WORK; THE HELPER IS WHAT MAKES A LEVEL POSSIBLE.
+# THREE WAYS OF SETTING A MAC'S BRIGHTNESS, BEST FIRST: THE FRAMEWORK THE SLIDER
+# ITSELF USES, THE HOMEBREW HELPER FOR THE OLD MACS THAT STILL ANSWER IT, AND
+# THE KEYS, WHICH ALWAYS WORK BUT ONLY MOVE IN NOTCHES.
 HELPER = "brightness"
 HELPER_INSTALL = "brew install brightness"
 
@@ -50,8 +52,8 @@ WINDOWS_THEME = (
 )
 
 NO_HELPER = (
-    "macOS has no way to set an exact brightness on its own. I can step it up or down "
-    f"instead, or you can install the helper with: {HELPER_INSTALL}"
+    "I could not set an exact brightness on this Mac, so I have stepped it instead. "
+    f"For an exact level you can install the helper with: {HELPER_INSTALL}"
 )
 
 
@@ -59,19 +61,32 @@ def helper():
     return shutil.which(HELPER)
 
 
+def mac_level():
+    """THE BRIGHTNESS AS A PERCENTAGE, OR None. THE FRAMEWORK FIRST, THEN THE
+    HELPER FOR THE MACS THAT PREDATE IT ANSWERING."""
+    fraction = backlight.level()
+
+    if fraction is not None:
+        return round(fraction * 100)
+
+    found = helper()
+
+    if not found:
+        return None
+
+    said = MAC_LEVEL.search(run([found, "-l"]) or "")
+
+    return round(float(said.group(1)) * 100) if said else None
+
+
 def status():
     if on_mac():
-        found = helper()
+        level = mac_level()
 
-        if not found:
-            return f"I cannot read the brightness on this Mac. Install it with: {HELPER_INSTALL}"
+        if level is None:
+            return "I could not read the brightness on this Mac."
 
-        said = MAC_LEVEL.search(run([found, "-l"]) or "")
-
-        if not said:
-            return "I could not read the brightness."
-
-        return f"The screen brightness is {round(float(said.group(1)) * 100)} percent."
+        return f"The screen brightness is {level} percent."
 
     if on_windows():
         level = number(powershell(WINDOWS_READ))
@@ -91,10 +106,18 @@ def set_level(wanted):
         return "The brightness has to be a number between zero and one hundred."
 
     if on_mac():
+        if backlight.put(value / 100):
+            return f"Brightness set to {value} percent."
+
         found = helper()
 
         if not found:
-            return NO_HELPER
+            # THE KEYS CANNOT NAME A LEVEL, BUT THEY CAN CLOSE THE GAP TO ONE,
+            # WHICH IS NEARER TO WHAT WAS ASKED FOR THAN DOING NOTHING AND
+            # RECOMMENDING HOMEBREW.
+            now = mac_level()
+
+            return NO_HELPER if now is None else f"{change(value - now)} {NO_HELPER}"
 
         done = run([found, str(value / 100)])
     elif on_windows():
@@ -107,6 +130,14 @@ def set_level(wanted):
 
 def change(step):
     if on_mac():
+        now = mac_level()
+
+        # STEPPING IS SET_LEVEL WITH ONE EXTRA READ WHENEVER THE FRAMEWORK IS
+        # THERE. THE KEYS BELOW ARE FOR WHEN IT IS NOT, AND THEY ARE DELIBERATELY
+        # NOT REACHED THROUGH set_level, WHICH FALLS BACK TO HERE.
+        if now is not None and backlight.put(clamp(now + step) / 100):
+            return f"Brightness set to {clamp(now + step)} percent."
+
         for _ in range(max(1, round(abs(step) / NOTCH))):
             if osascript(f'tell application "System Events" to key code {BRIGHTER if step > 0 else DIMMER}') is None:
                 return "I could not reach the brightness keys."

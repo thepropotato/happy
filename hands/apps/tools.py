@@ -55,7 +55,21 @@ def open_app(name: str) -> str:
     if how is None:
         return "Opening apps is not supported on this platform."
 
-    return launch(how + [match]) or f"Opened {match}."
+    complaint = launch(how + [match])
+
+    if complaint:
+        return complaint
+
+    # SAYING "OPENED" WITHOUT LOOKING WAS THE WHOLE PROBLEM. EVERY TOOL AFTER
+    # THIS ONE READS WHATEVER IS IN FRONT, SO IF IT IS NOT THIS APP THE MODEL
+    # HAS TO BE TOLD RATHER THAN LEFT TO CLICK AROUND IN SOMEBODY ELSE'S WINDOW.
+    if not opening.raised(match):
+        return (
+            f"I started {match} but it did not come to the front, so anything on "
+            f"screen right now belongs to another app. Do not click yet."
+        )
+
+    return f"Opened {match}. It is now the window in front."
 
 
 @tool

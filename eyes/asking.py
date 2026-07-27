@@ -24,6 +24,13 @@ from eyes.parts import Element
 MAX_DEPTH = 16
 MAX_VISITS = 2500
 
+# WHERE AN APPLICATION'S WINDOWS ACTUALLY ARE. NOT ALWAYS AMONG ITS CHILDREN:
+# A CATALYST APP HANDS BACK ITS MENU BAR AND NOTHING ELSE, AND SOME OF THOSE
+# ALSO LEAVE AXWindows EMPTY AND ONLY ANSWER TO THE WINDOW BEING NAMED. WALKING
+# CHILDREN ALONE MADE WHATSAPP'S ENTIRE INTERFACE INVISIBLE, WHICH READS AS
+# "THERE IS NO MESSAGE FIELD" RATHER THAN AS THE BLIND SPOT IT IS.
+MAC_ROOTS = ("AXChildren", "AXWindows", "AXFocusedWindow", "AXMainWindow")
+
 def mac_attribute(element, name):
     from ApplicationServices import AXUIElementCopyAttributeValue
 
@@ -85,6 +92,27 @@ def mac_element(element, role):
     )
 
 
+def mac_roots(app):
+    """THE TOP OF EVERY TREE WORTH WALKING, EACH ONE ONCE.
+
+    THE SAME WINDOW IS USUALLY BOTH THE MAIN ONE AND THE FOCUSED ONE, AND ON A
+    WELL BEHAVED APPLICATION IT IS A CHILD AS WELL, SO WALKING THE LOT BLIND
+    WOULD READ SOME WINDOWS THREE TIMES AND SPEND THE VISIT BUDGET DOING IT.
+    """
+    from CoreFoundation import CFEqual
+
+    roots = []
+
+    for name in MAC_ROOTS:
+        got = mac_attribute(app, name)
+
+        for element in got if isinstance(got, (list, tuple)) else [got] if got else []:
+            if not any(CFEqual(element, seen) for seen in roots):
+                roots.append(element)
+
+    return roots
+
+
 def mac_elements(pid):
     """EVERY ELEMENT ONE RUNNING APPLICATION IS WILLING TO DESCRIBE."""
     from ApplicationServices import AXUIElementCreateApplication
@@ -112,7 +140,8 @@ def mac_elements(pid):
         for child in mac_attribute(element, "AXChildren") or ():
             walk(child, depth + 1)
 
-    walk(AXUIElementCreateApplication(pid), 0)
+    for root in mac_roots(AXUIElementCreateApplication(pid)):
+        walk(root, 1)  # DEPTH 1: THESE ARE THE APPLICATION'S CHILDREN, NAMED.
 
     return found
 

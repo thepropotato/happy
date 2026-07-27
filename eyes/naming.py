@@ -53,6 +53,17 @@ MAC_TICKABLE = ("AXCheckBox", "AXRadioButton", "AXDisclosureTriangle")
 # DESCENDING INTO IT IS MOST OF THE WALK FOR NONE OF THE ANSWER.
 MAC_FOLDED = ("AXMenu", "AXMenuBar")
 
+# CHARACTERS THAT DECIDE WHICH WAY TEXT RUNS AND DRAW NOTHING. AN APPLICATION
+# BUILT FOR ARABIC AND HEBREW AS WELL AS ENGLISH PUTS ONE IN FRONT OF NEARLY
+# EVERY LABEL: WHATSAPP'S "NEW CHAT" IS REALLY "‎NEW CHAT", WHICH LOOKS
+# IDENTICAL, READS ALOUD IDENTICALLY, AND IS NOT AN EXACT MATCH FOR ANYTHING A
+# PERSON SAYS.
+MARKS = dict.fromkeys(
+    [0x200B, 0x200E, 0x200F, 0xFEFF]
+    + list(range(0x202A, 0x202F))
+    + list(range(0x2066, 0x206A))
+)
+
 
 def plain(role):
     """A ROLE NOBODY MAPPED, AS SOMETHING READABLE. AXScrollBar IS A SCROLL BAR."""
@@ -67,6 +78,6 @@ def wording(value):
     if value is None or isinstance(value, bool):
         return ""
 
-    said = str(value).strip()
+    said = str(value).translate(MARKS).strip()
 
     return said if said and said != "None" else ""

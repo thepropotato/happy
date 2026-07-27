@@ -5,9 +5,10 @@ IT KNOWS BECAUSE THE PERSON TOLD IT ONCE. NOTHING HERE PICKS A BROWSER.
 """
 
 import sys
+import time
 
 from hands.apps import browsers
-from hands.apps.running import launch, released
+from hands.apps.running import ask, launch, released
 
 MACOS = "darwin"
 WINDOWS = "win32"
@@ -15,6 +16,18 @@ LINUX = "linux"
 
 MAC_OPEN = ["open"]
 MAC_OPEN_APP = ["open", "-a"]
+
+# `open -a` LAUNCHES AN APPLICATION BUT DOES NOT RELIABLY RAISE ONE THAT IS
+# ALREADY RUNNING: WHATSAPP CAME BACK "OPENED" WITH OPERA STILL IN FRONT, AND
+# EVERY LOOK AFTERWARDS READ OPERA'S WINDOW. TELLING IT TO ACTIVATE IS WHAT
+# ACTUALLY BRINGS IT FORWARD.
+MAC_ACTIVATE = 'tell application "{name}" to activate'
+
+# HOW LONG AN APPLICATION GETS TO REACH THE FRONT. ONE ALREADY RUNNING TAKES A
+# BLINK; A COLD START TAKES A FEW SECONDS AND IS WORTH WAITING FOR, BECAUSE
+# EVERYTHING AFTER THIS POINT IS READ OFF WHATEVER IS IN FRONT.
+FRONT_SECONDS = 8.0
+FRONT_STEP = 0.2
 WINDOWS_OPEN = ["cmd", "/c", "start", ""]  # THE EMPTY STRING IS start'S TITLE SLOT.
 LINUX_OPEN = ["xdg-open"]
 
@@ -42,6 +55,42 @@ def app_opener():
         return MAC_OPEN_APP
 
     return WINDOWS_OPEN if sys.platform == WINDOWS else None
+
+
+def answering(name, front):
+    """TRUE WHEN WHAT IS IN FRONT IS THE APPLICATION WE ASKED FOR.
+
+    THE TWO NAMES ARE RARELY IDENTICAL. macOS CALLS VISUAL STUDIO CODE "Code",
+    AND ON WINDOWS THE FRONT IS A WINDOW TITLE WITH A DOCUMENT'S NAME ON THE
+    FRONT OF IT, SO EITHER CONTAINING THE OTHER IS THE TEST.
+    """
+    here, wanted = (front or "").strip().lower(), (name or "").strip().lower()
+
+    return bool(here) and bool(wanted) and (here in wanted or wanted in here)
+
+
+def raised(name, seconds=FRONT_SECONDS):
+    """BRING AN APPLICATION TO THE FRONT AND WAIT UNTIL IT IS THERE.
+
+    TRUE WHEN IT ARRIVED. NOTHING AFTER AN open_app IS WORTH READING UNTIL THIS
+    IS TRUE: THE TREE, THE SCREENSHOT AND EVERY CLICK ALL GO TO WHATEVER IS
+    ACTUALLY IN FRONT, WHICH IS HOW "OPEN WHATSAPP" ENDED UP CLICKING AROUND IN
+    A BROWSER.
+    """
+    from eyes.attention import front
+
+    if sys.platform == MACOS:
+        ask(["osascript", "-e", MAC_ACTIVATE.format(name=name)])
+
+    ended = time.monotonic() + seconds
+
+    while time.monotonic() < ended:
+        if answering(name, front()[0]):
+            return True
+
+        time.sleep(FRONT_STEP)
+
+    return answering(name, front()[0])
 
 
 def web_address(said):

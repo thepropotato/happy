@@ -18,7 +18,7 @@ SOMEWHERE ON YOUR DESKTOP.
 from eyes import structure
 from eyes.describing import PICK, POINT, asked, digits, listing, numbers, smaller
 from eyes.estimating import PICKED, POINTED, READ, TOLD
-from eyes.matching import CLICK_CUTOFF, likeness, middle, span, spot, tidy
+from eyes.matching import CLICK_CUTOFF, likeness, middle, span, spot, tidy, typing
 from eyes.parts import Found
 from eyes.reading import look
 from eyes.screen import grab
@@ -41,6 +41,11 @@ ACTIONABLE = (
     "list item",
 )
 
+# THE KINDS YOU CAN ACTUALLY PUT WORDS INTO. WHEN SOMEONE SAYS "FIELD" OR "BOX"
+# THESE COME FIRST, AHEAD OF HOW WELL ANYTHING MATCHED, BECAUSE EVERYTHING BEING
+# RANKED HAS ALREADY PASSED THE CUTOFF AND ONLY ONE OF THEM CAN BE TYPED IN.
+ENTRY = ("text field", "text box", "search field", "combo box", "dropdown")
+
 
 def told(target, elements=None):
     """THE ELEMENT THE APPLICATION ITSELF SAYS IS target, OR None.
@@ -57,6 +62,7 @@ def told(target, elements=None):
     if elements is None:
         elements = structure.tree()
 
+    wants = typing(target)
     best, found = None, None
 
     for element in elements:
@@ -68,9 +74,10 @@ def told(target, elements=None):
         if mark <= CLICK_CUTOFF:
             continue
 
-        # A TIE GOES TO THE THING YOU COULD ACTUALLY PRESS, AND THEN TO THE ONE
-        # THAT IS NOT GREYED OUT.
-        rank = (mark, element.kind in ACTIONABLE, element.enabled)
+        # SOMEWHERE TO TYPE OUTRANKS A BETTER SCORE WHEN THAT IS WHAT WAS ASKED
+        # FOR. AFTER THAT A TIE GOES TO THE THING YOU COULD ACTUALLY PRESS, AND
+        # THEN TO THE ONE THAT IS NOT GREYED OUT.
+        rank = (wants and element.kind in ENTRY, mark, element.kind in ACTIONABLE, element.enabled)
 
         if best is None or rank > best:
             best, found = rank, element
