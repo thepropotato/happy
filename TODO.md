@@ -5,9 +5,17 @@ delete the line when it stops being interesting.
 
 ## Next
 
-- [ ] **Rebuild the desktop agent** — `hands/desktop/` is blank. It owned clicking, typing,
-      pressing keys and scrolling, driven by `eyes.where()` which is still there and still
-      works. Nothing else depends on it, so it can come back in any shape.
+- [ ] **Windows, at all.** The accessibility tree, the pointer and every act are written for
+      both systems and **only macOS has ever run them**. Windows also needs `comtypes`, which
+      is not in `requirements.txt` yet because it does not install on macOS.
+- [ ] **Act through the tree, not the pointer.** `AXPress` and UI Automation's Invoke press a
+      button without moving the mouse, which is faster and does not fight the person for the
+      pointer. Worth measuring against the click before switching: a real click is what an
+      application expects to receive.
+- [ ] **The first click after switching app does nothing** — macOS gives it to activating the
+      window. Happy reports this honestly rather than lying about it, which is the right
+      behaviour but not the nicest one. Worth seeing whether the window can be activated
+      first without stealing focus from the person.
 - [ ] **Rebuild the browser agent** — `hands/browser/` is blank. It owned the multi-step web
       errand in its own process. Two things went with it and need putting back if the new one
       works the same way:
@@ -44,6 +52,12 @@ delete the line when it stops being interesting.
 
 ## Done
 
+- [x] **Rebuilt the desktop agent** as a state estimation problem rather than a vision one.
+      The application is asked what it drew before anything is photographed, the belief about
+      the screen lives in one place, and every act says what should become true and then checks
+      whether it did. `list_controls`, `click_on`, `type_text`, `press_keys`, `scroll`.
+- [x] Added the accessibility tree — `AXUIElement` and UI Automation — as the first way of
+      seeing. It was the oldest thing on this list.
 - [x] Renamed every module after the part of a person that does the job.
 - [x] Split every file to under 200 lines.
 - [x] Stripped the comments back and wrote the rule down in `AGENTS.md`.

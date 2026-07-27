@@ -1,118 +1,106 @@
 """WHERE SOMETHING IS ON THE SCREEN.
 
-THE WORDS ARE TRIED FIRST BECAUSE OCR KNOWS EXACTLY WHERE IT READ SOMETHING, AND
-A MODEL ASKED FOR A COORDINATE IS GUESSING AT ONE. THE MODEL IS FOR WHAT THE
-WORDS CANNOT DO: THE ICON WITH NO LABEL, AND THE NAME A PERSON USED THAT IS
-NOWHERE ON THE SCREEN.
+FOUR WAYS OF ANSWERING, TRIED CHEAPEST AND SUREST FIRST, STOPPING AT THE FIRST
+ONE THAT ANSWERS:
+
+    1. THE APPLICATION IS ASKED. IT KNOWS ITS OWN BUTTONS AND THEIR EXACT BOXES,
+       COSTS NO PICTURE AND NO MODEL, AND IS THE ONLY SOURCE THAT ALSO KNOWS
+       WHETHER THE THING IS GREYED OUT.
+    2. THE WORDS. OCR KNOWS EXACTLY WHERE IT READ SOMETHING.
+    3. THE MODEL PICKS ONE OF THOSE WORDS, BY NUMBER.
+    4. THE MODEL POINTS, FOR WHAT HAS NO TEXT AT ALL.
+
+A MODEL IS NEVER ASKED FOR A COORDINATE UNTIL EVERYTHING ELSE HAS FAILED,
+BECAUSE A WRONG COORDINATE IS NOT A WRONG ANSWER, IT IS A THING THAT HAPPENED
+SOMEWHERE ON YOUR DESKTOP.
 """
 
-import difflib
-
+from eyes import structure
 from eyes.describing import PICK, POINT, asked, digits, listing, numbers, smaller
+from eyes.estimating import PICKED, POINTED, READ, TOLD
+from eyes.matching import CLICK_CUTOFF, likeness, middle, span, spot, tidy
 from eyes.parts import Found
 from eyes.reading import look
 from eyes.screen import grab
 
-# WORDS A PERSON PUTS AROUND WHAT THEY MEAN. "CLICK THE SEND BUTTON" IS A SCREEN
-# THAT SAYS "SEND" AND HAS NEVER ONCE SAID "SEND BUTTON".
-NOISE = ("the", "a", "an", "that", "this", "button", "icon", "tab", "menu", "field", "box", "link")
-
-PUNCTUATION = " .,:;!?'\"()[[]{}"
-
-# HOW WELL SOMETHING HAS TO MATCH BEFORE WE WILL CLICK IT. STRICTER THAN FOR APP
-# NAMES: OPENING THE WRONG APP IS A SHRUG, CLICKING THE WRONG THING IS ANYTHING.
-CLICK_CUTOFF = 0.5
-
-
-def tidy(words):
-    """A TARGET OR A LABEL, REDUCED TO WHAT MATTERS FOR MATCHING IT."""
-    said = " ".join(words.lower().split())
-
-    for filler in NOISE:
-        said = said.removeprefix(filler + " ").removesuffix(" " + filler)
-
-    return said.strip(PUNCTUATION)
+# THE KINDS A PERSON MEANS WHEN THEY NAME SOMETHING TO CLICK. A LABEL AND THE
+# BUTTON UNDER IT OFTEN SAY THE SAME WORD, AND THEY MEAN THE BUTTON.
+ACTIONABLE = (
+    "button",
+    "menu button",
+    "checkbox",
+    "radio button",
+    "link",
+    "menu",
+    "menu item",
+    "tab",
+    "dropdown",
+    "text field",
+    "text box",
+    "switch",
+    "list item",
+)
 
 
-def span(line, wanted):
-    """THE RUN OF WORDS INSIDE A LINE THAT SAYS wanted, OR THE WHOLE LINE.
+def told(target, elements=None):
+    """THE ELEMENT THE APPLICATION ITSELF SAYS IS target, OR None.
 
-    A BUTTON IS A FEW WORDS IN A ROW THAT MAY ALSO HOLD A LABEL AND A SHORTCUT.
-    CLICKING THE MIDDLE OF THE ROW WOULD MISS IT.
+    NO PICTURE AND NO MODEL: THIS IS THE WHOLE ANSWER FOR ANY APPLICATION THAT
+    DESCRIBES ITSELF, WHICH IS MOST OF THEM, AND IT COMES BACK IN A SIXTH OF A
+    SECOND KNOWING THE EXACT BOX.
     """
-    for start in range(len(line.words)):
-        for stop in range(start + 1, len(line.words) + 1):
-            run = line.words[start:stop]
-
-            if wanted in tidy(" ".join(word.text for word in run)):
-                return run
-
-    return line.words
-
-
-def middle(words):
-    """THE CENTRE OF A RUN OF WORDS, IN THE PICTURE'S OWN PIXELS."""
-    left = min(word.left for word in words)
-    top = min(word.top for word in words)
-    right = max(word.left + word.width for word in words)
-    bottom = max(word.top + word.height for word in words)
-
-    return (left + right) // 2, (top + bottom) // 2
-
-
-def likeness(wanted, label):
-    """HOW WELL A PIECE OF SCREEN TEXT ANSWERS TO wanted, FROM 0 TO 1.
-
-    CONTAINING THE TARGET IS NOT ENOUGH. A SENTENCE WITH "OUTPUT" BURIED IN IT
-    CONTAINS IT AS MUCH AS A TAB LABELLED OUTPUT DOES. SO A MATCH IS WORTH HOW
-    MUCH OF THE LABEL IT ACCOUNTS FOR: ALL OF A BUTTON, ALMOST NONE OF A
-    PARAGRAPH.
-    """
-    if not label:
-        return 0.0
-
-    if wanted == label:
-        return 1.0
-
-    spelling = difflib.SequenceMatcher(None, wanted, label).ratio()
-
-    return max(len(wanted) / len(label), spelling) if wanted in label else spelling
-
-
-def spot(reading, target):
-    """THE WORDS ON SCREEN THAT SAY target, OR None. NO MODEL INVOLVED, WHICH
-    MAKES THIS BOTH THE FASTEST ANSWER AND THE ONLY EXACT ONE."""
     wanted = tidy(target)
 
     if not wanted:
         return None
 
-    best, found = CLICK_CUTOFF, None
+    if elements is None:
+        elements = structure.tree()
 
-    for line in reading.lines:
-        mark = likeness(wanted, tidy(line.text))
+    best, found = None, None
 
-        if mark > best:
-            best, found = mark, span(line, wanted)
+    for element in elements:
+        if not element.said:
+            continue
 
-    for word in reading.words:  # A SINGLE WORD BEATS THE LINE IT SITS IN ON TIES.
-        mark = likeness(wanted, tidy(word.text))
+        mark = likeness(wanted, tidy(element.said))
 
-        if mark > best:
-            best, found = mark, [word]
+        if mark <= CLICK_CUTOFF:
+            continue
 
-    return found
+        # A TIE GOES TO THE THING YOU COULD ACTUALLY PRESS, AND THEN TO THE ONE
+        # THAT IS NOT GREYED OUT.
+        rank = (mark, element.kind in ACTIONABLE, element.enabled)
+
+        if best is None or rank > best:
+            best, found = rank, element
+
+    if found is None:
+        return None
+
+    return Found(*found.centre, found.said, "the application named it", TOLD, found)
 
 
-def where(target, shot=None, seen=None, ask=True):
-    """WHERE target IS ON THE SCREEN, AS A POINT FOR THE POINTER, OR None."""
+def where(target, shot=None, seen=None, ask=True, elements=None):
+    """WHERE target IS ON THE SCREEN, AS A POINT FOR THE POINTER, OR None.
+
+    NOTHING HERE TAKES A PICTURE UNTIL ASKING HAS FAILED, SO THE COMMON CASE
+    NEVER PAYS FOR ONE.
+    """
+    found = told(target, elements)
+
+    if found:
+        return found
+
     shot = shot or grab()
     seen = seen or look(shot.image)
 
     words = spot(seen, target)
 
     if words:
-        return Found(*shot.point(*middle(words)), " ".join(w.text for w in words), "words")
+        label = " ".join(word.text for word in words)
+
+        return Found(*shot.point(*middle(words)), label, "words", READ)
 
     if not ask:
         return None
@@ -140,7 +128,7 @@ def chosen(shot, seen, target):
     line = lines[number]
     words = span(line, tidy(target)) if tidy(target) in tidy(line.text) else line.words
 
-    return Found(*shot.point(*middle(words)), line.text, "model picked the words")
+    return Found(*shot.point(*middle(words)), line.text, "model picked the words", PICKED)
 
 
 def pointed(shot, target):
@@ -157,4 +145,4 @@ def pointed(shot, target):
     if not (0 <= x <= small.width and 0 <= y <= small.height):
         return None
 
-    return Found(*shot.point(x / ratio, y / ratio), target, "model pointed at it")
+    return Found(*shot.point(x / ratio, y / ratio), target, "model pointed at it", POINTED)

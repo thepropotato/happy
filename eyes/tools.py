@@ -50,7 +50,11 @@ def read_screen() -> str:
     with the layout kept. Use this whenever you are asked what is on the screen,
     what a window says, what an error message is, or what the user is looking
     at. This is fast and exact, so prefer it over look_at_screen whenever the
-    answer is written on the screen in words."""
+    answer is written on the screen in words.
+
+    If what you actually want is what can be clicked, use list_controls instead.
+    It asks the application directly, which is several times faster than this
+    and also tells you what is greyed out or ticked."""
     try:
         seen = look(grab().image)
     except VisionError as problem:

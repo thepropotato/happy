@@ -83,9 +83,22 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `hands/controls/` | The machine's settings: sound, brightness, media, display, power, Wi-Fi, clipboard. |
 | `hands/files/` | Finding files and reading what is inside them, whatever the format. |
 | `hands/shell/` | The shell. One command in, what it printed back out. |
-| `hands/desktop/` | The pointer and the keyboard. **Blank — being rebuilt.** |
+| `hands/desktop/` | The pointer and the keyboard, and checking that they worked. |
 | `hands/browser/` | The browser errand. **Blank — being rebuilt.** |
-| `eyes/` | Seeing: text off a picture or off the screen, and where on the screen it is. |
+| `eyes/asking.py` | Asking each system to describe its own screen. macOS and Windows side by side. |
+| `eyes/naming.py` | What each system calls a thing, and what a person calls it. |
+| `eyes/structure.py` | The controls in the window in front, filtered down to the real ones. |
+| `eyes/attention.py` | What is in front, what has the caret, where the pointer is. |
+| `eyes/estimating.py` | Every sense fused into one scene, and what changed between two of them. |
+| `eyes/world.py` | What Happy currently believes about the desktop, and how he tells the model. |
+| `eyes/matching.py` | Matching a spoken name against what is written on the screen. |
+| `eyes/finding.py` | Where something is: four ways, cheapest first. |
+| `eyes/` (rest) | Seeing by pixels: text off a picture or off the screen. |
+| `hands/desktop/pointer.py` | The only place anything is actually injected. |
+| `hands/desktop/noticing.py` | Telling Happy's own events from the person's. |
+| `hands/desktop/expecting.py` | What should be true after an act. |
+| `hands/desktop/verifying.py` | Waiting for the screen, judging it, and saying what happened. |
+| `hands/desktop/acting.py` | One act, start to finish. |
 | `memory/conversation.py` | The conversation: every message ever, and how to read it back. |
 | `memory/storage.py` | The database. Owns the file and the schema, nothing else. |
 | `face/console.py` | What the terminal shows: one block per turn, and where the time went. |
@@ -476,11 +489,48 @@ screenshot of a message reads fine and a picture of a dog comes back empty.
 
 ## Seeing the screen
 
-`eyes/` answers two different questions and it matters which is which. **What does
-it say** is OCR: exact, and about a second and a half for a full screen. **What does it look
-like** is a vision model: several seconds, and needed far less often than it looks. `read_screen`
-is the first, `look_at_screen(question)` is the second, and the tool descriptions push the model
-towards the cheap one whenever the answer is written on the screen in words.
+`eyes/` answers three different questions and it matters enormously which is which.
+
+**What is there** is the accessibility tree: the application is *asked* what it drew. About
+**90 ms**, exact, and the only source that knows a thing's *kind* and *state*. `list_controls`.
+
+**What does it say** is OCR: exact about the letters, blind to everything else, and about a
+second and a half for a full screen. `read_screen`.
+
+**What does it look like** is a vision model: tens of seconds, and needed far less often than it
+looks. `look_at_screen(question)`.
+
+The order is the whole design. Asking beats looking by roughly ten to one on time and does not
+lose the argument on quality either — a picture cannot tell you that the Share button is greyed
+out, that a box is ticked, or where the keyboard is. Pixels are for what has no structure to
+read.
+
+### Asking the application
+
+`AXUIElement` on macOS, UI Automation on Windows. On macOS this needs no new dependency and
+`AXIsProcessTrusted()` is already true, because push-to-talk needed that permission anyway.
+
+Measured on this machine: a Finder window is **160 elements in 124 ms**, and every one of them
+arrives knowing its own box, its kind, whether it is enabled and whether it is ticked. The same
+window through OCR is a second and a half and a list of words with no idea what any of them are.
+
+Three things had to be got right before it was useful:
+
+- **A closed menu keeps its entire subtree**, all of it invisible and unclickable, reported at
+  position `(0, 982)` with size `0×0`. That was most of the walk for none of the answer, so a
+  zero-sized menu is not descended into and nothing without a real box is ever returned.
+- **The menu bar is always there and always named.** It made every application look like it
+  described itself well, including the ones handing back an empty window, so `thin()` counts only
+  what is actually *inside* the window. That check is what decides whether OCR runs at all.
+- **A tree repeats itself.** A button's label is often also a piece of static text sitting exactly
+  on top of it, and both were being offered as targets. Nameless rows, cells, columns and scroll
+  bars are scaffolding and go; a named group stays, because it is often the only thing holding a
+  dialog's title.
+
+**Not every application answers.** VS Code hands back a window and essentially nothing inside it,
+and a browser gives you the page title and three empty groups. That is not a bug to fix, it is
+why `eyes/` still has pixels — and it is detected rather than assumed, which is what `thin()` is
+for.
 
 ### Reading a picture
 
@@ -538,36 +588,120 @@ does. A match is now worth **how much of the label it accounts for**, which is a
 and almost none of a paragraph. Below the floor, the model is asked; that is slower and better
 than a confident wrong click.
 
-## Working the desktop — blank, being rebuilt
+Ties are broken towards **the thing you could actually press**, and then towards the one that is
+not greyed out. A label and the button under it very often say the same word, and the person
+meant the button.
 
-> `hands/desktop/` is empty on purpose and is being written again from scratch. `eyes.where()`
-> — the whole grounding stack above — is untouched and still works, so the rebuild starts from
-> a working answer to "where is that on the screen". Everything below is what the first one
-> settled, and none of it has stopped being true.
+## The screenshot is not the state
 
-It was the other half of seeing: `click_on`, `type_text`, `press_keys`, `scroll`.
+This is the idea the whole desktop half is built on, and it is worth stating plainly because the
+obvious design is the other one.
 
-**No tool there took a coordinate.** They took a description — "Send", "the search box" — the
-screen is read fresh on every call, and the pointer goes where the words actually are. One act
-per call, and the screen is never assumed to have stayed still between two of them: a menu that
-opened half a second late makes every remembered position a lie. The model looks, does one
-thing, and looks again. That costs a grab plus an OCR pass, about two seconds, per act.
+The obvious design is: screenshot, OCR, model, click, repeat. It works until something normal
+happens — a notification lands, a window is still loading, the person moves the mouse — and then
+it keeps going, confidently, having no way to know the world stopped matching its assumptions.
+
+So the desktop is treated as **a state estimation problem rather than a computer vision one**.
+A screenshot is one observation of the state, and not the best one. `eyes/estimating.py` fuses
+every sense that answered into a single `Scene` — what is in front, what has the keyboard, where
+the pointer is, the controls the application described, and the words only if they were needed.
+`eyes/world.py` holds the current belief, and the one before it, because **every useful question
+about an act is a question about the difference between two moments.**
+
+**The belief is never trusted for a click.** It is refreshed first, every time. It exists so that
+one act does not look at the screen four times, not so that a remembered position can be reused.
+
+**Confidence names its source rather than pretending to be a probability.** `TOLD` (0.90) is the
+application saying so, `READ` (0.75) is OCR, `PICKED` (0.55) is the model choosing from what OCR
+found, `POINTED` (0.35) is the model giving a coordinate. They rank the senses and nothing more.
+Multiplying them together would manufacture a precision nobody measured — and the one place it
+changes behaviour is honest: a click grounded at `POINTED` reports *"Clicked where I think Send
+is"*, not *"Clicked Send"*.
+
+There is deliberately **no score for two senses agreeing**, tempting as it looked. Confirming a
+tree result against OCR would cost the second and a half that asking exists to avoid, so nothing
+would ever pay for it, and a constant nothing can reach is a lie in the source.
+
+**Change detection is deliberately cheap.** Measured here: asking is 90 ms, a screen grab is
+270 ms, fingerprinting that grab is 3 ms, and OCR is about 1500 ms. So verification compares the
+tree, and falls back to a 64×64 fingerprint of the screen when the application describes nothing.
+**OCR never runs inside the verify loop.** It did briefly, and it put five seconds on every act.
+
+What comes back out is one sentence, not a list. `difference()` returns the single most
+significant change, because this ends up spoken and *"the window is now Documents, and one thing
+appeared, and nine things went away"* is nobody's idea of being told what happened.
+
+## Working the desktop
+
+`hands/desktop/` is the other half of seeing: `click_on`, `type_text`, `press_keys`, `scroll`,
+and `list_controls` to see what is there first.
+
+**No tool takes a coordinate.** They take a description — "Send", "the search box" — the screen
+is read fresh on every call, and the pointer goes where that thing actually is. One act per
+call, and the screen is never assumed to have stayed still between two of them: a menu that
+opened half a second late makes every remembered position a lie.
+
+Every act has the same shape, and the last step is the one that matters:
+
+```
+  look ─► find it by name ─► ask if it matters ─► do it ─► look again ─► say
+```
+
+**Nothing reports success it has not checked for.** Before acting, the act writes down what
+should become true; afterwards the screen is read again and that question is asked. A click on a
+checkbox is checked exactly, because the application reports the tick. Everything else is
+checked as "the screen should not be identical", which is weak and still catches the failure
+that actually happens, which is nothing happening at all. When nothing can tell us either way it
+says so rather than inventing a verdict — `Verdict.sure` is a separate field from `Verdict.ok`
+for exactly that reason.
+
+It came up immediately in testing. Clicking a Finder sidebar item straight after bringing Finder
+to the front does nothing at all: the first click activates the window. The old code would have
+said "Clicked Documents" and moved on. This one says *"I clicked Documents but nothing on the
+screen changed"*, which is both true and the thing you needed to know.
+
+**Waiting is two questions, not one.** `settled()` first waits for the screen to *react*, then
+waits for it to *stop*. Waiting only for it to stop is a bug that looks like it works: a window
+that has not started yet is also perfectly still, and would be judged a failure a tenth of a
+second before it opened.
+
+**It never retries.** A click that did nothing is reported as a click that did nothing. Pressing
+an unknown button a second time is how one failure becomes two. What it does instead is wait
+half a second and look once more, because a slow window is the commonest reason a good click
+looks like a bad one.
 
 The guard is the same shape as the shell's, applied to what is written on the thing being
-clicked: delete, send, spend, install, grant permission, quit. It goes through `conscience/`,
-the one place that asks, so it becomes a spoken question for free.
+clicked: delete, send, spend, install, grant permission, quit — and to shortcuts that end
+something, like `cmd+q`. It goes through `conscience/`, the one place that asks, so it becomes
+a spoken question for free.
+
+**The looking model is not in this loop, and that is a measurement, not a preference.** Grounding
+escalates through four steps (see above), but an act stops after step 2. Asked to click something
+that was not on the screen, the full escalation reached `qwen3-vl` and took **eighty four
+seconds**. So `clicked()` passes `ask=False` and a thing with no name anywhere is simply not
+found, in under three seconds. If you genuinely need the picture understood, that is
+`look_at_screen`, asked for on purpose.
+
+**The cost is not only time.** `gpt-oss:20b` is 13 GB and `qwen3-vl` is ~6 GB, so on a 24 GB
+machine the two do not sit in memory together and Ollama swaps one out for the other. Reaching
+for the looking model mid-act evicts the model that has to speak the answer. That is the real
+reason the cheap paths are the default and looking is the last resort.
+
+**Telling our own events from the person's** lives in `hands/desktop/noticing.py`, beside the
+injector rather than with the other senses, because the only way to know whether a click was ours
+is to know what we injected. Every call in `pointer.py` marks a short window as ours first.
+**Only times are kept — which key was pressed is never recorded**, because this is here to notice
+a person, not to read one. What it cannot do: macOS will not say whether an event was synthetic,
+so the window is the whole mechanism, and verification is what actually catches the rest.
 
 The pointer and the keyboard needed nothing new — pynput, screeninfo and Pillow were already
-here for push-to-talk and the recorder. Seeing added two: `pytesseract` and
-`opencv-python-headless`. **Tesseract itself is not a Python package** and has to be installed
-as a program; see below.
+here for push-to-talk and the recorder. On macOS the accessibility tree needs nothing new either.
+**Windows needs `comtypes`**, and says so plainly when it is missing instead of failing oddly.
 
-**What is verified and what is not.** Clicking is proven end to end on a real UI: a located
-panel tab, a click delivered, the screen changing as predicted, and a click back to restore it.
-Typing and shortcuts are proven the same way. Step 1 of grounding — which covers most labelled
-UI — is working. **Steps 2 and 3 have never run against real weights**, only against stubbed
-answers that confirm the parsing and the coordinate scaling; until `qwen3-vl` is pulled they
-answer "I can read the screen but I cannot look at it yet."
+**What is verified and what is not.** Clicking, typing, shortcuts and scrolling are proven end to
+end on real UI — Finder and System Settings — including the greyed-out refusal, the unknown
+target, and the honest failure report above. The thin-tree fallback is proven against VS Code.
+**Every Windows path is written and unrun.**
 
 ## The shell tool and safety
 
@@ -582,8 +716,8 @@ guardrail, not a sandbox. Do not add a capability that assumes it is more than t
 **Asking lives in one place: `conscience/`.** `conscience.asks(handler)` takes a
 `handler(what, reason) -> bool` and `conscience.allowed(what, reason)` is what a tool calls.
 The default reads from the console. When a spoken confirmation lands it is wired once and
-covers every knife at once — the shell, the desktop when it comes back, and shutting the
-machine down. The reason strings are already written to be said out loud.
+covers every knife at once — the shell, the desktop, and shutting the machine down. The reason
+strings are already written to be said out loud.
 
 ## The machine's own settings
 
@@ -612,21 +746,19 @@ first. The battery and the lock do not, because neither costs you anything.
 
 ## What is not built
 
-- **The accessibility tree.** Native GUI control was built through pixels — see "Seeing the
-  screen". This section used to say the answer was reading the tree — `AXUIElement` on macOS,
-  UI Automation on Windows — and reaching for screenshots and a vision model was called out as
-  the wrong move. That was overridden on purpose, and it landed as `eyes/` plus a desktop
-  module instead.
-  The tree is still the better answer where it exists, and is worth building: it knows an
-  element's *kind* and *state* — is that checkbox ticked, is that button disabled — it reaches
-  what is scrolled out of view or behind another window, and it costs no model call and no OCR
-  pass. Pixels cover what it cannot: a canvas, a game, a remote desktop, an app that exposes
-  nothing. The macOS half still needs no new dependency, and `AXIsProcessTrusted()` is already
-  true because push-to-talk needed that permission anyway.
-  **The memory warning it carried was right.** `gpt-oss:20b` is 13 GB and `qwen3-vl` is ~6 GB
-  on a 24 GB machine, so the two do not sit in memory together and Ollama swaps one out for the
-  other. That swap is exactly why OCR is the default and looking is the last resort: the cheap
-  path is not just faster, it is the one that does not evict the model that has to speak.
+- **Reaching what is not on the screen.** The tree can describe what is scrolled out of view or
+  behind another window, and none of that is used: everything is filtered down to what is
+  visible and clickable right now, because that is what a pointer can reach. Scrolling something
+  into view and looking again is the supported way, and it is the honest one.
+- **Acting through the tree instead of the pointer.** Both systems can press a button directly
+  — `AXPress`, UI Automation's Invoke — without moving the mouse at all. That would be faster
+  and would not fight the person for the pointer. It would also skip the thing being pressed
+  actually receiving a click the way it expects, so it is a change to make deliberately and
+  measure, not a free win.
+- **Windows, in practice.** Every Windows path here is written and unrun; see `TODO.md`.
+  It also needs `comtypes`, which macOS does not.
+- **A second monitor.** Everything assumes the application in front, on the current Space. A
+  full-screen app on another Space is invisible and cannot be driven.
 - **Anything on the web that needs a login** works only after you have signed in once, by
   hand, in Happy's own browser profile. There is no credential handling and there should not
   be one.
@@ -655,6 +787,9 @@ winget install UB-Mannheim.TesseractOCR         # Windows, and it does not add i
 .venv/bin/python -m brain             # the same brain, typed at instead of spoken to
 .venv/bin/python -m voice "say this out loud"        # just the voice
 .venv/bin/python -m eyes shot.png [--thorough]       # read a picture, or compare recipes
+.venv/bin/python -m hands.desktop                    # the controls in the window in front
+.venv/bin/python -m hands.desktop where Send         # find it on screen, and touch nothing
+.venv/bin/python -m hands.desktop click Send         # one act, with the check after it
 .venv/bin/python -m hands.files resume               # find and read one file
 .venv/bin/python -m hands.apps                       # installed apps, and the default browser
 .venv/bin/python -m hands.controls                   # every setting, as it stands now

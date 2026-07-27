@@ -1,0 +1,72 @@
+"""WHAT EACH SYSTEM CALLS A THING, AND WHAT A PERSON CALLS IT.
+
+MACOS SAYS AXCheckBox AND WINDOWS SAYS 50002. BOTH MEAN "CHECKBOX", WHICH IS
+WHAT THE MODEL READS AND WHAT SOMEONE WOULD SAY OUT LOUD. KEEPING THE TWO
+VOCABULARIES IN ONE PLACE IS WHAT STOPS A PLATFORM'S OWN JARGON LEAKING INTO
+EVERYTHING DOWNSTREAM.
+"""
+
+MAC_KINDS = {
+    "AXButton": "button",
+    "AXCheckBox": "checkbox",
+    "AXRadioButton": "radio button",
+    "AXTextField": "text field",
+    "AXTextArea": "text box",
+    "AXStaticText": "text",
+    "AXLink": "link",
+    "AXMenuBarItem": "menu",
+    "AXMenuItem": "menu item",
+    "AXPopUpButton": "dropdown",
+    "AXComboBox": "dropdown",
+    "AXTabGroup": "tabs",
+    "AXSlider": "slider",
+    "AXImage": "image",
+    "AXWindow": "window",
+    "AXToolbar": "toolbar",
+    "AXRow": "row",
+    "AXCell": "cell",
+    "AXDisclosureTriangle": "expander",
+}
+
+WINDOWS_KINDS = {
+    50000: "button",
+    50002: "checkbox",
+    50003: "dropdown",
+    50004: "text field",
+    50005: "link",
+    50006: "image",
+    50007: "list item",
+    50011: "menu item",
+    50013: "radio button",
+    50015: "slider",
+    50019: "tab",
+    50020: "text",
+    50021: "toolbar",
+    50024: "row",
+    50032: "window",
+}
+
+# THE ONES WHOSE VALUE IS A TICK RATHER THAN SOMETHING TO READ OUT.
+MAC_TICKABLE = ("AXCheckBox", "AXRadioButton", "AXDisclosureTriangle")
+
+# A CLOSED MENU KEEPS ITS WHOLE SUBTREE, ALL OF IT INVISIBLE AND UNCLICKABLE.
+# DESCENDING INTO IT IS MOST OF THE WALK FOR NONE OF THE ANSWER.
+MAC_FOLDED = ("AXMenu", "AXMenuBar")
+
+
+def plain(role):
+    """A ROLE NOBODY MAPPED, AS SOMETHING READABLE. AXScrollBar IS A SCROLL BAR."""
+    bare = role.removeprefix("AX")
+    spaced = "".join(f" {letter}" if letter.isupper() else letter for letter in bare)
+
+    return spaced.strip().lower()
+
+
+def wording(value):
+    """AN ATTRIBUTE AS A SHORT STRING, WHATEVER THE SYSTEM HANDED BACK."""
+    if value is None or isinstance(value, bool):
+        return ""
+
+    said = str(value).strip()
+
+    return said if said and said != "None" else ""
