@@ -23,6 +23,12 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 CREATE INDEX IF NOT EXISTS messages_epoch ON messages(epoch);
+
+CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    at    TEXT NOT NULL
+);
 """
 
 # WHAT AN OLDER HAPPY LEFT BEHIND. A NO-OP ON A DATABASE THAT NEVER HAD IT.

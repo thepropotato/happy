@@ -6,21 +6,41 @@ silence.configure()  # KEEPS THIS IMPORTABLE ON ITS OWN. A NO-OP IF main.py RAN 
 
 import whisperx
 
-DEVICE = "cpu"
-LANGUAGE = "en"  # PINNED, DETECTION COSTS A PASS OVER THE AUDIO EVERY CALL.
-
-SIZES = ["tiny", "base", "small", "medium", "large-v2", "large-v3", "turbo"]
-CHOSEN = SIZES[3]
+from face import show
+from memory import settings
 
 model = None
+built = None
+
+
+def wanted():
+    return (
+        settings.get("ears.model"),
+        settings.get("ears.device"),
+        settings.get("ears.language"),  # PINNED, DETECTION COSTS A PASS EVERY CALL.
+    )
 
 
 def load_model():
-    """CALLED AT STARTUP, SO THE FIRST TAKE DOES NOT PAY FOR IT."""
-    global model
+    """CALLED AT STARTUP, AND AGAIN WHEN A SETTING PICKS A DIFFERENT ONE."""
+    global model, built
 
-    if model is None:
-        model = whisperx.load_model(CHOSEN, DEVICE, language=LANGUAGE)
+    asked = wanted()
+
+    if model is not None and built == asked:
+        return model
+
+    size, device, language = asked
+
+    try:
+        model = whisperx.load_model(size, device, language=language)
+        built = asked
+    except Exception as error:
+        if model is None:  # NOTHING TO FALL BACK ON. STARTING UP DESERVES TO FAIL.
+            raise
+
+        # A SIZE OR A DEVICE THIS MACHINE HAS NOT GOT. KEEP HEARING WITH THE OLD ONE.
+        show.trouble(f"{size} on {device} would not load, still hearing with {built[0]} ({error})")
 
     return model
 

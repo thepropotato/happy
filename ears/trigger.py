@@ -8,8 +8,24 @@ import queue
 
 from pynput import keyboard
 
-KEY = keyboard.Key.alt_r  # RIGHT OPTION. A MODIFIER, SO IT NEVER TYPES ANYTHING.
-KEY_NAME = "RIGHT OPTION"
+from memory import catalogue, settings
+
+# EVERY ONE IS A MODIFIER, SO HOLDING IT DOWN NEVER TYPES ANYTHING.
+KEYS = {
+    "alt_r": keyboard.Key.alt_r,
+    "alt_l": keyboard.Key.alt_l,
+    "cmd_r": keyboard.Key.cmd_r,
+    "cmd_l": keyboard.Key.cmd_l,
+    "ctrl_r": keyboard.Key.ctrl_r,
+    "ctrl_l": keyboard.Key.ctrl_l,
+    "shift_r": keyboard.Key.shift_r,
+    "caps_lock": keyboard.Key.caps_lock,
+    "f13": keyboard.Key.f13,
+}
+
+SETTING = "ears.key"
+
+FALLBACK = keyboard.Key.alt_r
 
 PRESS = "press"
 RELEASE = "release"
@@ -18,11 +34,7 @@ POLL_SECONDS = 0.2  # SHORT HOPS KEEP CTRL+C RESPONSIVE.
 
 
 class PushToTalk:
-    def __init__(self, key=KEY, key_name=KEY_NAME, on_press=None):
-        self.key = key
-        self.key_name = key_name
-        self.held = False
-
+    def __init__(self, on_press=None):
         # CALLED THE INSTANT THE KEY GOES DOWN, FROM THE LISTENER'S OWN THREAD.
         # THE MAIN LOOP IS USUALLY BUSY WHEN A PERSON DECIDES TO INTERRUPT.
         self.notify = on_press
@@ -30,9 +42,32 @@ class PushToTalk:
         # EDGES GO THROUGH A QUEUE, SO A TAP TOO FAST TO POLL IS NEVER MISSED.
         self.events = queue.Queue()
 
+        self.held = False
+        self.listener = None
+        self.chosen = None
+
+        self.attend()
+
+    def attend(self):
+        """WATCH WHICHEVER KEY THE SETTINGS NAME."""
+        self.chosen = settings.get(SETTING)
+        self.key = KEYS.get(self.chosen, FALLBACK)
+        self.key_name = catalogue.naming(SETTING, self.chosen).upper()
+        self.held = False
+
         self.listener = keyboard.Listener(on_press=self.pressed, on_release=self.released)
         self.listener.start()
         self.listener.wait()  # RAISES HERE IF THE OS REFUSED US THE KEYBOARD.
+
+    def refit(self):
+        """MOVE TO ANOTHER KEY. A LISTENER CANNOT BE RETUNED, ONLY REPLACED."""
+        if settings.get(SETTING) == self.chosen:
+            return False
+
+        self.stop()
+        self.attend()
+
+        return True
 
     def wait_press(self):
         self.wait_for(PRESS)

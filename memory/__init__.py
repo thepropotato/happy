@@ -1,5 +1,6 @@
-"""WHAT HAPPY REMEMBERS BETWEEN SESSIONS."""
+"""WHAT HAPPY REMEMBERS BETWEEN SESSIONS, AND HOW HE IS SET UP."""
 
+from memory import settings
 from memory.conversation import (
     history,
     replied,
@@ -8,7 +9,22 @@ from memory.conversation import (
     since,
     used,
 )
+from memory.pruning import prune
+from memory.settings import get, put
 from memory.storage import path
 from memory.transcript import show
 
-__all__ = ["history", "path", "replied", "said", "search", "show", "since", "used"]
+__all__ = [
+    "get",
+    "history",
+    "path",
+    "prune",
+    "put",
+    "replied",
+    "said",
+    "search",
+    "settings",
+    "show",
+    "since",
+    "used",
+]

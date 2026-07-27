@@ -101,7 +101,15 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `hands/desktop/acting.py` | One act, start to finish. |
 | `memory/conversation.py` | The conversation: every message ever, and how to read it back. |
 | `memory/storage.py` | The database. Owns the file and the schema, nothing else. |
+| `memory/catalogue.py` | Every knob Happy has, and what it shipped as. The defaults live here and nowhere else. |
+| `memory/knobs.py` | What a setting *is*: a kind, a default, and enough for a control to draw itself. |
+| `memory/settings.py` | What every knob is set to now. Held in memory, written through to the file. |
+| `memory/pruning.py` | Throwing the old away, if a setting says how long to keep it. |
+| `face/show.py` | Every face at once. The rest of Happy reports here, never to a particular one. |
 | `face/console.py` | What the terminal shows: one block per turn, and where the time went. |
+| `face/panel.py` | What the window is told, as one JSON object per line on stdout. |
+| `face/orders.py` | What the window asks for, read off stdin on its own thread. |
+| `face/window/` | The Electron app: the icon in the menu bar and the panel that drops out of it. |
 | `face/silence.py` | Silences the libraries. Must be called before anything imports whisperx. |
 | `conscience/` | Asking before something that cannot be undone. |
 | `AGENTS.md` | How to write code in this repo. Read it before you write any. |
@@ -175,11 +183,11 @@ never act on a guess it could have asked about. And it says in its own descripti
 is not how you check whether an app exists — that is `list_installed_apps`, which opens
 nothing.
 
-**Bound the loop.** `MAX_MODEL_CALLS` in `brain/thinking.py` caps how many times the model
+**Bound the loop.** `brain.calls` caps how many times the model
 may go round before it has to answer. A loop that keeps going is a person staring at a silent
 assistant, which is worse than a half answer.
 
-**History is trimmed, not kept.** `recent()` keeps the last `HISTORY_MESSAGES`
+**History is trimmed, not kept.** `recent()` keeps the last `brain.history`
 messages, starting on a human message so a tool reply never appears whose tool call was
 trimmed away. That orphan is an API error, not a degradation.
 
@@ -323,11 +331,12 @@ Telemetry has to be disabled explicitly wherever `browser-use` is used: it sets
 
 A model here is inference and nothing else. The flow belongs to LangGraph, the tools belong to
 `hands/` and `eyes/`, the prompt belongs to `brain/prompt.py`. What is left is a name, an
-address and a few settings — so changing backend is two lines at the top of `brain/model.py`:
+address and a few settings — so changing backend is two rows in the `settings` table, which is
+two controls in the panel:
 
-```python
-PROVIDER = providers.OLLAMA    # anything in brain/providers.py
-URL = None                     # None takes that backend's own default
+```
+brain.provider   ollama    # anything in brain/providers.py
+brain.url        ""        # empty takes that backend's own default
 ```
 
 `brain/providers.py` holds one builder per backend and is **the only file that knows a
@@ -382,8 +391,8 @@ The vision model wants the same thing for a sharper reason. `qwen3-vl` thinks be
 answers, and a screenshot is ~1800 tokens of prompt on its own. At 4096 it spends every
 remaining token thinking, gets cut off at `finish_reason: length`, and returns **an empty
 string** — not an error, not a bad answer, nothing at all, after ninety seconds. Neither
-`reasoning_effort` nor `/no_think` reaches it through `/v1`. Natively it is `VISION_EFFORT =
-False`, which is a field on the request, plus 32768 of room.
+`reasoning_effort` nor `/no_think` reaches it through `/v1`. Natively it is `eyes.effort`
+set to off, which is a field on the request, plus 32768 of room.
 
 The browser sets its own, deliberately lower at 32768: `num_ctx` is a ceiling rather than a
 reservation, but page text expands to fill whatever it is given, and a 130k-token page makes
@@ -391,6 +400,17 @@ every step slow for no benefit.
 
 **Always confirm with `ollama ps`.** The CONTEXT column is the only thing in this stack that
 tells you the truth.
+
+## The faces
+
+Happy has two, and neither of them knows about the other. Everything he does is reported to
+`face/show.py`, which hands it to whichever faces are attached — a terminal, a window, both,
+or none. A face that has no opinion on something simply does not define the method, and
+`show` skips it. That is why the microphone can report its loudness ten times a second without
+`face/console.py` growing a single line about it.
+
+`main.py` attaches one face at startup and that is the whole of the difference between the two
+ways of running Happy.
 
 ## The terminal
 
@@ -423,6 +443,62 @@ not know a terminal exists, the same way `conscience.asks()` works.
 (15 ms). The model is essentially the entire turn. A question needing a tool costs two model
 round trips and lands around 5–12 seconds to first word. That is the number to attack, and no
 amount of TTS tuning touches it.
+
+## The window
+
+`face/window/` is an Electron app. It puts an icon in the menu bar — the tray on Windows — and
+drops a panel out of it when you click. There is no dock icon and no taskbar entry: the icon is
+the app.
+
+**Electron owns the process.** It spawns `python main.py --serve` as a child and the two talk
+over that child's own pipes: one JSON object per line, events down stdout, orders up stdin. No
+port, no server, no dependency on either side — `json` on one end and `JSON.parse` on the other.
+Closing the window closes Happy, because the reader in `face/orders.py` sees stdin end and
+shuts him down.
+
+While the window is attached, **stdout carries nothing but JSON**. Anything a person might want
+to read goes to stderr, which Electron logs and nobody parses. That is the only rule the two
+sides share.
+
+What the panel shows:
+
+- An **orb** that breathes when nothing is happening, swells with the microphone while you talk,
+  turns while Happy thinks, and rides the actual clip he is playing. The loudness is real:
+  `ears/microphone.py` reports the level of each 100 ms block while it is recording, and
+  `voice/speaker.py` sends the shape of every clip just before it plays. The colour behind
+  everything moves with it — amber for listening, violet for thinking, green for speaking.
+- **What was said**, streaming a piece at a time, with the same stats line the terminal prints.
+- **A box to type in**, because not every question is worth saying out loud. A typed line takes
+  the same turn a spoken one does, on the same lock, so the two can never overlap.
+- **Every control**, which is the next section.
+- **The asking**, when a tool wants permission. `conscience.asks()` is pointed at the panel, so
+  a shell command that cannot be undone stops the window rather than a terminal nobody is
+  looking at.
+
+Sound outlives the words. Happy is still a sentence behind himself when the model has finished,
+so the panel goes quiet when the last clip ends and not when the last word arrives.
+
+## Controls come from the database
+
+Nothing Happy runs on is written into the code any more. `memory/catalogue.py` lists every knob
+— what it is called, what kind of thing it is, what it may be set to, and what it shipped as.
+`memory/settings.py` holds what it is set to now, in a `settings` table beside `messages`.
+
+The catalogue is the only place a default exists. `brain/model.py` does not know that thinking
+effort starts on low; it asks. This is what makes the panel possible: the window draws controls
+it has never heard of, because the catalogue tells it that `brain.effort` is one of four things
+and `voice.pace` is a number between 0.6 and 1.6. **Adding a setting is a line in a Python file
+and nothing at all in the JavaScript.**
+
+Changing one takes effect on the next turn, not the next restart. Every part that was *built*
+out of a setting — the graph, the speech model, the voice, the push-to-talk key — checks a
+counter that only goes up, and puts itself back together when its own group has moved. The
+counter is per group, so nudging the voice pace does not rebuild the brain. The conversation
+survives a rebuild because the checkpointer outlives the graph.
+
+Two of them are not knobs so much as a broom: `memory.messages` and `memory.recordings` say how
+many days to keep things, and `memory/pruning.py` runs once at startup. Zero keeps everything,
+which is what they ship as.
 
 ## The conversation
 
@@ -783,7 +859,11 @@ winget install UB-Mannheim.TesseractOCR         # Windows, and it does not add i
 .venv/bin/python -m piper.download_voices en_US-hfc_male-medium --download-dir models/piper
 .venv/bin/python -m voice --voices    # which voice files are installed
 
-.venv/bin/python main.py              # the real thing: hold RIGHT OPTION to talk
+cd face/window && npm install         # once, for the window
+cd face/window && npm start           # the real thing: an icon in the menu bar
+cd face/window && npm start -- --open # the same, with the panel already down
+
+.venv/bin/python main.py              # no window: hold RIGHT OPTION to talk in a terminal
 .venv/bin/python -m brain             # the same brain, typed at instead of spoken to
 .venv/bin/python -m voice "say this out loud"        # just the voice
 .venv/bin/python -m eyes shot.png [--thorough]       # read a picture, or compare recipes
@@ -809,9 +889,14 @@ entirely and exercises the graph, the tools and the guard — everything except 
 push-to-talk already needed and which the pointer and keyboard also use; and Screen Recording,
 which capture needs. macOS refuses the second silently — you get a black picture, not an error
 — so if Happy says he cannot see the screen, that is the one to check. Both live in System
-Settings, Privacy & Security, and both need the app restarting after they are given.
+Settings, Privacy & Security, and both need the app restarting after they are given. Run the
+window and it is **Electron** that has to be given them, not Python.
 
-Pointing at a different model or a hosted one is the four constants at the top of
-`brain/model.py`.
-Ollama, LM Studio, llama.cpp, vLLM and the hosted providers all speak the same request shape,
-so a swap is a URL and possibly a key in `$LLM_API_KEY`.
+A terminal that lives inside an Electron app — VS Code's — exports `ELECTRON_RUN_AS_NODE=1` to
+everything it starts. Inherit it and Electron comes up as plain Node, where there is no window
+and no `app`, only a confusing crash. `face/window/start.js` exists to strip it back off, which
+is why `npm start` runs that rather than `electron .`.
+
+Pointing at a different model or a hosted one is the **Brain** group in the panel, or a row in
+the `settings` table. Ollama, LM Studio, llama.cpp, vLLM and the hosted providers all speak the
+same request shape, so a swap is a URL and possibly a key in `$LLM_API_KEY`.

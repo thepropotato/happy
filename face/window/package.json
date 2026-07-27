@@ -1,0 +1,13 @@
+{
+  "name": "happy-window",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The window Happy shows when you click his icon.",
+  "main": "main/index.js",
+  "scripts": {
+    "start": "node start.js"
+  },
+  "devDependencies": {
+    "electron": "^43.2.0"
+  }
+}

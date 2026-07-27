@@ -1,46 +1,23 @@
 """WHICH MODEL, AT WHICH ADDRESS, WITH WHICH SETTINGS.
 
-A MODEL IS INFERENCE AND NOTHING MORE HERE. CHANGING PROVIDER IS CHANGING THE
-TWO LINES BELOW AND NOTHING ELSE ANYWHERE.
+A MODEL IS INFERENCE AND NOTHING MORE HERE. WHICH ONE AND WHERE COMES OUT OF THE
+SETTINGS TABLE, SO CHANGING PROVIDER IS CHANGING A CONTROL AND NOT A LINE.
 """
 
 import os
 
 from brain import providers
-
-PROVIDER = providers.OLLAMA
-URL = None
-
-MODEL = "gpt-oss:20b"
-
-# THE WHOLE WINDOW THE MODEL SUPPORTS, SENT WITH EVERY REQUEST. OLLAMA HANDS OUT
-# 4096 UNLESS ASKED AND THEN FORGETS THE OLDEST THING WITHOUT COMPLAINING. ONE
-# READ FILE IS BIGGER THAN 4096 ON ITS OWN. CONFIRM WITH `ollama ps`.
-CONTEXT = 131072
-
-# THE MODEL THAT CAN SEE. THE TALKING MODEL IS TEXT ONLY, AND THE TWO DO NOT FIT
-# IN MEMORY AT ONCE ON A LAPTOP, SO LOOKING COSTS AN EVICTION AND A LOAD.
-VISION_MODEL = "qwen3-vl"
-VISION_CONTEXT = 32768
-VISION_TEMPERATURE = 0
-
-# THINKING OFF, NOT TURNED DOWN. QWEN3-VL SPENDS A SHORT WINDOW THINKING, GETS
-# CUT OFF AT finish_reason "length" AND RETURNS AN EMPTY STRING.
-VISION_EFFORT = False
-
-# HOW HARD TO THINK BEFORE ANSWERING: low / medium / high, OR None. LOW KEEPS
-# ANSWERS CONVERSATIONAL, WHICH IS WHAT SPEECH WANTS.
-EFFORT = "low"
+from memory import settings
 
 API_KEY_ENV = "LLM_API_KEY"
 NO_KEY = "local"
 
-TEMPERATURE = 0.7
+# NOTHING TO REASON ABOUT AND NOTHING TO INVENT. IT IS ASKED WHAT IT SEES.
+VISION_TEMPERATURE = 0
 
-# LONG ENOUGH TO LOAD, NOT LONG ENOUGH TO HANG. A COLD LOAD PLUS AN EVICTION IS
-# MORE THAN 120 SECONDS, AND THAT FAILS AS A READ TIMEOUT, WHICH READS LIKE A
-# DEAD SERVER AND IS NOT ONE.
-TIMEOUT_SECONDS = 300
+# THINKING OFF, NOT TURNED DOWN. A MODEL THAT SPENDS ITS WINDOW THINKING GETS CUT
+# OFF AT finish_reason "length" AND RETURNS AN EMPTY STRING.
+OFF = "off"
 
 WARM_UP = "hi"
 
@@ -51,26 +28,18 @@ class LLMError(Exception):
     pass
 
 
-def create(
-    model=None,
-    provider=None,
-    url=None,
-    key=None,
-    temperature=TEMPERATURE,
-    context=None,
-    effort=EFFORT,
-):
+def create(model=None, provider=None, url=None, key=None, temperature=None, context=None, effort=None):
     """THE MODEL, READY TO BE HANDED TOOLS."""
     try:
         return providers.build(
-            provider or PROVIDER,
-            model or MODEL,
-            url=url or URL,
+            provider or backend(),
+            model or name(),
+            url=url or wanted(),
             key=key or credential(),
-            temperature=temperature,
-            context=CONTEXT if context is None else context,
-            effort=effort,
-            timeout=TIMEOUT_SECONDS,
+            temperature=pick(temperature, "brain.temperature"),
+            context=pick(context, "brain.context"),
+            effort=effort if effort is not None else thinking("brain.effort"),
+            timeout=settings.get("brain.timeout"),
         )
     except providers.ProviderError as error:  # ONE ERROR TYPE LEAVES THIS MODULE.
         raise LLMError(str(error))
@@ -79,11 +48,39 @@ def create(
 def sight(model=None):
     """THE MODEL THAT LOOKS AT PICTURES. SAME BACKEND, SAME SETTINGS SHAPE."""
     return create(
-        model=model or VISION_MODEL,
+        model=model or looking(),
         temperature=VISION_TEMPERATURE,
-        context=VISION_CONTEXT,
-        effort=VISION_EFFORT,  # NOTHING TO REASON ABOUT. IT IS ASKED WHAT IT SEES.
+        context=settings.get("eyes.context"),
+        effort=thinking("eyes.effort"),
     )
+
+
+def pick(given, key):
+    return settings.get(key) if given is None else given
+
+
+def thinking(key):
+    """A LEVEL, OR False FOR OFF. None WOULD LEAVE THE MODEL TO ITS OWN HABITS."""
+    chosen = settings.get(key)
+
+    return False if chosen in (OFF, "", None) else chosen
+
+
+def name():
+    return settings.get("brain.model")
+
+
+def looking():
+    return settings.get("eyes.model")
+
+
+def backend():
+    return settings.get("brain.provider")
+
+
+def wanted():
+    """THE ADDRESS ASKED FOR, OR None TO LET THE BACKEND USE ITS OWN."""
+    return settings.get("brain.url") or None
 
 
 def credential():
@@ -92,17 +89,22 @@ def credential():
 
 def url():
     """WHERE THE MODEL ACTUALLY IS, ONCE THE DEFAULTS ARE FILLED IN."""
-    return providers.address(PROVIDER, URL)
+    return providers.address(backend(), wanted())
 
 
 def caveat():
     """WHAT THIS BACKEND CANNOT DO, WORTH SAYING AT STARTUP, OR None."""
-    return providers.caveat(PROVIDER, MODEL)
+    return providers.caveat(backend(), name())
 
 
 def obtain(model=None):
     """HOW TO GET A MODEL THAT IS NOT THERE, IN THIS BACKEND'S OWN TERMS."""
-    return providers.install(PROVIDER, model or MODEL, URL)
+    return providers.install(backend(), model or name(), wanted())
+
+
+def offered():
+    """EVERY MODEL THIS BACKEND ALREADY HAS, FOR SOMETHING DRAWING A LIST."""
+    return providers.offered(backend(), wanted())
 
 
 def warm(model):
@@ -118,9 +120,9 @@ def complaint(error):
     said = reason(error)
 
     if NOT_FOUND in said.lower():  # THE SERVER IS UP, IT DOES NOT HAVE THE MODEL.
-        return f"{MODEL} IS NOT THERE. GET IT WITH:\n  {obtain()}"
+        return f"{name()} IS NOT THERE. GET IT WITH:\n  {obtain()}"
 
-    return f"COULD NOT REACH {MODEL} AT {url()}. IS IT RUNNING? ({said})"
+    return f"COULD NOT REACH {name()} AT {url()}. IS IT RUNNING? ({said})"
 
 
 def reason(error):

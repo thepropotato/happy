@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'" />
+    <title>Happy</title>
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="panel.css" />
+    <link rel="stylesheet" href="stream.css" />
+    <link rel="stylesheet" href="controls.css" />
+    <link rel="stylesheet" href="fields.css" />
+  </head>
+
+  <body>
+    <div class="glass" id="glass">
+      <canvas class="aurora" id="aurora"></canvas>
+
+      <header class="bar">
+        <span class="pulse" id="pulse"></span>
+        <span class="name">Happy</span>
+        <span class="spacer"></span>
+        <button class="chip" id="pin" title="Keep open">Pin</button>
+        <button class="chip" id="quit" title="Quit Happy">Quit</button>
+      </header>
+
+      <section class="hero">
+        <canvas class="orb" id="orb" width="440" height="440"></canvas>
+        <div class="mood" id="mood">waking up</div>
+        <div class="hint" id="hint">loading</div>
+      </section>
+
+      <nav class="tabs" id="tabs">
+        <button class="tab on" data-pane="talk">Talk</button>
+        <button class="tab" data-pane="controls">Controls</button>
+        <span class="slide" id="slide"></span>
+      </nav>
+
+      <main class="panes">
+        <section class="pane on" id="talk">
+          <div class="stream" id="stream"></div>
+          <form class="composer" id="composer">
+            <input id="typed" type="text" placeholder="Type to Happy" autocomplete="off" />
+            <button class="send" id="send" type="submit" aria-label="Send">↵</button>
+          </form>
+        </section>
+
+        <section class="pane" id="controls">
+          <nav class="groups" id="groups"></nav>
+          <div class="knobs" id="knobs"></div>
+        </section>
+      </main>
+
+      <div class="asking" id="asking" hidden>
+        <div class="card">
+          <div class="why" id="why"></div>
+          <div class="what" id="what"></div>
+          <div class="buttons">
+            <button class="no" id="no">No</button>
+            <button class="yes" id="yes">Allow</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="parts.js"></script>
+    <script src="aurora.js"></script>
+    <script src="orb.js"></script>
+    <script src="talk.js"></script>
+    <script src="knobs.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

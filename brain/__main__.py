@@ -9,7 +9,7 @@ from brain.thinking import Happy
 def main():
     happy = Happy()
 
-    print(f"{model.MODEL} AT {model.url()}, TOOLS: {', '.join(hands.names())}. CTRL+C TO QUIT.\n")
+    print(f"{model.name()} AT {model.url()}, TOOLS: {', '.join(hands.names())}. CTRL+C TO QUIT.\n")
 
     while True:
         said = input("you: ").strip()

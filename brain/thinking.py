@@ -23,16 +23,11 @@ import memory
 from brain import model as brain
 from brain.model import LLMError
 from brain.prompt import system_prompt
-
-# HOW MANY MESSAGES OF BACKCHAT TO CARRY. COUNTED, NOT WEIGHED, BECAUSE A TOKEN
-# COUNT WOULD MEAN A TOKENISER PER MODEL.
-HISTORY_MESSAGES = 24
-
-# HOW MANY TIMES THE MODEL MAY GO ROUND BEFORE IT HAS TO ANSWER. A LOOP THAT
-# KEEPS GOING IS A PERSON STARING AT A SILENT ASSISTANT.
-MAX_MODEL_CALLS = 6
+from memory import settings
 
 MODEL_NODE = "model"  # WHERE SPOKEN WORDS COME FROM. TOOL OUTPUT IS NOT SPOKEN.
+
+BRAIN = "brain"  # THE ONLY GROUP OF SETTINGS THIS IS BUILT OUT OF.
 
 THREAD = "happy"
 
@@ -80,10 +75,12 @@ def text(result):
 
 
 def recent(messages):
+    """ONLY THE LAST STRETCH. COUNTED, NOT WEIGHED: A TOKEN COUNT WOULD MEAN A
+    TOKENISER PER MODEL."""
     kept = trim_messages(
         messages,
         token_counter=len,
-        max_tokens=HISTORY_MESSAGES,
+        max_tokens=settings.get("brain.history"),
         strategy="last",
         start_on="human",  # NEVER OPEN ON A TOOL REPLY WHOSE CALL WAS TRIMMED.
         include_system=False,
@@ -97,25 +94,47 @@ class Happy:
     """THE ASSISTANT. ONE PER SESSION, IT REMEMBERS WITHIN THAT SESSION."""
 
     def __init__(self, model=None, tools=None, prompt=None):
-        self.model = model or brain.create()
+        self.given = model  # HANDED ONE IN MEANS NEVER BUILDING ONE FROM SETTINGS.
+        self.tools = hands.tools() if tools is None else tools
+        self.prompt = prompt or system_prompt()
+        self.thread = THREAD
+
+        # OUTLIVES EVERY REBUILD, SO CHANGING A SETTING MID CONVERSATION DOES NOT
+        # COST THE CONVERSATION.
+        self.kept = InMemorySaver()
+
+        self.version = None
+        self.assemble()
+
+    def assemble(self):
+        """THE GRAPH, BUILT OUT OF WHATEVER THE BRAIN SETTINGS SAY RIGHT NOW."""
+        self.model = self.given or brain.create()
         self.graph = create_agent(
             model=self.model,
-            tools=hands.tools() if tools is None else tools,
-            system_prompt=prompt or system_prompt(),
+            tools=self.tools,
+            system_prompt=self.prompt,
             middleware=[
                 keep_recent,
                 keep_record,
-                ModelCallLimitMiddleware(run_limit=MAX_MODEL_CALLS),
+                # HOW MANY TIMES THE MODEL MAY GO ROUND BEFORE IT HAS TO ANSWER. A
+                # LOOP THAT KEEPS GOING IS A PERSON STARING AT A SILENT ASSISTANT.
+                ModelCallLimitMiddleware(run_limit=settings.get("brain.calls")),
             ],
-            checkpointer=InMemorySaver(),
+            checkpointer=self.kept,
         )
-        self.thread = THREAD
+        self.version = settings.version(BRAIN)
+
+    def refit(self):
+        """REBUILD ONLY IF A BRAIN SETTING HAS MOVED SINCE THE GRAPH WAS BUILT."""
+        if self.version != settings.version(BRAIN):
+            self.assemble()
 
     def warm(self):
         brain.warm(self.model)
 
     def say(self, speech, **about):
         """THE WHOLE REPLY AS ONE STRING."""
+        self.refit()
         memory.said(speech, **about)
 
         try:
@@ -130,6 +149,7 @@ class Happy:
 
     def say_streaming(self, speech, **about):
         """THE REPLY IN PIECES, FOR HANDING SENTENCES TO THE VOICE AS THEY LAND."""
+        self.refit()
         memory.said(speech, **about)
         reply = ""
         started = time.perf_counter()

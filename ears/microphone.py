@@ -12,18 +12,22 @@ import wave
 from datetime import datetime
 from pathlib import Path
 
+import numpy as np
 import sounddevice as sd
+
+from face import show
+from memory import settings
 
 SAMPLE_RATE = 16000  # WHAT WHISPER WANTS, SO NO RESAMPLING LATER.
 CHANNELS = 1
 SAMPLE_WIDTH_BYTES = 2
 BLOCK_SIZE = 1600  # 100 ms.
 
-MIN_HELD_SECONDS = 0.25  # HELD BRIEFER THAN THIS WAS A BRUSH, NOT A TAKE.
+# THE RING HOLDS THE LONGEST LEAD IN ANYONE CAN ASK FOR, AND start() TAKES THE
+# LAST FEW BLOCKS OF IT. THE SETTING CAN THEN MOVE WITHOUT REOPENING THE DEVICE.
+MOST_PREROLL_SECONDS = 1.5
 
-# A KEY IS NEVER PRESSED ON THE FIRST SYLLABLE OR HELD PAST THE LAST.
-PREROLL_SECONDS = 0.3
-TAIL_SECONDS = 0.2
+FULL_SCALE = 32768.0  # int16, SO LOUDNESS COMES BACK AS 0 TO 1.
 
 RECORDINGS = Path(__file__).resolve().parent.parent / "recordings"
 
@@ -35,7 +39,7 @@ class Recorder:
         self.capturing = False
         self.started_at = 0.0
         self.lock = threading.Lock()
-        self.recent = collections.deque(maxlen=int(PREROLL_SECONDS * SAMPLE_RATE / BLOCK_SIZE))
+        self.recent = collections.deque(maxlen=blocks(MOST_PREROLL_SECONDS))
 
         # RAW int16 STRAIGHT FROM PORTAUDIO. A SAMPLE PAST +-1.0 IN float32
         # WOULD WRAP TO THE OPPOSITE SIGN.
@@ -52,8 +56,12 @@ class Recorder:
         return self.capturing
 
     def start(self):
+        wanted = blocks(settings.get("ears.preroll"))
+
         with self.lock:
-            self.chunks = list(self.recent)  # THE MOMENT BEFORE THE KEY WENT DOWN.
+            # THE MOMENT BEFORE THE KEY WENT DOWN. A KEY IS NEVER PRESSED ON THE
+            # FIRST SYLLABLE.
+            self.chunks = list(self.recent)[-wanted:] if wanted else []
             self.started_at = time.monotonic()
             self.capturing = True
 
@@ -65,7 +73,7 @@ class Recorder:
         # TIMED, NOT MEASURED OFF THE CLIP, WHICH THE PADDING INFLATES.
         held = time.monotonic() - self.started_at
 
-        time.sleep(TAIL_SECONDS)  # STILL RECORDING, TO CATCH THE LAST WORD.
+        time.sleep(settings.get("ears.tail"))  # STILL RECORDING, TO CATCH THE LAST WORD.
 
         with self.lock:
             if not self.capturing:
@@ -75,7 +83,7 @@ class Recorder:
             pcm = b"".join(self.chunks)
             self.chunks = []
 
-        if held < MIN_HELD_SECONDS or not pcm:
+        if held < settings.get("ears.hold") or not pcm:  # A BRUSH, NOT A TAKE.
             return None
 
         return self.save(pcm)
@@ -96,6 +104,12 @@ class Recorder:
 
             if self.capturing:  # RE-CHECKED UNDER THE LOCK, stop() MAY HAVE WON.
                 self.chunks.append(block)
+                keeping = True
+            else:
+                keeping = False
+
+        if keeping:  # ONLY WHILE SOMEONE IS TALKING. NOBODY WATCHES ROOM NOISE.
+            show.level(loudness(block))
 
     def save(self, pcm):
         self.recordings.mkdir(parents=True, exist_ok=True)
@@ -108,6 +122,17 @@ class Recorder:
             file.writeframes(pcm)
 
         return path
+
+
+def blocks(seconds):
+    return int(seconds * SAMPLE_RATE / BLOCK_SIZE)
+
+
+def loudness(block):
+    """HOW LOUD THIS BLOCK WAS, 0 TO 1. MEAN, NOT PEAK, SO IT DOES NOT FLICKER."""
+    samples = np.frombuffer(block, dtype=np.int16)
+
+    return float(np.abs(samples).mean()) / FULL_SCALE if samples.size else 0.0
 
 
 def timestamp():

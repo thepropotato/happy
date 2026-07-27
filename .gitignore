@@ -3,6 +3,9 @@
 .venv-browser
 **/__pycache__
 
+# NODE DEFAULTS
+**/node_modules
+
 # PROJECT SPECIFICS
 recordings
 models

@@ -1,9 +1,18 @@
 """WHERE SPEAKING HAPPENS."""
 
-from voice.piper import MODELS, SUFFIX, Mute, Voice, VoiceError
+from voice.piper import MODELS, SUFFIX, Mute, Voice, VoiceError, installed
 from voice.speaker import Speaker
 
-__all__ = ["MODELS", "Mute", "SUFFIX", "Speaker", "Voice", "VoiceError", "create"]
+__all__ = [
+    "MODELS",
+    "Mute",
+    "SUFFIX",
+    "Speaker",
+    "Voice",
+    "VoiceError",
+    "create",
+    "installed",
+]
 
 
 def create(**kwargs):

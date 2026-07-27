@@ -41,8 +41,13 @@ delete the line when it stops being interesting.
 ## Known rough edges
 
 - [ ] `hands/controls/` is only tested on macOS. Every Windows path is written and unrun.
-- [ ] `data/happy.db` grows forever. No pruning, no export.
-- [ ] `recordings/` grows forever too. Nothing ever deletes a WAV.
+- [ ] The window is only run on macOS. The tray, the placing and the icons are written for
+      Windows and unrun there. On macOS a menu bar with no room left hides the icon and then
+      reports nonsense bounds for it, so the panel falls back to the top right corner.
+- [ ] There is no packaged app yet — no `electron-builder`, no `.app`, no `.exe`. It is
+      `npm start` from the repo, so it cannot be launched at login the way it should be.
+- [ ] `data/happy.db` prunes only if `memory.messages` says how many days to keep. No export.
+- [ ] `recordings/` the same, under `memory.recordings`. Both ship keeping everything.
 - [ ] No tests anywhere.
 - [ ] `av` (WhisperX) and `cv2` (eyes) both ship a copy of `libavdevice`, so importing both
       prints an objc duplicate-class warning at startup. Harmless so far, and it says it may
@@ -52,6 +57,14 @@ delete the line when it stops being interesting.
 
 ## Done
 
+- [x] **Built the window** — `face/window/`, an Electron app that owns the process and runs
+      Happy as a child over one JSON line at a time. An icon in the menu bar, a panel that
+      drops out of it, an orb that moves with the real microphone level and the real clip
+      being played, the conversation, a box to type in, and every control.
+- [x] **Took the settings out of the code.** `memory/catalogue.py` is the only place a default
+      lives now, and `memory/settings.py` the only place a value does. Every part that was
+      built out of one rebuilds itself when its group changes, mid conversation, without a
+      restart.
 - [x] **Rebuilt the desktop agent** as a state estimation problem rather than a vision one.
       The application is asked what it drew before anything is photographed, the belief about
       the screen lives in one place, and every act says what should become true and then checks

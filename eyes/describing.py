@@ -10,10 +10,7 @@ import io
 import re
 
 from eyes.parts import VisionError
-
-# HOW WIDE THE PICTURE GOES TO THE LOOKING MODEL. A FULL RETINA GRAB IS MEGABYTES
-# OF BASE64 AND MOSTLY EMPTY DESKTOP, AND EVERY ONE OF THOSE BYTES IS TIME.
-VLM_WIDTH = 1512
+from memory import settings
 
 # HOW MANY LINES OF SCREEN TEXT THE MODEL IS OFFERED AT ONCE.
 MAX_LABELS = 150
@@ -48,13 +45,19 @@ MISSING = (
 
 
 def smaller(image):
-    """THE PICTURE AT A SIZE WORTH SENDING, AND HOW MUCH IT SHRANK."""
-    if image.width <= VLM_WIDTH:
+    """THE PICTURE AT A SIZE WORTH SENDING, AND HOW MUCH IT SHRANK.
+
+    A FULL RETINA GRAB IS MEGABYTES OF BASE64 AND MOSTLY EMPTY DESKTOP, AND
+    EVERY ONE OF THOSE BYTES IS TIME.
+    """
+    wide = settings.get("eyes.width")
+
+    if image.width <= wide:
         return image, 1.0
 
-    ratio = VLM_WIDTH / image.width
+    ratio = wide / image.width
 
-    return image.resize((VLM_WIDTH, int(image.height * ratio))), ratio
+    return image.resize((wide, int(image.height * ratio))), ratio
 
 
 def packed(image):
@@ -85,10 +88,10 @@ def asked(image, question):
 
         if "not found" in said.lower():  # THE SERVER IS UP, THE MODEL IS NOT THERE.
             raise VisionError(
-                MISSING.format(model=model.VISION_MODEL, how=model.obtain(model.VISION_MODEL))
+                MISSING.format(model=model.looking(), how=model.obtain(model.looking()))
             )
 
-        raise VisionError(f"{model.VISION_MODEL} could not look at it: {said}")
+        raise VisionError(f"{model.looking()} could not look at it: {said}")
 
 
 def listing(seen, limit=MAX_LABELS):

@@ -9,12 +9,18 @@ BARGE IN IS stop(). A PERSON WHO STARTS TALKING HAS STOPPED LISTENING.
 import queue
 import threading
 
+import numpy as np
 import sounddevice as sd
 
+from face import show
+from memory import settings
 from voice.piper import Voice
 from voice.sentences import Sentences
 
 IDLE_POLL_SECONDS = 0.1  # SHORT HOPS SO CTRL+C STILL LANDS WHILE WAITING.
+
+# HOW FINELY THE SHAPE OF A CLIP IS MEASURED FOR WHATEVER IS DRAWING IT.
+ENVELOPE_MS = 40
 
 
 class Speaker:
@@ -70,6 +76,7 @@ class Speaker:
         empty(self.sentences)
         empty(self.clips)
         sd.stop()
+        show.hush()
 
         with self.quiet:
             self.pending = 0
@@ -92,6 +99,9 @@ class Speaker:
         self.clips.put((self.era, None))
 
     def send(self, sentence):
+        if settings.get("voice.muted"):  # HAPPY STILL ANSWERS, HE JUST WRITES IT.
+            return
+
         with self.quiet:
             self.pending += 1
 
@@ -130,6 +140,7 @@ class Speaker:
                 continue
 
             try:
+                show.envelope(shape(samples, self.voice.rate), len(samples) / self.voice.rate)
                 sd.play(samples, self.voice.rate)
                 sd.wait()  # RETURNS EARLY WHEN stop() CUTS IT.
             except Exception as error:
@@ -143,6 +154,19 @@ class Speaker:
 
             if self.pending == 0:
                 self.quiet.notify_all()
+
+
+def shape(samples, rate):
+    """A CLIP AS A HANDFUL OF LOUDNESSES, ONE PER SLICE, FOR DRAWING."""
+    step = max(1, int(rate * ENVELOPE_MS / 1000))
+    slices = len(samples) // step
+
+    if not slices:
+        return []
+
+    blocks = np.abs(samples[: slices * step]).reshape(slices, step).mean(axis=1)
+
+    return [round(float(value), 3) for value in blocks]
 
 
 def empty(waiting):

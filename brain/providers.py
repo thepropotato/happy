@@ -9,6 +9,8 @@ YOU USE HAS TO BE INSTALLED. TO ADD ONE: WRITE THE BUILDER, PUT IT IN PROVIDERS.
 """
 
 import importlib
+import json
+import urllib.request
 
 OLLAMA = "ollama"
 OPENAI = "openai"
@@ -23,6 +25,16 @@ URLS = {
 # WHICH ONES TAKE A CONTEXT LENGTH PER REQUEST. THE OPENAI REQUEST HAS NO FIELD
 # FOR IT, AND OLLAMA STARTS AT 4096 AND THEN TRUNCATES IN SILENCE.
 SETS_CONTEXT = {OLLAMA: True, OPENAI: False}
+
+# WHERE EACH ONE LISTS WHAT IT ALREADY HAS: THE PATH, THE FIELD HOLDING THE
+# LIST, AND WHAT A MODEL'S NAME IS CALLED INSIDE IT.
+LISTING = {
+    OLLAMA: ("/api/tags", "models", "name"),
+    OPENAI: ("/models", "data", "id"),
+}
+
+# A LIST FOR A DROPDOWN. NOBODY WAITS ON IT, SO IT GIVES UP QUICKLY.
+LISTING_TIMEOUT = 2
 
 # HOW TO GET A MODEL THAT IS NOT THERE. PRINTED FOR A PERSON, NEVER RUN.
 INSTALL = {
@@ -103,6 +115,24 @@ def address(name, url=None):
 
 def sets_context(name):
     return SETS_CONTEXT.get(name, False)
+
+
+def offered(name, url=None):
+    """EVERY MODEL THIS BACKEND ALREADY HAS, OR NOTHING IF IT WILL NOT SAY."""
+    where = LISTING.get(name)
+
+    if not where:
+        return []
+
+    path, holds, called = where
+
+    try:
+        with urllib.request.urlopen(address(name, url) + path, timeout=LISTING_TIMEOUT) as answer:
+            found = json.load(answer)
+    except Exception:  # A BACKEND THAT IS NOT RUNNING IS NOT AN ERROR TO REPORT.
+        return []
+
+    return sorted(each.get(called) for each in found.get(holds, []) if each.get(called))
 
 
 def install(name, model, url=None):
