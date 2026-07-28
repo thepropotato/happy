@@ -1,13 +1,14 @@
 """BACKGROUND JOB STATE AND PERSISTENCE."""
 
 from datetime import datetime
+import json
 import subprocess
 import threading
 import time
 
 import memory.storage as storage
 
-from hands.coder.registry import CODERS
+from hands.coder import registry
 
 # TABLE PLUS INDEX, SAME SHAPE AS STORAGE.
 SCHEMA = """
@@ -17,6 +18,7 @@ CREATE TABLE IF NOT EXISTS coder_jobs (
     epoch      REAL    NOT NULL,
     coder_name TEXT    NOT NULL,
     task       TEXT    NOT NULL,
+    session_id TEXT,
     result     TEXT,
     failed     TEXT
 );
@@ -41,6 +43,11 @@ def setup():
 
     with handle:
         handle.executescript(SCHEMA)
+        # KEEP OLD DATABASES WORKING AFTER THE NEW COLUMN WAS ADDED.
+        try:
+            handle.execute("ALTER TABLE coder_jobs ADD COLUMN session_id TEXT")
+        except Exception:
+            pass
 
     built = True
 
@@ -48,12 +55,13 @@ def setup():
 class Job:
     """ONE ERRAND, ONE PROCESS, ONE WATCHER THREAD."""
 
-    def __init__(self, coder_name, task):
+    def __init__(self, coder_name, task, session_id=None):
         self.coder_name = coder_name
         self.task = task
+        self.session_id = session_id
         self.answer = None
         self.failed = None
-        self.id = remember_start(coder_name, task)
+        self.id = remember_start(coder_name, task, self.session_id)
         self.thread = threading.Thread(target=self.work, daemon=True)
         self.thread.start()
 
@@ -62,14 +70,15 @@ class Job:
 
     def work(self):
         try:
-            result = run(self.coder_name, self.task)
+            result = run(self.coder_name, self.task, self.session_id)
         except Exception as error:  # CHILD FAILURES STAY HERE.
             result = {"failed": f"{error.__class__.__name__}: {error}"}
 
         self.failed = result.get("failed")
         self.answer = result.get("answer")
+        self.session_id = result.get("session_id")
 
-        remember_finish(self.id, self.answer, self.failed)
+        remember_finish(self.id, self.answer, self.failed, self.session_id)
 
     def report(self):
         if self.failed:
@@ -81,8 +90,11 @@ class Job:
         return f"About {self.task}. {self.answer}"
 
 
-def run(coder_name, task):
-    command = CODERS[coder_name](task)
+def run(coder_name, task, session_id=None):
+    if session_id and coder_name == "Claude Code":
+        command = registry.claude_code_resume(session_id, task)
+    else:
+        command = registry.CODERS[coder_name](task)
 
     try:
         done = subprocess.run(
@@ -101,26 +113,40 @@ def run(coder_name, task):
 
         return {"failed": complaint[:500]}
 
+    if coder_name == "Claude Code":
+        if not said:
+            return {"answer": None, "session_id": None}
+
+        try:
+            payload = json.loads(said)
+        except json.JSONDecodeError:
+            return {"failed": "Claude Code returned invalid JSON."}
+
+        answer = payload.get("result")
+        session_id = payload.get("session_id")
+
+        return {"answer": answer[:2000] if answer else None, "session_id": session_id}
+
     return {"answer": said[:2000] if said else None}
 
 
-def remember_start(coder_name, task):
+def remember_start(coder_name, task, session_id):
     now = time.time()
     at = datetime.now().astimezone().isoformat(timespec="seconds")
 
     return storage.write(
         """
-        INSERT INTO coder_jobs (at, epoch, coder_name, task, result, failed)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO coder_jobs (at, epoch, coder_name, task, session_id, result, failed)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (at, now, coder_name, task, None, None),
+        (at, now, coder_name, task, session_id, None, None),
     )
 
 
-def remember_finish(row_id, result, failed):
+def remember_finish(row_id, result, failed, session_id):
     storage.write(
-        "UPDATE coder_jobs SET result = ?, failed = ? WHERE id = ?",
-        (result, failed, row_id),
+        "UPDATE coder_jobs SET result = ?, failed = ?, session_id = ? WHERE id = ?",
+        (result, failed, session_id, row_id),
     )
 
 
