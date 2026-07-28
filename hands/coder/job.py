@@ -1,5 +1,6 @@
 """BACKGROUND JOB STATE AND PERSISTENCE."""
 
+import atexit
 from datetime import datetime
 import json
 import subprocess
@@ -29,6 +30,7 @@ CREATE INDEX IF NOT EXISTS coder_jobs_epoch ON coder_jobs(epoch);
 TIMEOUT_SECONDS = 900
 
 current = None
+running_processes = set()
 lock = threading.Lock()
 built = False
 
@@ -96,20 +98,29 @@ def run(coder_name, task, session_id=None):
     else:
         command = registry.CODERS[coder_name](task)
 
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    running_processes.add(process)
+
     try:
-        done = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            timeout=TIMEOUT_SECONDS,
-        )
-    except subprocess.TimeoutExpired:
-        return {"failed": f"It gave up after {TIMEOUT_SECONDS // 60} minutes."}
+        try:
+            stdout, stderr = process.communicate(timeout=TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate()
 
-    said = (done.stdout or "").strip()
+            return {"failed": f"It gave up after {TIMEOUT_SECONDS // 60} minutes."}
+    finally:
+        running_processes.discard(process)
 
-    if done.returncode != 0:
-        complaint = (done.stderr or "").strip() or said or f"exit code {done.returncode}"
+    said = (stdout or "").strip()
+
+    if process.returncode != 0:
+        complaint = (stderr or "").strip() or said or f"exit code {process.returncode}"
 
         return {"failed": complaint[:500]}
 
@@ -152,3 +163,12 @@ def remember_finish(row_id, result, failed, session_id):
 
 def busy():
     return current is not None and current.running()
+
+
+def cleanup():
+    for process in list(running_processes):
+        if process.poll() is None:
+            process.terminate()
+
+
+atexit.register(cleanup)
