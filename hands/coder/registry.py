@@ -4,7 +4,11 @@ import shutil
 
 
 def claude_code(task):
-    return ["claude", "-p", task]
+    return ["claude", "-p", "--output-format", "json", "--permission-mode", "acceptEdits", task]
+
+
+def claude_code_resume(session_id, response):
+    return ["claude", "-p", "--output-format", "json", "--permission-mode", "acceptEdits", "--resume", session_id, response]
 
 
 def codex(task):
