@@ -8,12 +8,12 @@ TO ADD A CAPABILITY: WRITE THE FOLDER, GIVE IT A TOOLS LIST, ADD IT TO MODULES.
 """
 
 import eyes
-from hands import apps, browser, controls, desktop, files, shell
+from hands import apps, browser, coder, controls, desktop, files, shell
 
 # THE ORDER THE MODEL SEES THEM IN. THE NARROW, SAFE ONES GO FIRST SO THEY READ
 # AS THE OBVIOUS CHOICE BEFORE THE SHELL DOES, AND SEEING COMES BEFORE TOUCHING.
 # eyes IS ITS OWN ORGAN AND NOT A HAND, BUT ITS TOOLS REGISTER HERE WITH THE REST.
-MODULES = [apps, controls, files, eyes, desktop, browser, shell]
+MODULES = [apps, controls, files, eyes, desktop, browser, coder, shell]
 
 
 def tools():
