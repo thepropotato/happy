@@ -12,7 +12,7 @@ face/window RUNS IT.
 
 from face import silence
 
-silence.configure()  # MUST RUN BEFORE THE IMPORTS BELOW PULL IN WHISPERX.
+silence.configure()  # MUST RUN BEFORE THE IMPORTS BELOW OPEN AN ONNX SESSION.
 
 import os
 import sys
@@ -85,7 +85,12 @@ def attend(happy, speaker, recorder, ptt):
 def start():
     """LOAD EVERY MODEL UP FRONT, SO NO TAKE PAYS FOR IT LATER."""
     show.note("Loading models")
-    ears.load_model()
+
+    try:
+        ears.load_model()
+        ears.warm()
+    except ears.EarsError as error:  # NO HEARING AT ALL. NOTHING TO DO BUT SAY SO.
+        raise SystemExit(error)
 
     speaker, mute = voice.create()
 
@@ -172,6 +177,7 @@ def typed(happy, speaker, text):
 
 
 def respond(happy, speaker, speech, audio=None):
+    speaker.refit()  # A DIFFERENT ENGINE WAS PICKED WHILE THE LAST TURN RAN.
     show.opening()
 
     try:

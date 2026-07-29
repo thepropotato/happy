@@ -1,20 +1,33 @@
-"""HEAR IT WITHOUT THE REST OF HAPPY: python -m voice "say this out loud" """
+"""HEAR IT WITHOUT THE REST OF HAPPY: python -m voice [--engine name] "say this" """
 
 import sys
 
-from voice import MODELS, SUFFIX, create
-from voice.piper import GET_THEM
+import voice
+from voice import engines
 
-if "--voices" in sys.argv:
-    print("\n".join(str(path.stem) for path in sorted(MODELS.glob(SUFFIX))) or GET_THEM)
+argv = sys.argv[1:]
+
+if "--engines" in argv:
+    print(engines.names())
     raise SystemExit
 
-words = " ".join(sys.argv[1:]) or (
+engine = None
+
+if "--engine" in argv:
+    at = argv.index("--engine")
+    engine = argv[at + 1] if at + 1 < len(argv) else None
+    del argv[at : at + 2]
+
+if "--voices" in argv:
+    print("\n".join(voice.installed(engine)) or "No voices installed.")
+    raise SystemExit
+
+words = " ".join(argv) or (
     "Right, I opened your downloads folder. There are forty one things in it, "
     "and eleven of them are called screenshot. You might want to look at that."
 )
 
-speaker, why = create()
+speaker, why = voice.create(engine=engine)
 
 if why:
     print(why)

@@ -19,6 +19,12 @@ SOURCE_SECONDS = 30
 
 RECENT_MESSAGES = 60
 
+# A KNOB THAT DECIDES WHAT THE NEXT ONE OFFERS. MOVING IT DROPS THAT ONE CACHED
+# LIST, RATHER THAN LEAVING THE CONTROL SHOWING THE OLD BACKEND'S MODELS FOR HALF
+# A MINUTE. ONLY THESE, BECAUSE A SLIDER FIRES ONE SET PER NUDGE AND ASKING A
+# BACKEND WHAT IT HAS IS A ROUND TRIP.
+GOVERNS = {"brain.provider": "models", "brain.url": "models"}
+
 doing = {}
 found = {}
 
@@ -64,6 +70,11 @@ def carry(order):
         describe()
     elif asked == "set":
         settings.put(order.get("key"), order.get("value"))
+        governed = GOVERNS.get(order.get("key"))
+
+        if governed:  # DROPPING EVERY LIST IS NOT THE ASK, ONLY THE ONE IT DECIDES.
+            found.pop(governed, None)
+
         describe()
     elif asked == "reset":
         settings.clear(order.get("key"))

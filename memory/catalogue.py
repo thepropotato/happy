@@ -8,9 +8,7 @@ from memory.knobs import choice, group, number, text, toggle
 
 EFFORTS = [("off", "Off"), ("low", "Low"), ("medium", "Medium"), ("high", "High")]
 
-SIZES = ["tiny", "base", "small", "medium", "large-v2", "large-v3", "turbo"]
-
-DEVICES = [("cpu", "CPU"), ("cuda", "CUDA")]
+DEVICES = [("cpu", "CPU"), ("auto", "Anything faster")]
 
 PROVIDERS = [("ollama", "Ollama"), ("openai", "OpenAI shape")]
 
@@ -50,9 +48,7 @@ BRAIN = [
 ]
 
 EARS = [
-    choice("ears.model", "Speech model", SIZES, "medium", "Bigger hears better and slower."),
-    choice("ears.device", "Runs on", DEVICES, "cpu"),
-    text("ears.language", "Language", "en", "Pinned, detecting costs a pass.", "en"),
+    choice("ears.device", "Runs on", DEVICES, "cpu", "CPU is the sure one."),
     choice("ears.key", "Hold to talk", TALK_KEYS, "alt_r", "Held down while you speak."),
     number("ears.hold", "Shortest take", 0.05, 2, 0.05, 0.25, "Briefer was a brush.", "sec"),
     number("ears.preroll", "Lead in", 0, 1.5, 0.05, 0.3, "Kept from before the key.", "sec"),

@@ -47,8 +47,8 @@ not finished.
    gates whether it *keeps* what it hears. Opening a device costs about a tenth of a second,
    which is enough to swallow your first word. Each take is padded at both ends because
    nobody presses a key exactly on the first syllable.
-3. `ears/transcribing.py` runs WhisperX locally. The model is loaded at startup so the first
-   take isn't the one that pays for it.
+3. `ears/transcribing.py` runs Parakeet locally through `onnx-asr`. The model is loaded and
+   warmed at startup so the first take isn't the one that pays for it.
 4. `brain/thinking.py` runs the transcribed speech through the graph. The model may call
    tools; when it is done it streams an answer back in pieces.
 5. `voice/` speaks those pieces as they land. It gathers them until a sentence ends, then
@@ -75,7 +75,9 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `ears/trigger.py` | Push to talk. |
 | `ears/microphone.py` | Microphone capture, one WAV per take. |
 | `ears/transcribing.py` | Speech to text. |
-| `voice/piper.py` | The voice model itself, and the mute stand-in when it will not load. |
+| `voice/engines.py` | Which engine speaks, and loading only that one. |
+| `voice/piper.py` | The voice model itself. |
+| `voice/mute.py` | The stand-in when no voice will load. |
 | `voice/sentences.py` | Where one spoken sentence ends and the next begins. |
 | `voice/speaker.py` | Saying it out loud: synthesis, playback, barge-in. |
 | `hands/__init__.py` | The registry. Collects every tool from every module into one flat list. |
@@ -110,7 +112,7 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `face/panel.py` | What the window is told, as one JSON object per line on stdout. |
 | `face/orders.py` | What the window asks for, read off stdin on its own thread. |
 | `face/window/` | The Electron app: the icon in the menu bar and the panel that drops out of it. |
-| `face/silence.py` | Silences the libraries. Must be called before anything imports whisperx. |
+| `face/silence.py` | Silences the libraries. Must be called before anything opens an ONNX session. |
 | `conscience/` | Asking before something that cannot be undone. |
 | `AGENTS.md` | How to write code in this repo. Read it before you write any. |
 | `TODO.md` | What is still pending. |
@@ -203,10 +205,40 @@ fourteen now, and it costs a short answer nothing — a cap only bites when the 
 messages, starting on a human message so a tool reply never appears whose tool call was
 trimmed away. That orphan is an API error, not a degradation.
 
+## The ears
+
+**Parakeet TDT 0.6B v2**, int8, through `onnx-asr`. Measured on this machine over the fifty takes
+in `recordings/`: **232.8 s of speech in 4.5 s — 51.8x realtime**, against WhisperX medium's 2.9x.
+The model loads and warms in 0.77 s where WhisperX took 2.89 s. 631 MB in `models/parakeet/`.
+
+**v2 is the English one, and it was picked over multilingual v3 by listening.** v3 covers 25
+languages and mis-hears *"open the most recent **chat**"* as "chart" or "set" in four of the fifty
+takes. That phrase is a command Happy is actually given, so being right about it beats a language
+nobody here speaks. v2 gets all four. There is no `ears.language` any more — pinning it existed
+because Whisper's detection cost a pass, and this model takes no language at all.
+
+**int8, and no knob for it.** Full precision is 2.55 GB against int8's 631 MB for a vendor claim of
+parity. A knob whose other setting nobody has downloaded only ever produces an error.
+
+**`ears.device` names an execution provider, not a torch device.** Left alone, onnxruntime puts
+CoreML ahead of CPU and would compile a 650 MB encoder on the way up; CPU is pinned by default and
+`auto` is opt-in and unmeasured.
+
+Silence comes back empty, which is the reason to have moved as much as the speed: WhisperX
+answered one 1.5-second take of room tone with "Thank you." Two things got worse and are written
+down rather than hidden — one quiet take that WhisperX heard and this does not, and proper nouns
+are no better. `python -m ears` transcribes everything in `recordings/` with timings, which is how
+both of those were found.
+
+Nothing in the process imports torch any more. That was the only thing pulling it in, and with it
+went 55 packages and a gigabyte.
+
 ## The voice
 
-**Piper**, and nothing else. One voice module, no engine abstraction — an abstraction with one
-implementation is just indirection.
+**Piper**, and nothing else speaks today. `voice/engines.py` names the engines and imports only
+the one chosen, so an engine nobody picked costs nothing; adding one is a module, a dict entry
+and a label. That seam is deliberately thin, because the last two candidates both lost on speed
+and the register exists to make the next one cheap to try, not to invite it.
 
 Measured on this machine, warmed: **15 ms to first word**, 56x realtime, ~60 MB on disk. It
 sounds less like a person than the heavier options, and that is the trade taken on purpose. A
@@ -217,6 +249,14 @@ reads as someone who does not, whatever the timbre.
 and lost anyway: 264 ms to first word against Piper's 15 ms, and 7x realtime against 56x. In
 use that gap is the difference between an assistant and a demo. Judging it from measurements
 alone was a mistake — it took hearing both in the loop to settle it.
+
+*This computer's own voice was tried and removed too.* macOS `say`, asked to write a WAV so the
+speaker keeps barge-in, is **330 ms to first word warmed** and flat at that whatever the sentence
+— slower than the Kokoro that had already lost. There is a fast path, `AVSpeechSynthesizer`
+in-process at 12 ms, and it cannot be used: its callback only fires on the main thread's runloop,
+while sentences are synthesised on a daemon thread and the main thread sits blocked on the
+push-to-talk key. Nothing to download and a genuinely different timbre were not worth 20x the
+latency. Windows SAPI was never measured, since the macOS half already failed.
 
 Phonemes come from an espeak-ng that ships inside the package, so there is nothing to install
 besides the voice file and it behaves the same on Windows. Any Piper voice works; drop it in
@@ -882,7 +922,7 @@ first. The battery and the lock do not, because neither costs you anything.
 - **Anything on the web that needs a login** works only after you have signed in once, by
   hand, in Happy's own browser profile. There is no credential handling and there should not
   be one.
-- **A setup script.** Meant to be one-command setup — Ollama, the model pull, the STT weights,
+- **A setup script.** Meant to be one-command setup — Ollama, the model pull, the ears' weights,
   a voice, Tesseract. There is none; see `TODO.md`.
 - **Gmail.** There was a Gmail module. It was removed on purpose: it is a remote
   service behind OAuth, not computer control, and it was the odd one out. Happy is about
@@ -898,6 +938,10 @@ ollama pull qwen3-vl         # the eyes. only for look_at_screen, OCR needs noth
 # reading text off pictures. NOT a python package, it is a program.
 brew install tesseract                          # macOS
 winget install UB-Mannheim.TesseractOCR         # Windows, and it does not add itself to PATH
+
+# the ears. 631 MB, into models/parakeet.
+.venv/bin/python -m ears --get
+.venv/bin/python -m ears               # transcribe everything in recordings/, with timings
 
 # the voice. any piper voice works, this one is a plain American man.
 .venv/bin/python -m piper.download_voices en_US-hfc_male-medium --download-dir models/piper
@@ -926,7 +970,7 @@ run `/Applications/Python\ 3.13/Install\ Certificates.command` once, or prefix t
 with ``SSL_CERT_FILE=`.venv/bin/python -c "import certifi;print(certifi.where())"` ``. pip
 carries its own certificates, which is why it works when nothing else does.
 
-`python -m brain` is the one to use while developing. It skips the microphone and WhisperX
+`python -m brain` is the one to use while developing. It skips the microphone and the ears
 entirely and exercises the graph, the tools and the guard — everything except audio.
 
 **Two permissions, both granted to whatever runs Happy, not to Happy.** Accessibility, which

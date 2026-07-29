@@ -14,7 +14,7 @@ import sounddevice as sd
 
 from face import show
 from memory import settings
-from voice.piper import Voice
+from voice import engines
 from voice.sentences import Sentences
 
 IDLE_POLL_SECONDS = 0.1  # SHORT HOPS SO CTRL+C STILL LANDS WHILE WAITING.
@@ -25,7 +25,8 @@ ENVELOPE_MS = 40
 
 class Speaker:
     def __init__(self, voice=None):
-        self.voice = voice or Voice()
+        self.voice = voice or engines.build()
+        self.engine = engines.chosen()
         self.pieces = Sentences()
 
         self.sentences = queue.Queue()
@@ -48,6 +49,20 @@ class Speaker:
             worker.start()
 
     def warm(self):
+        self.voice.warm()
+
+    def refit(self):
+        """A DIFFERENT ENGINE WAS PICKED. A VOICE IS REPLACED, NOT RETUNED."""
+        if engines.chosen() == self.engine:
+            return
+
+        self.engine = engines.chosen()
+        self.voice, why = engines.attempt()
+
+        if why:  # HAPPY STILL ANSWERS, HE JUST ANSWERS IN WRITING.
+            show.trouble(why)
+
+        # THE FIRST SENTENCE OF A REPLY IS THE ONE PEOPLE JUDGE. PAY FOR IT HERE.
         self.voice.warm()
 
     def say(self, pieces):
