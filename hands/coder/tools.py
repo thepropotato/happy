@@ -15,7 +15,11 @@ NO_FOLLOWUPS = "This coder does not support answering follow-ups."
 
 @tool
 def build(task: str) -> str:
-    """Run a coding errand in the background and return right away."""
+    """Hand off substantial coding work to Claude Code or Codex.
+
+    Use this for new projects, multi-file features, or bug fixes that need
+    investigation, code changes, and iteration. Prefer this over run_command
+    for anything beyond a trivial one-file script."""
     job.setup()
     names = available()
 
@@ -42,7 +46,10 @@ def build_status() -> str:
 
 @tool
 def build_answer(response: str) -> str:
-    """Continue the current coding errand with a follow-up response."""
+    """Use when build_status says the coder asked a question or needs approval.
+
+    Send your reply here to continue that same session; chat replies alone do not
+    reach the coding tool."""
     if job.current is None or not job.current.session_id:
         return NO_CONTINUE
 
