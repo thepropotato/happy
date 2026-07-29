@@ -1,12 +1,26 @@
 // THE APP ITSELF: ONE ICON, ONE PANEL, AND HAPPY RUNNING BEHIND BOTH.
 
-const { app, ipcMain } = require('electron')
+const { app, ipcMain, shell, systemPreferences } = require('electron')
 
 const { Core } = require('./core')
 const popover = require('./popover')
 const trays = require('./tray')
 
 const OPEN = '--open' // START WITH THE PANEL ALREADY DOWN. FOR WORKING ON IT.
+
+const MACOS = 'darwin'
+
+// HOLDING THE KEY FROM ANOTHER WINDOW IS THE WHOLE POINT, AND UNTIL NOW IT LOOKED
+// EXACTLY LIKE NOTHING HAPPENING: THE PANEL IS HIDDEN, SO THE ONE PLACE THAT SAYS
+// HE HEARD YOU WAS NOT ON THE SCREEN. HE COMES UP ON HIS OWN FOR A TURN NOW, AND
+// GOES AWAY AGAIN WHEN IT IS OVER.
+const LINGER = 5000 // LONG ENOUGH TO READ THE LAST THING HE SAID.
+
+const LISTENING = 'listening'
+const IDLE = 'idle'
+
+// WHERE MACOS KEEPS THE LIST HAPPY HAS TO BE ON TO HEAR THE KEY FROM ANYWHERE.
+const PRIVACY = 'x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility'
 
 const core = new Core()
 
@@ -22,6 +36,11 @@ let focused = false
 // NEVER MISSED BY A WINDOW THAT WAS STILL LOADING.
 let backlog = []
 let listening = false
+
+// THE PANEL CAME UP FOR A TURN RATHER THAN BECAUSE SOMEBODY ASKED FOR IT, SO IT
+// IS ALSO OURS TO PUT AWAY. ONE THAT WAS OPENED ON PURPOSE STAYS OPEN.
+let summoned = false
+let leaving = null
 
 if (process.platform === 'darwin') app.dock?.hide()
 
@@ -72,10 +91,47 @@ app.on('before-quit', () => core.stop())
 function relay(word) {
   if (listening && panel && !panel.isDestroyed()) panel.webContents.send('happy:event', word)
   else backlog.push(word)
+
+  overheard(word)
+}
+
+// WHAT THE PANEL DOES ABOUT A TURN NOBODY OPENED IT FOR.
+function overheard(word) {
+  if (!panel || word.is !== 'state') return
+
+  if (word.state === LISTENING && !panel.isVisible()) rise()
+  else if (word.state === IDLE) fade()
+}
+
+function rise() {
+  popover.place(panel, tray)
+
+  // NOT show(): TAKING THE FOCUS WOULD PULL THE CARET OUT OF WHATEVER SENTENCE
+  // SOMEBODY IS IN THE MIDDLE OF TYPING SOMEWHERE ELSE.
+  panel.showInactive()
+  panel.webContents.send('happy:event', { is: 'shown' })
+
+  clearTimeout(leaving)
+  summoned = true
+}
+
+function fade() {
+  if (!summoned) return
+
+  clearTimeout(leaving)
+
+  leaving = setTimeout(() => {
+    summoned = false
+
+    if (!pinned && panel && !panel.isDestroyed() && !panel.isFocused()) panel.hide()
+  }, LINGER)
 }
 
 function show() {
   if (!panel) return
+
+  clearTimeout(leaving) // OPENED ON PURPOSE. IT IS NOT OURS TO PUT AWAY ANY MORE.
+  summoned = false
 
   popover.place(panel, tray)
   panel.show()
@@ -107,3 +163,13 @@ ipcMain.on('happy:pin', (event, on) => {
 ipcMain.on('happy:hide', () => panel?.hide())
 ipcMain.on('happy:restart', () => restart())
 ipcMain.on('happy:quit', () => quit())
+
+// THE PUSH TO TALK KEY IS WATCHED BY HAPPY HIMSELF, WHO IS A CHILD OF THIS APP.
+// MACOS HANDS OUT THAT PERMISSION BY WHOEVER STARTED THE PROCESS, WHICH IS THIS
+// APP AND NEVER PYTHON, SO THIS IS THE ONLY PLACE THAT CAN HONESTLY ASK FOR IT.
+ipcMain.on('happy:allow', () => {
+  if (process.platform !== MACOS) return
+
+  systemPreferences.isTrustedAccessibilityClient(true) // THE SYSTEM'S OWN ASKING.
+  shell.openExternal(PRIVACY) // AND THE LIST ITSELF, FOR THE SECOND TIME ONWARDS.
+})

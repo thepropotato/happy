@@ -1,194 +1,191 @@
-// EVERY CONTROL IS DRAWN FROM WHAT THE CATALOGUE SAYS THE SETTING IS. NOTHING
-// HERE KNOWS WHAT A SINGLE ONE OF THEM MEANS, WHICH IS WHY ADDING ONE IS A ROW
-// IN A PYTHON FILE AND NOTHING AT ALL IN HERE.
-
-const SEGMENT_MOST = 4 // MORE CHOICES THAN THIS AND A ROW OF BUTTONS STOPS FITTING.
-
-const CUSTOM = '… something else'
+// THE SHEET OF CONTROLS: SIX SECTIONS THAT FOLD OPEN WHERE THEY SIT. EVERY ROW
+// IS DRAWN FROM WHAT THE CATALOGUE SAYS IT IS, WHICH IS WHY ADDING A SETTING IS A
+// ROW IN A PYTHON FILE AND NOTHING AT ALL IN HERE.
+//
+// A SHUT SECTION STILL SAYS WHAT IT IS SET TO, BECAUSE MOST VISITS TO THE
+// CONTROLS ARE SOMEBODY CHECKING RATHER THAN CHANGING.
 
 const Knobs = (() => {
-  let tabs = null
   let sheet = null
   let ask = null
 
   let groups = []
   let values = {}
-  let chosen = null
+  let opened = null
+
+  // SECTIONS WHERE THE RARELY TOUCHED ONES HAVE BEEN ASKED FOR. IT OUTLIVES A
+  // REDRAW, SO A SIGN IN FINISHING DOES NOT FOLD THEM BACK UNDER SOMEBODY.
+  const asked = new Set()
 
   function tell(key, value) {
     values[key] = value
     ask({ do: 'set', key, value })
   }
 
-  function reading(entry, value) {
-    if (entry.kind !== 'number') return ''
-    const shown = entry.step < 1 ? Number(value).toFixed(2) : String(Math.round(value))
-    return entry.unit ? `${shown} ${entry.unit}` : shown
-  }
-
-  function segments(entry, value, now) {
-    const holder = element('div', 'segments')
-
-    for (const option of entry.options) {
-      const button = element('button', option.value === value ? 'on' : '', option.label)
-
-      button.onclick = () => {
-        tell(entry.key, option.value)
-        for (const other of holder.children) other.className = ''
-        button.className = 'on'
-        if (now) now.textContent = ''
-      }
-
-      holder.append(button)
-    }
-
-    return holder
-  }
-
-  function picker(entry, value) {
-    const holder = element('div', 'dropdown')
-    const here = entry.options.find((each) => each.value === value)
-    const face = element('button', 'picker', here ? here.label : value || 'not set')
-    const list = element('div', 'options')
-
-    // A CHOICE IS A VALUE AND SOMETHING NICER TO READ, AND THEY ARE NOT ALWAYS
-    // THE SAME WORD. THE SETTING ONLY EVER HEARS THE VALUE.
-    const offered = entry.open ? [...entry.options, { value: CUSTOM, label: CUSTOM }] : entry.options
-
-    for (const option of offered) {
-      const row = element('button', option.value === value ? 'option on' : 'option', option.label)
-
-      row.onclick = () => {
-        list.classList.remove('open')
-
-        if (option.value === CUSTOM) {
-          holder.replaceWith(typing(entry, value))
-          return
-        }
-
-        face.textContent = option.label
-        for (const other of list.children) other.className = 'option'
-        row.className = 'option on'
-        tell(entry.key, option.value)
-      }
-
-      list.append(row)
-    }
-
-    face.onclick = () => list.classList.toggle('open')
-    holder.append(face, list)
-
-    return holder
-  }
-
-  function typing(entry, value) {
-    const box = element('input', 'typed')
-
-    box.type = 'text'
-    box.value = value ?? ''
-    box.placeholder = entry.placeholder || ''
-    box.onchange = () => tell(entry.key, box.value)
-
-    return box
-  }
-
-  function slider(entry, value, now) {
-    const holder = element('div', 'slider')
-    const range = element('input')
-
-    Object.assign(range, { type: 'range', min: entry.low, max: entry.high, step: entry.step, value })
-
-    range.oninput = () => {
-      now.textContent = reading(entry, range.value)
-    }
-    range.onchange = () => tell(entry.key, Number(range.value))
-
-    holder.append(range)
-
-    return holder
-  }
-
-  function switcher(entry, value) {
-    const button = element('button', value ? 'switch on' : 'switch')
-
-    button.onclick = () => {
-      const wanted = !button.classList.contains('on')
-      button.classList.toggle('on', wanted)
-      tell(entry.key, wanted)
-    }
-
-    return button
-  }
-
-  // A BUTTON, NOT A SETTING. IT SENDS ITS OWN VERB AND NOTHING IS STORED, WHICH
-  // IS HOW SIGNING INTO SOMETHING DRAWS ITSELF WITHOUT THIS FILE KNOWING WHAT.
-  function doer(entry) {
-    const button = element('button', 'doer', entry.wording)
-
-    button.onclick = () => {
-      button.disabled = true
-      button.textContent = '…'
-      ask({ do: entry.verb, name: entry.key })
-    }
-
-    return button
-  }
-
-  function control(entry, value, now) {
-    if (entry.kind === 'action') return doer(entry)
-    if (entry.kind === 'toggle') return switcher(entry, value)
-    if (entry.kind === 'number') return slider(entry, value, now)
-    if (entry.kind === 'text') return typing(entry, value)
-    if (entry.options.length <= SEGMENT_MOST && !entry.open) return segments(entry, value, now)
-
-    return picker(entry, value)
-  }
-
-  function knob(entry, index) {
-    const row = element('div', 'knob')
+  function knob(entry) {
+    const flat = entry.kind === 'toggle' // A SWITCH NEEDS NO ROOM UNDER ITS NAME.
+    const row = element('div', flat ? 'knob flat' : 'knob')
     const top = element('div', 'top')
-    const now = element('span', 'now', reading(entry, values[entry.key]))
+    const now = element('span', 'now', Fields.reading(entry, values[entry.key]))
 
-    row.style.animationDelay = `${Math.min(index, 12) * 22}ms`
-    top.append(element('span', 'label', entry.label), now)
-    row.append(top, control(entry, values[entry.key], now))
+    top.append(element('span', 'label', entry.label))
+
+    if (entry.kind === 'number') top.append(now)
+
+    const control = Fields.control(entry, values[entry.key], now)
+
+    row.append(top)
+    ;(flat ? top : row).append(control)
 
     if (entry.hint) row.append(element('p', 'hint', entry.hint))
 
     return row
   }
 
-  function paint() {
-    const group = groups.find((each) => each.key === chosen) || groups[0]
+  // A CONNECTION IS NOT A SETTING AND IS NOT DRAWN LIKE ONE. NEITHER IS THE LINE
+  // OVER A RUN OF THEM, OR A ROW THAT OPENS INTO ORDINARY CONTROLS.
+  function drawing(entry) {
+    if (entry.kind === 'heading') return Services.heading(entry)
+    if (entry.kind === 'service') return Services.row(entry)
+    if (entry.kind === 'folded') return Services.folded(entry)
 
-    if (!group) return
-
-    sheet.innerHTML = ''
-    sheet.scrollTop = 0
-    group.settings.forEach((entry, index) => sheet.append(knob(entry, index)))
+    return knob(entry)
   }
 
-  function labels() {
-    tabs.innerHTML = ''
+  // ── WHAT A SHUT SECTION SAYS ABOUT ITSELF ──
 
-    for (const group of groups) {
-      const button = element('button', group.key === chosen ? 'group on' : 'group', group.label)
+  function phrase(entry) {
+    const value = values[entry.key]
 
-      button.onclick = () => {
-        chosen = group.key
-        labels()
-        paint()
-      }
+    if (entry.kind === 'number') return Fields.reading(entry, value)
+    if (entry.kind === 'toggle') return value ? entry.label : null
+    if (entry.kind !== 'choice') return value || null
 
-      tabs.append(button)
+    const found = (entry.options || []).find((each) => each.value === value)
+
+    return found ? found.label : value || null
+  }
+
+  function summary(group) {
+    const services = group.settings.filter((each) => each.kind === 'service')
+
+    // A SECTION OF SERVICES COUNTS ITSELF. NOTHING ELSE ABOUT IT IS WORTH A LINE.
+    if (services.length) {
+      const live = services.filter((each) => each.connected).length
+
+      return live ? `${live} connected` : 'nothing connected yet'
     }
+
+    const said = (group.sums || [])
+      .map((key) => group.settings.find((each) => each.key === key))
+      .filter(Boolean)
+      .map(phrase)
+      .filter(Boolean)
+
+    return said.length ? said.join(' · ') : group.hint
+  }
+
+  // ── THE SECTIONS ──
+
+  function inside(group) {
+    const box = element('div', 'inside')
+    const rare = []
+
+    for (const entry of group.settings) {
+      if (entry.rare) rare.push(entry)
+      else box.append(drawing(entry))
+    }
+
+    if (!rare.length) return box
+
+    if (asked.has(group.key)) {
+      for (const entry of rare) box.append(drawing(entry))
+      return box
+    }
+
+    const button = element(
+      'button',
+      'more',
+      `More — ${rare.length} ${rare.length === 1 ? 'setting' : 'settings'}`,
+    )
+
+    button.onclick = () => {
+      asked.add(group.key)
+      paint()
+    }
+
+    box.append(button)
+
+    return box
+  }
+
+  function section(group) {
+    const part = element('div', group.key === opened ? 'part open' : 'part')
+    const face = element('button', 'face')
+    const about = element('div', 'about')
+
+    about.append(element('div', 'title', group.label), element('div', 'now', summary(group)))
+    face.append(marking(group.key, group.label), about, element('span', 'go', '›'))
+    face.onclick = () => fold(group.key)
+
+    part.append(face)
+
+    if (group.key === opened) part.append(inside(group))
+
+    return part
+  }
+
+  // ONE OPEN AT A TIME. TWO AT ONCE IN A PANEL THIS TALL IS A SHEET WHERE NEITHER
+  // OF THEM IS FULLY ON THE SCREEN.
+  function fold(key) {
+    const already = opened === key
+
+    opened = already ? null : key
+
+    Services.shut()
+    paint()
+
+    if (already) return
+
+    const found = sheet.querySelector('.part.open')
+
+    if (found) found.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+
+  function paint() {
+    // A SHEET REDRAWN UNDER SOMEBODY BECAUSE A SIGN IN FINISHED SHOULD STAY WHERE
+    // THEY LEFT IT.
+    const where = sheet.scrollTop
+
+    sheet.innerHTML = ''
+
+    for (const group of groups) sheet.append(section(group))
+
+    sheet.scrollTop = where
+
+    Fields.resume(sheet)
   }
 
   return {
-    start(tabsNode, sheetNode, asking) {
-      tabs = tabsNode
+    start(sheetNode, asking) {
       sheet = sheetNode
       ask = asking
+
+      Fields.start({ tell, ask })
+
+      // WHAT DRAWING A CONNECTION BORROWS. IT IS THE CONTROLS EVERY OTHER SETTING
+      // IS DRAWN WITH AND NOTHING ELSE, SO A SERVICE'S BOXES AND BUTTONS ARE THE
+      // SAME BOXES AND BUTTONS.
+      Services.start({
+        value: (key) => values[key],
+        tell,
+        knob,
+        doer: Fields.doer,
+        typing: Fields.typing,
+        switcher: Fields.switcher,
+        repaint: paint,
+        sheet: () => sheet,
+      })
     },
 
     // A CONTROL THAT WAS JUST MOVED HAS ALREADY DRAWN ITSELF, AND REDRAWING IT
@@ -201,11 +198,9 @@ const Knobs = (() => {
 
       groups = word.groups
       values = word.values
-      chosen = chosen || (groups[0] && groups[0].key)
 
       if (agreed) return
 
-      labels()
       paint()
     },
   }

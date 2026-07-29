@@ -109,11 +109,16 @@ def connections() -> str:
     return ", ".join(on) if on else NOTHING
 
 
-def drawn():
-    """THE CONTROLS FOR EVERY CONNECTION, FOR SOMETHING THAT HAS TO DRAW THEM."""
+def drawn(behind=()):
+    """THE WHOLE CONNECTIONS PANEL, FOR SOMETHING THAT HAS TO DRAW IT.
+
+    behind IS THE CATALOGUE'S OWN HANDFUL OF SETTINGS. THEY COME BACK FOLDED AWAY
+    AT THE BOTTOM RATHER THAN AT THE TOP, BECAUSE NOBODY OPENS THIS PANEL TO MOVE
+    A TIMEOUT AND THREE SLIDERS IN FRONT OF THE SERVICES READ AS THE POINT OF IT.
+    """
     from mcps import showing
 
-    return showing.rows()
+    return showing.rows(behind)
 
 
 def values():

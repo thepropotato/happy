@@ -5,10 +5,23 @@ THAT NEEDS ACCESSIBILITY PERMISSION FOR WHATEVER RUNS PYTHON.
 """
 
 import queue
+import sys
+import threading
 
 from pynput import keyboard
 
 from memory import catalogue, settings
+
+MACOS = "darwin"
+
+# WHAT AN UNTRUSTED LISTENER IS: NOT AN ERROR, AND NOT WORKING EITHER. MACOS HANDS
+# ONE EVENTS MEANT FOR THIS PROCESS AND NOTHING ELSE, WHICH LOOKS EXACTLY LIKE
+# PUSH TO TALK WORKING RIGHT UP UNTIL YOU CLICK ON ANOTHER WINDOW.
+DEAF = (
+    "macOS is only giving Happy the key while his own window is in front. "
+    "Allow Accessibility for Happy in System Settings, Privacy and Security, "
+    "then start him again."
+)
 
 # EVERY ONE IS A MODIFIER, SO HOLDING IT DOWN NEVER TYPES ANYTHING.
 KEYS = {
@@ -33,6 +46,24 @@ RELEASE = "release"
 POLL_SECONDS = 0.2  # SHORT HOPS KEEP CTRL+C RESPONSIVE.
 
 
+def deaf():
+    """TRUE WHEN THE OS WILL ONLY HAND US THE KEY WHILE WE ARE THE FRONT WINDOW.
+
+    THE PERMISSION BELONGS TO WHATEVER STARTED PYTHON, WHICH IS THE WINDOW WHEN
+    HAPPY IS RUN FROM IT AND THE TERMINAL WHEN HE IS NOT. NOTHING ELSE ON EARTH
+    CAN BE ASKED THIS, SO NOWHERE ELSE ANSWERS IT.
+    """
+    if sys.platform != MACOS:
+        return False
+
+    try:
+        from ApplicationServices import AXIsProcessTrusted
+    except ImportError:  # NO pyobjc TO ASK WITH. ASSUME THE BEST AND SAY NOTHING.
+        return False
+
+    return not AXIsProcessTrusted()
+
+
 class PushToTalk:
     def __init__(self, on_press=None):
         # CALLED THE INSTANT THE KEY GOES DOWN, FROM THE LISTENER'S OWN THREAD.
@@ -45,6 +76,7 @@ class PushToTalk:
         self.held = False
         self.listener = None
         self.chosen = None
+        self.deaf = False
 
         self.attend()
 
@@ -52,8 +84,14 @@ class PushToTalk:
         """WATCH WHICHEVER KEY THE SETTINGS NAME."""
         self.chosen = settings.get(SETTING)
         self.key = KEYS.get(self.chosen, FALLBACK)
-        self.key_name = catalogue.naming(SETTING, self.chosen).upper()
+        self.key_said = catalogue.naming(SETTING, self.chosen)
+        self.key_name = self.key_said.upper()  # THE TERMINAL SHOUTS. THE WINDOW DOES NOT.
         self.held = False
+
+        # ASKED ONCE A LISTENER, NOT ONCE A PRESS. A TAP THAT WAS BUILT WITHOUT THE
+        # PERMISSION STAYS DEAF EVEN AFTER IT IS GRANTED, SO THE ANSWER ONLY
+        # CHANGES WHEN THERE IS A NEW ONE.
+        self.deaf = deaf()
 
         self.listener = keyboard.Listener(on_press=self.pressed, on_release=self.released)
         self.listener.start()
@@ -99,8 +137,11 @@ class PushToTalk:
             self.held = True
             self.events.put(PRESS)
 
+            # ON ITS OWN THREAD, BECAUSE THIS RUNS INSIDE THE OS'S KEYBOARD HOOK AND
+            # MACOS TURNS OFF A HOOK THAT DAWDLES. CUTTING OFF A SENTENCE MEANS
+            # STOPPING AUDIO, WHICH IS EXACTLY THE KIND OF WAIT THAT COSTS THE KEY.
             if self.notify:
-                self.notify()
+                threading.Thread(target=self.notify, daemon=True).start()
 
     def released(self, key):
         if key == self.key and self.held:

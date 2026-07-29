@@ -9,6 +9,8 @@
     <link rel="stylesheet" href="stream.css" />
     <link rel="stylesheet" href="controls.css" />
     <link rel="stylesheet" href="fields.css" />
+    <link rel="stylesheet" href="services.css" />
+    <link rel="stylesheet" href="drawer.css" />
   </head>
 
   <body>
@@ -17,38 +19,74 @@
 
       <header class="bar">
         <span class="pulse" id="pulse"></span>
+
+        <!-- THE SAME ORB, SHRUNK, ONCE THERE ARE WORDS THAT WANT THE ROOM. -->
+        <canvas class="puck" id="puck" width="120" height="120" title="Show Happy"></canvas>
+
         <span class="name">Happy</span>
+        <span class="doing" id="doing">waking up</span>
         <span class="spacer"></span>
-        <button class="chip" id="pin" title="Keep open">Pin</button>
-        <button class="chip" id="quit" title="Quit Happy">Quit</button>
+
+        <!-- THE KEY, ALWAYS ON SCREEN, LIT WHILE IT IS HELD. -->
+        <span class="key" id="keycap" hidden><b id="keyname"></b></span>
+
+        <span class="icons">
+          <button class="icon" id="controls" title="Controls">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-9M8 20H3" />
+              <path d="M14 2v4M8 10v4M12 18v4" />
+            </svg>
+          </button>
+          <button class="icon" id="pin" title="Keep open">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 17v5" />
+              <path d="M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.8a2 2 0 0 0-1.1-1.8l-1.8-.9A2 2 0 0 1 15 10.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+            </svg>
+          </button>
+          <button class="icon" id="quit" title="Quit Happy">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </span>
       </header>
 
-      <section class="hero">
+      <!-- THE ONE THING THAT IS WRONG, AND THE BUTTON THAT FIXES IT. -->
+      <div class="amiss" id="amiss" hidden>
+        <span class="words" id="amisswords"></span>
+        <button class="fix" id="amissfix">Allow</button>
+      </div>
+
+      <section class="hero" id="hero">
         <canvas class="orb" id="orb" width="440" height="440"></canvas>
         <div class="mood" id="mood">waking up</div>
         <div class="hint" id="hint">loading</div>
       </section>
 
-      <nav class="tabs" id="tabs">
-        <button class="tab on" data-pane="talk">Talk</button>
-        <button class="tab" data-pane="controls">Controls</button>
-        <span class="slide" id="slide"></span>
-      </nav>
-
       <main class="panes">
-        <section class="pane on" id="talk">
-          <div class="stream" id="stream"></div>
-          <form class="composer" id="composer">
-            <input id="typed" type="text" placeholder="Type to Happy" autocomplete="off" />
-            <button class="send" id="send" type="submit" aria-label="Send">↵</button>
-          </form>
-        </section>
+        <div class="stream" id="stream"></div>
 
-        <section class="pane" id="controls">
-          <nav class="groups" id="groups"></nav>
-          <div class="knobs" id="knobs"></div>
-        </section>
+        <form class="composer" id="composer">
+          <input id="typed" type="text" placeholder="Type to Happy" autocomplete="off" />
+          <button class="send" id="send" type="submit" aria-label="Send">↵</button>
+        </form>
       </main>
+
+      <!-- THE CONTROLS ARE THE WHOLE PANEL. NOTHING ELSE TO READ PAST. -->
+      <section class="screen" id="screen">
+        <header class="bar">
+          <button class="icon" id="back" title="Back to Happy">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+          </button>
+          <span class="name">Controls</span>
+          <span class="spacer"></span>
+          <span class="sub">Everything Happy is set to</span>
+        </header>
+
+        <div class="rows" id="rows"></div>
+      </section>
 
       <div class="asking" id="asking" hidden>
         <div class="card">
@@ -63,9 +101,12 @@
     </div>
 
     <script src="parts.js"></script>
+    <script src="marks.js"></script>
     <script src="aurora.js"></script>
     <script src="orb.js"></script>
     <script src="talk.js"></script>
+    <script src="fields.js"></script>
+    <script src="services.js"></script>
     <script src="knobs.js"></script>
     <script src="app.js"></script>
   </body>

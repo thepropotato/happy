@@ -56,10 +56,13 @@ def main():
     if thrown:
         show.note(f"Threw away {thrown}")
 
-    if windowed:
+    if windowed:  # THE WINDOW IS TOLD ABOUT A DEAF KEY IN ready(), AND SAYS SO ITSELF.
         attend(happy, speaker, recorder, ptt)
     else:
         show.note(f"Hold {ptt.key_name} to talk. Ctrl+C to quit.")
+
+        if ptt.deaf:  # HE HEARS THE KEY, JUST NOT FROM ANYWHERE THAT MATTERS.
+            show.note(ears.DEAF)
 
     try:
         listen(recorder, ptt, happy, speaker)
@@ -79,7 +82,7 @@ def attend(happy, speaker, recorder, ptt):
         quit=lambda: leave(speaker, recorder, ptt),
     )
 
-    panel.ready(key=ptt.key_name)
+    panel.ready(key=ptt.key_said, code=ptt.chosen, deaf=ptt.deaf)
     show.state(panel.IDLE)
 
 

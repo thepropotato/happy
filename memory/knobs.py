@@ -10,8 +10,15 @@ NUMBER = "number"
 TEXT = "text"
 TOGGLE = "toggle"
 
+# THREE SHAPES THAT ARE NOT SETTINGS. A LIST OF SERVICES IS NOT A LIST OF KNOBS
+# AND DREW ITSELF AS ONE FOR TOO LONG: A SLIDER, A PASTED SECRET AND A THING YOU
+# SIGN INTO ALL LOOKED THE SAME, WHICH IS THE WHOLE REASON NOBODY COULD READ IT.
+HEADING = "heading"
+SERVICE = "service"
+FOLDED = "folded"
 
-def choice(key, label, options, default, hint=None, source=None):
+
+def choice(key, label, options, default, hint=None, source=None, rare=False):
     """ONE OF A FEW. source NAMES A LIST THAT ONLY THE RUNNING MACHINE KNOWS."""
     return knob(
         key,
@@ -19,23 +26,25 @@ def choice(key, label, options, default, hint=None, source=None):
         CHOICE,
         default,
         hint,
+        rare,
         options=[option(each) for each in options],
         source=source,
     )
 
 
-def number(key, label, low, high, step, default, hint=None, unit=None, whole=False):
+def number(key, label, low, high, step, default, hint=None, unit=None, whole=False, rare=False):
     return knob(
-        key, label, NUMBER, default, hint, low=low, high=high, step=step, unit=unit, whole=whole
+        key, label, NUMBER, default, hint, rare, low=low, high=high, step=step, unit=unit,
+        whole=whole
     )
 
 
-def text(key, label, default="", hint=None, placeholder=None):
-    return knob(key, label, TEXT, default, hint, placeholder=placeholder)
+def text(key, label, default="", hint=None, placeholder=None, rare=False):
+    return knob(key, label, TEXT, default, hint, rare, placeholder=placeholder)
 
 
-def toggle(key, label, default=False, hint=None):
-    return knob(key, label, TOGGLE, default, hint)
+def toggle(key, label, default=False, hint=None, rare=False):
+    return knob(key, label, TOGGLE, default, hint, rare)
 
 
 def action(key, label, verb, wording, hint=None):
@@ -47,8 +56,19 @@ def action(key, label, verb, wording, hint=None):
     return knob(key, label, ACTION, None, hint, verb=verb, wording=wording)
 
 
-def knob(key, label, kind, default, hint, **extra):
-    return {"key": key, "label": label, "kind": kind, "default": default, "hint": hint, **extra}
+def knob(key, label, kind, default, hint, rare=False, **extra):
+    """rare KEEPS A SETTING OUT OF THE WAY WITHOUT KEEPING IT SECRET: ITS SECTION
+    HOLDS IT BEHIND ONE MORE TAP, BECAUSE A SHEET WHERE EVERY KNOB IS AS LOUD AS
+    EVERY OTHER ONE IS A SHEET NOBODY READS."""
+    return {
+        "key": key,
+        "label": label,
+        "kind": kind,
+        "default": default,
+        "hint": hint,
+        "rare": rare,
+        **extra,
+    }
 
 
 def option(each):
@@ -59,8 +79,51 @@ def option(each):
     return {"value": each, "label": str(each)}
 
 
-def group(key, label, hint, settings):
-    return {"key": key, "label": label, "hint": hint, "settings": settings}
+def heading(label, count=None):
+    """WORDS OVER A RUN OF ROWS. NOTHING TO SET AND NOTHING TO PRESS."""
+    return {"key": f"heading.{label}", "label": label, "kind": HEADING, "count": count}
+
+
+def service(name, label, mark, under, **extra):
+    """A WHOLE CONNECTION AS ONE ROW, AND WHAT OPENS UNDER IT WHEN IT IS TAPPED.
+
+    key IS THE SWITCH'S SETTING, WHICH ONLY EXISTS ONCE THERE IS SOMETHING TO
+    SWITCH. fields, action AND leaving ARE ORDINARY KNOBS, SO WHAT IS INSIDE THE
+    ROW IS DRAWN BY THE SAME CODE THAT DRAWS EVERYTHING ELSE.
+    """
+    return {
+        "key": None,
+        "kind": SERVICE,
+        "name": name,
+        "label": label,
+        "mark": mark,
+        "under": under,
+        "tone": "",  # live, warn, OR NOTHING AT ALL.
+        "careful": False,  # THE SERVICE ITSELF IS THE WARNING, NOT SOMETHING THAT WENT WRONG.
+        "connected": False,
+        "ready": True,  # FALSE DIMS THE BUTTON: PRESSING IT NOW WOULD GET NOWHERE.
+        "signed": 0,
+        "tools": 0,
+        "doing": [],  # THE TOOL NAMES IT ACTUALLY HANDS OVER.
+        "wording": None,  # THE PILL ON THE RIGHT WHEN THERE IS NO SWITCH YET.
+        "note": None,
+        "fields": [],
+        "parts": [],
+        "action": None,
+        "leaving": [],
+        **extra,
+    }
+
+
+def folded(key, label, mark, settings):
+    """A ROW THAT OPENS INTO ORDINARY CONTROLS. WHAT IS RARELY TOUCHED LIVES IN ONE."""
+    return {"key": key, "label": label, "kind": FOLDED, "mark": mark, "settings": settings}
+
+
+def group(key, label, hint, settings, sums=None):
+    """sums NAMES THE SETTINGS WHOSE VALUES SAY WHAT THIS SECTION IS SET TO, FOR
+    SOMEBODY WHO CAME TO CHECK RATHER THAN TO CHANGE. WITH NONE, THE HINT DOES."""
+    return {"key": key, "label": label, "hint": hint, "sums": sums or [], "settings": settings}
 
 
 def settle(entry, value):

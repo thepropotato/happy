@@ -123,6 +123,7 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `mcps/speaking.py` | What came back, squeezed down to something that can be said out loud. |
 | `mcps/writing.py` | Which of those tools changes something out there, and asking first. |
 | `mcps/directory.py` | The services Happy knows, and what each one costs to sign into. |
+| `mcps/showing.py` | Every connection as a list somebody can read, for the window to draw. |
 | `mcps/store.py` | What is connected and what each one last said it could do. |
 | `mcps/signing.py` | How a connection proves who it is, registered or pasted in. |
 | `mcps/tokens.py` | Where a sign in is kept: the keychain if there is one, the database if not. |
@@ -557,6 +558,31 @@ What the panel shows:
 Sound outlives the words. Happy is still a sentence behind himself when the model has finished,
 so the panel goes quiet when the last clip ends and not when the last word arrives.
 
+**The orb yields.** It owns the panel while there is nothing to read and shrinks into the header
+the moment there is, which is 250 pixels of conversation that used to be decoration. What it was
+saying carries on beside his name. Tapping the small one brings the big one back.
+
+**The key is always on screen** and lights while it is held. Holding it from another window is
+the whole point of push to talk, and until the cap was there, the only proof it had worked was
+Happy answering — which is a long way to find out that he had not heard you.
+
+**The controls are the whole panel**, not a drawer over part of one, and they are six sections
+that fold open where they sit rather than six tabs over fifty knobs. A shut section still says
+what it is set to, because most visits are somebody checking rather than changing, and anything
+set once and never again is marked `rare` in the catalogue and sits behind one more tap.
+
+### He comes up when he is spoken to
+
+A panel that hides when it loses focus is a panel that is never on the screen at the moment it
+matters: you hold the key in another application, say something, and nothing anywhere moves. So
+a turn nobody opened the window for brings the window up on its own — `showInactive()`, never
+`show()`, because taking the focus would pull the caret out of whatever sentence somebody is in
+the middle of typing. It goes away again five seconds after the turn ends, unless it was pinned,
+opened on purpose, or clicked on in the meantime.
+
+This is the other half of "the key is global". The permission makes him *hear* it from anywhere;
+this makes him *answer* somewhere you can see.
+
 ## Controls come from the database
 
 Nothing Happy runs on is written into the code any more. `memory/catalogue.py` lists every knob
@@ -578,6 +604,32 @@ survives a rebuild because the checkpointer outlives the graph.
 Two of them are not knobs so much as a broom: `memory.messages` and `memory.recordings` say how
 many days to keep things, and `memory/pruning.py` runs once at startup. Zero keeps everything,
 which is what they ship as.
+
+### A connection is not a setting
+
+Connections were knobs once, and the panel proved it does not work. Every service arrived as a
+row for the switch, a row for signing out, and a row per secret it wanted pasted — twenty-one
+identical rows deep, in which a timeout slider, a client secret and a thing you sign into all
+looked the same. The Google instructions were printed three times because Gmail, Calendar and
+Drive are three services, and nowhere did it say what was actually connected.
+
+So `memory/knobs.py` has three shapes that are not settings, and `mcps/showing.py` builds the
+whole panel out of them: a **heading** over a run of rows, a **service** — one row saying what
+it is and how it is, with what it wants folded inside until somebody taps it — and a **folded**
+row, which is an ordinary group of knobs behind one line. The three global settings live in one
+of those at the bottom, because nobody opens this panel to move a timeout.
+
+What is *inside* a service is still ordinary knobs, so the window draws the boxes and buttons
+with the same code it draws everything else with. It knows what a service looks like and still
+nothing about any particular one — which services exist, what each wants pasted, what is worth
+warning about, and which of them share a sign in are all in `mcps/directory.py`.
+
+Two things fall out of that shape and are worth keeping. Services that share an OAuth client are
+listed as the one thing they are: `directory.listed()` folds a `family` into a single row, so
+Google's fifteen-minute errand is explained once and its three sign ins sit inside it. And a
+connected service shows the **tool names it actually hands over** — run through the same
+`binding.wanted()` the graph is built with, so it is what Happy can really do with it rather
+than what the server offered.
 
 ## The conversation
 
@@ -1034,6 +1086,15 @@ which capture needs. macOS refuses the second silently — you get a black pictu
 — so if Happy says he cannot see the screen, that is the one to check. Both live in System
 Settings, Privacy & Security, and both need the app restarting after they are given. Run the
 window and it is **Electron** that has to be given them, not Python.
+
+Accessibility is refused as quietly as capture is. An untrusted event tap is still created and
+still delivers — but only the keys meant for this process, which looks exactly like push to talk
+working right up until you click on another window. `ears.trigger.deaf()` asks
+`AXIsProcessTrusted()` once per listener and the answer rides out in `ready`, so the panel says
+so in as many words and offers the button. The asking itself is `systemPreferences
+.isTrustedAccessibilityClient(true)` in the Electron main process, because that is the process
+macOS holds responsible for the Python it started. A tap built without the permission stays deaf
+after it is granted, so the button turns into **Restart**.
 
 A terminal that lives inside an Electron app — VS Code's — exports `ELECTRON_RUN_AS_NODE=1` to
 everything it starts. Inherit it and Electron comes up as plain Node, where there is no window

@@ -24,21 +24,24 @@ def clear(name=None):
 
 
 def drawn(reach=None):
-    return [
-        {**group, "settings": [fill(entry) for entry in group["settings"]] + extra(group["key"], reach)}
-        for group in settings.groups()
-    ]
+    return [{**group, "settings": laid(group, reach)} for group in settings.groups()]
 
 
-def extra(key, reach):
-    """CONTROLS THAT ARE NOT IN THE CATALOGUE BECAUSE THERE IS NO FIXED NUMBER."""
-    if key != CONNECTIONS or reach is None:
-        return []
+def laid(group, reach):
+    """A GROUP'S CONTROLS. CONNECTIONS ARE NOT A LIST OF KNOBS AND ARE BUILT WHOLE.
+
+    THE CATALOGUE'S OWN SETTINGS GO IN RATHER THAN ON TOP, BECAUSE WHERE THEY SIT
+    AMONG THE SERVICES IS A THING ONLY THE CONNECTIONS THEMSELVES CAN DECIDE.
+    """
+    filled = [fill(entry) for entry in group["settings"]]
+
+    if group["key"] != CONNECTIONS or reach is None:
+        return filled
 
     try:
-        return reach.drawn()
+        return reach.drawn(filled)
     except Exception:  # A BROKEN CONNECTION MUST NOT LOSE EVERY OTHER CONTROL.
-        return []
+        return filled
 
 
 def fill(entry):

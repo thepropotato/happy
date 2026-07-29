@@ -1,0 +1,133 @@
+/* WHAT OPENS INSIDE A SERVICE ROW: WHAT IT WANTS, WHAT IT DOES, AND THE WAY OUT. */
+
+/* WHAT OPENS WHEN A ROW IS TAPPED. IT IS THE SECOND LINE OF THE SAME ROW, WHICH
+   IS WHY IT IS INSIDE THE BORDER AND NOT A CARD OF ITS OWN. */
+.drawer {
+  width: 100%;
+  padding-top: 9px;
+  margin-top: 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  animation: settle 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.drawer .note {
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--dim);
+  margin-bottom: 10px;
+}
+
+.drawer .field {
+  margin-bottom: 9px;
+}
+
+.drawer .field label {
+  display: block;
+  font-size: 11px;
+  color: var(--dim);
+  margin-bottom: 5px;
+}
+
+.drawer .hint {
+  margin: 5px 0 0;
+  font-size: 10px;
+  color: var(--faint);
+  line-height: 1.45;
+}
+
+.drawer .doer {
+  margin-top: 3px;
+}
+
+/* A SERVICE INSIDE A SERVICE: ONE OF THE THREE GOOGLE SIGN INS UNDER GOOGLE. */
+.service .service {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: transparent;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  animation: none;
+}
+
+.service .service.live {
+  background: rgba(74, 214, 160, 0.07);
+}
+
+.service .service > .face .mark {
+  width: 21px;
+  height: 21px;
+  font-size: 10px;
+  border-radius: 7px;
+}
+
+.service .service > .face .title {
+  font-size: 12px;
+}
+
+/* THE TOOL NAMES A CONNECTED SERVICE ACTUALLY HANDS OVER. IT IS THE ONLY HONEST
+   ANSWER TO "WHAT DOES CONNECTING THIS GET ME", SO IT IS WRITTEN OUT. */
+.offering {
+  margin: 2px 0 10px;
+  line-height: 1.9;
+}
+
+.offering span {
+  display: inline-block;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--faint);
+  font-size: 10px;
+  padding: 2px 7px;
+  margin: 0 4px 2px 0;
+}
+
+/* LEAVING IS NEVER THE THING BEING OFFERED, SO IT SITS AT THE BOTTOM AND IS THE
+   ONE BUTTON IN THE PANEL THAT LOOKS LIKE UNDOING SOMETHING. */
+.leave {
+  width: 100%;
+  border: 1px solid rgba(255, 120, 120, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 120, 120, 0.05);
+  color: #ff9c9c;
+  font: inherit;
+  font-size: 11.5px;
+  padding: 7px;
+  margin-top: 7px;
+  cursor: pointer;
+  transition: background 180ms;
+}
+
+.leave:hover {
+  background: rgba(255, 120, 120, 0.12);
+}
+
+.leave:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* THE TWO ROWS AT THE BOTTOM THAT ARE NOT SERVICES AT ALL. */
+.service.quiet {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: transparent;
+}
+
+.service.quiet > .face .title {
+  color: var(--dim);
+  font-weight: 400;
+}
+
+.service.quiet:hover > .face .title {
+  color: var(--ink);
+}
+
+.service.quiet > .face .mark {
+  background: transparent;
+  color: var(--faint);
+  font-weight: 400;
+  font-size: 13px;
+}
+
+.service.quiet .knob:first-child {
+  padding-top: 0;
+}

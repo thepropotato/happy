@@ -14,6 +14,12 @@ NOISY = (
     "filelock",
 )
 
+# A CONNECTION REFRESHING ITSELF IN THE BACKGROUND IS BUILT WITH NO WAY TO OPEN A
+# BROWSER, ON PURPOSE. THE SDK LOGS A FULL TRACEBACK ABOUT THAT BEFORE RAISING,
+# AND mcps/pool.py ALREADY CATCHES IT AND PUTS IT IN THE PANEL, SO THE TRACEBACK
+# IS A DESIGNED PATH REPORTING ITSELF AS A FAULT.
+HUSHED = ("mcp.client.auth.oauth2",)
+
 done = False
 
 
@@ -27,6 +33,9 @@ def configure(level=LEVEL):
 
     for name in NOISY:
         logging.getLogger(name).setLevel(level)
+
+    for name in HUSHED:
+        logging.getLogger(name).setLevel(logging.CRITICAL)
 
     done = True
 

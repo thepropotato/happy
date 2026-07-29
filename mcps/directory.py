@@ -43,8 +43,6 @@ GOOGLE_ONE = "google"
 
 GOOGLE = "Google will not register Happy, so this needs a client of your own. " + YOUR_OWN
 
-ALSO_GOOGLE = "Uses the same Google client you already added."
-
 KNOWN = [
     {
         "name": "notion",
@@ -98,6 +96,7 @@ KNOWN = [
     {
         "name": "gmail",
         "label": "Gmail",
+        "short": "Gmail",
         "kind": CLIENT,
         "address": "https://gmailmcp.googleapis.com/mcp/v1",
         "allowed": [],
@@ -111,6 +110,7 @@ KNOWN = [
     {
         "name": "calendar",
         "label": "Google Calendar",
+        "short": "Calendar",
         "kind": CLIENT,
         "address": "https://calendarmcp.googleapis.com/mcp/v1",
         "allowed": [],
@@ -121,6 +121,7 @@ KNOWN = [
     {
         "name": "drive",
         "label": "Google Drive",
+        "short": "Drive",
         "kind": CLIENT,
         "address": "https://drivemcp.googleapis.com/mcp/v1",
         "allowed": [],
@@ -144,14 +145,32 @@ KNOWN = [
         # HAPPY ALREADY SENDS WHATSAPP MESSAGES BY DRIVING THE APP ON THE SCREEN,
         # WHICH IS SLOWER AND COSTS NOBODY THEIR ACCOUNT.
         "hint": "Unofficial, and needs its bridge running. Your account may be banned.",
+        "care": "Unofficial · your account may be banned",
     },
 ]
+
+# A SIGN IN THAT COVERS SEVERAL SERVICES, LISTED AS THE ONE THING IT IS. THE
+# ERRAND BEHIND GOOGLE IS FIFTEEN MINUTES AND WAS PRINTED THREE TIMES, WHICH READ
+# AS THREE ERRANDS AND WAS WHERE PEOPLE PUT THE PANEL DOWN.
+FAMILIES = {
+    GOOGLE_ONE: {
+        "name": GOOGLE_ONE,
+        "label": "Google",
+        "kind": CLIENT,
+        "hint": GOOGLE + " " + SENDS_BACK,
+    }
+}
 
 BY_NAME = {each["name"]: each for each in KNOWN}
 
 
 def known():
     return list(KNOWN)
+
+
+def household(family):
+    """EVERY SERVICE COVERED BY ONE SIGN IN, IN THE ORDER THEY ARE LISTED."""
+    return [each for each in KNOWN if each.get("family") == family]
 
 
 def find(name):
