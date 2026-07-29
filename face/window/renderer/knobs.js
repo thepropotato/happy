@@ -120,7 +120,22 @@ const Knobs = (() => {
     return button
   }
 
+  // A BUTTON, NOT A SETTING. IT SENDS ITS OWN VERB AND NOTHING IS STORED, WHICH
+  // IS HOW SIGNING INTO SOMETHING DRAWS ITSELF WITHOUT THIS FILE KNOWING WHAT.
+  function doer(entry) {
+    const button = element('button', 'doer', entry.wording)
+
+    button.onclick = () => {
+      button.disabled = true
+      button.textContent = '…'
+      ask({ do: entry.verb, name: entry.key })
+    }
+
+    return button
+  }
+
   function control(entry, value, now) {
+    if (entry.kind === 'action') return doer(entry)
     if (entry.kind === 'toggle') return switcher(entry, value)
     if (entry.kind === 'number') return slider(entry, value, now)
     if (entry.kind === 'text') return typing(entry, value)

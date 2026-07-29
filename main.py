@@ -22,6 +22,7 @@ import time
 import brain
 import conscience
 import ears
+import mcps
 import memory
 import voice
 from face import console, orders, panel, show
@@ -85,6 +86,8 @@ def attend(happy, speaker, recorder, ptt):
 def start():
     """LOAD EVERY MODEL UP FRONT, SO NO TAKE PAYS FOR IT LATER."""
     show.note("Loading models")
+
+    mcps.start()  # IN THE BACKGROUND. THE TOOLS ARE BOUND ALREADY, FROM LAST TIME.
 
     try:
         ears.load_model()

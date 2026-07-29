@@ -8,12 +8,15 @@ TO ADD A CAPABILITY: WRITE THE FOLDER, GIVE IT A TOOLS LIST, ADD IT TO MODULES.
 """
 
 import eyes
+import mcps
 from hands import apps, browser, coder, controls, desktop, files, shell
 
 # THE ORDER THE MODEL SEES THEM IN. THE NARROW, SAFE ONES GO FIRST SO THEY READ
 # AS THE OBVIOUS CHOICE BEFORE THE SHELL DOES, AND SEEING COMES BEFORE TOUCHING.
 # eyes IS ITS OWN ORGAN AND NOT A HAND, BUT ITS TOOLS REGISTER HERE WITH THE REST.
-MODULES = [apps, controls, files, eyes, desktop, browser, coder, shell]
+# mcps GOES LATE: WHAT IS ON THIS MACHINE SHOULD READ AS THE OBVIOUS CHOICE
+# BEFORE ANYTHING THAT COSTS A ROUND TRIP TO SOMEBODY ELSE'S SERVER.
+MODULES = [apps, controls, files, eyes, desktop, browser, coder, mcps, shell]
 
 
 def tools():
@@ -26,6 +29,13 @@ def tools():
 
     for module in MODULES:
         found.extend(getattr(module, "TOOLS", []))
+
+        # SOME TOOLS ONLY EXIST ONCE SOMETHING IS CONNECTED, SO THEY ARE ASKED
+        # FOR EVERY TIME RATHER THAN LISTED ONCE WHEN THE MODULE WAS IMPORTED.
+        offering = getattr(module, "offering", None)
+
+        if offering:
+            found.extend(offering())
 
     return found
 

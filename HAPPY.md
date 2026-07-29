@@ -69,6 +69,7 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | --- | --- |
 | `main.py` | The loop. Hold, speak, release, hear an answer. Nothing else. |
 | `brain/thinking.py` | The graph. Speech in, spoken answer out, tools called along the way. |
+| `brain/watching.py` | What wraps every call: what goes in, what is kept, how long it took. |
 | `brain/model.py` | Which model, at which URL, with which settings. |
 | `brain/prompt.py` | What the model is told before it hears anything. |
 | `brain/providers.py` | The backends. One entry each, and the only file that knows a server's habits. |
@@ -111,8 +112,21 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `face/console.py` | What the terminal shows: one block per turn, and where the time went. |
 | `face/panel.py` | What the window is told, as one JSON object per line on stdout. |
 | `face/orders.py` | What the window asks for, read off stdin on its own thread. |
+| `face/sources.py` | The catalogue finished off with the lists only a running machine knows. |
 | `face/window/` | The Electron app: the icon in the menu bar and the panel that drops out of it. |
 | `face/silence.py` | Silences the libraries. Must be called before anything opens an ONNX session. |
+| `mcps/__init__.py` | Services that are not this computer. What is connected, and its tools. |
+| `mcps/joining.py` | Signing in, switching on, pasting something in. Never reached by a tool. |
+| `mcps/session.py` | One live connection, held open, and got back when it drops. |
+| `mcps/loop.py` | The one event loop the connections live on. The async side of the wall. |
+| `mcps/binding.py` | A tool on a server somewhere, as one the graph calls like any other. |
+| `mcps/speaking.py` | What came back, squeezed down to something that can be said out loud. |
+| `mcps/writing.py` | Which of those tools changes something out there, and asking first. |
+| `mcps/directory.py` | The services Happy knows, and what each one costs to sign into. |
+| `mcps/store.py` | What is connected and what each one last said it could do. |
+| `mcps/signing.py` | How a connection proves who it is, registered or pasted in. |
+| `mcps/tokens.py` | Where a sign in is kept: the keychain if there is one, the database if not. |
+| `mcps/permission.py` | The browser, and the loopback door the service sends you back through. |
 | `conscience/` | Asking before something that cannot be undone. |
 | `AGENTS.md` | How to write code in this repo. Read it before you write any. |
 | `TODO.md` | What is still pending. |
@@ -139,13 +153,26 @@ registry does not change.** `hands/browser/` is blank right now and being rebuil
 registry skips a module with no `TOOLS` rather than breaking, so it can stay in the list
 while it is empty.
 
-### Why not MCP
+### MCP, in one direction only
 
-MCP is a transport for tools that live in another process. Every tool here is Python running
-on the same machine as the model, so MCP would buy a subprocess and a JSON-RPC hop for
-nothing. It becomes worth it the day you want something *else* — Claude Desktop, another
-client — driving these same tools, or the day you want the shell tool genuinely sandboxed
+Happy is an MCP **client** and not an MCP **server**, and the difference is the whole
+argument. Nothing under `hands/` is exposed over MCP: every tool there is Python running on
+the same machine as the model, so wrapping it in a subprocess and a JSON-RPC hop would buy
+nothing. That becomes worth doing the day you want something *else* — Claude Desktop,
+another client — driving these tools, or the day you want the shell tool genuinely sandboxed
 rather than pattern-checked. Not before.
+
+Reaching *out* is a different question, and the answer changed. A calendar, a mailbox, a
+tickets board — none of those are on this computer, and MCP is the only way any of them
+publish themselves. So `mcps/` is a client that connects to them, and the tools it brings
+back are bound flat into the one graph beside `read_file` and `click_on`. There is still one
+loop and still no routing, which is the rule that mattered.
+
+The costs are real and are paid for deliberately: a tool that takes a second instead of a
+millisecond, a wall of JSON that must be cut down before it can be spoken, and credentials
+that did not exist here before. Every one of them is handled in `mcps/`, and **nothing is
+connected until somebody connects it** — a person who never opens the panel has exactly the
+tools this machine always had.
 
 ### Adding a capability
 
@@ -919,14 +946,42 @@ first. The battery and the lock do not, because neither costs you anything.
   It also needs `comtypes`, which macOS does not.
 - **A second monitor.** Everything assumes the application in front, on the current Space. A
   full-screen app on another Space is invisible and cannot be driven.
-- **Anything on the web that needs a login** works only after you have signed in once, by
-  hand, in Happy's own browser profile. There is no credential handling and there should not
-  be one.
+- **Anything on the web that needs a login**, in the *browser*, works only after you have
+  signed in once by hand in Happy's own profile. There are no browser credentials and there
+  should not be any. Connections under `mcps/` are the separate, narrower case below.
 - **A setup script.** Meant to be one-command setup — Ollama, the model pull, the ears' weights,
   a voice, Tesseract. There is none; see `TODO.md`.
-- **Gmail.** There was a Gmail module. It was removed on purpose: it is a remote
-  service behind OAuth, not computer control, and it was the odd one out. Happy is about
-  this machine for now. Revisit once bash, system and browser are solid.
+- **Gmail, Calendar or Drive at any scale.** The Gmail module was deleted once for being a
+  remote service behind OAuth rather than computer control, and `mcps/` is where that came
+  back — but on Google's terms, not ours. Google runs real MCP endpoints and states plainly
+  that they do not support Dynamic Client Registration, so Happy cannot register itself the
+  way Notion and Linear let it. There are two ways round that and `mcps/` does both.
+
+  **Happy ships no Google client, deliberately.** Embedding one would be allowed — a desktop
+  client's secret is not a secret, and `gcloud` ships one too — and the unverified warning it
+  produces is only a warning: Advanced, then continue. The ceiling is what kills it. An
+  unverified app asking for Gmail or Drive scopes is capped at **a hundred people for the life
+  of the project**, and the hundred and first is refused with nothing to click through.
+  Lifting that cap means verification, and for Gmail and Drive — whose scopes are
+  **restricted** — a third-party CASA security assessment repeated every year, for as long as
+  the project exists. That is a permanent bill attached to a local assistant that runs on
+  other people's machines, so it is not paid.
+
+  A client per person has no ceiling and costs nobody anything, so that is the trade: the
+  setup is the price. The boxes in the panel take a client ID and secret, the panel says what
+  to go and make, and it says the two things people get wrong — publish the project rather
+  than leaving it in testing, or Google discards the refresh token every seven days; and the
+  unverified warning is about *your* app, not about Happy. Calendar's scopes are only
+  *sensitive* rather than restricted, so if a shipped client is ever revisited, Calendar alone
+  is the one that needs verification without CASA. All of it is against an API still in
+  developer preview.
+
+There **is** credential handling now, and it is confined to `mcps/`. It holds OAuth refresh
+tokens and pasted API tokens for services somebody explicitly connected, in the system
+keychain where there is one and in `data/happy.db` where there is not — and the panel says
+which. It holds no passwords and no cookies. Signing in is only ever started by a person, from
+the panel or `python -m mcps connect`: no tool can reach it, because a browser window opening
+in the middle of a spoken answer is not an answer.
 
 ## Running it
 

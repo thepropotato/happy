@@ -10,12 +10,8 @@ HISTORY LIVES IN THE CHECKPOINTER UNDER ONE THREAD, TRIMMED ON THE WAY IN.
 import time
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import (
-    ModelCallLimitMiddleware,
-    wrap_model_call,
-    wrap_tool_call,
-)
-from langchain_core.messages import HumanMessage, trim_messages
+from langchain.agents.middleware import ModelCallLimitMiddleware
+from langchain_core.messages import HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
 import hands
@@ -23,71 +19,21 @@ import memory
 from brain import model as brain
 from brain.model import LLMError
 from brain.prompt import system_prompt
+from brain.watching import MODEL, keep_recent, keep_record, tell, watches
 from memory import settings
 
 MODEL_NODE = "model"  # WHERE SPOKEN WORDS COME FROM. TOOL OUTPUT IS NOT SPOKEN.
 
-BRAIN = "brain"  # THE ONLY GROUP OF SETTINGS THIS IS BUILT OUT OF.
+# THE GROUPS THE GRAPH IS BUILT OUT OF. mcps IS HERE BECAUSE CONNECTING A SERVICE
+# ADDS TOOLS, AND A TOOL THAT ONLY ARRIVES AFTER A RESTART IS NOT CONNECTED.
+GROUPS = ("brain", "mcps")
 
 THREAD = "happy"
 
-TOOL = "tool"
-MODEL = "model"
 
-report = None
-
-
-def watches(handler):
-    """BE TOLD HOW LONG EACH PART TOOK. handler(kind, name, seconds)."""
-    global report
-
-    report = handler
-
-
-def tell(kind, name, seconds):
-    if report:
-        report(kind, name, seconds)
-
-
-@wrap_model_call
-def keep_recent(request, handler):
-    """ONLY THE LAST STRETCH OF THE CONVERSATION GOES TO THE MODEL."""
-    return handler(request.override(messages=recent(request.messages)))
-
-
-@wrap_tool_call
-def keep_record(request, handler):
-    """EVERY TOOL CALL GOES IN THE CONVERSATION, WITH ITS ARGUMENTS AND ITS TIME."""
-    started = time.perf_counter()
-    result = handler(request)
-    taken = time.perf_counter() - started
-
-    call = request.tool_call
-    memory.used(call.get("name"), call.get("args"), text(result), taken)
-    tell(TOOL, call.get("name"), taken)
-
-    return result
-
-
-def text(result):
-    """WHAT A TOOL ACTUALLY SAID, OUT OF WHATEVER WRAPPER IT CAME BACK IN."""
-    return getattr(result, "content", result)
-
-
-def recent(messages):
-    """ONLY THE LAST STRETCH. COUNTED, NOT WEIGHED: A TOKEN COUNT WOULD MEAN A
-    TOKENISER PER MODEL."""
-    kept = trim_messages(
-        messages,
-        token_counter=len,
-        max_tokens=settings.get("brain.history"),
-        strategy="last",
-        start_on="human",  # NEVER OPEN ON A TOOL REPLY WHOSE CALL WAS TRIMMED.
-        include_system=False,
-        allow_partial=False,
-    )
-
-    return kept or messages[-1:]
+def stamp():
+    """WHERE EVERY GROUP THE GRAPH IS MADE OF STANDS RIGHT NOW."""
+    return tuple(settings.version(each) for each in GROUPS)
 
 
 class Happy:
@@ -95,8 +41,12 @@ class Happy:
 
     def __init__(self, model=None, tools=None, prompt=None):
         self.given = model  # HANDED ONE IN MEANS NEVER BUILDING ONE FROM SETTINGS.
-        self.tools = hands.tools() if tools is None else tools
-        self.prompt = prompt or system_prompt()
+
+        # HELD, NOT RESOLVED. WHAT IS ON OFFER CHANGES WHILE HAPPY IS RUNNING, SO
+        # ASKING ONCE HERE WOULD PIN THE GRAPH TO WHATEVER WAS TRUE AT STARTUP.
+        self.handed = tools
+        self.wording = prompt
+
         self.thread = THREAD
 
         # OUTLIVES EVERY REBUILD, SO CHANGING A SETTING MID CONVERSATION DOES NOT
@@ -107,8 +57,10 @@ class Happy:
         self.assemble()
 
     def assemble(self):
-        """THE GRAPH, BUILT OUT OF WHATEVER THE BRAIN SETTINGS SAY RIGHT NOW."""
+        """THE GRAPH, BUILT OUT OF WHATEVER THE SETTINGS SAY RIGHT NOW."""
         self.model = self.given or brain.create()
+        self.tools = hands.tools() if self.handed is None else self.handed
+        self.prompt = self.wording or system_prompt()
         self.graph = create_agent(
             model=self.model,
             tools=self.tools,
@@ -122,11 +74,11 @@ class Happy:
             ],
             checkpointer=self.kept,
         )
-        self.version = settings.version(BRAIN)
+        self.version = stamp()
 
     def refit(self):
-        """REBUILD ONLY IF A BRAIN SETTING HAS MOVED SINCE THE GRAPH WAS BUILT."""
-        if self.version != settings.version(BRAIN):
+        """REBUILD ONLY IF A SETTING THE GRAPH IS MADE OF HAS MOVED SINCE."""
+        if self.version != stamp():
             self.assemble()
 
     def warm(self):

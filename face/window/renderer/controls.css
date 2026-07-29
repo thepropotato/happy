@@ -166,3 +166,31 @@
   color: var(--ink);
   background: rgba(124, 92, 245, 0.22);
 }
+
+/* A BUTTON THAT DOES SOMETHING RATHER THAN HOLDING A VALUE. IT READS AS THE
+   ACTION IT IS, SO IT IS NOT MISTAKEN FOR ONE MORE THING TO SET. */
+.doer {
+  width: 100%;
+  border: 1px solid var(--glow-soft);
+  border-radius: 9px;
+  background: rgba(124, 92, 245, 0.18);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: background 180ms, border-color 180ms, transform 180ms, opacity 180ms;
+}
+
+.doer:hover {
+  background: rgba(124, 92, 245, 0.28);
+}
+
+.doer:active {
+  transform: scale(0.98);
+}
+
+.doer:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

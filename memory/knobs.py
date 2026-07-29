@@ -4,6 +4,7 @@ THE CATALOGUE IS BUILT OUT OF THESE. NOTHING HERE KNOWS WHAT ANY PARTICULAR
 SETTING MEANS, ONLY HOW ONE IS SHAPED AND HOW A TYPED-IN VALUE IS MADE SAFE.
 """
 
+ACTION = "action"
 CHOICE = "choice"
 NUMBER = "number"
 TEXT = "text"
@@ -37,6 +38,15 @@ def toggle(key, label, default=False, hint=None):
     return knob(key, label, TOGGLE, default, hint)
 
 
+def action(key, label, verb, wording, hint=None):
+    """A BUTTON, NOT A SETTING. NOTHING IS KEPT: PRESSING IT ASKS FOR SOMETHING.
+
+    THE CONTROL DRAWS ITSELF THE SAME WAY EVERY OTHER ONE DOES, SO A THING THAT
+    HAS TO BE DONE RATHER THAN CHOSEN COSTS THE WINDOW NO NEW IDEAS.
+    """
+    return knob(key, label, ACTION, None, hint, verb=verb, wording=wording)
+
+
 def knob(key, label, kind, default, hint, **extra):
     return {"key": key, "label": label, "kind": kind, "default": default, "hint": hint, **extra}
 
@@ -56,6 +66,9 @@ def group(key, label, hint, settings):
 def settle(entry, value):
     """A VALUE THAT CAME FROM OUTSIDE, MADE INTO ONE THIS SETTING CAN HOLD."""
     kind = entry["kind"]
+
+    if kind == ACTION:  # A BUTTON HOLDS NOTHING, SO THERE IS NOTHING TO SETTLE.
+        return None
 
     if kind == TOGGLE:
         return truth(value)

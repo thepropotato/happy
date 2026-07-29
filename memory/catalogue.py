@@ -70,6 +70,16 @@ EYES = [
            whole=True),
 ]
 
+CONNECTIONS = [
+    number("mcps.timeout", "Give up after", 5, 120, 5, 20, "A service is not this computer.",
+           "sec", whole=True),
+    # A CAP ONLY BITES ON A SERVER NOBODY HAS PICKED TOOLS FOR. SIX IS ABOUT WHAT
+    # ONE SERVICE IS WORTH BEFORE IT CROWDS OUT EVERYTHING ON THIS MACHINE.
+    number("mcps.cap", "Tools per service", 1, 20, 1, 6, "Before it crowds the rest.", "max",
+           whole=True),
+    toggle("mcps.confirm", "Ask before changing", True, "Anything that is not just looking."),
+]
+
 REMEMBERING = [
     number("memory.messages", "Keep messages", 0, 730, 1, 0, FOREVER, "days", whole=True),
     number("memory.recordings", "Keep recordings", 0, 730, 1, 0, FOREVER, "days", whole=True),
@@ -80,6 +90,7 @@ GROUPS = [
     group("ears", "Ears", "Hearing you, and when.", EARS),
     group("voice", "Voice", "How Happy sounds.", VOICE),
     group("eyes", "Eyes", "Looking at the screen.", EYES),
+    group("mcps", "Connections", "Services that are not this computer.", CONNECTIONS),
     group("memory", "Memory", "What is kept, and how long.", REMEMBERING),
 ]
 

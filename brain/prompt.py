@@ -1,5 +1,6 @@
 """WHAT THE MODEL IS TOLD BEFORE IT HEARS ANYTHING."""
 
+import mcps
 from hands import apps
 
 STANDING = (
@@ -40,9 +41,18 @@ MACHINE = (
 
 def system_prompt():
     """THE STANDING PROMPT PLUS THE FACTS ONLY THIS MACHINE CAN SUPPLY."""
+    parts = [STANDING]
+
+    # SAID ONLY WHILE SOMETHING IS CONNECTED. A PARAGRAPH ABOUT SERVICES NOBODY
+    # HAS SIGNED INTO IS PAID FOR ON EVERY TURN AND EARNS NOTHING.
+    remote = mcps.mention()
+
+    if remote:
+        parts.append(remote)
+
     installed = apps.listing()
 
-    if not installed:  # AN UNKNOWN PLATFORM, OR NOTHING FOUND. HAPPY STILL WORKS.
-        return STANDING
+    if installed:  # AN UNKNOWN PLATFORM, OR NOTHING FOUND. HAPPY STILL WORKS.
+        parts.append(f"{MACHINE}\n\n{installed}")
 
-    return f"{STANDING}\n\n{MACHINE}\n\n{installed}"
+    return "\n\n".join(parts)
