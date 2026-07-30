@@ -13,12 +13,11 @@ CREATE TABLE IF NOT EXISTS messages (
     id         INTEGER PRIMARY KEY,
     at         TEXT    NOT NULL,
     epoch      REAL    NOT NULL,
-    who        TEXT    NOT NULL,
-    text       TEXT    NOT NULL,
-    tool       TEXT,
-    args       TEXT,
-    seconds    REAL,
+    message    TEXT,
+    reply      TEXT,
+    tools      TEXT    NOT NULL DEFAULT '[]' CHECK (json_valid(tools)),
     audio      TEXT,
+    seconds    REAL,
     unprompted INTEGER NOT NULL DEFAULT 0
 );
 
@@ -38,7 +37,22 @@ DROP TRIGGER IF EXISTS messages_after_delete;
 DROP TRIGGER IF EXISTS messages_after_update;
 DROP TABLE   IF EXISTS messages_search;
 DROP INDEX   IF EXISTS messages_who;
+
+-- AN EXCHANGE USED TO BE A ROW OF ITS OWN THAT MESSAGES POINTED AT. IT IS THE ROW
+-- NOW, AND ITS STOPWATCH LIVES IN seconds.
+DROP TABLE   IF EXISTS turns;
 """
+
+# THE OLD TABLE WAS ONE ROW PER MESSAGE; THIS ONE IS ONE ROW PER EXCHANGE, SO THE
+BEFORE = "who"
+SHAPE = "PRAGMA table_info(messages)"
+DROP = "DROP TABLE IF EXISTS messages"
+
+
+def reshape(handle):
+    """CLEAR OUT A messages FROM BEFORE A ROW MEANT A WHOLE EXCHANGE."""
+    if BEFORE in {row["name"] for row in handle.execute(SHAPE)}:
+        handle.execute(DROP)
 
 local = threading.local()
 built = set()
@@ -66,6 +80,7 @@ def connect():
     handle.execute(f"PRAGMA busy_timeout={BUSY_TIMEOUT_MS}")
 
     if FILE not in built:
+        reshape(handle)  # BEFORE THE SCHEMA, SO THE NEW TABLE IS THE ONE CREATED.
         handle.executescript(SCHEMA)
         handle.executescript(TIDY)
         handle.commit()

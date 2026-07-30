@@ -1,6 +1,3 @@
-// THE LIGHT BEHIND THE PANEL. FOUR SLOW BLOBS THAT TAKE THEIR COLOUR FROM WHAT
-// HAPPY IS DOING, AND TAKE THEIR TIME GETTING THERE.
-
 const MOODS = {
   loading: { colours: ['#4b5166', '#343a4d'], word: 'waking up' },
   idle: { colours: ['#7c5cf5', '#4a7fe0'], word: 'ready' },
@@ -11,7 +8,7 @@ const MOODS = {
   gone: { colours: ['#ef4444', '#7f1d1d'], word: 'stopped' },
 }
 
-// HALF SIZE. IT IS ALL BLUR, AND NOBODY EVER SAW A SHARP ONE.
+// HALF SIZE. IT IS ALL BLUR.
 const COARSE = 2
 
 function rgb(hex) {

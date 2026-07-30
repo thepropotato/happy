@@ -17,7 +17,7 @@ if len(sys.argv) < 2:
 
 every = "--thorough" in sys.argv
 
-if every:  # EVERY RECIPE SIDE BY SIDE, TO SEE WHICH ONE THIS PICTURE LIKES.
+if every:
     source = load(sys.argv[1])
     size = factor(source.shape[1])
 

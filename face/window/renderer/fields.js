@@ -1,7 +1,3 @@
-// THE THINGS A SETTING CAN BE MOVED WITH: A SLIDE, A SWITCH, A ROW OF ONE, A LIST,
-// A BOX TO TYPE IN, AND A BUTTON THAT IS NOT A SETTING AT ALL. NOTHING HERE KNOWS
-// WHAT ANY PARTICULAR SETTING MEANS, ONLY WHAT KIND OF THING IT IS.
-
 const SEGMENT_MOST = 4 // MORE CHOICES THAN THIS AND A ROW OF BUTTONS STOPS FITTING.
 
 const CUSTOM = '… something else'
@@ -9,8 +5,7 @@ const CUSTOM = '… something else'
 const Fields = (() => {
   let help = null
 
-  // WHERE SOMEBODY WAS TYPING WHEN THE SHEET WAS REDRAWN UNDER THEM, WHICH A SIGN
-  // IN FINISHING DOES. LOSING THE CARET MID SECRET IS A REAL WAY TO LOSE ONE.
+  // WHERE SOMEBODY WAS TYPING WHEN THE SHEET WAS REDRAWN UNDER THEM.
   let typingIn = null
 
   function reading(entry, value) {
@@ -44,8 +39,7 @@ const Fields = (() => {
     const face = element('button', 'picker', here ? here.label : value || 'not set')
     const list = element('div', 'options')
 
-    // A CHOICE IS A VALUE AND SOMETHING NICER TO READ, AND THEY ARE NOT ALWAYS
-    // THE SAME WORD. THE SETTING ONLY EVER HEARS THE VALUE.
+    // A CHOICE IS A VALUE AND A NICER LABEL; THE SETTING ONLY HEARS THE VALUE.
     const offered = entry.open ? [...entry.options, { value: CUSTOM, label: CUSTOM }] : entry.options
 
     for (const option of offered) {
@@ -116,8 +110,7 @@ const Fields = (() => {
     return button
   }
 
-  // A BUTTON, NOT A SETTING. IT SENDS ITS OWN VERB AND NOTHING IS STORED, WHICH
-  // IS HOW SIGNING INTO SOMETHING DRAWS ITSELF WITHOUT THIS FILE KNOWING WHAT.
+  // A BUTTON, NOT A SETTING: IT SENDS ITS OWN VERB AND NOTHING IS STORED.
   function doer(entry, look) {
     const button = element('button', look || 'doer', entry.wording)
 
@@ -146,7 +139,6 @@ const Fields = (() => {
       help = helpers
     },
 
-    // PUT THE CARET BACK WHERE IT WAS BEFORE THE SHEET WAS REBUILT UNDER IT.
     resume(sheet) {
       if (!typingIn) return
 

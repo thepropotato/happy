@@ -20,7 +20,7 @@ from hands.desktop.verifying import Done, judged, looking, report, settled
 
 def attached(path, into=""):
     """PUT A FILE WHERE THE CURSOR IS, AND CHECK THAT IT ARRIVED."""
-    from hands import files  # LATE, THE WAY eyes DOES IT, SO THE FOLDERS STAY APART.
+    from hands import files  # LATE, THE WAY eyes DOES IT.
 
     where, note = files.locate(path)
 
@@ -56,8 +56,7 @@ def attached(path, into=""):
     said = f"Attached {where.name}" + (f" to {into}" if into else "")
     done = report(said, answer, after, at)
 
-    # A NAME LIKE "RESUME" MATCHING FOUR FILES IS WORTH A SENTENCE HERE. THE ONE
-    # THAT GOES OUT CANNOT BE TAKEN BACK, AND ONLY THE PERSON KNOWS WHICH IT IS.
+    # THE ONE THAT GOES OUT CANNOT BE TAKEN BACK, AND ONLY THE PERSON KNOWS WHICH.
     if note and done.worked:
         return Done(f"{done.said} More than one file matched, so check it is the right one.", True)
 

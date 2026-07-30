@@ -8,8 +8,7 @@ from PIL import Image
 
 from eyes.parts import VisionError
 
-# UI TEXT IS AROUND THIRTEEN PIXELS TALL AND TESSERACT WANTS ABOUT THIRTY. A
-# RETINA GRAB IS ALREADY BIG AND IS LEFT ALONE.
+# UI TEXT IS AROUND THIRTEEN PIXELS TALL AND TESSERACT WANTS ABOUT THIRTY.
 TARGET_WIDTH = 3000
 MAX_SCALE = 3.0
 
@@ -30,8 +29,7 @@ def load(image):
     if not path.exists():
         raise VisionError(f"There is no picture at {path}.")
 
-    # NOT cv2.imread: IT GOES THROUGH THE C LOCALE AND LOSES ANY PATH WITH A NON
-    # ENGLISH LETTER IN IT, WHICH ON WINDOWS IS MOST HOME FOLDERS.
+    # NOT cv2.imread: IT LOSES ANY PATH WITH A NON ENGLISH LETTER IN IT.
     try:
         raw = np.fromfile(str(path), dtype=np.uint8)
     except OSError as error:
@@ -72,6 +70,5 @@ def enlarged(grey, scale):
 
     size = (int(grey.shape[1] * scale), int(grey.shape[0] * scale))
 
-    # CUBIC: A LETTER GROWN WITH NEAREST NEIGHBOUR GETS STAIRCASE EDGES, AND
-    # TESSERACT READS STAIRCASES AS PUNCTUATION.
+    # CUBIC: TESSERACT READS THE STAIRCASE EDGES OF NEAREST NEIGHBOUR AS PUNCTUATION.
     return cv2.resize(grey, size, interpolation=cv2.INTER_CUBIC)

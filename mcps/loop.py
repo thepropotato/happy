@@ -52,8 +52,6 @@ def run(work, timeout=None):
     try:
         return waiting.result(timeout)
     except TimeoutError:
-        # NOBODY IS LISTENING ANY MORE, SO THE WORK SHOULD STOP RATHER THAN RUN ON
-        # HOLDING A CONNECTION OPEN FOR AN ANSWER THAT WILL BE THROWN AWAY.
         waiting.cancel()
 
         raise

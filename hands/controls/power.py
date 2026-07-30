@@ -21,7 +21,6 @@ WINDOWS_BATTERY = (
     '{ "$($_.EstimatedChargeRemaining) percent, status $($_.BatteryStatus)" }'
 )
 
-# CHARGING, ON BATTERY, AND THE REST OF WHAT WINDOWS MEANS BY A STATUS NUMBER.
 WINDOWS_STATES = {
     "1": "on battery",
     "2": "plugged in",

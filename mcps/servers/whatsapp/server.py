@@ -1,0 +1,622 @@
+import asyncio
+import json
+import sys
+import time
+from typing import Annotated, Optional
+
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+from mcp.server.fastmcp import FastMCP
+from pydantic import BeforeValidator, Field
+from client import WhatsAppClient
+
+
+def coerce_str(v):
+    """Coerce any non-string value to empty string so Pydantic validation never crashes.
+    Also discards code blocks and JSON blobs passed as parameter values."""
+    if isinstance(v, (dict, list)):
+        return ""
+    if v is None:
+        return ""
+    s = str(v).strip()
+    # Discard code blocks (```...```) or raw JSON objects passed as values
+    if s.startswith("```") or (s.startswith("{") and s.endswith("}")):
+        return ""
+    # Strip surrounding quotes added by LLM (e.g. '"the boys"' -> 'the boys')
+    if len(s) >= 2 and ((s[0] == '"' and s[-1] == '"') or (s[0] == "'" and s[-1] == "'")):
+        s = s[1:-1].strip()
+    return s
+
+
+CoercedStr = Annotated[str, BeforeValidator(coerce_str)]
+
+mcp = FastMCP("whatsapp")
+
+from contextvars import ContextVar
+
+# PER-REQUEST WHATSAPP CLIENT - A CONTEXTVAR (NOT A MODULE GLOBAL) SO CONCURRENT
+# USERS IN THE SHARED MCP GATEWAY EACH GET THEIR OWN CLIENT INSTEAD OF SHARING
+# WHICHEVER USER'S CLIENT WAS LAZILY CREATED FIRST.
+client: ContextVar["WhatsAppClient | None"] = ContextVar("whatsapp_client", default=None)
+
+
+def get_client() -> WhatsAppClient:
+    wa = client.get()
+    if wa is None:
+        wa = WhatsAppClient()
+        client.set(wa)
+    return wa
+
+def _json(obj) -> str:
+    """Serialize to a single JSON string so FastMCP returns ONE content block
+    instead of splitting lists into N separate blocks."""
+    return json.dumps(obj, ensure_ascii=False, default=str)
+
+async def check_sync_status(wa: WhatsAppClient) -> dict | None:
+    """Check if sync is in progress. Returns sync status dict if syncing, None otherwise."""
+    try:
+        sync_status = await wa.get("/sync-status", timeout=3.0)
+        if sync_status.get("syncing"):
+            return sync_status
+    except Exception:
+        pass
+    return None
+
+async def should_sync_on_error(result: dict) -> bool:
+    """Check if the error indicates sync is needed (contact not found, empty contacts, etc.)."""
+    if not isinstance(result, dict):
+        return False
+    error = result.get("error", "")
+    if not error:
+        return False
+    # Only trigger sync for genuine contact-not-found errors.
+    # Do NOT match "Media file not found" or other unrelated errors.
+    return "Contact not found" in error
+
+@mcp.tool()
+async def get_status() -> str:
+    """Get WhatsApp connection status and client info."""
+    wa = get_client()
+    return _json(await wa.get_status())
+
+@mcp.tool()
+async def get_qr_code() -> str:
+    """Get QR code for WhatsApp authentication. Returns base64 encoded QR image if not authenticated."""
+    wa = get_client()
+    return _json(await wa.get_qr_code())
+
+@mcp.tool()
+async def get_contacts() -> str:
+    """Get all WhatsApp contacts with name and phone number."""
+    wa = get_client()
+    sync_status = await check_sync_status(wa)
+    if sync_status:
+        return _json({
+            "sync_in_progress": True,
+            "message": sync_status.get("message"),
+            "user_message": f"WhatsApp sync in progress ({sync_status.get('message', 'syncing')}). Please wait 30-60 seconds and try again."
+        })
+
+    result = await wa.get_contacts()
+    if not result:
+        pass
+        await wa.sync()
+        result = await wa.get_contacts()
+    return _json(result)
+
+@mcp.tool()
+async def search_contacts(query: str) -> str:
+    """Search contacts by name or phone number. Also returns group memberships for each match.
+
+    Args:
+        query: Search string to match against contact names or numbers.
+    """
+    
+    if isinstance(query, dict):
+        query = query.get("query", query.get("q", str(query)))
+    
+    query = str(query).strip()
+    wa = get_client()
+    return _json(await wa.search_contacts(query))
+
+@mcp.tool()
+async def get_chats(days: Optional[int] = None) -> str:
+    """Get WhatsApp chats list with last-message previews. Use ONLY when the user explicitly asks to SEE or LIST their chats (e.g. "show my chats", "list all conversations"). All returned timestamps are in UTC.
+
+    NEVER use this for: "unread messages", "new messages", "any messages?", "did someone message me?" - use get_unread_messages instead.
+    NEVER call this after get_latest_received_message or get_unread_messages - those tools already give the complete answer.
+
+    Args:
+        days: Only return chats with activity in the last N days. Returns all if not set.
+    """
+    wa = get_client()
+    sync_status = await check_sync_status(wa)
+    if sync_status:
+        return _json({
+            "sync_in_progress": True,
+            "message": sync_status.get("message"),
+            "user_message": f"WhatsApp sync in progress ({sync_status.get('message', 'syncing')}). Please wait 30-60 seconds and try again."
+        })
+
+    result = await wa.get_chats()
+    if not result:
+        pass
+        await wa.sync()
+        result = await wa.get_chats()
+
+    if days is not None and isinstance(result, list):
+        cutoff = time.time() - (days * 86400)
+        result = [chat for chat in result if chat.get("timestamp", 0) >= cutoff]
+
+    return _json(result)
+
+@mcp.tool()
+async def get_messages(contact: list[str], limit: int = 10, order_newest: bool = True,  received_only: bool = False) -> str:
+    """Get messages from one or more contacts or groups. Pass a list - use a one-item list for a single contact, e.g. ["john"]. Returns a list for single contact, or a dict keyed by name for multiple. All returned timestamps are in UTC (ISO 8601 "time" field and Unix "timestamp" field). Convert to the user's timezone before displaying.
+
+    Args:
+        contact: List of contact names, phone numbers, or group names. For a single contact pass a one-item list: ["john"]
+        limit: Number of messages to return per contact (default: 10).
+        order_newest: If True (default), returns newest messages first. If False, returns oldest messages first.
+        received_only: If True, only return messages received from the contact (excludes messages you sent). Defaults to False.
+    """
+    order = "newest" if order_newest else "oldest"
+    wa = get_client()
+    if isinstance(contact, list):
+        contacts = [c.strip() for c in contact if c.strip()]
+    else:
+        contacts = [c.strip() for c in contact.split(",") if c.strip()]
+
+    async def fetch_one(c: str):
+        result = await wa.get_messages(c, limit, order=order, received_only=received_only)
+        if not result:
+            sync_status = await check_sync_status(wa)
+            if sync_status:
+                return c, [{"syncing": True, "contact": c, "message": f"Contact '{c}' not found yet - sync in progress."}]
+        return c, result
+
+    results = await asyncio.gather(*[fetch_one(c) for c in contacts])
+    data = {c: msgs for c, msgs in results}
+    return _json(data[contacts[0]] if len(contacts) == 1 else data)
+
+
+@mcp.tool()
+async def search_media_messages(contact: list[str], limit: int = 100, received_only: bool = False) -> str:
+    """Search for media files (PDFs, images, videos, documents) in one or more chats. Pass a list - use a one-item list for a single contact, e.g. ["john"]. Each result includes a "downloadable" field - only attempt download_media_from_message when downloadable=true. All returned timestamps are in UTC.
+
+    Args:
+        contact: List of contact names, phone numbers, or group names. For a single contact pass a one-item list: ["john"]
+        limit: Number of messages to scan per contact (default: 100).
+        received_only: If True, only return media received from the contact (excludes files you sent). Defaults to False.
+    """
+    wa = get_client()
+    if isinstance(contact, list):
+        contacts = [c.strip() for c in contact if c.strip()]
+    else:
+        contacts = [c.strip() for c in contact.split(",") if c.strip()]
+
+    async def fetch_one(c: str):
+        result = await wa.get_messages(c, limit, media_only=True, received_only=received_only)
+        if not result:
+            sync_status = await check_sync_status(wa)
+            if sync_status:
+                return c, [{"syncing": True, "contact": c, "message": f"Contact '{c}' not found yet - sync in progress."}]
+        return c, result
+
+    results = await asyncio.gather(*[fetch_one(c) for c in contacts])
+    data = {c: msgs for c, msgs in results}
+    return _json(data[contacts[0]] if len(contacts) == 1 else data)
+
+
+# @mcp.tool()
+
+
+@mcp.tool()
+async def get_groups() -> str:
+    """Get all WhatsApp group names. Use get_groups_detailed for participant counts and IDs."""
+    wa = get_client()
+    sync_status = await check_sync_status(wa)
+    if sync_status:
+        return _json({
+            "sync_in_progress": True,
+            "phase": sync_status.get("phase"),
+            "message": sync_status.get("message"),
+            "contacts_loaded": sync_status.get("contacts", 0),
+            "user_message": f"WhatsApp sync in progress ({sync_status.get('message', 'syncing')}). Please wait 30-60 seconds after QR scan and try again."
+        })
+
+    groups = await wa.get_groups()
+    if not groups:
+        pass
+        await wa.sync()
+        groups = await wa.get_groups()
+    return _json([g.get("name", "") for g in groups])
+
+@mcp.tool()
+async def get_groups_detailed() -> str:
+    """Get all WhatsApp groups with name, participant count, group ID, creation date, and archived status."""
+    wa = get_client()
+    sync_status = await check_sync_status(wa)
+    if sync_status:
+        return _json({
+            "sync_in_progress": True,
+            "message": sync_status.get("message"),
+            "user_message": f"WhatsApp sync in progress ({sync_status.get('message', 'syncing')}). Please wait 30-60 seconds and try again."
+        })
+
+    groups = await wa.get_groups()
+    if not groups:
+        pass
+        await wa.sync()
+        groups = await wa.get_groups()
+    return _json(groups)
+
+@mcp.tool()
+async def search_groups(query: str) -> str:
+    """Search groups by name or description.
+
+    Args:
+        query: Search string to match against group names or descriptions
+    """
+    if isinstance(query, dict):
+        query = query.get("query", query.get("q", str(query)))
+    query = str(query).strip()
+    wa = get_client()
+    return _json(await wa.search_groups(query))
+
+@mcp.tool()
+async def get_group_by_id(group_id: str) -> str:
+    """Get detailed info about a specific group.
+
+    Args:
+        group_id: WhatsApp group ID (e.g. "123456789@g.us")
+    """
+    wa = get_client()
+    return _json(await wa.get_group_by_id(group_id))
+
+@mcp.tool()
+async def get_group_participants(group_id: str) -> str:
+    """Get the full participant list for a specific group (names and phone numbers).
+
+    Args:
+        group_id: WhatsApp group ID (e.g. "120363409011828954@g.us" - get from get_groups_detailed).
+    """
+    wa = get_client()
+    return _json(await wa.get_group_participants(group_id))
+
+@mcp.tool()
+async def find_common_groups(contacts: list[str]) -> str:
+    """Find groups where ALL specified contacts are members. Pass "me" for the logged-in user.
+
+    Args:
+        contacts: List of contact names, phone numbers, or "me" for the logged-in user.
+    """
+    wa = get_client()
+    return _json(await wa.find_common_groups(contacts))
+
+# @mcp.tool()
+
+
+
+# @mcp.tool()
+
+
+@mcp.tool()
+async def download_media_from_message(
+    message_id: str,
+    group_or_contact: str = "",
+    download_path: Annotated[str, Field(description=f"Directory to save the file to - the conversation's downloads folder (e.g. '~/Downloads').")] = "",
+) -> str:
+    """Download media from a WhatsApp message. Returns file_path, filename, mime type, and size.
+    Only call when downloadable=true in the message. SKIP messages with type="viewonce" - they cannot be downloaded.
+
+    Args:
+        message_id: The message ID containing media (use the "id" field from get_messages or search_media_messages results).
+        group_or_contact: The group name or contact name the message belongs to (use the "chatName" field from the previous result). Pass only the bare name.
+    """
+    if isinstance(message_id, dict):
+        message_id = message_id.get("message_id", message_id.get("id", str(message_id)))
+    if isinstance(group_or_contact, dict):
+        group_or_contact = group_or_contact.get("group_or_contact", group_or_contact.get("chat", group_or_contact.get("contact", str(group_or_contact))))
+    if isinstance(download_path, dict):
+        download_path = download_path.get("download_path", download_path.get("path", str(download_path)))
+    message_id = str(message_id).strip()
+    chat = str(group_or_contact).strip()
+    if chat.startswith("```") or (chat.startswith("{") and chat.endswith("}")):
+        chat = ""
+    import re as _re
+    chat = _re.sub(r"(?i)^(your\s+|the\s+|my\s+|with\s+)", "", chat).strip()
+    chat = _re.sub(r"(?i)\s+(chat|conversation|contact|whatsapp)$", "", chat).strip()
+    if len(chat) > 50 or chat.count(" ") > 4:
+        chat = ""
+    download_path = str(download_path).strip()
+    wa = get_client()
+    return _json(await wa.download_media_from_message(message_id, chat, download_path))
+
+
+@mcp.tool()
+async def get_latest_received_message(include_groups: bool = False) -> str:
+    """Get the single most recently received WhatsApp message across all chats (fastest lookup).
+    Use this for: "latest message received", "what was the last message someone sent me?", "what did X last send me?".
+    Returns instantly from in-memory cache. All returned timestamps are in UTC.
+    For "any unread messages?" or "new messages?" - use get_unread_messages instead.
+
+    Args:
+        include_groups: If True, also check group chats. Defaults to False (direct messages only).
+    """
+    wa = get_client()
+    return _json(await wa.get_latest_received_message(include_groups=include_groups))
+
+
+@mcp.tool()
+async def get_unread_messages(include_archived: bool = True) -> str:
+    """Check for unread WhatsApp messages across all chats including archived ones.
+    Use this for: "any unread messages?", "any new messages?", "did anyone message me?",
+    "what's new on WhatsApp?", "check WhatsApp", "unread messages".
+    Returns chats sorted by unread count - this is the COMPLETE answer.
+
+    Args:
+        include_archived: If True (default), also include archived chats with unread messages.
+    """
+    wa = get_client()
+    chats = await wa.get_chats()
+    if not isinstance(chats, list):
+        return _json({"error": "Could not fetch chats"})
+
+    unread = [
+        {
+            "name": c.get("name") or c.get("id"),
+            "unreadCount": c["unreadCount"],
+            "lastMessage": c.get("lastMessage", ""),
+            "isGroup": c.get("isGroup", False),
+            "archived": c.get("archived", False),
+        }
+        for c in chats
+        if c.get("unreadCount", 0) > 0 and (include_archived or not c.get("archived"))
+    ]
+
+    unread.sort(key=lambda x: -x["unreadCount"])
+
+    return _json({
+        "total_unread_chats": len(unread),
+        "total_unread_messages": sum(c["unreadCount"] for c in unread),
+        "archived_chats_with_unread": sum(1 for c in unread if c["archived"]),
+        "unread_chats": unread,
+    })
+
+
+@mcp.tool()
+async def get_latest_sent_message() -> str:
+    """Get the single most recently sent WhatsApp message across all chats, based on timestamp.
+    Returns instantly from in-memory cache - no chat list fetch needed. All timestamps are in UTC."""
+    wa = get_client()
+    return _json(await wa.get_latest_sent_message())
+
+
+@mcp.tool()
+async def query_messages(
+    group: CoercedStr = "",
+    contact: CoercedStr = "",
+    sender: CoercedStr = "",
+    limit: int = 5,
+    from_me: Optional[bool] = None,
+    date: CoercedStr = "",
+    oldest_first: bool = False,
+) -> str:
+    """Search WhatsApp messages with filters. Use for: "what did X send me?", "messages from Y in Z group", "last message in group", "recent messages". All filtering happens in-memory - single call, instant results.
+
+    ALWAYS call this tool ONCE with best-guess partial names. Do NOT search groups or contacts first.
+    Fuzzy matching is built-in: "zookie" matches "Zookie bhai", "rasool" matches "Rasool Khan".
+    Only retry if you get a 404 error, and only with a shorter/simpler name.
+
+    Use ONLY the relevant parameter - group OR contact, not both:
+    - Group chat message     -> fill "group", leave "contact" and "sender" empty
+    - Sender inside a group  -> fill "group" + "sender", leave "contact" empty
+    - "What did X say/send?" (direct chat, received) -> fill "sender" only (auto-excludes your own messages)
+    - Messages I sent to X   -> fill "contact", from_me=true
+    - All messages in DM     -> fill "contact", leave "sender" empty
+
+    RULE: For "last/latest message from X" or "what did X send/say" - use sender="X" with NO group and NO contact.
+    "sender" without a group looks in the direct chat with X and automatically excludes messages you sent.
+    Only use contact= when you explicitly need your own sent messages (from_me=true) or all messages in a DM.
+
+    IMPORTANT: parameter values must be SHORT NAMES ONLY (1-3 words). NEVER put sentences or reasoning.
+
+    Examples:
+    - "last message from Ram in Just Mumbai group"          -> group="just mumbai", sender="ram", limit=1
+    - "first message in Dhurandhar group from Siddu today"  -> group="dhurandhar", sender="siddu", date="today", oldest_first=true, limit=1
+    - "messages I sent to Venu"                             -> contact="venu", from_me=true
+    - "last message Rasool sent in Zookie Bhai group"       -> group="zookie", sender="rasool", limit=1
+    - "last message received from Jaswanth / what did Athul say last" -> sender="jaswanth", limit=1
+    - "yesterday's messages from Venu in WhatsApp"          -> sender="venu", date="yesterday"
+    - "first message today in Just Mumbai"                  -> group="just mumbai", date="today", oldest_first=true, limit=1
+
+    Args:
+        group: Partial group name - 1 to 3 words (e.g. "just mumbai", "fans sathi"). Leave empty for DMs.
+        contact: Partial contact name for direct messages - 1 to 2 words. Use only for sent messages (from_me=true) or reading all DM messages. Do NOT use for "what did X say/send" - use sender= instead.
+        sender: Partial name of the person who sent the message. For direct chats (no group), use this alone - it looks in the direct chat and auto-excludes your own messages. For groups, combine with group=.
+        limit: Number of messages to return (default 5, max 50).
+        from_me: true = only messages you sent, false = only messages you received, omit for both. Leave unset when using sender= (already implied).
+        date: "today", "yesterday", or "YYYY-MM-DD". Leave empty for all dates.
+        oldest_first: Set to true to get the earliest/first messages. Default false returns newest/latest messages.
+    """
+    import re as _re
+    KNOWN_NON_NAMES = {"whatsapp", "mcp", "server", "tool", "bridge", "api", "null", "none", "n/a", "na"}
+
+    def _s(v):
+        if isinstance(v, (dict, list)): return ""
+        return " ".join(str(v).split())
+
+    group, contact, sender, date = _s(group), _s(contact), _s(sender), _s(date)
+    order = "oldest" if oldest_first else "newest"
+
+    # group takes priority; fall back to contact as the chat filter
+    chat = group if group else contact
+
+    # When group + contact are both set but sender is empty, the agent put the person's
+    # name in the wrong field. Treat contact as sender so the person filter is applied.
+    if group and contact and not sender:
+        sender = contact
+        contact = ""
+
+    if from_me is True:
+        from_me_str = "true"
+    elif from_me is False:
+        from_me_str = "false"
+    else:
+        from_me_str = ""
+    if date and not (date in ("today", "yesterday") or _re.fullmatch(r"\d{4}-\d{2}-\d{2}", date)):
+        date = ""
+    if sender.lower() in KNOWN_NON_NAMES:
+        sender = ""
+
+    # Detect garbage (full sentences). Try to extract the actual name before erroring.
+    orig_chat, orig_sender = chat, sender
+    chat_garbage = len(chat) > 80 or chat.count(" ") > 5
+    sender_garbage = len(sender) > 60 or sender.count(" ") > 4
+
+    if chat_garbage:
+        m = _re.search(r"[\"']([^\"']{2,60})[\"']", orig_chat)
+        if m:
+            chat = _s(m.group(1))
+            chat_garbage = len(chat) > 80 or chat.count(" ") > 5
+        if chat_garbage:
+            m = _re.search(r'\bin\s+(?:the\s+)?([A-Za-z0-9@&\s.\-]{3,40}?)\s*(?:group|chat)?\s*(?:[,.\s]|$)', orig_chat, _re.IGNORECASE)
+            if m:
+                chat = _s(m.group(1).strip().rstrip(',.'))
+                chat_garbage = len(chat) > 80 or chat.count(" ") > 5
+
+    if sender_garbage:
+        m = _re.search(r'\b(?:from|by)\s+([A-Za-z][A-Za-z0-9\s]{1,25}?)\s+(?:in\b|group\b|sent\b|at\b|who\b|the\b)', orig_sender, _re.IGNORECASE)
+        if m and "@" not in m.group(1):
+            sender = _s(m.group(1).strip())
+            sender_garbage = len(sender) > 60 or sender.count(" ") > 4
+
+    if chat_garbage or sender_garbage:
+        bad = []
+        if chat_garbage:
+            bad.append(f"group/contact='{orig_chat[:40]}...' (too long - use 1-3 word partial name)")
+        if sender_garbage:
+            bad.append(f"sender='{orig_sender[:40]}...' (too long - use 1-2 word partial name)")
+        return _json({
+            "error": "Parameters contain full sentences instead of short names. Re-call with short names only.",
+            "bad_params": bad,
+            "correct_example": {
+                "group": "<2-3 word partial group name, e.g. 'fans sathi'>",
+                "contact": "<1-2 word contact name for DMs, e.g. 'venu'>",
+                "sender": "<1-2 word sender name, e.g. 'deekshit'>",
+                "limit": limit,
+                "order": order,
+            }
+        })
+    wa = get_client()
+    result = await wa.query_messages(chat=chat, sender=sender, limit=limit, from_me=from_me_str, date=date, order=order)
+
+    # If no results and both group + contact were provided, retry with the other one.
+    # Handles the case where LLM filled the wrong field (e.g. put group name in contact).
+    if isinstance(result, list) and len(result) == 0 and group and contact:
+        fallback_chat = contact if chat == group else group
+        result2 = await wa.query_messages(chat=fallback_chat, sender=sender, limit=limit, from_me=from_me_str, date=date, order=order)
+        if isinstance(result2, list) and len(result2) > 0:
+            result = result2
+
+    # If query_messages returned an error for a sender-only lookup, fall back to get_messages
+    # internally so the model never has to pick a second tool and waste LLM time.
+    is_error = isinstance(result, dict) and "error" in result
+    if is_error and sender and not chat:
+        fallback = await wa.get_messages(sender, limit, order=order, received_only=(from_me_str == "false"))
+        if fallback:
+            result = fallback
+
+    return _json(result)
+
+
+@mcp.tool()
+async def send_message(recipients: list[str], message: str) -> str:
+    """Send a text message to one or more contacts or groups.
+
+    Args:
+        recipients: List of contact names, phone numbers, or group names.
+                    For a single contact pass a one-item list: ["john"]
+        message: The text message to send.
+    """
+    wa = get_client()
+    if isinstance(recipients, str):
+        recipients = [recipients]
+    results = {}
+
+    for recipient in recipients:
+        result = await wa.send_message(recipient, message)
+
+        if await should_sync_on_error(result):
+            await wa.sync()
+            result = await wa.send_message(recipient, message)
+
+        results[recipient] = result
+
+    return _json(results)
+
+
+@mcp.tool()
+async def send_group_message(groups: list[str], message: str) -> str:
+    """Send a text message to one or more groups.
+
+    Args:
+        groups: Group name(s) to send to. Can be a single name or a list.
+        message: The text message to send.
+    """
+    wa = get_client()
+    if isinstance(groups, str):
+        groups = [groups]
+    results = {}
+    synced = False
+
+    for group in groups:
+        result = await wa.send_group_message(group, message)
+
+        if await should_sync_on_error(result) and not synced:
+            await wa.sync()
+            synced = True
+            result = await wa.send_group_message(group, message)
+
+        results[group] = result
+
+    return _json(results)
+
+
+@mcp.tool()
+async def send_media_message(recipients: list[str], source: str, caption: str = "") -> str:
+    """Send a media file (image, video, document, PDF, etc.) to one or more contacts or groups.
+
+    Args:
+        recipients: Contact name(s), phone number(s), or group name(s) to send to.
+        source: File path or URL of the media to send.
+        caption: Optional text caption to include with the media.
+    """
+    wa = get_client()
+    if isinstance(recipients, str):
+        recipients = [recipients]
+    results = {}
+
+    for recipient in recipients:
+        result = await wa.send_media_message(recipient, source, caption)
+
+        if await should_sync_on_error(result):
+            await wa.sync()
+            result = await wa.send_media_message(recipient, source, caption)
+
+            if await should_sync_on_error(result):
+                return _json({
+                    "error": f"Contact '{recipient}' not found. Ask user for phone number."
+                })
+
+        results[recipient] = result
+
+    return _json(results)
+
+
+if __name__ == "__main__":
+    mcp.run()

@@ -9,8 +9,7 @@ import time
 
 from memory import settings
 
-# A LIST OF MODELS COSTS A ROUND TRIP TO THE BACKEND, SO IT IS NOT FETCHED AGAIN
-# FOR EVERY NUDGE OF A SLIDER.
+# A LIST OF MODELS COSTS A ROUND TRIP TO THE BACKEND, SO IT IS CACHED.
 SOURCE_SECONDS = 30
 
 CONNECTIONS = "mcps"
@@ -40,7 +39,7 @@ def laid(group, reach):
 
     try:
         return reach.drawn(filled)
-    except Exception:  # A BROKEN CONNECTION MUST NOT LOSE EVERY OTHER CONTROL.
+    except Exception:
         return filled
 
 
@@ -53,8 +52,7 @@ def fill(entry):
     offered = sourced(source)
     here = settings.get(entry["key"])
 
-    # WHAT IS SET STAYS IN THE LIST EVEN WHEN THE BACKEND IS DOWN AND OFFERS
-    # NOTHING, SO THE CONTROL NEVER SHOWS A BLANK FOR A WORKING SETTING.
+    # WHAT IS SET STAYS IN THE LIST, SO THE CONTROL NEVER BLANKS A WORKING SETTING.
     if here and here not in offered:
         offered = [here] + offered
 
@@ -84,7 +82,7 @@ def ask(name):
             import voice
 
             return voice.installed()
-    except Exception:  # NOTHING TO OFFER IS A SHORTER LIST, NOT A FAILURE.
+    except Exception:
         pass
 
     return []

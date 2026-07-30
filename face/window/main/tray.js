@@ -1,5 +1,3 @@
-// THE ICON THAT IS THERE WHENEVER HAPPY IS RUNNING.
-
 const { Menu, Tray, nativeImage } = require('electron')
 const path = require('node:path')
 

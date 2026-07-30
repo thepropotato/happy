@@ -27,8 +27,7 @@ PARTS = (
 
 RATE = 16000
 
-# LEFT ALONE ONNXRUNTIME PUTS COREML FIRST, WHICH IS UNMEASURED ON A 650 MB
-# ENCODER. CPU IS THE SURE ONE, ANYTHING FASTER IS ASKED FOR.
+# ONNXRUNTIME WOULD PUT COREML FIRST, WHICH IS UNMEASURED ON A 650 MB ENCODER.
 PROVIDERS = {"cpu": ["CPUExecutionProvider"]}
 
 GET_IT = f"No speech model in {MODELS}. Get it with:\n  python -m ears --get"
@@ -69,10 +68,9 @@ def load_model():
         )
         built = asked
     except Exception as error:
-        if model is None:  # NOTHING TO FALL BACK ON. STARTING UP DESERVES TO FAIL.
+        if model is None:
             raise
 
-        # A DEVICE THIS MACHINE HAS NOT GOT. KEEP HEARING ON THE OLD ONE.
         show.trouble(f"{asked} would not load, still hearing on {built} ({error})")
 
     return model

@@ -19,7 +19,6 @@ from voice.sentences import Sentences
 
 IDLE_POLL_SECONDS = 0.1  # SHORT HOPS SO CTRL+C STILL LANDS WHILE WAITING.
 
-# HOW FINELY THE SHAPE OF A CLIP IS MEASURED FOR WHATEVER IS DRAWING IT.
 ENVELOPE_MS = 40
 
 
@@ -32,8 +31,7 @@ class Speaker:
         self.sentences = queue.Queue()
         self.clips = queue.Queue()
 
-        # BUMPED BY stop(). WORK STAMPED WITH AN OLDER ONE IS THROWN AWAY, WHICH
-        # CANCELS A SENTENCE ALREADY HALFWAY THROUGH SYNTHESIS.
+        # BUMPED BY stop(). WORK STAMPED WITH AN OLDER ONE IS THROWN AWAY.
         self.era = 0
 
         self.pending = 0
@@ -59,10 +57,9 @@ class Speaker:
         self.engine = engines.chosen()
         self.voice, why = engines.attempt()
 
-        if why:  # HAPPY STILL ANSWERS, HE JUST ANSWERS IN WRITING.
+        if why:
             show.trouble(why)
 
-        # THE FIRST SENTENCE OF A REPLY IS THE ONE PEOPLE JUDGE. PAY FOR IT HERE.
         self.voice.warm()
 
     def say(self, pieces):
@@ -73,7 +70,7 @@ class Speaker:
 
                 yield piece
         finally:
-            self.flush()  # AN ANSWER CUT SHORT STILL SAYS WHAT IT HAD.
+            self.flush()
 
     def feed(self, piece):
         for sentence in self.pieces.feed(piece):
@@ -114,7 +111,7 @@ class Speaker:
         self.clips.put((self.era, None))
 
     def send(self, sentence):
-        if settings.get("voice.muted"):  # HAPPY STILL ANSWERS, HE JUST WRITES IT.
+        if settings.get("voice.muted"):
             return
 
         with self.quiet:
@@ -136,7 +133,7 @@ class Speaker:
 
             try:
                 samples = self.voice.say(sentence)
-            except Exception as error:  # A BAD SENTENCE MUST NOT END THE SESSION.
+            except Exception as error:
                 print(f"\n[voice] {error}")
                 self.settle()
                 continue

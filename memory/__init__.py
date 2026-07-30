@@ -2,9 +2,11 @@
 
 from memory import settings
 from memory.conversation import (
+    begin,
+    brief,
+    close,
     history,
-    replied,
-    said,
+    progress,
     search,
     since,
     used,
@@ -15,13 +17,15 @@ from memory.storage import path
 from memory.transcript import show
 
 __all__ = [
+    "begin",
+    "brief",
+    "close",
     "get",
     "history",
     "path",
+    "progress",
     "prune",
     "put",
-    "replied",
-    "said",
     "search",
     "settings",
     "show",

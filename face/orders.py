@@ -14,10 +14,8 @@ from memory import settings
 
 RECENT_MESSAGES = 60
 
-# A KNOB THAT DECIDES WHAT THE NEXT ONE OFFERS. MOVING IT DROPS THAT ONE CACHED
-# LIST, RATHER THAN LEAVING THE CONTROL SHOWING THE OLD BACKEND'S MODELS FOR HALF
-# A MINUTE. ONLY THESE, BECAUSE A SLIDER FIRES ONE SET PER NUDGE AND ASKING A
-# BACKEND WHAT IT HAS IS A ROUND TRIP.
+# A KNOB THAT DECIDES WHAT THE NEXT ONE OFFERS. MOVING IT DROPS THAT CACHED LIST.
+# ONLY THESE, BECAUSE ASKING A BACKEND WHAT IT HAS IS A ROUND TRIP PER NUDGE.
 GOVERNS = {"brain.provider": "models", "brain.url": "models"}
 
 ON = "mcps.on."
@@ -55,10 +53,10 @@ def read():
 
         try:
             carry(order)
-        except Exception as error:  # A BAD ORDER IS NOT A REASON TO STOP LISTENING.
+        except Exception as error:
             panel.trouble(error)
 
-    call("quit")  # THE WINDOW CLOSED ITS END. THERE IS NOBODY LEFT TO TALK TO.
+    call("quit")
 
 
 def carry(order):
@@ -82,8 +80,7 @@ def carry(order):
         settings.clear(order.get("key"))
         describe()
     elif asked in REACHING:
-        # A SIGN IN IS A BROWSER AND A PERSON, WHICH IS MINUTES. HOLDING THIS
-        # THREAD FOR IT WOULD LEAVE THE WINDOW UNABLE TO SAY ANYTHING AT ALL.
+        # A SIGN IN IS MINUTES. HOLDING THIS THREAD WOULD MUTE THE WINDOW.
         threading.Thread(target=reaching, args=(asked, order.get("name")), daemon=True).start()
     elif asked == "history":
         recall(order.get("limit", RECENT_MESSAGES))

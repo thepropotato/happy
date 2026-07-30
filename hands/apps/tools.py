@@ -60,9 +60,8 @@ def open_app(name: str) -> str:
     if complaint:
         return complaint
 
-    # SAYING "OPENED" WITHOUT LOOKING WAS THE WHOLE PROBLEM. EVERY TOOL AFTER
-    # THIS ONE READS WHATEVER IS IN FRONT, SO IF IT IS NOT THIS APP THE MODEL
-    # HAS TO BE TOLD RATHER THAN LEFT TO CLICK AROUND IN SOMEBODY ELSE'S WINDOW.
+    # EVERY TOOL AFTER THIS ONE READS WHATEVER IS IN FRONT, SO IF IT IS NOT THIS
+    # APP THE MODEL HAS TO BE TOLD RATHER THAN LEFT CLICKING IN SOMEBODY ELSE'S.
     if not opening.raised(match):
         return (
             f"I started {match} but it did not come to the front, so anything on "

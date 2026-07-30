@@ -3,7 +3,6 @@ APPLICATION ITSELF, AND THE SCENE THE TWO OF THEM AGREE ON."""
 
 from typing import NamedTuple
 
-# WHAT COUNTS TOWARDS A RECIPE'S SCORE.
 SURE_CONFIDENCE = 60.0
 
 
@@ -79,8 +78,8 @@ class Recipe(NamedTuple):
     """ONE WAY OF CLEANING A PICTURE UP BEFORE READING IT."""
 
     name: str
-    even: bool = False  # EVEN OUT THE LIGHTING.
-    smooth: bool = False  # KILL SENSOR NOISE.
+    even: bool = False
+    smooth: bool = False
     sharpen: bool = False
     threshold: str = ""  # "", "otsu" OR "adaptive".
     despeckle: bool = False
@@ -154,7 +153,7 @@ class Scene(NamedTuple):
     elements: tuple = ()
     focus: str = ""
     pointer: tuple = (0, 0)
-    text: str = ""  # ONLY WHEN THE WORDS WERE ACTUALLY NEEDED. OCR IS NOT FREE.
+    text: str = ""  # ONLY WHEN THE WORDS WERE NEEDED. OCR IS NOT FREE.
     mark: str = ""  # THE SCREEN FINGERPRINTED, FOR NOTICING CHANGE WITHOUT OCR.
     senses: tuple = ()
     at: float = 0.0

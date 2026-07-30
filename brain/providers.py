@@ -15,28 +15,24 @@ import urllib.request
 OLLAMA = "ollama"
 OPENAI = "openai"
 
-# THE OPENAI SHAPE POINTS AT THE SAME LOCAL SERVER ON PURPOSE: IT IS THE FALLBACK
-# FOR ANYTHING THAT SPEAKS THAT REQUEST, LM STUDIO AND VLLM AND LLAMA.CPP TOO.
+# THE OPENAI SHAPE POINTS AT THE SAME LOCAL SERVER: IT IS THE FALLBACK FOR
+# LM STUDIO, VLLM AND LLAMA.CPP TOO.
 URLS = {
     OLLAMA: "http://localhost:11434",
     OPENAI: "http://localhost:11434/v1",
 }
 
-# WHICH ONES TAKE A CONTEXT LENGTH PER REQUEST. THE OPENAI REQUEST HAS NO FIELD
-# FOR IT, AND OLLAMA STARTS AT 4096 AND THEN TRUNCATES IN SILENCE.
+# OLLAMA STARTS AT 4096 AND TRUNCATES IN SILENCE. THE OPENAI REQUEST HAS NO FIELD.
 SETS_CONTEXT = {OLLAMA: True, OPENAI: False}
 
-# WHERE EACH ONE LISTS WHAT IT ALREADY HAS: THE PATH, THE FIELD HOLDING THE
-# LIST, AND WHAT A MODEL'S NAME IS CALLED INSIDE IT.
+# PATH, THE FIELD HOLDING THE LIST, AND WHAT A MODEL'S NAME IS CALLED IN IT.
 LISTING = {
     OLLAMA: ("/api/tags", "models", "name"),
     OPENAI: ("/models", "data", "id"),
 }
 
-# A LIST FOR A DROPDOWN. NOBODY WAITS ON IT, SO IT GIVES UP QUICKLY.
 LISTING_TIMEOUT = 2
 
-# HOW TO GET A MODEL THAT IS NOT THERE. PRINTED FOR A PERSON, NEVER RUN.
 INSTALL = {
     OLLAMA: "ollama pull {model}",
     OPENAI: "load {model} in whatever is serving {url}",
@@ -65,7 +61,7 @@ def ollama(model, url, key, temperature, context, effort, timeout):
         model=model,
         temperature=temperature,
         num_ctx=context,
-        reasoning=effort,  # SENT AS think. A LEVEL, OR None FOR THE MODEL'S OWN.
+        reasoning=effort,  # SENT AS think.
         client_kwargs={"timeout": timeout},
     )
 
@@ -129,7 +125,7 @@ def offered(name, url=None):
     try:
         with urllib.request.urlopen(address(name, url) + path, timeout=LISTING_TIMEOUT) as answer:
             found = json.load(answer)
-    except Exception:  # A BACKEND THAT IS NOT RUNNING IS NOT AN ERROR TO REPORT.
+    except Exception:
         return []
 
     return sorted(each.get(called) for each in found.get(holds, []) if each.get(called))

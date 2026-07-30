@@ -10,8 +10,6 @@ SIGN_OUT = "Sign out"
 
 REMOVE = "Remove from the list"
 
-SET_UP = "Set up"
-
 CONNECT = "Connect"
 
 SWITCH_ON = "Switch on"
@@ -24,14 +22,13 @@ READY = "Ready to sign in"
 
 AGAIN = "Sign in again"
 
-# WHAT THE SDK SAYS WHEN A SIGN IN HAS DIED. AN ORDINARY CONNECTION IS BUILT WITH
-# NO WAY TO OPEN A BROWSER ON PURPOSE, SO A TOKEN THAT CANNOT BE REFRESHED COMES
-# BACK AS THIS RATHER THAN AS A WINDOW IN FRONT OF WHOEVER IS STANDING THERE.
-DIED = "no redirect handler"
+# WHAT A SIGN IN THAT HAS DIED LOOKS LIKE COMING BACK. A CONNECTION THAT CAME UP
+# ON ITS OWN HAS NO WAY TO OPEN A BROWSER, ON PURPOSE, SO A TOKEN THAT CANNOT BE
+# RENEWED COMES BACK AS THE SERVER REFUSING.
+DIED = ("401", "unauthorized", "no redirect handler")
 
 # THE ONE LINE UNDER A SERVICE'S NAME. IT SAYS WHAT CONNECTING WILL COST AND
-# NOTHING ELSE. A LIST WHERE EVERY LINE IS A PARAGRAPH IS A LIST NOBODY READS,
-# WHICH IS THE SAME AS A LIST THAT SAYS NOTHING.
+# NOTHING ELSE.
 SAYS = {
     directory.OPEN: "Nothing to paste",
     directory.TOKEN: "Needs a token",
@@ -43,7 +40,9 @@ SAYS = {
 def plainly(state):
     """A SERVER'S ERROR AS ONE LINE A PERSON CAN ACT ON. THE WHOLE OF IT IS STILL
     INSIDE THE ROW, WHERE SOMEBODY DEBUGGING WILL LOOK AND NOBODY ELSE WILL."""
-    return AGAIN if DIED in (state or "").lower() else state
+    said = (state or "").lower()
+
+    return AGAIN if any(each in said for each in DIED) else state
 
 
 def wrong(known, row, fields):
@@ -77,14 +76,6 @@ def ended(said):
         return None
 
     return said if said.endswith((".", "!", "?")) else said + "."
-
-
-def pill(known, fields):
-    """THE WORD ON THE RIGHT OF A ROW THAT IS NOT CONNECTED YET."""
-    if fields and not filling.poised(known["name"], known["kind"]):
-        return SET_UP
-
-    return SWITCH_ON if known["kind"] == directory.LOCAL else CONNECT
 
 
 def asking(known, label):

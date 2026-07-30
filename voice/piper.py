@@ -43,7 +43,7 @@ class Voice:
         self.rate = self.voice.config.sample_rate
         self.pace = settings.get("voice.pace") if length is None else length
 
-        # BELOW ONE IS FASTER SPEECH, WHICH READS AS SOMEONE WITH THE ANSWER IN HAND.
+        # BELOW ONE IS FASTER SPEECH.
         self.how = SynthesisConfig(length_scale=self.pace)
 
     def refit(self):
@@ -56,7 +56,6 @@ class Voice:
     def say(self, text):
         self.refit()
 
-        # ONE SENTENCE COMES BACK IN A HANDFUL OF CHUNKS. THE PLAYER WANTS ONE.
         parts = [chunk.audio_float_array for chunk in self.voice.synthesize(text, self.how)]
 
         return np.concatenate(parts) if parts else np.zeros(0, dtype=np.float32)

@@ -1,6 +1,3 @@
-// THE LITTLE DRAWING BESIDE EACH SECTION OF THE CONTROLS. ONE PER PART OF A
-// PERSON, AND A LETTER FOR ANY PART THAT ARRIVES LATER WITHOUT ONE.
-
 const MARKS = {
   brain:
     '<rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/>' +

@@ -12,11 +12,9 @@ from memory import settings
 API_KEY_ENV = "LLM_API_KEY"
 NO_KEY = "local"
 
-# NOTHING TO REASON ABOUT AND NOTHING TO INVENT. IT IS ASKED WHAT IT SEES.
 VISION_TEMPERATURE = 0
 
-# THINKING OFF, NOT TURNED DOWN. A MODEL THAT SPENDS ITS WINDOW THINKING GETS CUT
-# OFF AT finish_reason "length" AND RETURNS AN EMPTY STRING.
+# OFF, NOT LOW: A MODEL THAT THINKS ITS WHOLE WINDOW RETURNS AN EMPTY STRING.
 OFF = "off"
 
 WARM_UP = "hi"
@@ -41,7 +39,7 @@ def create(model=None, provider=None, url=None, key=None, temperature=None, cont
             effort=effort if effort is not None else thinking("brain.effort"),
             timeout=settings.get("brain.timeout"),
         )
-    except providers.ProviderError as error:  # ONE ERROR TYPE LEAVES THIS MODULE.
+    except providers.ProviderError as error:
         raise LLMError(str(error))
 
 
@@ -119,7 +117,7 @@ def complaint(error):
     """WHICH OF THE TWO LIKELY THINGS WENT WRONG, AND HOW TO FIX THAT ONE."""
     said = reason(error)
 
-    if NOT_FOUND in said.lower():  # THE SERVER IS UP, IT DOES NOT HAVE THE MODEL.
+    if NOT_FOUND in said.lower():
         return f"{name()} IS NOT THERE. GET IT WITH:\n  {obtain()}"
 
     return f"COULD NOT REACH {name()} AT {url()}. IS IT RUNNING? ({said})"

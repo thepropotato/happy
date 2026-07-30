@@ -1,9 +1,5 @@
-// THE SHEET OF CONTROLS: SIX SECTIONS THAT FOLD OPEN WHERE THEY SIT. EVERY ROW
-// IS DRAWN FROM WHAT THE CATALOGUE SAYS IT IS, WHICH IS WHY ADDING A SETTING IS A
+// EVERY ROW IS DRAWN FROM WHAT THE CATALOGUE SAYS IT IS: ADDING A SETTING IS A
 // ROW IN A PYTHON FILE AND NOTHING AT ALL IN HERE.
-//
-// A SHUT SECTION STILL SAYS WHAT IT IS SET TO, BECAUSE MOST VISITS TO THE
-// CONTROLS ARE SOMEBODY CHECKING RATHER THAN CHANGING.
 
 const Knobs = (() => {
   let sheet = null
@@ -13,8 +9,7 @@ const Knobs = (() => {
   let values = {}
   let opened = null
 
-  // SECTIONS WHERE THE RARELY TOUCHED ONES HAVE BEEN ASKED FOR. IT OUTLIVES A
-  // REDRAW, SO A SIGN IN FINISHING DOES NOT FOLD THEM BACK UNDER SOMEBODY.
+  // OUTLIVES A REDRAW, SO A SIGN IN FINISHING DOES NOT FOLD THEM BACK.
   const asked = new Set()
 
   function tell(key, value) {
@@ -42,8 +37,6 @@ const Knobs = (() => {
     return row
   }
 
-  // A CONNECTION IS NOT A SETTING AND IS NOT DRAWN LIKE ONE. NEITHER IS THE LINE
-  // OVER A RUN OF THEM, OR A ROW THAT OPENS INTO ORDINARY CONTROLS.
   function drawing(entry) {
     if (entry.kind === 'heading') return Services.heading(entry)
     if (entry.kind === 'service') return Services.row(entry)
@@ -69,7 +62,6 @@ const Knobs = (() => {
   function summary(group) {
     const services = group.settings.filter((each) => each.kind === 'service')
 
-    // A SECTION OF SERVICES COUNTS ITSELF. NOTHING ELSE ABOUT IT IS WORTH A LINE.
     if (services.length) {
       const live = services.filter((each) => each.connected).length
 
@@ -135,8 +127,7 @@ const Knobs = (() => {
     return part
   }
 
-  // ONE OPEN AT A TIME. TWO AT ONCE IN A PANEL THIS TALL IS A SHEET WHERE NEITHER
-  // OF THEM IS FULLY ON THE SCREEN.
+  // ONE OPEN AT A TIME: TWO WOULD NOT BOTH FIT ON THE SCREEN.
   function fold(key) {
     const already = opened === key
 
@@ -153,8 +144,6 @@ const Knobs = (() => {
   }
 
   function paint() {
-    // A SHEET REDRAWN UNDER SOMEBODY BECAUSE A SIGN IN FINISHED SHOULD STAY WHERE
-    // THEY LEFT IT.
     const where = sheet.scrollTop
 
     sheet.innerHTML = ''
@@ -173,9 +162,6 @@ const Knobs = (() => {
 
       Fields.start({ tell, ask })
 
-      // WHAT DRAWING A CONNECTION BORROWS. IT IS THE CONTROLS EVERY OTHER SETTING
-      // IS DRAWN WITH AND NOTHING ELSE, SO A SERVICE'S BOXES AND BUTTONS ARE THE
-      // SAME BOXES AND BUTTONS.
       Services.start({
         value: (key) => values[key],
         tell,
@@ -188,9 +174,8 @@ const Knobs = (() => {
       })
     },
 
-    // A CONTROL THAT WAS JUST MOVED HAS ALREADY DRAWN ITSELF, AND REDRAWING IT
-    // WOULD SHUT THE LIST THAT IS STILL OPEN UNDER SOMEBODY'S FINGER. SO THE
-    // SHEET IS ONLY REBUILT WHEN WHAT CAME BACK IS NOT WHAT WE ALREADY BELIEVE.
+    // REDRAWING A CONTROL THAT WAS JUST MOVED WOULD SHUT THE LIST STILL OPEN UNDER
+    // SOMEBODY'S FINGER, SO THE SHEET IS REBUILT ONLY WHEN SOMETHING CHANGED.
     show(word) {
       const agreed =
         JSON.stringify(word.values) === JSON.stringify(values) &&

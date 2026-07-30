@@ -31,7 +31,7 @@ def tell(what, *args, **kwargs):
 
         try:
             doing(*args, **kwargs)
-        except Exception:  # A FACE THAT FALLS OVER MUST NOT TAKE THE TURN WITH IT.
+        except Exception:
             continue
 
 
@@ -55,8 +55,8 @@ def piece(text):
     tell("piece", text)
 
 
-def step(kind, name, seconds):
-    tell("step", kind, name, seconds)
+def step(kind, name, seconds, about=None):
+    tell("step", kind, name, seconds, about)
 
 
 def trouble(text):

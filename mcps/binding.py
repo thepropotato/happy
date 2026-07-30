@@ -61,8 +61,7 @@ def bind(service, session, offered, allowed=None, cap=0, taken=None):
     for tool in wanted(offered, allowed, cap):
         name = named(service, tool.name)
 
-        # A CLASH IS SKIPPED, NEVER SHADOWED. QUIETLY REPLACING read_file WITH
-        # SOMEBODY ELSE'S IDEA OF ONE IS THE WORST WAY THIS COULD GO WRONG.
+        # A CLASH IS SKIPPED, NEVER SHADOWED: NOBODY ELSE'S read_file WINS.
         if name in spoken:
             continue
 

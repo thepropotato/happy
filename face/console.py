@@ -7,7 +7,7 @@ TOOL ADDED LATER APPEARS HERE WITHOUT ANYONE WIRING IT UP.
 import shutil
 from datetime import datetime
 
-from face.turn import MODEL, Turn, stats
+from face.turn import MODEL, STARTED, Turn, stats
 
 WIDTH = 78
 RULE = "─"
@@ -73,9 +73,17 @@ def piece(text):
     print(text, end="", flush=True)
 
 
-def step(kind, name, seconds):
-    """WHAT brain.watches() FEEDS. NO TOOL HAS TO KNOW THIS EXISTS."""
+def step(kind, name, seconds, about=None):
+    """WHAT brain.watches() FEEDS. NO TOOL HAS TO KNOW THIS EXISTS.
+
+    THE TERMINAL PRINTS ONE ACCOUNT AT THE END OF A TURN AND NOT A ROW PER CALL,
+    SO WHAT about CARRIES GOES NOWHERE HERE.
+    """
     if turn is None:
+        return
+
+    # A CALL THAT HAS MERELY STARTED CARRIES NO TIME AND MUST NOT BE ADDED UP.
+    if kind == STARTED:
         return
 
     if kind == MODEL:

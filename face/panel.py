@@ -11,7 +11,7 @@ import json
 import sys
 import threading
 
-from face.turn import MODEL, Turn
+from face.turn import MODEL, STARTED, Turn
 
 LOADING = "loading"
 IDLE = "idle"
@@ -87,15 +87,18 @@ def piece(text):
     send("piece", text=text)
 
 
-def step(kind, name, seconds):
+def step(kind, name, seconds, about=None):
     if turn is None:
         return
 
-    if kind == MODEL:
+    # THE ID TIES THE STARTED AND FINISHED LINES TO THE ONE ROW.
+    if kind == STARTED:
+        send("began", name=name, **(about or {}))
+    elif kind == MODEL:
         turn.thought = seconds
     else:
         turn.add(name, seconds)
-        send("step", kind=kind, name=name, seconds=seconds)
+        send("step", kind=kind, name=name, seconds=seconds, **(about or {}))
 
 
 def trouble(text):
@@ -126,11 +129,9 @@ def end():
     if turn is None:
         return
 
-    if reply.strip():
-        send("message", who="happy", text=reply.strip())
+    # THE PIECES ALREADY CARRIED EVERY WORD.
+    send("done", spoke=bool(reply.strip()))
 
-    # A BRUSHED KEY HAS NOTHING TO ACCOUNT FOR, AND A PANEL FULL OF "TOTAL 64MS"
-    # IS A PANEL NOBODY READS.
     if turn.heard is not None or turn.thought is not None:
         send("stats", **spent(turn))
 

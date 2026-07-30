@@ -23,8 +23,8 @@ CHANNELS = 1
 SAMPLE_WIDTH_BYTES = 2
 BLOCK_SIZE = 1600  # 100 ms.
 
-# THE RING HOLDS THE LONGEST LEAD IN ANYONE CAN ASK FOR, AND start() TAKES THE
-# LAST FEW BLOCKS OF IT. THE SETTING CAN THEN MOVE WITHOUT REOPENING THE DEVICE.
+# THE LONGEST LEAD IN ANYONE CAN ASK FOR, SO THE SETTING MOVES WITHOUT
+# REOPENING THE DEVICE.
 MOST_PREROLL_SECONDS = 1.5
 
 FULL_SCALE = 32768.0  # int16, SO LOUDNESS COMES BACK AS 0 TO 1.
@@ -41,8 +41,7 @@ class Recorder:
         self.lock = threading.Lock()
         self.recent = collections.deque(maxlen=blocks(MOST_PREROLL_SECONDS))
 
-        # RAW int16 STRAIGHT FROM PORTAUDIO. A SAMPLE PAST +-1.0 IN float32
-        # WOULD WRAP TO THE OPPOSITE SIGN.
+        # RAW int16: A SAMPLE PAST ±1.0 IN float32 WOULD WRAP TO THE OPPOSITE SIGN.
         self.stream = sd.RawInputStream(
             samplerate=SAMPLE_RATE,
             channels=CHANNELS,
@@ -59,8 +58,7 @@ class Recorder:
         wanted = blocks(settings.get("ears.preroll"))
 
         with self.lock:
-            # THE MOMENT BEFORE THE KEY WENT DOWN. A KEY IS NEVER PRESSED ON THE
-            # FIRST SYLLABLE.
+            # A KEY IS NEVER PRESSED ON THE FIRST SYLLABLE.
             self.chunks = list(self.recent)[-wanted:] if wanted else []
             self.started_at = time.monotonic()
             self.capturing = True
@@ -73,7 +71,7 @@ class Recorder:
         # TIMED, NOT MEASURED OFF THE CLIP, WHICH THE PADDING INFLATES.
         held = time.monotonic() - self.started_at
 
-        time.sleep(settings.get("ears.tail"))  # STILL RECORDING, TO CATCH THE LAST WORD.
+        time.sleep(settings.get("ears.tail"))
 
         with self.lock:
             if not self.capturing:
@@ -83,7 +81,7 @@ class Recorder:
             pcm = b"".join(self.chunks)
             self.chunks = []
 
-        if held < settings.get("ears.hold") or not pcm:  # A BRUSH, NOT A TAKE.
+        if held < settings.get("ears.hold") or not pcm:
             return None
 
         return self.save(pcm)
@@ -108,7 +106,7 @@ class Recorder:
             else:
                 keeping = False
 
-        if keeping:  # ONLY WHILE SOMEONE IS TALKING. NOBODY WATCHES ROOM NOISE.
+        if keeping:
             show.level(loudness(block))
 
     def save(self, pcm):

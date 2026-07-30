@@ -11,7 +11,6 @@ import memory.storage as storage
 
 from hands.coder import registry
 
-# TABLE PLUS INDEX, SAME SHAPE AS STORAGE.
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS coder_jobs (
     id         INTEGER PRIMARY KEY,
@@ -45,7 +44,7 @@ def setup():
 
     with handle:
         handle.executescript(SCHEMA)
-        # KEEP OLD DATABASES WORKING AFTER THE NEW COLUMN WAS ADDED.
+        # KEEP OLD DATABASES WORKING AFTER THE NEW COLUMN.
         try:
             handle.execute("ALTER TABLE coder_jobs ADD COLUMN session_id TEXT")
         except Exception:
@@ -73,7 +72,7 @@ class Job:
     def work(self):
         try:
             result = run(self.coder_name, self.task, self.session_id)
-        except Exception as error:  # CHILD FAILURES STAY HERE.
+        except Exception as error:
             result = {"failed": f"{error.__class__.__name__}: {error}"}
 
         self.failed = result.get("failed")

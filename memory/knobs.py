@@ -10,9 +10,7 @@ NUMBER = "number"
 TEXT = "text"
 TOGGLE = "toggle"
 
-# THREE SHAPES THAT ARE NOT SETTINGS. A LIST OF SERVICES IS NOT A LIST OF KNOBS
-# AND DREW ITSELF AS ONE FOR TOO LONG: A SLIDER, A PASTED SECRET AND A THING YOU
-# SIGN INTO ALL LOOKED THE SAME, WHICH IS THE WHOLE REASON NOBODY COULD READ IT.
+# THREE SHAPES THAT ARE NOT SETTINGS: A LIST OF SERVICES IS NOT A LIST OF KNOBS.
 HEADING = "heading"
 SERVICE = "service"
 FOLDED = "folded"
@@ -90,6 +88,9 @@ def service(name, label, mark, under, **extra):
     key IS THE SWITCH'S SETTING, WHICH ONLY EXISTS ONCE THERE IS SOMETHING TO
     SWITCH. fields, action AND leaving ARE ORDINARY KNOBS, SO WHAT IS INSIDE THE
     ROW IS DRAWN BY THE SAME CODE THAT DRAWS EVERYTHING ELSE.
+
+    NONE OF IT REACHES THE LIST. THE ROW ITSELF IS A NAME, A LINE AND A CHEVRON ON
+    EVERY CONNECTION WITHOUT EXCEPTION, AND ALL OF THIS OPENS UNDERNEATH IT.
     """
     return {
         "key": None,
@@ -99,13 +100,12 @@ def service(name, label, mark, under, **extra):
         "mark": mark,
         "under": under,
         "tone": "",  # live, warn, OR NOTHING AT ALL.
-        "careful": False,  # THE SERVICE ITSELF IS THE WARNING, NOT SOMETHING THAT WENT WRONG.
+        "careful": False,
         "connected": False,
         "ready": True,  # FALSE DIMS THE BUTTON: PRESSING IT NOW WOULD GET NOWHERE.
         "signed": 0,
         "tools": 0,
         "doing": [],  # THE TOOL NAMES IT ACTUALLY HANDS OVER.
-        "wording": None,  # THE PILL ON THE RIGHT WHEN THERE IS NO SWITCH YET.
         "note": None,
         "fields": [],
         "parts": [],
@@ -130,7 +130,7 @@ def settle(entry, value):
     """A VALUE THAT CAME FROM OUTSIDE, MADE INTO ONE THIS SETTING CAN HOLD."""
     kind = entry["kind"]
 
-    if kind == ACTION:  # A BUTTON HOLDS NOTHING, SO THERE IS NOTHING TO SETTLE.
+    if kind == ACTION:
         return None
 
     if kind == TOGGLE:

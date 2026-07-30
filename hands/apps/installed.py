@@ -34,12 +34,10 @@ SKIP = {"uninstall", "readme", "documentation"}
 
 SENTENCE = "Apps installed on this computer: "
 
-# HOW CLOSE A SPOKEN NAME HAS TO BE BEFORE WE MENTION IT. SPEECH ARRIVES
-# MISHEARD MORE OFTEN THAN WRONG, SO THIS IS FORGIVING ON PURPOSE.
+# SPEECH ARRIVES MISHEARD MORE OFTEN THAN WRONG, SO THIS IS FORGIVING ON PURPOSE.
 MATCH_CUTOFF = 0.6
 
-# AND HOW CLOSE BEFORE WE OPEN IT WITHOUT ASKING. "slack" AND "clock" SCORE 0.6
-# AGAINST EACH OTHER, "photoshop" AND "Photos" SCORE 0.8.
+# "slack" AND "clock" SCORE 0.6 AGAINST EACH OTHER, "photoshop" AND "Photos" 0.8.
 SURE_CUTOFF = 0.85
 
 
@@ -91,7 +89,6 @@ def resolve(spoken):
     if said in lowered:
         return lowered[said], True
 
-    # A NAME SAID SHORT IS STILL THE NAME, BUT ONLY WHILE IT POINTS AT ONE APP.
     shortened = [name for low, name in lowered.items() if shortens(said, low)]
 
     if len(shortened) == 1:
@@ -104,7 +101,6 @@ def resolve(spoken):
 
     ratio = difflib.SequenceMatcher(None, said, close[0]).ratio()
 
-    # SEVERAL APPS ANSWER TO THE SHORT NAME, SO NO ONE OF THEM IS THE ANSWER.
     return lowered[close[0]], ratio >= SURE_CUTOFF and not shortened
 
 

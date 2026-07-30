@@ -25,14 +25,18 @@ STANDING = (
     "only when you genuinely cannot tell, ask once, and never ask again about "
     "something already answered. Once it is sent, say who you sent it to and "
     "where.\n\n"
+    "Every tool asks you for a \"why\". Fill it with one or two sentences telling "
+    "this person what you are doing right now and why you are doing it, the way you "
+    "would say it out loud to someone stood next to you: \"Opening WhatsApp so her "
+    "chat is in front\", not \"the user requested a message be sent\". Say it as you "
+    "are about to act, not afterwards, and never mention the tool's own name.\n\n"
     "To send someone a file, open their chat first and then use attach_file, which "
     "puts the file where the cursor is. Do not go looking for a paperclip. Attaching "
     "is not sending: send it afterwards, and only say it has gone once a tool has "
     "told you it did."
 )
 
-# WHAT THE MODEL CANNOT GUESS: WHOSE COMPUTER IT IS ANSWERING ABOUT. WITHOUT THIS
-# IT INVENTS APPS, OR DENIES ONES THAT ARE SITTING RIGHT THERE.
+# WITHOUT THIS THE MODEL INVENTS APPS, OR DENIES ONES SITTING RIGHT THERE.
 MACHINE = (
     "Here is what is on the computer you are working on. Treat it as the whole "
     "truth: if an app is not on this list, it is not installed."
@@ -43,8 +47,6 @@ def system_prompt():
     """THE STANDING PROMPT PLUS THE FACTS ONLY THIS MACHINE CAN SUPPLY."""
     parts = [STANDING]
 
-    # SAID ONLY WHILE SOMETHING IS CONNECTED. A PARAGRAPH ABOUT SERVICES NOBODY
-    # HAS SIGNED INTO IS PAID FOR ON EVERY TURN AND EARNS NOTHING.
     remote = mcps.mention()
 
     if remote:
@@ -52,7 +54,7 @@ def system_prompt():
 
     installed = apps.listing()
 
-    if installed:  # AN UNKNOWN PLATFORM, OR NOTHING FOUND. HAPPY STILL WORKS.
+    if installed:
         parts.append(f"{MACHINE}\n\n{installed}")
 
     return "\n\n".join(parts)

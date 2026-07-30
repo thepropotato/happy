@@ -125,9 +125,11 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `mcps/directory.py` | The services Happy knows, and what each one costs to sign into. |
 | `mcps/showing.py` | Every connection as a list somebody can read, for the window to draw. |
 | `mcps/store.py` | What is connected and what each one last said it could do. |
-| `mcps/signing.py` | How a connection proves who it is, registered or pasted in. |
-| `mcps/tokens.py` | Where a sign in is kept: the keychain if there is one, the database if not. |
+| `mcps/signing.py` | The client a connection signs in as, registered or pasted in. |
+| `mcps/granting.py` | The sign in itself: the consent page, the token, and keeping it alive. |
+| `mcps/tokens.py` | Where a sign in is kept, which is `data/happy.db` and nowhere else. |
 | `mcps/permission.py` | The browser, and the loopback door the service sends you back through. |
+| `mcps/servers/whatsapp/` | The one MCP server Happy ships. Reads WhatsApp, and asks before sending. |
 | `conscience/` | Asking before something that cannot be undone. |
 | `AGENTS.md` | How to write code in this repo. Read it before you write any. |
 | `TODO.md` | What is still pending. |
@@ -174,6 +176,69 @@ millisecond, a wall of JSON that must be cut down before it can be spoken, and c
 that did not exist here before. Every one of them is handled in `mcps/`, and **nothing is
 connected until somebody connects it** — a person who never opens the panel has exactly the
 tools this machine always had.
+
+### WhatsApp reads over the bridge and writes on the screen
+
+The one server Happy ships itself, and the one connection that is deliberately half a
+connection. It lives in `mcps/servers/whatsapp/` and is two processes: `bridge.py` is a Flask
+server on loopback running **neonize**, which links to your account the way WhatsApp Web does;
+`server.py` is the MCP side and talks to it over HTTP. Only the bridge ever touches WhatsApp.
+
+Linking an unofficial client is against their terms whether it sends anything or not. That is the
+part you accept when you press it, and no amount of care here removes it — but it is written in
+the row's note rather than shouted as a warning on the row itself. Amber is for something that
+has gone wrong, and this is a standing condition of the connection, not a fault. It reads
+"Runs on this machine" like any other local server, which it now is: Happy ships the thing, runs
+it on Happy's own Python, and there is nothing left to go and install.
+
+What it is best at is reading. Searching a year of chats for the address somebody sent you is the
+one thing driving the app on screen cannot do at any speed, and it is why the bridge earns its
+place. It sends too — text, media, and to groups — but sending is the half that gets numbers
+banned, because volume and spam reports are the signals WhatsApp acts on.
+
+So the line is drawn at **who asked**. Every send goes through `mcps/writing.py`, which is the
+cautious way round: not "gate the ones that write" but "anything not known to only look, asks".
+`send_message` does not start with a reading word, so it stops and asks, every time. That gating
+is the whole safety property — turn `mcps.confirm` off and it is gone.
+
+**What stays deleted is the auto reply.** The original answered any chat beginning with a keyword by
+round-tripping through a backend and replying into the thread, and `/create-group`,
+`/add-to-group` and `/delete-message` went with it. Sending somebody just said yes to and sending
+nobody was asked about are different things: the second arrives while nobody is watching, which
+is exactly the shape that looks like a bot from the outside. Twenty-one tools now — eighteen
+read, three send, none of them unattended.
+
+The cloud storage, the telemetry and the backend callbacks went with it: this runs on one machine
+for one person, and the S3 snapshot restore was already a no-op locally because both its read and
+its write were skipped whenever no bucket was configured.
+
+The failure to know about: **if `bridge.py` is not running, nothing errors.** The MCP half
+answers happily from whatever it last saw. A WhatsApp connection that has quietly stopped looks
+exactly like a quiet afternoon, which is why `get_status` is one of the six tools bound to the
+model rather than a diagnostic nobody calls.
+
+### Signing in is its own step, not something a refusal sets off
+
+The MCP SDK's sign in is sprung by a **401**: you connect, the server turns you away, and the
+browser opens. That assumes every server turns a stranger away. Google's do not. `gmailmcp`,
+`calendarmcp` and `drivemcp` answer `initialize` and `tools/list` to anybody and only refuse
+when a tool is actually *called* — so nothing ever sprang it. Connecting reported success,
+counted the tools, switched the service on, and no consent page ever opened; every one of those
+tools then failed the first time the model reached for it. It looked like three broken services
+and was one wrong assumption.
+
+So `mcps/granting.py` owns the whole flow and does it in the open, the moment a person presses
+Connect: discover the server's protected-resource metadata, discover its authorization server,
+register if it allows that and use the pasted client if it does not, then PKCE, browser, code,
+token. Only after that is the connection opened and asked what it offers.
+
+Owning it is also the only way to ask Google for a **refresh token**, which it gives only to
+somebody who says `access_type=offline` and shows the consent screen. Without those the sign in
+is dead an hour later. And renewal is ours too: `granting.Proving` puts a live bearer on every
+request and renews it on the way past, so a token renewed for Calendar is the one Gmail uses on
+its very next call. Nothing that comes up on its own can open a browser — a sign in that has
+died surfaces as the server refusing, which a row can say out loud, and not as a window
+appearing in front of whoever is standing there mid sentence.
 
 ### Adding a capability
 
@@ -626,7 +691,11 @@ warning about, and which of them share a sign in are all in `mcps/directory.py`.
 
 Two things fall out of that shape and are worth keeping. Services that share an OAuth client are
 listed as the one thing they are: `directory.listed()` folds a `family` into a single row, so
-Google's fifteen-minute errand is explained once and its three sign ins sit inside it. And a
+Google's fifteen-minute errand is explained once — and there is one sign in inside it, not three.
+The client and the token are both kept under the family's own name, the consent asks for what all
+three need at once, and the switches inside the row are only which of them the model may reach.
+One Google account agreeing to mail, calendar and drive is one question, and asking it three
+times was where people put the panel down. And a
 connected service shows the **tool names it actually hands over** — run through the same
 `binding.wanted()` the graph is built with, so it is what Happy can really do with it rather
 than what the server offered.
@@ -1029,9 +1098,12 @@ first. The battery and the lock do not, because neither costs you anything.
   developer preview.
 
 There **is** credential handling now, and it is confined to `mcps/`. It holds OAuth refresh
-tokens and pasted API tokens for services somebody explicitly connected, in the system
-keychain where there is one and in `data/happy.db` where there is not — and the panel says
-which. It holds no passwords and no cookies. Signing in is only ever started by a person, from
+tokens and pasted API tokens for services somebody explicitly connected, in `data/happy.db`,
+unencrypted, and nowhere else — the panel says so. The system keychain was tried here and taken
+back out: writes failed silently for a process nobody was sitting in front of, macOS allowed two
+items under one name, and a read and a write could land on different copies, so a connection's
+state disagreed with itself. One store Happy can see beats a safer one it cannot; guard the
+database instead. It holds no passwords and no cookies. Signing in is only ever started by a person, from
 the panel or `python -m mcps connect`: no tool can reach it, because a browser window opening
 in the middle of a spoken answer is not an answer.
 

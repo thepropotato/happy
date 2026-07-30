@@ -14,7 +14,6 @@ import time
 import eyes
 from hands.desktop import acting
 
-# TIME TO LET GO OF THE TERMINAL AND PUT THE WINDOW YOU MEANT IN FRONT.
 DELAY_SECONDS = 3
 
 

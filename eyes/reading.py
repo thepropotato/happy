@@ -19,8 +19,7 @@ KEEP_CONFIDENCE = 40.0
 ENOUGH_CONFIDENCE = 85.0
 ENOUGH_CHARACTERS = 40
 
-# HOW MUCH BETTER A LATER READING HAS TO BE TO REPLACE AN EARLIER ONE. NEAR TIES
-# GO TO WHATEVER WAS TRIED FIRST.
+# NEAR TIES GO TO WHATEVER WAS TRIED FIRST.
 MARGIN = 1.05
 
 PARAGRAPH = "\n\n"
@@ -93,8 +92,7 @@ def rows(harvested):
 def seam(step, usual, before, line):
     """WHAT BELONGS BETWEEN TWO LINES: A SPACE, A NEW LINE, OR A BLANK ONE."""
     if not usual or abs(step) < SAME_ROW * usual:
-        # ONE ROW READ AS TWO. TOUCHING MEANS ONE SENTENCE THAT CHANGED COLOUR
-        # PART WAY THROUGH. FAR APART MEANS A SIDEBAR THAT HAPPENS TO LINE UP.
+        # TOUCHING MEANS ONE SENTENCE THAT CHANGED COLOUR; FAR APART MEANS A SIDEBAR.
         return " " if line.left - before.right < SNUG * before.height else "\n"
 
     # A STEP THAT GOES BACK UP IS THE NEXT COLUMN STARTING.
@@ -176,7 +174,7 @@ def look(image, language=LANGUAGE, recipes=None, modes=MODES, thorough=False):
             if not thorough and enough(reading):
                 return best
 
-    if best is None:  # EVERY PASS TIMED OUT, OR THERE WERE NONE TO RUN.
+    if best is None:
         raise VisionError("Tesseract could not get through this picture.")
 
     return best

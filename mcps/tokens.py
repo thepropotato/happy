@@ -1,116 +1,47 @@
 """WHAT A SIGNED IN SERVICE LEFT BEHIND, AND WHERE IT IS PUT.
 
-THE DATABASE ALREADY HOLDS EVERY WORD EVER SAID, SO A REFRESH TOKEN IN IT IS NOT
-A NEW WAY TO BE EXPOSED — BUT IT IS A FAR WORSE CONSEQUENCE OF THE SAME ONE, AS
-THE FILE NOW READS YOUR MAIL. SO THE SYSTEM KEYCHAIN IS USED WHEN THERE IS ONE
-AND THE TABLE WHEN THERE IS NOT, AND where() SAYS WHICH SO THE PANEL CAN TOO.
+EVERY TOKEN, EVERY PASTED SECRET AND EVERY CLIENT SOMEBODY BROUGHT SITS IN
+connection_secrets IN data/happy.db, UNENCRYPTED, AND NOWHERE ELSE. THE SYSTEM
+KEYCHAIN WAS TRIED HERE AND TAKEN BACK OUT: WRITES FAILED SILENTLY FOR A PROCESS
+NOBODY WAS SITTING IN FRONT OF, AND TWO ITEMS UNDER ONE NAME MEANT A READ AND A
+WRITE COULD LAND ON DIFFERENT COPIES, SO A CONNECTION'S STATE DISAGREED WITH
+ITSELF. ONE STORE HAPPY CAN SEE BEATS A SAFER ONE IT CANNOT.
+
+A SIGN IN IS KEPT UNDER WHOEVER OWNS IT, NOT UNDER WHOEVER USES IT. MAIL,
+CALENDAR AND DRIVE ARE ONE GOOGLE ACCOUNT SAYING YES ONCE, SO ALL THREE READ AND
+WRITE THE ONE ROW AND NOBODY IS ASKED THE SAME QUESTION THREE TIMES.
 """
 
-import json
-
-from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
-
-from mcps import store
-
-SAFE = "happy-mcps"
-
-UNUSED = "http://127.0.0.1:0/callback"  # NEVER VISITED. A CLIENT METADATA NEEDS ONE.
+from mcps import directory, store
 
 
-def chest():
-    """THE SYSTEM KEYCHAIN, IF THIS MACHINE HAS ONE WE CAN ACTUALLY USE."""
-    try:
-        import keyring
-
-        keyring.get_keyring()
-
-        return keyring
-    except Exception:
-        return None
+def holder(name):
+    """WHOSE SIGN IN THIS SERVICE USES: ITS FAMILY'S, OR ITS OWN."""
+    return (directory.find(name) or {}).get("family") or name
 
 
 def where():
     """WHAT A PERSON SHOULD BE TOLD THEIR SIGN IN IS SITTING IN."""
-    return "the system keychain" if chest() else "Happy's database, unencrypted"
+    return "Happy's database, unencrypted"
 
 
 def kept(name):
-    safe = chest()
-
-    if safe:
-        try:
-            held = safe.get_password(SAFE, name)
-
-            if held:
-                return json.loads(held)
-        except Exception:  # A KEYCHAIN THAT WILL NOT OPEN IS THE SAME AS NOT HAVING ONE.
-            pass
-
-    return store.secret(name) or {}
+    return store.secret(holder(name)) or {}
 
 
 def put(name, **moved):
     held = kept(name)
     held.update(moved)
 
-    safe = chest()
-
-    if safe:
-        try:
-            safe.set_password(SAFE, name, json.dumps(held))
-
-            return
-        except Exception:
-            pass
-
-    store.keep(name, tokens=held.get("tokens"), client=held.get("client"))
+    store.keep(
+        holder(name),
+        tokens=held.get("tokens"),
+        client=held.get("client"),
+        auth=held.get("auth"),
+    )
 
 
 def clear(name):
-    safe = chest()
-
-    if safe:
-        try:
-            safe.delete_password(SAFE, name)
-        except Exception:
-            pass
-
-    store.keep(name, tokens=None, client=None)
-
-
-class Keeping:
-    """ONE CONNECTION'S SIGN IN, IN THE SHAPE THE PROTOCOL WANTS TO READ IT."""
-
-    def __init__(self, name):
-        self.name = name
-
-    async def get_tokens(self):
-        return shaped(OAuthToken, kept(self.name).get("tokens"))
-
-    async def set_tokens(self, tokens):
-        put(self.name, tokens=tokens.model_dump(mode="json", exclude_none=True))
-
-    async def get_client_info(self):
-        from mcps import signing
-
-        held = signing.client(self.name)
-
-        # A CLIENT TYPED IN BY HAND CARRIES NO REDIRECT, AND THE SHAPE INSISTS ON
-        # ONE. THE ONE ACTUALLY USED COMES OFF THE LIVE DOOR, NOT OFF THIS.
-        if held:
-            held.setdefault("redirect_uris", [UNUSED])
-
-        return shaped(OAuthClientInformationFull, held)
-
-    async def set_client_info(self, client_info):
-        put(self.name, client=client_info.model_dump(mode="json", exclude_none=True))
-
-
-def shaped(kind, held):
-    if not held:
-        return None
-
-    try:
-        return kind(**held)
-    except Exception:  # SOMETHING SAVED BY AN OLDER HAPPY. SIGN IN AGAIN, DO NOT CRASH.
-        return None
+    """SIGN OUT. THE CLIENT SOMEBODY BROUGHT STAYS: THEY SPENT AN AFTERNOON ON IT,
+    AND MAKING THEM FETCH IT AGAIN TO SIGN BACK IN IS NOT SIGNING OUT."""
+    put(name, tokens=None)

@@ -19,16 +19,12 @@ from eyes.naming import (
 )
 from eyes.parts import Element
 
-# HOW DEEP AND HOW WIDE A WALK GOES. A DEEPLY NESTED APPLICATION CAN OTHERWISE
-# HAND BACK TENS OF THOUSANDS OF GROUPS AND SPEND A SECOND DOING IT.
+# A DEEPLY NESTED APPLICATION WOULD OTHERWISE HAND BACK TENS OF THOUSANDS OF GROUPS.
 MAX_DEPTH = 16
 MAX_VISITS = 2500
 
-# WHERE AN APPLICATION'S WINDOWS ACTUALLY ARE. NOT ALWAYS AMONG ITS CHILDREN:
-# A CATALYST APP HANDS BACK ITS MENU BAR AND NOTHING ELSE, AND SOME OF THOSE
-# ALSO LEAVE AXWindows EMPTY AND ONLY ANSWER TO THE WINDOW BEING NAMED. WALKING
-# CHILDREN ALONE MADE WHATSAPP'S ENTIRE INTERFACE INVISIBLE, WHICH READS AS
-# "THERE IS NO MESSAGE FIELD" RATHER THAN AS THE BLIND SPOT IT IS.
+# WHERE AN APPLICATION'S WINDOWS ACTUALLY ARE. A CATALYST APP HANDS BACK ITS MENU
+# BAR AND NOTHING ELSE, AND SOME ONLY ANSWER TO THE WINDOW BEING NAMED.
 MAC_ROOTS = ("AXChildren", "AXWindows", "AXFocusedWindow", "AXMainWindow")
 
 def mac_attribute(element, name):
@@ -36,7 +32,7 @@ def mac_attribute(element, name):
 
     try:
         error, value = AXUIElementCopyAttributeValue(element, name, None)
-    except Exception:  # A WINDOW THAT CLOSED WHILE WE WERE WALKING IT.
+    except Exception:
         return None
 
     return value if error == 0 else None
@@ -134,14 +130,14 @@ def mac_elements(pid):
         if made is not None:
             if made.width > 0 and made.height > 0:
                 found.append(made)
-            elif role in MAC_FOLDED:  # A MENU THAT IS NOT OPEN. ALL OF IT IS HIDDEN.
+            elif role in MAC_FOLDED:
                 return
 
         for child in mac_attribute(element, "AXChildren") or ():
             walk(child, depth + 1)
 
     for root in mac_roots(AXUIElementCreateApplication(pid)):
-        walk(root, 1)  # DEPTH 1: THESE ARE THE APPLICATION'S CHILDREN, NAMED.
+        walk(root, 1)  # DEPTH 1: THE APPLICATION'S CHILDREN.
 
     return found
 
@@ -151,7 +147,7 @@ def windows_pattern(element, identifier, interface):
         got = element.GetCurrentPattern(identifier)
 
         return got.QueryInterface(interface) if got else None
-    except Exception:  # THE ELEMENT SIMPLY DOES NOT DO THAT. NOT A FAILURE.
+    except Exception:
         return None
 
 
@@ -199,9 +195,7 @@ def windows_elements(handle):
     walker = automation.RawViewWalker
     found, visits = [], [0]
 
-    # SIBLINGS ARE WALKED IN A LOOP RATHER THAN BY RECURRING ON THE NEXT ONE: A
-    # LIST WITH A THOUSAND ROWS IS A THOUSAND SIBLINGS, AND PYTHON GIVES UP AT
-    # ABOUT THAT DEPTH.
+    # SIBLINGS IN A LOOP, NOT BY RECURSION: A THOUSAND ROWS WOULD BLOW THE STACK.
     def walk(first, depth):
         element = first
 
@@ -211,11 +205,10 @@ def windows_elements(handle):
             try:
                 made = windows_element(element)
                 hidden = element.CurrentIsOffscreen
-            except Exception:  # A WINDOW THAT CLOSED WHILE WE WERE WALKING IT.
+            except Exception:
                 break
 
-            # OFFSCREEN IS UI AUTOMATION SAYING SO ITSELF, WHICH MACOS ONLY
-            # IMPLIES BY HANDING BACK A BOX WITH NO SIZE.
+            # MACOS ONLY IMPLIES OFFSCREEN, BY HANDING BACK A BOX WITH NO SIZE.
             if made.width > 0 and made.height > 0 and not hidden:
                 found.append(made)
 

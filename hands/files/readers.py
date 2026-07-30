@@ -9,7 +9,6 @@ WORDS THAT WERE IN IT.
 
 SPREADSHEET_ROWS = 500  # A SHEET WITH A HUNDRED THOUSAND ROWS IS NOT A READ.
 
-# THINGS THAT ARE NOT TEXT AND NEVER WILL BE. PICTURES ARE NOT ON THIS LIST.
 UNREADABLE = {
     ".gif": "an image", ".heic": "an image",
     ".mp3": "audio", ".wav": "audio", ".m4a": "audio", ".aac": "audio", ".flac": "audio",

@@ -5,7 +5,7 @@ DECIDING SOMETHING, AND A WINDOW THAT APPEARS BECAUSE THE MODEL WANTED IT TO IS
 NOT AN ANSWER TO ANYTHING SOMEBODY ASKED OUT LOUD.
 """
 
-from mcps import binding, directory, loop, pool, store
+from mcps import binding, directory, pool, store
 from memory import settings
 
 
@@ -23,74 +23,141 @@ def fresh(name):
 
 def connect(name):
     """SIGN INTO A SERVICE AND FIND OUT WHAT IT OFFERS. WAITS FOR A PERSON."""
+    if name in directory.FAMILIES:
+        return whole(name)
+
+    from mcps import granting, signing
+
     row = store.one(name) or fresh(name)
 
     if row is None:
         return f"There is nothing called {name}."
 
-    from mcps import permission, signing
-
     if not signing.ready(name, row["kind"]):
         return f"{row['label']} needs its details filled in first."
 
-    # A TOKEN OR A COMMAND IS NOT A SIGN IN. THERE IS NOBODY TO ASK ANYTHING, SO
+    # A TOKEN OR A COMMAND IS NOT A SIGN IN: THERE IS NOBODY TO ASK ANYTHING, SO
     # IT ONLY HAS TO BE OPENED ONCE TO FIND OUT WHAT IT CAN DO.
-    if not directory.signs_in(row["kind"]):
-        if not pool.refresh(row):
-            return f"Could not reach {row['label']}. {store.one(name)['state'] or ''}".strip()
+    if directory.signs_in(row["kind"]) and not granting.signed(name):
+        trouble = admitted(row)
 
-        enable(name)
+        if trouble:
+            return trouble
 
-        return signed(store.one(name))
-
-    return through(row, permission.Doorway())
-
-
-def through(row, doorway):
-    """THE WHOLE SIGN IN: A BROWSER, A WAIT, AND WHAT THE SERVICE OFFERS AFTER."""
-    from mcps import permission, signing
-    from mcps.session import Session, remote
-
-    name = row["name"]
-
-    try:
-        here = Session(
-            row["label"],
-            remote(row["address"], auth=signing.openly(row, doorway)),
-            timeout=permission.WAITING_SECONDS,
-        )
-        offered = loop.run(here.listing(), permission.WAITING_SECONDS + 30)
-    except Exception as error:
-        store.mark(name, str(error)[:200])
-
-        return f"Could not sign into {row['label']}. {str(error)[:150]}"
-    finally:
-        doorway.close()
-
-    store.remember(name, [each.model_dump() for each in offered])
-    store.mark(name, None)
-    loop.run(here.close(), 5)
+    if not pool.refresh(row):
+        return f"Could not reach {row['label']}. {store.one(name)['state'] or ''}".strip()
 
     enable(name)
 
     return signed(store.one(name))
 
 
+def whole(family):
+    """ONE SIGN IN, THEN EVERY SERVICE IT COVERS. THE WHOLE POINT OF A FAMILY.
+
+    THE CONSENT ASKS FOR WHAT ALL OF THEM NEED AT ONCE, SO ONE GOOGLE ACCOUNT IS
+    ONE TRIP THROUGH ONE SCREEN RATHER THAN THE SAME ERRAND THREE TIMES.
+    """
+    from mcps import granting, signing
+
+    known = directory.FAMILIES[family]
+    kin = [store.one(each["name"]) or fresh(each["name"]) for each in directory.household(family)]
+    kin = [row for row in kin if row]
+
+    if not kin:
+        return f"There is nothing called {family}."
+
+    if not signing.ready(family, known["kind"]):
+        return f"{known['label']} needs its details filled in first."
+
+    if not granting.signed(family):
+        trouble = admitted(kin[0], known["label"])
+
+        if trouble:
+            return trouble
+
+    opened = []
+
+    for row in kin:
+        if pool.refresh(row):
+            enable(row["name"])
+            opened.append(store.one(row["name"]))
+
+    if not opened:
+        return f"Signed into {known['label']}, but nothing answered."
+
+    return f"{known['label']} is connected, with {sum(counted(row) for row in opened)} tools."
+
+
+def admitted(row, label=None):
+    """THE BROWSER TRIP. NOTHING WHEN IT WORKED, THE REASON WHEN IT DID NOT.
+
+    THE SIGN IN IS ITS OWN STEP RATHER THAN SOMETHING THE FIRST REFUSED REQUEST
+    SETS OFF: GOOGLE'S SERVERS HAND OVER THEIR TOOL LIST WITHOUT ASKING WHO IS
+    CALLING AND ONLY REFUSE LATER, SO NOTHING WOULD EVER HAVE SET IT OFF.
+    """
+    from mcps import granting, permission
+
+    label = label or row["label"]
+    doorway = None
+
+    try:
+        doorway = permission.Doorway()
+        granting.sign_in(row, doorway)
+    except Exception as error:
+        store.mark(row["name"], str(error)[:200])
+
+        return f"Could not sign into {label}. {str(error)[:150]}"
+    finally:
+        if doorway is not None:
+            doorway.close()
+
+    store.mark(row["name"], None)
+
+    # WHATEVER WAS ALREADY OPEN SHOOK HANDS AS A STRANGER, SO IT IS DROPPED.
+    for each in [row["name"], *directory.relatives(row["name"])]:
+        pool.drop(each)
+
+    return None
+
+
 def signed(row):
-    from mcps import remembered, cap
+    return f"{row['label']} is connected, with {counted(row)} tools."
 
-    kept = len(binding.wanted(remembered(row["tools"]), row["allowed"], cap()))
 
-    return f"{row['label']} is connected, with {kept} tools."
+def counted(row):
+    """HOW MANY OF WHAT THIS SERVER OFFERS THE MODEL WILL ACTUALLY BE HANDED."""
+    from mcps import cap, remembered
+
+    return len(binding.wanted(remembered(row["tools"]), row["allowed"], cap()))
 
 
 def disconnect(name):
     """FORGET THE SIGN IN AND SWITCH IT OFF. THE CONNECTION ITSELF STAYS LISTED."""
     from mcps import tokens
 
+    if name in directory.FAMILIES:
+        for each in directory.household(name):
+            enable(each["name"], False)
+            store.mark(each["name"], None)
+
+        tokens.clear(name)
+
+        return
+
     enable(name, False)
-    tokens.clear(name)
     store.mark(name, None)
+
+    # A SHARED SIGN IN IS NOT ONE SERVICE'S TO THROW AWAY: SIGNING OUT OF MAIL
+    # MUST NOT SIGN SOMEBODY OUT OF THE CALENDAR THEY LEFT SWITCHED ON.
+    if not any(still(each) for each in directory.relatives(name)):
+        tokens.clear(name)
+
+
+def still(name):
+    row = store.one(name)
+
+    return bool(row and row["enabled"])
 
 
 def enable(name, wanted=True):
@@ -158,7 +225,7 @@ def paste(where, value):
     if not name or not field:
         return
 
-    if store.one(name) is None:
+    if name not in directory.FAMILIES and store.one(name) is None:
         fresh(name)
 
     signing.pasted(name, field, value)

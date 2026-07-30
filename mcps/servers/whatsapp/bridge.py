@@ -1,0 +1,2319 @@
+"""THE HALF THAT HOLDS THE WHATSAPP CONNECTION. IT READS, AND IT CANNOT WRITE.
+
+A FLASK SERVER ON LOOPBACK RUNNING neonize, WHICH LINKS TO WHATSAPP THE WAY THE
+WEB CLIENT DOES. mcps/servers/whatsapp/server.py IS THE MCP SIDE AND TALKS TO
+THIS OVER HTTP; THIS IS THE ONLY PART THAT EVER TOUCHES WHATSAPP ITSELF.
+
+IT SENDS TEXT AND MEDIA, AND NOTHING ELSE OUTBOUND. THE GROUP EDITS, THE
+MESSAGE DELETE AND THE AUTO REPLY THAT ANSWERED CHATS BEGINNING WITH A KEYWORD
+ARE STILL GONE: A REPLY NOBODY ASKED FOR IS THE ONE KIND OF OUTBOUND TRAFFIC
+THAT ARRIVES WHILE NOBODY IS WATCHING, AND VOLUME AND SPAM REPORTS ARE WHAT GET
+A NUMBER BANNED. EVERY SEND THAT REMAINS IS ONE A PERSON WAS ASKED ABOUT FIRST,
+BECAUSE mcps/writing.py GATES ANYTHING THAT IS NOT PLAINLY A READ.
+"""
+import base64
+import hmac
+import io
+import json
+import logging
+import os
+import re
+import shutil
+import sys
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
+from pathlib import Path
+
+import segno
+from flask import Flask, request, jsonify
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    stream=sys.stdout,
+)
+logger = logging.getLogger("whatsapp-bridge")
+
+from neonize import NewClient
+from neonize.utils.jid import build_jid, Jid2String
+from neonize.proto.Neonize_pb2 import (
+    Message as MessageEv, Connected as ConnectedEv, Disconnected as DisconnectedEv,
+    HistorySync as HistorySyncEv, LoggedOut as LoggedOutEv,
+    OfflineSyncPreview as OfflineSyncPreviewEv, OfflineSyncCompleted as OfflineSyncCompletedEv,
+    Receipt as ReceiptEv,
+    _RECEIPT_RECEIPTTYPE,
+)
+from neonize.utils.enum import ParticipantChange
+
+RECEIPT_READ_SELF = _RECEIPT_RECEIPTTYPE.values_by_name["READ_SELF"].number
+
+
+
+app = Flask(__name__)
+app.config["JSON_AS_ASCII"] = False
+
+
+@app.before_request
+def require_bridge_key():
+    # LIVENESS PROBE IS UNAUTHENTICATED - IT LEAKS NOTHING AND is_bridge_running() POLLS IT WITHOUT THE KEY.
+    if request.path == "/health":
+        return
+    # WITH NO KEY SET THERE IS NOTHING TO CHECK. IT USED TO REFUSE EVERYTHING IN
+    # THAT CASE, WHICH IS RIGHT FOR A SHARED DEPLOYMENT AND WRONG FOR A SERVER
+    # BOUND TO LOOPBACK ON ONE PERSON'S LAPTOP.
+    if not BRIDGE_SECRET:
+        return
+    provided = request.headers.get("X-Bridge-Key", "")
+    if not hmac.compare_digest(provided, BRIDGE_SECRET):
+        return jsonify({"error": "Unauthorized"}), 401
+
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    pass
+    return jsonify({"error": "Internal bridge error"}), 500
+
+
+# BESIDE THE REST OF WHAT HAPPY KEEPS, NOT INSIDE THE SERVER'S OWN FOLDER. THE
+# SESSION IN HERE IS A LINKED WHATSAPP DEVICE AND HAS NO BUSINESS IN THE REPO.
+DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "whatsapp"
+
+PORT = int(os.environ.get("WHATSAPP_BRIDGE_PORT") or 3001)
+
+# NOTHING BUT THIS MACHINE CAN REACH THE PORT, SO THE KEY IS OPTIONAL AND OFF BY
+# DEFAULT. SET ONE AND BOTH HALVES START INSISTING ON IT.
+BRIDGE_SECRET = os.environ.get("INTERNAL_API_SECRET", "")
+
+
+def fix_surrogates(text: str) -> str:
+    """Convert valid surrogate pairs to proper Unicode (preserves emojis), strip lone surrogates."""
+    out = []
+    i = 0
+    while i < len(text):
+        cp = ord(text[i])
+        if 0xD800 <= cp <= 0xDBFF and i + 1 < len(text):  # high surrogate
+            low = ord(text[i + 1])
+            if 0xDC00 <= low <= 0xDFFF:  # valid pair → real emoji
+                out.append(chr(0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00)))
+                i += 2
+                continue
+        if 0xD800 <= cp <= 0xDFFF:  # lone surrogate - drop it
+            i += 1
+            continue
+        out.append(text[i])
+        i += 1
+    return ''.join(out)
+
+
+def clean(obj):
+    if isinstance(obj, str):
+        return fix_surrogates(obj)
+    if isinstance(obj, list):
+        return [clean(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: clean(v) for k, v in obj.items()}
+    return obj
+
+
+EMOJI_RE = re.compile(
+    "[\U0001F000-\U0001FFFF"   # Misc symbols, emoticons, transport, supplemental
+    "\U00002600-\U000027BF"    # Misc symbols & dingbats
+    "\U00002300-\U000023FF"    # Misc technical
+    "\U0000FE00-\U0000FE0F"    # Variation selectors
+    "\U0001F1E0-\U0001F1FF"    # Regional indicator (flags)
+    "\U00003000-\U000030FF"    # CJK symbols
+    "]+",
+    flags=re.UNICODE,
+)
+
+
+def strip_emoji(text: str) -> str:
+    """Remove emoji characters and collapse extra whitespace - used for fuzzy name matching."""
+    return re.sub(r'\s+', ' ', EMOJI_RE.sub('', text)).strip()
+
+
+def name_match(query: str, name: str) -> bool:
+    """True if query matches name via substring or lenient alphanumeric comparison.
+    Handles: emoji names, @ symbols, trailing 'group'/'bhai' suffixes added by agent."""
+    q, n = query.lower(), name.lower()
+    if q in n:
+        return True
+    q2, n2 = strip_emoji(q), strip_emoji(n)
+    if bool(q2) and q2 in n2:
+        return True
+    # Third tier: strip all non-alphanumeric chars and check bidirectionally.
+    # Handles "fans @ sathi tata group" matching "Fans @ SATHI TATA." and
+    # "fans sathi tata" matching "Fans @ SATHI TATA." (agent drops @).
+    q3 = re.sub(r'\s+', ' ', re.sub(r'[^a-z0-9\s]', ' ', q2)).strip()
+    n3 = re.sub(r'\s+', ' ', re.sub(r'[^a-z0-9\s]', ' ', n2)).strip()
+    if q3 and n3:
+        return q3 in n3 or n3 in q3
+    return False
+
+
+def jid_str(jid) -> str:
+    try:
+        return Jid2String(jid)
+    except Exception:
+        return str(jid)
+
+
+def contact_name(contact_msg) -> str:
+    """Extract display name from a contactMessage.
+    Falls back to vCard FN, then waid= phone number embedded in TEL line."""
+    name = getattr(contact_msg, 'displayName', "") or ""
+    if name:
+        return name
+    vcard = getattr(contact_msg, 'vcard', "") or ""
+    for line in vcard.splitlines():
+        if line.upper().startswith("FN:"):
+            fn = line[3:].strip()
+            if fn:
+                return fn
+    # waid= is the WhatsApp phone number embedded in the TEL field
+    for line in vcard.splitlines():
+        m = re.search(r'waid=(\d+)', line, re.IGNORECASE)
+        if m:
+            return f"+{m.group(1)}"
+    # Plain phone number from TEL: as last resort
+    for line in vcard.splitlines():
+        if line.upper().startswith("TEL"):
+            parts = line.split(":")
+            if len(parts) >= 2:
+                phone = re.sub(r'[^\d+]', '', parts[-1].strip())
+                if phone:
+                    return phone
+    return ""
+
+
+def contacts_array_name(arr_msg) -> str:
+    """Extract names from a contactsArrayMessage (multiple contacts forwarded at once)."""
+    names = []
+    for c in getattr(arr_msg, 'contacts', []):
+        n = contact_name(c)
+        if n:
+            names.append(n)
+    if names:
+        return ", ".join(names)
+    return getattr(arr_msg, 'displayName', "") or "[Contact]"
+
+
+def resolve_lid(session, jid):
+    jid_s = jid_str(jid)
+    if "@lid" not in jid_s:
+        return jid_s
+    if jid_s in session.lid_to_pn:
+        return session.lid_to_pn[jid_s]
+    if session.client:
+        try:
+            lid_user = jid_s.split("@")[0]
+            lid_jid = build_jid(lid_user, "lid")
+            pn_jid = session.client.get_pn_from_lid(lid_jid)
+            resolved = jid_str(pn_jid)
+            if "@lid" not in resolved:
+                session.lid_to_pn[jid_s] = resolved
+                return resolved
+        except Exception as e:
+            pass
+    return jid_s
+
+
+def resolve_lid_str(session, jid_string):
+    if not jid_string or "@lid" not in str(jid_string):
+        return str(jid_string)
+    jid_s = str(jid_string)
+    if jid_s in session.lid_to_pn:
+        return session.lid_to_pn[jid_s]
+    if session.client:
+        try:
+            lid_user = jid_s.split("@")[0]
+            lid_jid = build_jid(lid_user, "lid")
+            pn_jid = session.client.get_pn_from_lid(lid_jid)
+            resolved = jid_str(pn_jid)
+            if "@lid" not in resolved:
+                session.lid_to_pn[jid_s] = resolved
+                return resolved
+        except Exception:
+            pass
+    return jid_s
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class Session:
+    def __init__(self, username):
+        self.username = username
+        self.lock = threading.RLock()
+
+        user_dir = DATA_DIR / username
+        user_dir.mkdir(parents=True, exist_ok=True)
+        self.db_path = str(user_dir / "session.db")
+        self.dl_dir = str(user_dir / "downloads")
+        os.makedirs(self.dl_dir, exist_ok=True)
+
+        self.client = None
+        self.connect_thread = None
+
+        self.connected = False
+        self.authenticated = False
+        self.phone = None
+        self.name = None
+        self.qr_data = None
+
+        self.contacts = []
+        self.chats = []
+        self.groups = []
+        self.messages = {}   # { jid: [text/chat messages] }
+        self.media = {}      # { jid: [media messages] }
+        self.latest_received_message = None  # always the newest non-fromMe message, updated live
+        self.latest_sent_message = None      # always the newest fromMe message, updated live
+        self.downloaded_media = {}
+        self.raw_messages = {}
+        self.failed_downloads = set()  # message IDs that failed auto_download_history
+
+        self.lid_name_map = {}
+        self.jid_cache = {}
+        self.lid_to_pn = {}
+        self.active_conversations = {}  # { chat_jid: {"id": conv_id, "ts": timestamp, "thread_id": str} }
+
+        self.sync_status = {
+            "syncing": False, "phase": "idle",
+            "contacts": 0, "chats": 0, "groups": 0,
+            "error": None, "message": None,
+            "startedAt": None, "completedAt": None,
+        }
+
+        self.contacts_enriched = False
+        self.last_history_sync_at = 0
+        self.do_sync_done = False
+        self.persist_timer = None
+        self.reconnect_count = 0
+        self.max_reconnect = 10
+        self.offline_msgs_pending = 0
+        self.offline_msgs_received = 0
+        self.stop_event = threading.Event()
+        self.deleted = False
+        self.upload_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"upload-{username}")
+
+        # A SNAPSHOT USED TO BE RESTORED FROM CLOUD STORAGE HERE. THERE IS NO
+        # CLOUD, SO THE SESSION STARTS FROM ITS OWN FILES ON THIS DISK.
+
+    def build_jid_to_name(self):
+        jid_to_name = {c["id"]: c.get("name", c["id"].split("@")[0]) for c in self.chats}
+        for c in self.contacts:
+            cname = c.get("name")
+            if cname and cname != c.get("number"):
+                jid_to_name[c["id"]] = cname
+            else:
+                jid_to_name.setdefault(c["id"], c.get("name", c["id"].split("@")[0]))
+        if self.phone:
+            jid_to_name[f"{self.phone}@s.whatsapp.net"] = self.name or "Saved Messages"
+        return jid_to_name
+
+    def rebuild_latest_received(self):
+        """Scan all stored messages once and set latest_received_message. Called on state load and after sync."""
+        best = None
+        best_ts = 0
+        jid_to_name = self.build_jid_to_name()
+        all_jids = set(self.messages.keys()) | set(self.media.keys())
+        for jid in all_jids:
+            if "@newsletter" in jid or "@broadcast" in jid:
+                continue
+            for store in (self.messages.get(jid, []), self.media.get(jid, [])):
+                for m in store:
+                    if not m.get("fromMe") and m.get("timestamp", 0) > best_ts and m.get("type") != "reaction":
+                        best_ts = m["timestamp"]
+                        best = {**m, "chatName": jid_to_name.get(jid, jid.split("@")[0]), "chatJid": jid}
+        self.latest_received_message = best
+
+    def rebuild_latest_sent(self):
+        best = None
+        best_ts = 0
+        jid_to_name = self.build_jid_to_name()
+        all_jids = set(self.messages.keys()) | set(self.media.keys())
+        for jid in all_jids:
+            if "@newsletter" in jid or "@broadcast" in jid:
+                continue
+            for store in (self.messages.get(jid, []), self.media.get(jid, [])):
+                for m in store:
+                    if not m.get("fromMe") or m.get("type") == "reaction":
+                        continue
+                    ts = m.get("timestamp", 0)
+                    # Prefer media messages over text when timestamps are equal
+                    is_better = ts > best_ts or (ts == best_ts and m.get("hasMedia") and best and not best.get("hasMedia"))
+                    if is_better:
+                        best_ts = ts
+                        best = {**m, "chatName": jid_to_name.get(jid, jid.split("@")[0])}
+        self.latest_sent_message = best
+
+    def rebuild_group_senders(self):
+        """Resolve group message sender JIDs from:
+        1. Name → contact/participant JID lookup
+        2. Stored @lid JIDs → phone JIDs via lid_to_pn map
+        """
+        name_to_jid = {}
+        for c in self.contacts:
+            cname = (c.get("name") or "").strip()
+            cnum = (c.get("number") or "")
+            if cname and cname != cnum:
+                name_to_jid[cname.lower()] = c["id"]
+        for g in self.groups:
+            for p in g.get("participants", []):
+                pname = (p.get("name") or "").strip()
+                pnum = (p.get("number") or "")
+                if pname and pname != pnum and p.get("id"):
+                    name_to_jid.setdefault(pname.lower(), p["id"])
+
+        fixed = 0
+        for store_dict in (self.messages, self.media):
+            for jid, msgs in store_dict.items():
+                if "@g.us" not in jid:
+                    continue
+                for m in msgs:
+                    if m.get("fromMe"):
+                        continue
+                    from_jid = m.get("fromJid", "")
+                    sender_name = (m.get("from") or "").strip()
+
+                    # Case 1: fromJid is still a @lid - resolve via lid_to_pn
+                    if "@lid" in from_jid:
+                        resolved = self.lid_to_pn.get(from_jid)
+                        if resolved:
+                            m["fromJid"] = resolved
+                            m["phoneNumber"] = resolved.split("@")[0] if "@" in resolved else None
+                            # Try to get name from contacts
+                            for c in self.contacts:
+                                if c["id"] == resolved:
+                                    m["from"] = c.get("name") or resolved.split("@")[0]
+                                    break
+                            fixed += 1
+                            continue
+
+                    # Case 2: fromJid is group JID (unknown sender with a pushName)
+                    if from_jid != jid or not sender_name or sender_name == "unknown":
+                        continue
+                    matched_jid = name_to_jid.get(sender_name.lower())
+                    if matched_jid:
+                        m["fromJid"] = matched_jid
+                        m["phoneNumber"] = matched_jid.split("@")[0] if "@" in matched_jid else None
+                        fixed += 1
+        if fixed:
+            pass
+
+
+sessions = {}
+sessions_lock = threading.Lock()
+
+
+def get_session(username):
+    with sessions_lock:
+        if username not in sessions:
+            sessions[username] = Session(username)
+        return sessions[username]
+
+
+def format_message(session, message):
+    info = message.Info
+    src = info.MessageSource
+    msg = message.Message
+
+    chat_jid = resolve_lid(session, src.Chat)
+    sender_jid = resolve_lid(session, src.Sender)
+    from_me = src.IsFromMe
+    msg_id = info.ID
+    raw_ts = int(info.Timestamp)
+    if raw_ts > 4102444800:  # milliseconds - convert to seconds
+        raw_ts = raw_ts // 1000
+    timestamp = raw_ts if 0 < raw_ts < 4102444800 else 0
+    push_name = info.Pushname or ""
+
+    phone_number = sender_jid.split("@")[0] if "@" in sender_jid else None
+    if phone_number and (len(phone_number) > 15 or ":" in phone_number):
+        phone_number = None
+
+    if from_me:
+        sender_name = session.name or session.phone or "Me"
+    else:
+        # User-saved contact name wins over WhatsApp pushName
+        sender_name = "unknown"
+        for c in session.contacts:
+            if c["id"] == sender_jid:
+                saved = c.get("name", "")
+                num = c.get("number", "")
+                if saved and saved != num:
+                    sender_name = saved
+                break
+        if sender_name == "unknown":
+            sender_name = push_name or (phone_number if phone_number else "unknown")
+
+    body, msg_type, has_media, media_type = "", "chat", False, None
+    filename, mime_type, file_size = None, None, 0
+
+    if msg.conversation:
+        body = msg.conversation
+    elif msg.HasField('extendedTextMessage'):
+        body = (msg.extendedTextMessage.text
+                or getattr(msg.extendedTextMessage, 'matchedText', '')
+                or getattr(msg.extendedTextMessage, 'title', '')
+                or "")
+    elif msg.HasField('imageMessage') and msg.imageMessage.URL:
+        has_media, media_type, msg_type = True, "image", "image"
+        body = msg.imageMessage.caption or ""
+        mime_type = msg.imageMessage.mimetype or "image/jpeg"
+        file_size = msg.imageMessage.fileLength or 0
+    elif msg.HasField('videoMessage') and msg.videoMessage.URL:
+        has_media, media_type, msg_type = True, "video", "video"
+        body = msg.videoMessage.caption or ""
+        mime_type = msg.videoMessage.mimetype or "video/mp4"
+        file_size = msg.videoMessage.fileLength or 0
+    elif msg.HasField('audioMessage') and msg.audioMessage.URL:
+        has_media = True
+        media_type = "audio" if not msg.audioMessage.PTT else "ptt"
+        msg_type = "audio"
+        mime_type = msg.audioMessage.mimetype or "audio/ogg"
+        file_size = msg.audioMessage.fileLength or 0
+    elif msg.HasField('documentMessage') and msg.documentMessage.URL:
+        has_media, media_type, msg_type = True, "document", "document"
+        body = msg.documentMessage.caption or ""
+        filename = msg.documentMessage.fileName or None
+        mime_type = msg.documentMessage.mimetype or "application/octet-stream"
+        file_size = msg.documentMessage.fileLength or 0
+    elif msg.HasField('stickerMessage') and msg.stickerMessage.URL:
+        has_media, media_type, msg_type = True, "sticker", "sticker"
+        mime_type = msg.stickerMessage.mimetype or "image/webp"
+    elif msg.HasField('reactionMessage') and msg.reactionMessage.text:
+        body = msg.reactionMessage.text
+        msg_type = "reaction"
+    elif getattr(msg, 'contactsArrayMessage', None) and getattr(msg.contactsArrayMessage, 'contacts', None):
+        arr = msg.contactsArrayMessage
+        body = contacts_array_name(arr)
+        msg_type = "contact"
+    elif msg.HasField('contactMessage'):
+        cm = msg.contactMessage
+        raw_dn = getattr(cm, 'displayName', "") or ""
+        raw_vc = getattr(cm, 'vcard', "") or ""
+        if raw_dn or raw_vc:
+            body = contact_name(cm) or "[Contact]"
+            msg_type = "contact"
+    elif msg.HasField('locationMessage'):
+        lat = msg.locationMessage.degreesLatitude
+        lon = msg.locationMessage.degreesLongitude
+        body = msg.locationMessage.name or msg.locationMessage.address or f"{lat},{lon}"
+        msg_type = "location"
+    elif msg.HasField('liveLocationMessage'):
+        lat = msg.liveLocationMessage.degreesLatitude
+        lon = msg.liveLocationMessage.degreesLongitude
+        body = msg.liveLocationMessage.caption or f"{lat},{lon}"
+        msg_type = "location"
+    elif msg.HasField('pollCreationMessage'):
+        body = msg.pollCreationMessage.name or "[Poll]"
+        msg_type = "poll"
+    elif getattr(msg, 'viewOnceMessage', None) and msg.viewOnceMessage.message:
+        body = ""
+        msg_type = "viewonce"
+        has_media = True
+    elif getattr(msg, 'viewOnceMessageV2', None) and msg.viewOnceMessageV2.message:
+        body = ""
+        msg_type = "viewonce"
+        has_media = True
+    elif msg.HasField('protocolMessage'):
+        return None
+
+    # Forwarded messages wrap media inside contextInfo - check if we missed it above
+    if not body and not has_media:
+        try:
+            ctx = getattr(msg, 'contextInfo', None)
+            if ctx:
+                quoted = getattr(ctx, 'quotedMessage', None)
+                if quoted:
+                    if getattr(quoted, 'imageMessage', None):
+                        has_media, media_type, msg_type = True, "image", "image"
+                        body = getattr(quoted.imageMessage, 'caption', '') or ""
+                        mime_type = getattr(quoted.imageMessage, 'mimetype', None) or "image/jpeg"
+                        file_size = getattr(quoted.imageMessage, 'fileLength', 0) or 0
+                    elif getattr(quoted, 'videoMessage', None):
+                        has_media, media_type, msg_type = True, "video", "video"
+                        body = getattr(quoted.videoMessage, 'caption', '') or ""
+                        mime_type = getattr(quoted.videoMessage, 'mimetype', None) or "video/mp4"
+                        file_size = getattr(quoted.videoMessage, 'fileLength', 0) or 0
+                    elif getattr(quoted, 'audioMessage', None):
+                        has_media, media_type, msg_type = True, "audio", "audio"
+                        mime_type = getattr(quoted.audioMessage, 'mimetype', None) or "audio/ogg"
+                        file_size = getattr(quoted.audioMessage, 'fileLength', 0) or 0
+                    elif getattr(quoted, 'documentMessage', None):
+                        has_media, media_type, msg_type = True, "document", "document"
+                        body = getattr(quoted.documentMessage, 'caption', '') or ""
+                        filename = getattr(quoted.documentMessage, 'fileName', None)
+                        mime_type = getattr(quoted.documentMessage, 'mimetype', None) or "application/octet-stream"
+                        file_size = getattr(quoted.documentMessage, 'fileLength', 0) or 0
+                    elif getattr(quoted, 'stickerMessage', None):
+                        has_media, media_type, msg_type = True, "sticker", "sticker"
+                        mime_type = getattr(quoted.stickerMessage, 'mimetype', None) or "image/webp"
+        except Exception:
+            pass
+
+    elif msg.HasField('editedMessage') and msg.editedMessage.message:
+        edited = msg.editedMessage.message
+        if edited.conversation:
+            body = edited.conversation
+        elif edited.HasField('extendedTextMessage') and edited.extendedTextMessage.text:
+            body = edited.extendedTextMessage.text
+        elif edited.HasField('imageMessage'):
+            body = edited.imageMessage.caption or ""
+        msg_type = "chat"
+
+    display_phone = session.phone if from_me else (phone_number if phone_number and len(phone_number) <= 15 else None)
+
+    return {
+        "id": msg_id, "from": clean(sender_name),
+        "phoneNumber": display_phone, "fromJid": sender_jid,
+        "fromMe": from_me, "type": msg_type, "body": clean(body),
+        "timestamp": timestamp,
+        "time": datetime.utcfromtimestamp(timestamp).isoformat() + "Z" if timestamp else None,
+        "hasMedia": has_media, "mediaType": media_type,
+        "filename": filename, "mimeType": mime_type, "fileSize": file_size,
+    }
+
+
+def register_events(session):
+    client = session.client
+
+    @client.event.qr
+    def on_qr(c, data_qr):
+        try:
+            qr = segno.make_qr(data_qr)
+            buf = io.BytesIO()
+            qr.save(buf, kind="png", scale=8, border=2)
+            b64 = base64.b64encode(buf.getvalue()).decode()
+            session.qr_data = f"data:image/png;base64,{b64}"
+            session.authenticated = False
+            pass
+        except Exception as e:
+            pass
+
+    @client.event(ConnectedEv)
+    def on_connected(c, evt):
+        pass
+        session.connected = True
+        session.authenticated = True
+        session.qr_data = None
+        session.reconnect_count = 0
+
+        old_phone = session.phone
+        try:
+            me = c.get_me()
+            j = jid_str(me.JID)
+            raw_phone = j.split("@")[0] if "@" in j else None
+            new_phone = raw_phone.split(":")[0] if raw_phone and ":" in raw_phone else raw_phone
+            session.phone = new_phone
+            session.name = me.PushName or new_phone
+
+            if old_phone and new_phone and old_phone != new_phone:
+                pass
+                with session.lock:
+                    session.contacts = []
+                    session.chats = []
+                    session.groups = []
+                    session.messages = {}
+                    session.media = {}
+                    session.raw_messages = {}
+                    session.lid_name_map = {}
+                    session.lid_to_pn = {}
+                    session.latest_received_message = None
+                    session.latest_sent_message = None
+        except Exception as e:
+            pass
+
+        session.do_sync_done = False
+        session.contacts_enriched = False
+        session.last_history_sync_at = 0
+        session.sync_status.update({
+            "syncing": True, "phase": "syncing", "error": None,
+            "startedAt": datetime.utcnow().isoformat() + "Z",
+            "completedAt": None, "message": "Waiting for WhatsApp data...",
+        })
+
+        try:
+            c.set_passive(False)
+        except Exception as e:
+            pass
+
+        def delayed_sync():
+            time.sleep(5)
+            do_sync(session)
+        threading.Thread(target=delayed_sync, daemon=True).start()
+
+    @client.event(DisconnectedEv)
+    def on_disconnected(c, evt):
+        pass
+        session.connected = False
+        session.qr_data = None
+
+        if session.stop_event.is_set():
+            return
+        persist(session)
+        if session.reconnect_count < session.max_reconnect:
+            session.reconnect_count += 1
+            delay = min(3 * session.reconnect_count, 30)
+            pass
+            threading.Timer(delay, lambda: start_session(session)).start()
+        else:
+            session.reconnect_count = 0
+            pass
+            threading.Timer(30, lambda: start_session(session)).start()
+
+    @client.event(LoggedOutEv)
+    def on_logged_out(c, evt):
+        pass
+        session.connected = False
+        session.authenticated = False
+        session.qr_data = None
+        for ext in ["", "-wal", "-shm"]:
+            try:
+                os.remove(session.db_path + ext)
+            except Exception:
+                pass
+        if not session.stop_event.is_set() and not session.deleted:
+            pass
+            session.client = None
+            session.connect_thread = None
+            threading.Timer(2, lambda: start_session(session)).start()
+
+    @client.event(MessageEv)
+    def on_message(c, message):
+        try:
+            handle_message(session, message)
+        except Exception as e:
+            pass
+
+    @client.event(HistorySyncEv)
+    def on_history_sync(c, evt):
+        try:
+            handle_history_sync(session, evt)
+        except Exception as e:
+            pass
+
+    @client.event(OfflineSyncPreviewEv)
+    def on_offline_preview(c, evt):
+        count = getattr(evt, 'Message', 0)
+        session.offline_msgs_pending = count
+        session.offline_msgs_received = 0
+        pass
+
+    @client.event(OfflineSyncCompletedEv)
+    def on_offline_completed(c, evt):
+        count = getattr(evt, 'Count', 0)
+        pass
+        session.offline_msgs_pending = 0
+        session.offline_msgs_received = 0
+        persist(session)
+
+    @client.event(ReceiptEv)
+    def on_receipt(c, evt):
+        try:
+            if evt.Type != RECEIPT_READ_SELF:
+                return
+            chat_jid = resolve_lid(session, evt.MessageSource.Chat)
+            with session.lock:
+                cidx = next((i for i, ch in enumerate(session.chats) if ch["id"] == chat_jid), -1)
+                if cidx >= 0 and session.chats[cidx].get("unreadCount", 0) > 0:
+                    session.chats[cidx]["unreadCount"] = 0
+        except Exception:
+            pass
+
+
+def handle_message(session, message):
+    entry = format_message(session, message)
+    if not entry:
+        return
+    chat_jid = resolve_lid(session, message.Info.MessageSource.Chat)
+    if not chat_jid or "@broadcast" in chat_jid:
+        return
+
+    if session.offline_msgs_pending > 0:
+        session.offline_msgs_received += 1
+        pass
+
+    with session.lock:
+        if chat_jid not in session.messages:
+            session.messages[chat_jid] = []
+        if chat_jid not in session.media:
+            session.media[chat_jid] = []
+
+        if not entry["fromMe"] and entry["fromJid"]:
+            existing = next((i for i, c in enumerate(session.contacts) if c["id"] == entry["fromJid"]), -1)
+            if existing < 0:
+                session.contacts.append({
+                    "id": entry["fromJid"],
+                    "name": entry["from"] if entry["from"] != "unknown" else entry["fromJid"].split("@")[0],
+                    "number": entry["phoneNumber"] or entry["fromJid"].split("@")[0],
+                    "status": "",
+                })
+            elif entry["from"] and entry["from"] != "unknown":
+                # Only update name if current stored name is the phone number (never properly named)
+                existing_name = session.contacts[existing].get("name", "")
+                existing_num = session.contacts[existing].get("number", "")
+                if not existing_name or existing_name == existing_num:
+                    session.contacts[existing]["name"] = entry["from"]
+            if entry["from"] and entry["from"] != "unknown":
+                session.lid_name_map[entry["from"].lower()] = entry["fromJid"]
+
+        is_group = "@g.us" in chat_jid
+        cidx_pre = next((i for i, c in enumerate(session.chats) if c["id"] == chat_jid), -1)
+        if cidx_pre < 0:
+            if is_group:
+                group = next((g for g in session.groups if g.get("id") == chat_jid), None)
+                chat_name = group["name"] if group else chat_jid.split("@")[0]
+            else:
+                chat_name = entry["from"]
+                if entry["fromMe"]:
+                    contact = next((c for c in session.contacts if c["id"] == chat_jid), None)
+                    chat_name = contact["name"] if contact else chat_jid.split("@")[0]
+            session.chats.append({"id": chat_jid, "name": chat_name, "isGroup": is_group, "unreadCount": 0, "lastMessage": entry["body"], "timestamp": entry["timestamp"]})
+
+        if entry["hasMedia"]:
+            store = session.media[chat_jid]
+            session.raw_messages[entry["id"]] = message
+            # Remove stale text copy from messages store (cross-store dedup)
+            session.messages[chat_jid] = [m for m in session.messages[chat_jid] if m["id"] != entry["id"]]
+        else:
+            store = session.messages[chat_jid]
+            # Skip if a media version already exists (don't overwrite with degraded copy)
+            if any(m["id"] == entry["id"] for m in session.media[chat_jid]):
+                store = None
+
+        if store is not None:
+            eidx = next((i for i, m in enumerate(store) if m["id"] == entry["id"]), -1)
+            if eidx >= 0:
+                store[eidx] = entry
+            else:
+                store.append(entry)
+
+        cidx = next((i for i, c in enumerate(session.chats) if c["id"] == chat_jid), -1)
+        if cidx >= 0:
+            session.chats[cidx]["lastMessage"] = entry["body"]
+            session.chats[cidx]["timestamp"] = entry["timestamp"]
+
+        # Keep latest_received_message and latest_sent_message up to date for O(1) retrieval
+        if entry.get("type") != "reaction" and not any(x in chat_jid for x in ("@newsletter", "@broadcast")):
+            ts = entry.get("timestamp", 0)
+            if session.phone and chat_jid == f"{session.phone}@s.whatsapp.net":
+                chat_name = session.name or "Saved Messages"
+            elif "@g.us" not in chat_jid and "@lid" not in chat_jid:
+                contact = next((c for c in session.contacts if c["id"] == chat_jid), None)
+                if contact and contact.get("name") and contact["name"] != contact.get("number"):
+                    chat_name = contact["name"]
+                else:
+                    chat_name = (session.chats[cidx]["name"] if cidx >= 0 else None) or entry["from"] or chat_jid.split("@")[0]
+            else:
+                chat_name = (session.chats[cidx]["name"] if cidx >= 0 else None) or entry["from"] or chat_jid.split("@")[0]
+            if entry["fromMe"]:
+                cur_ts = session.latest_sent_message.get("timestamp", 0) if session.latest_sent_message else 0
+                if ts and ts > cur_ts:
+                    session.latest_sent_message = {**entry, "chatName": chat_name}
+            else:
+                cur_ts = session.latest_received_message.get("timestamp", 0) if session.latest_received_message else 0
+                if ts and ts > cur_ts:
+                    session.latest_received_message = {**entry, "chatName": chat_name, "chatJid": chat_jid}
+
+    if session.persist_timer:
+        session.persist_timer.cancel()
+    session.persist_timer = threading.Timer(5, persist, args=(session,))
+    session.persist_timer.daemon = True
+    session.persist_timer.start()
+
+    if entry["hasMedia"]:
+        threading.Thread(target=auto_download, args=(session, message, entry), daemon=True).start()
+
+
+
+def auto_download_history(session, web_msg, entry):
+    """Auto-download media from history-synced messages (WebMessageInfo objects)."""
+    try:
+        mid = entry.get("id", "")
+        if mid in session.downloaded_media:
+            return
+        ext = (entry.get("mimeType") or "application/octet-stream").split("/")[-1].split(";")[0]
+        fname = entry.get("filename") or f"{mid}.{ext}"
+        local_path = os.path.join(session.dl_dir, fname)
+        if os.path.exists(local_path):
+            with session.lock:
+                session.downloaded_media[mid] = {"local_path": local_path, "filename": fname, "mime": entry.get("mimeType", "application/octet-stream"), "size": os.path.getsize(local_path)}
+                needs_persist = False
+                for msgs in session.media.values():
+                    for m in msgs:
+                        if m.get("id") == mid and not m.get("filename"):
+                            m["filename"] = fname
+                            needs_persist = True
+            if needs_persist:
+                persist(session)
+            return
+        msg_proto = getattr(web_msg, 'message', None) or web_msg
+        media_bytes = session.client.download_any(msg_proto)
+        if not media_bytes:
+            session.failed_downloads.add(mid)
+            pass
+            return
+        with open(local_path, "wb") as f:
+            f.write(media_bytes)
+        with session.lock:
+            session.downloaded_media[mid] = {"local_path": local_path, "filename": fname, "mime": entry.get("mimeType", "application/octet-stream"), "size": len(media_bytes)}
+            for msgs in session.media.values():
+                for m in msgs:
+                    if m.get("id") == mid and not m.get("filename"):
+                        m["filename"] = fname
+        persist(session)
+        pass
+    except Exception as e:
+        session.failed_downloads.add(mid)
+        pass
+
+
+def auto_download(session, message, entry):
+    try:
+        media_bytes = session.client.download_any(message.Message)
+        if not media_bytes:
+            return
+        ext = (entry.get("mimeType") or "application/octet-stream").split("/")[-1].split(";")[0]
+        fname = entry.get("filename") or f"{entry['id']}.{ext}"
+        local_path = os.path.join(session.dl_dir, fname)
+        with open(local_path, "wb") as f:
+            f.write(media_bytes)
+        mid = entry["id"]
+        with session.lock:
+            session.downloaded_media[mid] = {"local_path": local_path, "filename": fname, "mime": entry.get("mimeType", "application/octet-stream"), "size": len(media_bytes)}
+            for msgs in session.media.values():
+                for m in msgs:
+                    if m.get("id") == mid and not m.get("filename"):
+                        m["filename"] = fname
+        persist(session)
+    except Exception:
+        pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def handle_history_sync(session, evt):
+    data = evt.Data
+    sync_type = getattr(data, 'syncType', -1)
+    progress = getattr(data, 'progress', 0)
+    conversations = list(getattr(data, 'conversations', []))
+    pushnames = list(getattr(data, 'pushnames', []))
+
+    pass
+
+    with session.lock:
+        session.last_history_sync_at = time.time()
+        session.sync_status["syncing"] = True
+        session.sync_status["phase"] = "syncing"
+        session.sync_status["message"] = f"Receiving message history ({progress}%)..."
+
+        for pn in pushnames:
+            pn_id = getattr(pn, 'id', "")
+            pn_name = getattr(pn, 'pushname', "")
+            if not pn_id or not pn_name:
+                continue
+            jid = f"{pn_id}@s.whatsapp.net" if "@" not in pn_id else pn_id
+            existing = next((i for i, c in enumerate(session.contacts) if c["id"] == jid), -1)
+            if existing < 0:
+                session.contacts.append({"id": jid, "name": clean(pn_name), "number": pn_id.split("@")[0], "status": ""})
+            elif pn_name:
+                # Only update if stored name is the phone number (never properly named by user)
+                existing_name = session.contacts[existing].get("name", "")
+                existing_num = session.contacts[existing].get("number", "")
+                if not existing_name or existing_name == existing_num:
+                    session.contacts[existing]["name"] = clean(pn_name)
+            if pn_name:
+                session.lid_name_map[pn_name.lower()] = jid
+
+        for conv in conversations:
+            raw_chat_id = getattr(conv, 'ID', "")
+            if not raw_chat_id or "@broadcast" in raw_chat_id:
+                continue
+            chat_id = resolve_lid_str(session, raw_chat_id)
+            is_group = "@g.us" in chat_id
+            unread = getattr(conv, 'unreadCount', 0)
+            conv_name = getattr(conv, 'displayName', chat_id.split("@")[0])
+            archived = bool(getattr(conv, 'archived', False))
+
+            raw_last_msg_ts = getattr(conv, 'lastMsgTimestamp', 0)
+            raw_conv_ts = getattr(conv, 'conversationTimestamp', 0)
+            conv_ts = int(raw_last_msg_ts or raw_conv_ts or 0)
+            if not (0 < conv_ts < 4102444800):
+                conv_ts = 0
+
+            cidx = next((i for i, c in enumerate(session.chats) if c["id"] == chat_id), -1)
+            if cidx < 0:
+                session.chats.append({"id": chat_id, "name": clean(conv_name) or chat_id.split("@")[0], "isGroup": is_group, "unreadCount": unread, "lastMessage": "", "timestamp": conv_ts, "archived": archived})
+                cidx = len(session.chats) - 1
+            else:
+                if conv_ts and conv_ts > session.chats[cidx].get("timestamp", 0):
+                    session.chats[cidx]["timestamp"] = conv_ts
+                session.chats[cidx]["archived"] = archived
+            if chat_id not in session.messages:
+                session.messages[chat_id] = []
+            if chat_id not in session.media:
+                session.media[chat_id] = []
+
+            for hist_msg in list(getattr(conv, 'messages', [])):
+                try:
+                    web_msg = getattr(hist_msg, 'message', None)
+                    if not web_msg:
+                        continue
+                    key = getattr(web_msg, 'key', None)
+                    if not key:
+                        continue
+                    msg_id = getattr(key, 'ID', "")
+                    from_me = getattr(key, 'fromMe', False)
+                    remote_jid = str(getattr(key, 'remoteJID', ""))
+                    participant = str(getattr(key, 'participant', ""))
+                    # Also check top-level participant on WebMessageInfo
+                    web_participant = str(getattr(web_msg, 'participant', ""))
+                    if is_group and not participant and web_participant:
+                        participant = web_participant
+                    raw_ts = int(getattr(web_msg, 'messageTimestamp', 0) or getattr(web_msg, 'messageC2STimestamp', 0) or 0)
+                    ts = raw_ts if 0 < raw_ts < 4102444800 else conv_ts
+                    sender_jid = participant if is_group and participant else remote_jid
+                    sender_jid = resolve_lid_str(session, sender_jid) if sender_jid else sender_jid
+                    # If still a LID, keep it as fromJid (not group JID) so we can re-resolve later
+                    is_lid_sender = sender_jid and "@lid" in str(sender_jid)
+                    phone = sender_jid.split("@")[0] if "@" in str(sender_jid) and not is_lid_sender else None
+
+                    actual_msg = getattr(web_msg, 'message', None)
+                    body, msg_type, has_media, media_type_val = "", "chat", False, None
+                    fname, mime, fsize = None, None, 0
+                    if actual_msg:
+                        if actual_msg.conversation:
+                            body = actual_msg.conversation
+                        elif actual_msg.HasField('extendedTextMessage'):
+                            etm = actual_msg.extendedTextMessage
+                            body = (getattr(etm, 'text', '') or getattr(etm, 'matchedText', '') or getattr(etm, 'title', '') or "")
+                        elif actual_msg.HasField('imageMessage'):
+                            img = actual_msg.imageMessage
+                            msg_type, media_type_val = "image", "image"
+                            has_media = bool(getattr(img, 'URL', ""))
+                            body = getattr(img, 'caption', "") or ""
+                            mime = getattr(img, 'mimetype', None) or "image/jpeg"
+                            fsize = getattr(img, 'fileLength', 0) or 0
+                        elif actual_msg.HasField('videoMessage'):
+                            vid = actual_msg.videoMessage
+                            msg_type, media_type_val = "video", "video"
+                            has_media = bool(getattr(vid, 'URL', ""))
+                            body = getattr(vid, 'caption', "") or ""
+                            mime = getattr(vid, 'mimetype', None) or "video/mp4"
+                            fsize = getattr(vid, 'fileLength', 0) or 0
+                        elif actual_msg.HasField('documentMessage'):
+                            doc = actual_msg.documentMessage
+                            msg_type, media_type_val = "document", "document"
+                            has_media = bool(getattr(doc, 'URL', ""))
+                            body = getattr(doc, 'caption', "") or ""
+                            fname = getattr(doc, 'fileName', None)
+                            mime = getattr(doc, 'mimetype', None) or "application/octet-stream"
+                            fsize = getattr(doc, 'fileLength', 0) or 0
+                        elif actual_msg.HasField('audioMessage'):
+                            aud = actual_msg.audioMessage
+                            msg_type, media_type_val = "audio", "audio"
+                            has_media = bool(getattr(aud, 'URL', ""))
+                            mime = getattr(aud, 'mimetype', None) or "audio/ogg"
+                            fsize = getattr(aud, 'fileLength', 0) or 0
+                        elif actual_msg.HasField('stickerMessage'):
+                            stk = actual_msg.stickerMessage
+                            msg_type, media_type_val = "sticker", "sticker"
+                            has_media = bool(getattr(stk, 'URL', ""))
+                            mime = getattr(stk, 'mimetype', None) or "image/webp"
+                        elif actual_msg.HasField('reactionMessage') and actual_msg.reactionMessage.text:
+                            body = actual_msg.reactionMessage.text; msg_type = "reaction"
+                        elif getattr(actual_msg, 'contactsArrayMessage', None) and getattr(actual_msg.contactsArrayMessage, 'contacts', None):
+                            body = contacts_array_name(actual_msg.contactsArrayMessage); msg_type = "contact"
+                        elif actual_msg.HasField('contactMessage'):
+                            cm = actual_msg.contactMessage
+                            raw_dn = getattr(cm, 'displayName', "") or ""
+                            raw_vc = getattr(cm, 'vcard', "") or ""
+                            if raw_dn or raw_vc:
+                                body = contact_name(cm) or "[Contact]"; msg_type = "contact"
+                        elif actual_msg.HasField('locationMessage'):
+                            lat = actual_msg.locationMessage.degreesLatitude; lon = actual_msg.locationMessage.degreesLongitude
+                            body = getattr(actual_msg.locationMessage, 'name', '') or getattr(actual_msg.locationMessage, 'address', '') or f"{lat},{lon}"; msg_type = "location"
+                        elif actual_msg.HasField('pollCreationMessage'):
+                            body = actual_msg.pollCreationMessage.name or "[Poll]"; msg_type = "poll"
+                        elif actual_msg.HasField('editedMessage') and actual_msg.editedMessage.message:
+                            edited = actual_msg.editedMessage.message
+                            if edited.conversation: body = edited.conversation
+                            elif edited.HasField('extendedTextMessage') and edited.extendedTextMessage.text: body = edited.extendedTextMessage.text
+                            elif edited.HasField('imageMessage'): body = edited.imageMessage.caption or ""
+                        elif actual_msg.HasField('protocolMessage'):
+                            continue
+
+                    push_name_hist = str(getattr(web_msg, 'pushName', "") or "")
+                    sender_name = "unknown"
+                    if from_me:
+                        sender_name = session.name or session.phone or "Me"
+                    elif phone and not (is_group and sender_jid == chat_id):
+                        # Normal case: we have a valid individual sender JID
+                        for c in session.contacts:
+                            if c["id"] == str(sender_jid) or c.get("number") == phone:
+                                sender_name = c.get("name", phone); break
+                        if sender_name == "unknown":
+                            sender_name = push_name_hist or phone
+                    elif is_group and not participant and push_name_hist:
+                        # Group message with missing participant JID - use pushName as sender name
+                        # so name-based filtering still works
+                        sender_name = push_name_hist
+                        # Also try to resolve to a contact JID via pushName
+                        resolved_jid = session.lid_name_map.get(push_name_hist.lower())
+                        if resolved_jid:
+                            sender_jid = resolved_jid
+                            phone = resolved_jid.split("@")[0]
+
+                    entry = {"id": msg_id, "from": clean(sender_name), "phoneNumber": session.phone if from_me else phone, "fromJid": str(sender_jid) if sender_jid else chat_id, "fromMe": from_me, "type": msg_type, "body": clean(body), "timestamp": ts, "time": datetime.utcfromtimestamp(ts).isoformat() + "Z" if ts else None, "hasMedia": has_media, "mediaType": media_type_val, "filename": fname, "mimeType": mime, "fileSize": fsize}
+                    if has_media and msg_id:
+                        session.raw_messages[msg_id] = web_msg
+                        cutoff = time.time() - 14 * 86400
+                        if ts and ts > cutoff:
+                            threading.Thread(target=auto_download_history, args=(session, web_msg, entry), daemon=True).start()
+                        store = session.media[chat_id]
+                        # Remove from messages if it was previously stored there (cross-store dedup)
+                        session.messages[chat_id] = [m for m in session.messages[chat_id] if m["id"] != msg_id]
+                    else:
+                        store = session.messages[chat_id]
+                        # If a media version already exists, skip storing a degraded text copy
+                        if any(m["id"] == msg_id for m in session.media[chat_id]):
+                            continue
+                    eidx = next((i for i, m in enumerate(store) if m["id"] == msg_id), -1)
+                    if eidx >= 0:
+                        store[eidx] = entry
+                    else:
+                        store.append(entry)
+                    if ts and ts > session.chats[cidx].get("timestamp", 0):
+                        session.chats[cidx]["lastMessage"] = clean(body)
+                        session.chats[cidx]["timestamp"] = ts
+                    # Keep latest_received_message and latest_sent_message current
+                    if msg_type != "reaction" and ts and not any(x in chat_id for x in ("@newsletter", "@broadcast")):
+                        chat_name = session.chats[cidx].get("name", chat_id.split("@")[0])
+                        if from_me:
+                            cur = session.latest_sent_message
+                            if cur is None or ts > cur.get("timestamp", 0) or cur.get("id") == msg_id:
+                                session.latest_sent_message = {**entry, "chatName": chat_name}
+                        else:
+                            cur = session.latest_received_message
+                            if cur is None or ts > cur.get("timestamp", 0) or cur.get("id") == msg_id:
+                                session.latest_received_message = {**entry, "chatName": chat_name, "chatJid": chat_id}
+                except Exception:
+                    continue
+            session.messages[chat_id].sort(key=lambda m: m.get("timestamp", 0))
+            session.media[chat_id].sort(key=lambda m: m.get("timestamp", 0))
+
+        session.sync_status["contacts"] = len(session.contacts)
+        session.sync_status["chats"] = len(session.chats)
+        session.sync_status["groups"] = len(session.groups)
+    persist(session)
+
+
+def enrich_contacts_from_store(session):
+    if session.contacts_enriched or not session.client or not session.connected:
+        return
+    try:
+        store_contacts = session.client.contact.get_all_contacts()
+    except Exception as e:
+        pass
+        return
+    with session.lock:
+        existing_ids = {c["id"] for c in session.contacts}
+        for sc in store_contacts:
+            cid = jid_str(sc.JID)
+            info = sc.Info
+            # Prefer phone-book name (FullName/FirstName) over WhatsApp push name
+            # so contacts saved as "john" in phone appear as "john", not their WhatsApp display name
+            phone_book_name = info.FullName or info.FirstName or ""
+            name = phone_book_name or info.PushName or info.BusinessName or ""
+            number = cid.split("@")[0] if "@" in cid else ""
+            if cid in existing_ids:
+                if name:
+                    for c in session.contacts:
+                        if c["id"] == cid:
+                            # Always prefer phone-book name; fall back to push name only if no phone-book name
+                            if phone_book_name or not c.get("name") or c["name"] == c.get("number"):
+                                c["name"] = clean(name)
+                            break
+            else:
+                if not name:
+                    name = number or cid
+                session.contacts.append({"id": cid, "name": clean(name), "number": number, "status": ""})
+                existing_ids.add(cid)
+    if store_contacts:
+        session.contacts_enriched = True
+
+
+def bulk_resolve_group_lids(session):
+    """For every @lid participant across all groups, call get_pn_from_lid and cache the result.
+    This populates lid_to_pn so that stored messages with @lid fromJid can be resolved."""
+    if not session.client or not session.connected:
+        return
+    lid_set = set()
+    with session.lock:
+        for g in session.groups:
+            for p in g.get("participants", []):
+                pid = p.get("id", "")
+                if pid and "@lid" in pid and pid not in session.lid_to_pn:
+                    lid_set.add(pid)
+        # Also collect @lid JIDs from stored messages (if we now store them)
+        for msgs in list(session.messages.values()) + list(session.media.values()):
+            for m in msgs:
+                fj = m.get("fromJid", "")
+                if fj and "@lid" in fj and fj not in session.lid_to_pn:
+                    lid_set.add(fj)
+
+    if not lid_set:
+        return
+    pass
+    resolved = 0
+    for lid_jid in lid_set:
+        try:
+            lid_user = lid_jid.split("@")[0]
+            lid_obj = build_jid(lid_user, "lid")
+            pn_jid = session.client.get_pn_from_lid(lid_obj)
+            pn_str = jid_str(pn_jid)
+            if pn_str and "@lid" not in pn_str:
+                with session.lock:
+                    session.lid_to_pn[lid_jid] = pn_str
+                    # Also update group participant records
+                    for g in session.groups:
+                        for p in g.get("participants", []):
+                            if p.get("id") == lid_jid:
+                                phone = pn_str.split("@")[0] if "@" in pn_str else None
+                                p["number"] = phone
+                                if not p.get("name") or p["name"] == phone:
+                                    for c in session.contacts:
+                                        if c["id"] == pn_str:
+                                            p["name"] = c.get("name", phone)
+                                            break
+                resolved += 1
+        except Exception:
+            pass
+    if resolved:
+        pass
+
+
+def sync_archived_from_db(session):
+    """Read archived status from whatsmeow_chat_settings and update session.chats."""
+    try:
+        import sqlite3
+        if not os.path.exists(session.db_path):
+            return
+        conn = sqlite3.connect(session.db_path)
+        cur = conn.cursor()
+        cur.execute("SELECT chat_jid FROM whatsmeow_chat_settings WHERE archived=1")
+        archived_jids = {row[0] for row in cur.fetchall()}
+        conn.close()
+        if not archived_jids:
+            return
+        with session.lock:
+            for chat in session.chats:
+                chat["archived"] = chat["id"] in archived_jids
+    except Exception:
+        pass
+
+
+def do_sync(session):
+    if not session.client or not session.connected:
+        session.sync_status.update({"syncing": False, "phase": "done", "completedAt": datetime.utcnow().isoformat() + "Z", "message": "Sync complete"})
+        return
+    try:
+        session.sync_status.update({"syncing": True, "phase": "chats", "error": None, "startedAt": datetime.utcnow().isoformat() + "Z", "completedAt": None, "message": "Syncing groups..."})
+        enrich_contacts_from_store(session)
+        session.sync_status["contacts"] = len(session.contacts)
+        try:
+            groups = session.client.get_joined_groups()
+            with session.lock:
+                for g in groups:
+                    gid = jid_str(g.JID)
+                    participants = []
+                    for p in g.Participants:
+                        pid = jid_str(p.JID)
+                        pnum = pid.split("@")[0] if "@" in pid else None
+                        is_lid = pid and ("@lid" in pid or ":" in pid)
+                        pname = pnum
+                        for c in session.contacts:
+                            if c["id"] == pid:
+                                pname = c.get("name", pnum); break
+                        participants.append({"id": pid, "number": None if is_lid else pnum, "name": None if is_lid else pname, "admin": p.IsAdmin or p.IsSuperAdmin})
+                        if not is_lid and "@g.us" not in pid:
+                            if not any(c["id"] == pid for c in session.contacts):
+                                session.contacts.append({"id": pid, "name": pnum or pid, "number": pnum or "", "status": "", "fromGroup": True})
+                    group_name = g.GroupName.Name if hasattr(g, 'GroupName') and hasattr(g.GroupName, 'Name') else gid
+                    description = g.GroupTopic.Topic if hasattr(g, 'GroupTopic') and hasattr(g.GroupTopic, 'Topic') else ""
+                    created_at = str(g.GroupCreated) if hasattr(g, 'GroupCreated') and g.GroupCreated else None
+                    gidx = next((i for i, x in enumerate(session.groups) if x["id"] == gid), -1)
+                    group_entry = {"id": gid, "name": clean(group_name), "description": clean(description[:100]) if description else "", "participants": participants, "participantCount": len(participants), "createdAt": created_at}
+                    if gidx >= 0:
+                        session.groups[gidx] = group_entry
+                    else:
+                        session.groups.append(group_entry)
+                    chat_idx = next((i for i, c in enumerate(session.chats) if c["id"] == gid), -1)
+                    if chat_idx >= 0:
+                        session.chats[chat_idx]["name"] = clean(group_name)
+                    else:
+                        session.chats.append({"id": gid, "name": clean(group_name), "isGroup": True, "unreadCount": 0, "lastMessage": "", "timestamp": 0, "archived": False})
+                session.sync_status["chats"] = len(session.chats)
+                session.sync_status["groups"] = len(session.groups)
+                pass
+        except Exception as e:
+            pass
+        for _ in range(30):
+            if time.time() - session.last_history_sync_at > 5:
+                break
+            time.sleep(1)
+        # Mark done immediately so the frontend exits the sync screen
+        session.do_sync_done = True
+        session.sync_status.update({"syncing": False, "phase": "done", "completedAt": datetime.utcnow().isoformat() + "Z", "message": "Sync complete"})
+        persist(session)
+        pass
+
+        def background_post_sync(s):
+            try:
+                enrich_contacts_from_store(s)
+                bulk_resolve_group_lids(s)
+                s.rebuild_group_senders()
+                s.rebuild_latest_received()
+                s.rebuild_latest_sent()
+                sync_archived_from_db(s)
+                persist(s)
+                pass
+            except Exception as e:
+                pass
+
+        threading.Thread(target=background_post_sync, args=(session,), daemon=True).start()
+    except Exception as e:
+        pass
+        session.do_sync_done = True
+        session.sync_status.update({"syncing": False, "phase": "done", "completedAt": datetime.utcnow().isoformat() + "Z", "message": "Sync complete (with errors)", "error": str(e)})
+
+
+def persist(session):
+    """NOTHING, AND DELIBERATELY.
+
+    THIS WROTE A SNAPSHOT OF THE CHATS TO CLOUD STORAGE SO A FRESH CONTAINER
+    COULD COME UP WARM. ON ONE MACHINE THERE IS NOTHING TO COME UP FROM: THE
+    CACHE WAS ALREADY REBUILT BY A SYNC ON EVERY LOCAL START, BECAUSE THE WRITE
+    AND THE READ WERE BOTH SKIPPED WHENEVER NO BUCKET WAS CONFIGURED. THE TIMERS
+    THAT CALL THIS ARE LEFT ALONE RATHER THAN UNPICKED FROM THE EVENT HANDLERS.
+    """
+    return
+
+
+def start_session(session):
+    user = session.username
+    logger.info(f"[start_session] begin user={user}")
+    if session.deleted:
+        logger.info(f"[start_session] user={user} is deleted, skipping")
+        return
+    if session.client and session.connect_thread and session.connect_thread.is_alive():
+        logger.info(f"[start_session] user={user} already running, skipping")
+        return
+    if not os.path.exists(session.db_path):
+        logger.info(f"[start_session] user={user} db missing, downloading from S3...")
+        t0 = time.monotonic()
+        logger.info(f"[start_session] user={user} download_db done in {time.monotonic()-t0:.2f}s")
+    session.stop_event.clear()
+    try:
+        import sqlite3
+        conn = sqlite3.connect(session.db_path)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.close()
+    except Exception as e:
+        logger.warning(f"[start_session] user={user} sqlite WAL pragma failed: {e}")
+
+    logger.info(f"[start_session] user={user} creating NewClient...")
+    t0 = time.monotonic()
+    session.client = NewClient(session.db_path)
+    logger.info(f"[start_session] user={user} NewClient done in {time.monotonic()-t0:.2f}s")
+
+    register_events(session)
+    logger.info(f"[start_session] user={user} events registered, spawning connect thread")
+
+    def run():
+        try:
+            logger.info(f"[start_session] user={user} client.connect() starting in bg thread")
+            session.client.connect()
+            logger.info(f"[start_session] user={user} client.connect() returned")
+        except Exception as e:
+            logger.warning(f"[start_session] user={user} client.connect() failed: {type(e).__name__}: {e}")
+            session.connected = False
+
+    session.connect_thread = threading.Thread(target=run, daemon=True)
+    session.connect_thread.start()
+    logger.info(f"[start_session] user={user} returning (connect thread running)")
+
+
+def stop_session(session):
+    session.stop_event.set()
+    persist(session)
+    if session.client:
+        try:
+            session.client.disconnect()
+        except Exception:
+            pass
+    session.connected = False
+    session.client = None
+    session.connect_thread = None
+
+
+def resolve_recipient(session, input_str):
+    if not input_str:
+        raise ValueError("Recipient is required")
+    if "@" in input_str:
+        return input_str
+    if re.match(r'^\+?\d[\d\s\-(). ]+$', input_str):
+        return resolve_jid(session, input_str)
+    q = input_str.strip().lower()
+    for c in session.contacts:
+        if c.get("name", "").lower() == q:
+            return c["id"]
+    for c in session.contacts:
+        if q in c.get("name", "").lower():
+            return c["id"]
+    for g in session.groups:
+        if g["name"].lower() == q:
+            return g["id"]
+    for g in session.groups:
+        if q in g["name"].lower():
+            return g["id"]
+    for c in session.chats:
+        if c["name"].lower() == q:
+            return c["id"]
+    for c in session.chats:
+        if q in c["name"].lower():
+            return c["id"]
+    all_stores = list(session.messages.values()) + list(session.media.values())
+    for msgs in all_stores:
+        for m in msgs:
+            if not m.get("fromMe") and m.get("fromJid") and "@g.us" not in m.get("fromJid", ""):
+                if m.get("from", "").lower() and q in m["from"].lower():
+                    return m["fromJid"]
+    for name, jid in session.lid_name_map.items():
+        if q in name:
+            return jid
+    raise ValueError(f'Contact not found: "{input_str}". Provide the phone number with country code.')
+
+
+def resolve_jid(session, number):
+    c = re.sub(r'\D', '', number)
+    if c in session.jid_cache:
+        return session.jid_cache[c]
+    if session.client and session.connected:
+        try:
+            results = session.client.is_on_whatsapp(f"+{c}")
+            for r in results:
+                if r.IsIn:
+                    j = jid_str(r.JID); session.jid_cache[c] = j; return j
+        except Exception:
+            pass
+    if len(c) == 10 and session.phone and len(session.phone) > 10:
+        cc = session.phone[:len(session.phone) - 10]
+        wc = f"{cc}{c}"
+        if session.client and session.connected:
+            try:
+                results = session.client.is_on_whatsapp(f"+{wc}")
+                for r in results:
+                    if r.IsIn:
+                        j = jid_str(r.JID); session.jid_cache[c] = j; return j
+            except Exception:
+                pass
+        jid = f"{wc}@s.whatsapp.net"; session.jid_cache[c] = jid; return jid
+    jid = f"{c}@s.whatsapp.net"; session.jid_cache[c] = jid; return jid
+
+
+def media_type_of(filepath):
+    ext = Path(filepath).suffix.lower().lstrip(".")
+    if ext in ("jpg", "jpeg", "png", "gif", "webp", "bmp"): return "image"
+    if ext in ("mp4", "mkv", "avi", "mov", "webm"): return "video"
+    if ext in ("mp3", "ogg", "wav", "m4a", "aac", "opus"): return "audio"
+    return "document"
+
+
+def make_jid(jid_str_val):
+    parts = jid_str_val.split("@")
+    return build_jid(parts[0], parts[1] if len(parts) > 1 else "s.whatsapp.net")
+
+
+# ─── Flask routes ────────────────────────────────────────────────────────────
+
+@app.get("/health")
+def health():
+    return jsonify({"ok": True})
+
+
+@app.get("/sessions")
+def list_sessions():
+    result = []
+    for username, s in sessions.items():
+        result.append({"username": username, "connected": s.connected, "authenticated": s.authenticated, "phone": s.phone})
+    return jsonify(result)
+
+
+@app.get("/<username>/status")
+def status(username):
+    s = get_session(username)
+    has_local_db = os.path.exists(s.db_path)
+    has_s3_db = False
+    configured = has_local_db or has_s3_db
+    return jsonify({"connected": s.connected, "authenticated": s.authenticated or configured, "configured": configured, "phone": s.phone, "name": s.name})
+
+
+@app.get("/<username>/sync-status")
+def sync_status(username):
+    s = get_session(username)
+    contacts_count = len(s.contacts)
+    chats_count = len(s.chats)
+    groups_count = len(s.groups)
+    messages_count = sum(len(v) for v in s.messages.values()) + sum(len(v) for v in s.media.values())
+    still_syncing = not s.do_sync_done
+
+    if still_syncing:
+        if chats_count > 0 or groups_count > 0:
+            phase = "chats"
+            message = f"Syncing chats and groups... ({chats_count} chats, {groups_count} groups)"
+        elif contacts_count > 0:
+            phase = "contacts"
+            message = f"Loading contacts... ({contacts_count} contacts)"
+        else:
+            phase = "contacts"
+            message = "Waiting for WhatsApp data..."
+        return jsonify({"syncing": True, "phase": phase, "contacts": contacts_count, "chats": chats_count, "groups": groups_count, "messages": messages_count, "message": message})
+    elif s.sync_status.get("phase") == "idle":
+        return jsonify({"syncing": False, "phase": "idle", "contacts": contacts_count, "chats": chats_count, "groups": groups_count, "messages": messages_count, "message": None})
+    else:
+        return jsonify({"syncing": False, "phase": "done", "contacts": contacts_count, "chats": chats_count, "groups": groups_count, "messages": messages_count, "message": "Sync complete", "completedAt": s.sync_status.get("completedAt")})
+
+
+@app.get("/<username>/qr")
+def qr(username):
+    s = get_session(username)
+    if s.authenticated or s.connected:
+        return jsonify({"status": "connected", "qr": None})
+    if s.qr_data:
+        return jsonify({"status": "waiting", "qr": s.qr_data})
+    return jsonify({"status": "loading", "qr": None})
+
+
+@app.post("/<username>/start")
+def start(username):
+    s = get_session(username)
+    if s.client and s.connect_thread and s.connect_thread.is_alive():
+        return jsonify({"started": True, "already_running": True})
+    start_session(s)
+    return jsonify({"started": True})
+
+
+@app.post("/<username>/stop")
+def stop(username):
+    with sessions_lock:
+        s = sessions.get(username)
+    if s:
+        stop_session(s)
+    return jsonify({"stopped": True})
+
+
+@app.post("/<username>/disconnect")
+def disconnect(username):
+    with sessions_lock:
+        s = sessions.pop(username, None)
+    if s:
+        s.deleted = True  # stop new uploads from being submitted
+        s.upload_executor.shutdown(wait=True, cancel_futures=True)  # drain in-flight, cancel pending
+        s.stop_event.set()
+        s.connected = False
+        s.authenticated = False
+        if s.persist_timer:
+            s.persist_timer.cancel()
+        client = s.client
+        s.client = None
+        s.connect_thread = None
+        s.qr_data = None; s.phone = None; s.name = None
+        s.contacts = []; s.chats = []; s.groups = []; s.messages = {}; s.media = {}
+        if client:
+            try:
+                client.logout()
+            except Exception:
+                pass
+            try:
+                client.disconnect()
+            except Exception:
+                pass
+    user_dir = DATA_DIR / username
+    if user_dir.exists():
+        try:
+            shutil.rmtree(str(user_dir))
+        except Exception:
+            pass
+    return jsonify({"success": True})
+
+
+@app.post("/<username>/sync")
+def sync(username):
+    s = get_session(username)
+    if not s.connected:
+        return jsonify({"error": "Not connected"}), 503
+    threading.Thread(target=do_sync, args=(s,), daemon=True).start()
+    return jsonify({"success": True, "message": "Sync started"})
+
+
+@app.get("/<username>/contacts")
+def contacts(username):
+    s = get_session(username)
+    enrich_contacts_from_store(s)
+    filtered = [c for c in s.contacts if not (c["id"] and ("@lid" in c["id"] or ":" in c["id"]) and (not c.get("name") or c["name"] == c.get("number") or c["name"] == "unknown"))]
+    return jsonify(clean(filtered))
+
+
+@app.get("/<username>/search-contacts")
+def search_contacts(username):
+    q = (request.args.get("q") or "").strip().lower()
+    if not q:
+        return jsonify({"error": "q parameter required"}), 400
+    s = get_session(username)
+    enrich_contacts_from_store(s)
+    results = {}
+    for c in s.contacts:
+        if (c.get("name") and q in c["name"].lower()) or (c.get("number") and q in c["number"]):
+            results[c["id"]] = {"id": c["id"], "name": c.get("name"), "number": c.get("number")}
+    for g in s.groups:
+        for p in g.get("participants", []):
+            if (p.get("name") and q in (p["name"] or "").lower()) or (p.get("number") and q in (p["number"] or "")):
+                if p["id"] not in results:
+                    results[p["id"]] = {"id": p["id"], "name": p.get("name") or p.get("number"), "number": p.get("number")}
+    for c in s.chats:
+        if not c.get("isGroup") and c.get("name") and q in c["name"].lower():
+            if c["id"] not in results:
+                results[c["id"]] = {"id": c["id"], "name": c["name"], "number": c["id"].split("@")[0]}
+    for store in list(s.messages.values()) + list(s.media.values()):
+        for m in store:
+            if not m.get("fromMe") and m.get("from") and q in m["from"].lower() and m.get("fromJid"):
+                if m["fromJid"] not in results:
+                    results[m["fromJid"]] = {"id": m["fromJid"], "name": m["from"], "number": m.get("phoneNumber") or m["fromJid"].split("@")[0]}
+    enriched = []
+    for contact in results.values():
+        member_groups = [{"id": g["id"], "name": g["name"]} for g in s.groups if any(p["id"] == contact["id"] for p in g.get("participants", []))]
+        enriched.append({**contact, "groups": member_groups})
+    return jsonify(clean(enriched))
+
+
+@app.get("/<username>/chats")
+def chats(username):
+    s = get_session(username)
+    jid_to_name = s.build_jid_to_name()
+    result = []
+    for chat in s.chats:
+        cid = chat.get("id", "")
+        if "@g.us" not in cid and "@lid" not in cid:
+            resolved = jid_to_name.get(cid)
+            if resolved:
+                chat = {**chat, "name": resolved}
+        result.append(chat)
+    return jsonify(clean(result))
+
+
+@app.get("/<username>/groups")
+def groups(username):
+    s = get_session(username)
+    result = [{"id": g["id"], "name": g["name"], "description": g.get("description", "")[:100], "participantCount": g.get("participantCount", 0), "createdAt": g.get("createdAt"), "archived": next((c.get("archived", False) for c in s.chats if c["id"] == g["id"]), False)} for g in s.groups]
+    return jsonify(clean(result))
+
+
+@app.get("/<username>/messages/<path:jid>")
+def messages(username, jid):
+    s = get_session(username)
+    limit = int(request.args.get("limit", 20))
+    media_only = request.args.get("media") == "true"
+    received_only = request.args.get("received") == "true"
+    order = request.args.get("order", "newest")
+
+    if media_only:
+        msgs = s.media.get(jid, [])
+    else:
+        text_msgs = s.messages.get(jid, [])
+        media_msgs = s.media.get(jid, [])
+        msgs = sorted(text_msgs + media_msgs, key=lambda m: m.get("timestamp", 0))
+
+    if received_only:
+        msgs = [m for m in msgs if not m.get("fromMe")]
+    sliced = msgs[:limit] if order == "oldest" else msgs[-limit:]
+    cdn_cutoff = time.time() - 14 * 86400
+    result = []
+    for m in sliced:
+        entry = dict(m)
+        if entry.get("hasMedia"):
+            mid = entry.get("id", "")
+            fname = entry.get("filename", "")
+            on_disk = fname and os.path.exists(os.path.join(s.dl_dir, fname))
+            in_cache = mid in s.downloaded_media
+            cdn_valid = entry.get("timestamp", 0) > cdn_cutoff and mid not in s.failed_downloads
+            is_viewonce = entry.get("type") == "viewonce"
+            entry["downloadable"] = bool(not is_viewonce and (on_disk or in_cache or cdn_valid))
+        result.append(entry)
+    return jsonify(clean(result))
+
+
+@app.get("/<username>/resolve-contact")
+def resolve_contact(username):
+    q = request.args.get("q", "")
+    if not q:
+        return jsonify({"error": "q parameter required"}), 400
+    s = get_session(username)
+    try:
+        jid = resolve_recipient(s, q)
+        contact = next((c for c in s.contacts if c["id"] == jid), None)
+        return jsonify({"jid": jid, "name": contact["name"] if contact else q, "number": contact["number"] if contact else jid.split("@")[0]})
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+
+
+
+
+
+
+
+
+@app.post("/<username>/send")
+def send(username):
+    body = request.json
+    to, message = body.get("to", ""), body.get("message", "")
+    s = get_session(username)
+    if not s.client or not s.connected:
+        return jsonify({"error": "Not connected"}), 503
+    try:
+        jid_val = resolve_recipient(s, to)
+        result = s.client.send_message(make_jid(jid_val), message)
+        return jsonify({"success": True, "messageId": result.ID, "jid": jid_val})
+    except ValueError as e:
+        return jsonify({"error": str(e), "contact_not_found": True}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.post("/<username>/send-group")
+def send_group(username):
+    body = request.json
+    group_id, message = body.get("groupId", ""), body.get("message", "")
+    s = get_session(username)
+    if not s.client or not s.connected:
+        return jsonify({"error": "Not connected"}), 503
+    try:
+        jid_val = resolve_recipient(s, group_id)
+        parts = jid_val.split("@")
+        result = s.client.send_message(build_jid(parts[0], parts[1] if len(parts) > 1 else "g.us"), message)
+        return jsonify({"success": True, "messageId": result.ID, "jid": jid_val})
+    except ValueError as e:
+        return jsonify({"error": str(e), "contact_not_found": True}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.post("/<username>/send-media")
+def send_media(username):
+    body = request.json
+    to, url = body.get("to", ""), body.get("url", "")
+    caption, filename = body.get("caption", ""), body.get("filename", "")
+    s = get_session(username)
+    if not s.client or not s.connected:
+        return jsonify({"error": "Not connected"}), 503
+    try:
+        jid_val = resolve_recipient(s, to)
+        jid = make_jid(jid_val)
+        mt = media_type_of(filename or url)
+        if mt == "image":
+            result = s.client.send_image(jid, file=url, caption=caption)
+        elif mt == "video":
+            result = s.client.send_video(jid, file=url, caption=caption)
+        elif mt == "audio":
+            result = s.client.send_audio(jid, file=url)
+        else:
+            result = s.client.send_document(jid, file=url, caption=caption, filename=filename or Path(url).name)
+        return jsonify({"success": True, "messageId": result.ID, "jid": jid_val, "mediaType": mt})
+    except ValueError as e:
+        return jsonify({"error": str(e), "contact_not_found": True}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.get("/<username>/media/<message_id>")
+def media(username, message_id):
+    s = get_session(username)
+    m = s.downloaded_media.get(message_id)
+    if not m:
+        return jsonify({"error": "Media not found"}), 404
+    return jsonify(m)
+
+
+@app.post("/<username>/download-media")
+def download_media(username):
+    body = request.json
+    message_id, chat_id = body.get("messageId", ""), body.get("chatId", "")
+    s = get_session(username)
+    if not s.client or not s.connected:
+        return jsonify({"error": "Not connected"}), 503
+    if message_id in s.downloaded_media:
+        return jsonify({"success": True, **s.downloaded_media[message_id]})
+    # View-once messages self-destruct after opening - neonize has no attachments to download
+    for msgs in s.media.values():
+        cached = next((m for m in msgs if m["id"] == message_id), None)
+        if cached and cached.get("type") == "viewonce":
+            return jsonify({"error": "View-once messages cannot be downloaded"}), 400
+
+    # Check if the file was already auto-downloaded to disk (e.g. history-sync messages
+    # are not kept in raw_messages, but auto_download may have saved them to dl_dir).
+    cached_entry = None
+    if chat_id:
+        cached_entry = next((m for m in s.media.get(chat_id, []) if m["id"] == message_id), None)
+    if not cached_entry:
+        for msgs in s.media.values():
+            cached_entry = next((m for m in msgs if m["id"] == message_id), None)
+            if cached_entry:
+                break
+    if cached_entry and cached_entry.get("filename"):
+        fname = cached_entry["filename"]
+        local_path = os.path.join(s.dl_dir, fname)
+        mime = cached_entry.get("mimeType") or "application/octet-stream"
+        if os.path.exists(local_path):
+            size = os.path.getsize(local_path)
+            result = {"local_path": local_path, "filename": fname, "mime": mime, "size": size}
+            s.downloaded_media[message_id] = result
+            return jsonify({"success": True, **result})
+
+    # filename is null - auto_download_history failed or bridge was restarted (raw_messages lost).
+    # Re-queue a fresh auto-download attempt using raw_messages if available, or fall through
+    # to get_message_for_retry below. Also check if S3 already has the file under a guessed name.
+    if cached_entry and not cached_entry.get("filename") and s.client and s.connected:
+        mime = cached_entry.get("mimeType") or "application/octet-stream"
+        ext = mime.split("/")[-1].split(";")[0]
+        guessed_fname = f"{message_id}.{ext}"
+        guessed_local = os.path.join(s.dl_dir, guessed_fname)
+        if os.path.exists(guessed_local):
+            size = os.path.getsize(guessed_local)
+            result = {"local_path": guessed_local, "filename": guessed_fname, "mime": mime, "size": size}
+            s.downloaded_media[message_id] = result
+            with s.lock:
+                for msgs in s.media.values():
+                    for m in msgs:
+                        if m.get("id") == message_id:
+                            m["filename"] = guessed_fname
+            return jsonify({"success": True, **result})
+
+    raw_msg = s.raw_messages.get(message_id)
+    msg_proto = None
+    if raw_msg:
+        # Live messages: raw_msg is a neonize Message; .Message gives the proto
+        # History-sync messages: raw_msg is WebMessageInfo; .message gives the proto
+        msg_proto = getattr(raw_msg, 'Message', None) or getattr(raw_msg, 'message', None)
+        if msg_proto is None:
+            # Fallback: pass the raw object itself, some neonize versions accept WebMessageInfo
+            msg_proto = raw_msg
+    if not msg_proto and s.client:
+        try:
+            me = s.client.get_me()
+            chat_jid = make_jid(chat_id) if chat_id else None
+            if not chat_jid:
+                for cid, msgs in s.media.items():
+                    if any(m["id"] == message_id for m in msgs):
+                        chat_jid = make_jid(cid)
+                        break
+            if chat_jid:
+                retry_msg = s.client.get_message_for_retry(me.JID, chat_jid, message_id)
+                if retry_msg:
+                    msg_proto = retry_msg
+        except Exception as e:
+            pass
+    if not msg_proto:
+        return jsonify({"error": f"Message not found or media expired. ID: {message_id}"}), 404
+    try:
+        media_bytes = s.client.download_any(msg_proto)
+        if not media_bytes:
+            # Try with the raw message object if inner proto gave no bytes
+            if raw_msg and msg_proto is not raw_msg:
+                media_bytes = s.client.download_any(raw_msg)
+        if not media_bytes:
+            return jsonify({"error": "Failed to download media - neonize returned empty bytes"}), 500
+        cached = None
+        cached_filename = None
+        for chat_msgs in ([s.media.get(chat_id, [])] if chat_id else s.media.values()):
+            cached = next((m for m in chat_msgs if m["id"] == message_id), None)
+            if cached:
+                cached_filename = cached.get("filename")
+                break
+        mime = (cached.get("mimeType") if cached else None) or "application/octet-stream"
+        ext = mime.split("/")[-1].split(";")[0]
+        fname = cached_filename or f"{message_id.replace('/', '_').replace(':', '_')}.{ext}"
+        local_path = os.path.join(s.dl_dir, fname)
+        with open(local_path, "wb") as f:
+            f.write(media_bytes)
+        result = {"local_path": local_path, "filename": fname, "mime": mime, "size": len(media_bytes)}
+        s.downloaded_media[message_id] = result
+        return jsonify({"success": True, **result})
+    except Exception as e:
+        import traceback
+        err_detail = traceback.format_exc()
+        pass
+        return jsonify({"error": str(e) or repr(e), "detail": err_detail.splitlines()[-1]}), 500
+
+
+
+
+
+
+@app.get("/<username>/group-participants/<path:group_id>")
+def group_participants(username, group_id):
+    s = get_session(username)
+    group = next((g for g in s.groups if g["id"] == group_id), None)
+    if not group:
+        return jsonify({"error": "Group not found", "group_id": group_id}), 404
+    enriched = []
+    for p in group.get("participants", []):
+        contact = next((c for c in s.contacts if c["id"] == p["id"]), None)
+        name = (contact["name"] if contact and contact.get("name") and contact["name"] != contact.get("number") else p.get("number")) or p.get("name")
+        enriched.append({**p, "name": name})
+    return jsonify({"id": group["id"], "name": group["name"], "participantCount": group.get("participantCount", 0), "participants": enriched})
+
+
+@app.get("/<username>/search-groups-by-contacts")
+def search_groups_by_contacts(username):
+    contacts_param = request.args.get("contacts", "")
+    if not contacts_param:
+        return jsonify({"error": "contacts parameter required"}), 400
+    s = get_session(username)
+    queries = [q.strip().lower() for q in contacts_param.split(",") if q.strip()]
+    resolved = []
+    for q in queries:
+        if q in ("me", "self"):
+            resolved.append({"query": q, "jid": f"{s.phone}@s.whatsapp.net" if s.phone else None, "name": "Me"}); continue
+        by_name = next((c for c in s.contacts if c.get("name") and c["name"].lower() == q and "@c.us" in c["id"]), None) or next((c for c in s.contacts if c.get("name") and c["name"].lower() == q), None)
+        if by_name:
+            resolved.append({"query": q, "jid": by_name["id"], "name": by_name["name"]}); continue
+        by_partial = next((c for c in s.contacts if c.get("name") and q in c["name"].lower() and "@c.us" in c["id"]), None) or next((c for c in s.contacts if c.get("name") and q in c["name"].lower()), None)
+        if by_partial:
+            resolved.append({"query": q, "jid": by_partial["id"], "name": by_partial["name"]}); continue
+        by_number = next((c for c in s.contacts if c.get("number") and q in c["number"]), None)
+        if by_number:
+            resolved.append({"query": q, "jid": by_number["id"], "name": by_number["name"]}); continue
+        if s.phone and q in s.phone:
+            resolved.append({"query": q, "jid": f"{s.phone}@s.whatsapp.net", "name": "Me"}); continue
+        resolved.append({"query": q, "jid": None, "name": q})
+
+    results = []
+    for group in s.groups:
+        participants = group.get("participants", [])
+        matched = 0
+        for r in resolved:
+            if r["jid"]:
+                found = any(p["id"] == r["jid"] for p in participants)
+            else:
+                found = any((p.get("number") and r["query"] in (p["number"] or "")) or (p.get("name") and r["query"] in (p["name"] or "").lower()) for p in participants)
+            if found:
+                matched += 1
+        if matched == len(resolved):
+            results.append({"id": group["id"], "name": group["name"], "participantCount": group.get("participantCount", 0)})
+    return jsonify(clean({"queries": [{"query": r["query"], "resolved": r["name"]} for r in resolved], "commonGroups": results, "totalGroups": len(s.groups)}))
+
+
+@app.get("/<username>/latest-received-message")
+def latest_received_message(username):
+    s = get_session(username)
+    include_groups = request.args.get("groups", "").lower() == "true"
+
+    if s.latest_received_message is not None:
+        msg = s.latest_received_message
+        chat_jid = msg.get("chatJid", msg.get("fromJid", ""))
+        if include_groups or "@g.us" not in chat_jid:
+            return jsonify(clean(msg))
+
+    # Fallback: use conversation timestamps from history sync metadata
+    with s.lock:
+        chats = [c for c in s.chats if c.get("timestamp", 0) > 0 and "@broadcast" not in c.get("id", "") and "@newsletter" not in c.get("id", "")]
+        if not include_groups:
+            chats = [c for c in chats if not c.get("isGroup")]
+        if chats:
+            most_recent = max(chats, key=lambda c: c.get("timestamp", 0))
+            body = most_recent.get("lastMessage") or ""
+            return jsonify(clean({
+                "chatName": most_recent.get("name", ""),
+                "jid": most_recent.get("id", ""),
+                "isGroup": most_recent.get("isGroup", False),
+                "timestamp": most_recent.get("timestamp", 0),
+                "body": body if body else "(message content not yet synced - history is still loading)",
+                "from": None,
+                "fromJid": None,
+                "note": "Showing most recently active chat from sync metadata; full message history is still loading in the background.",
+            }))
+
+    return jsonify({"error": "No received messages found"}), 404
+
+
+@app.get("/<username>/latest-sent-message")
+def latest_sent_message(username):
+    s = get_session(username)
+    if s.latest_sent_message is None:
+        return jsonify({"error": "No sent messages found"}), 404
+    return jsonify(clean(s.latest_sent_message))
+
+
+@app.post("/<username>/rebuild-senders")
+def rebuild_senders(username):
+    """Re-run group sender resolution after fresh participant data is available."""
+    s = get_session(username)
+    bulk_resolve_group_lids(s)
+    with s.lock:
+        s.rebuild_group_senders()
+        s.rebuild_latest_received()
+        s.rebuild_latest_sent()
+    persist(s)
+    return jsonify({"success": True})
+
+
+@app.get("/<username>/query-messages")
+def query_messages(username):
+    s = get_session(username)
+    chat_q = (request.args.get("chat") or "").strip().lower()
+    sender_q = (request.args.get("sender") or "").strip().lower()
+    raw_limit = int(request.args.get("limit", 5))
+    # Sender queries scan all messages first then limit - use a higher cap so
+    # the agent gets enough results without an explicit limit override.
+    max_limit = 200 if sender_q else 50
+    limit = min(raw_limit, max_limit)
+    from_me_arg = request.args.get("fromMe", "").lower()
+    date_q = (request.args.get("date") or "").strip().lower()  # "today", "yesterday", or "YYYY-MM-DD"
+    order = (request.args.get("order") or "newest").strip().lower()  # "newest" or "oldest"
+
+    # Resolve date filter to UTC day boundaries (timestamps in seconds)
+    day_start = day_end = None
+    if date_q:
+        from datetime import timezone
+        now_utc = datetime.utcnow()
+        if date_q == "today":
+            target_date = now_utc.date()
+        elif date_q == "yesterday":
+            from datetime import timedelta
+            target_date = (now_utc - timedelta(days=1)).date()
+        else:
+            try:
+                from datetime import date as dt_date
+                target_date = dt_date.fromisoformat(date_q)
+            except ValueError:
+                return jsonify({"error": f"Invalid date '{date_q}'. Use 'today', 'yesterday', or 'YYYY-MM-DD'"}), 400
+        day_start = int(datetime(target_date.year, target_date.month, target_date.day, tzinfo=timezone.utc).timestamp())
+        day_end = day_start + 86400
+
+    # Snapshot all session state under the lock - prevents race conditions with
+    # concurrent history sync events that may be adding/modifying entries.
+    with s.lock:
+        messages_snap = {k: list(v) for k, v in s.messages.items()}
+        media_snap = {k: list(v) for k, v in s.media.items()}
+        chats_snap = list(s.chats)
+        groups_snap = list(s.groups)
+        contacts_snap = list(s.contacts)
+        user_phone = s.phone
+        user_name = s.name
+
+    # Resolve chat name to JID - exact first, then substring, then emoji-stripped fallback
+    target_jid = None
+    target_name = None
+    if chat_q:
+        all_chats = {c["id"]: c.get("name", c["id"].split("@")[0]) for c in chats_snap}
+        for g in groups_snap:
+            all_chats.setdefault(g["id"], g.get("name", g["id"].split("@")[0]))
+        # Include contacts so "venu" matches even when chat display name is the phone number
+        for c in contacts_snap:
+            cname = c.get("name")
+            if cname and cname != c.get("number"):
+                all_chats[c["id"]] = cname
+        # Strip trailing filler words the agent commonly appends ("group", "chat", "bhai")
+        # so "the boys group" resolves to "The boys" correctly.
+        chat_q_clean = re.sub(r'\s+(group|chat|bhai)\s*$', '', chat_q, flags=re.IGNORECASE).strip() or chat_q
+        # 1. Exact match (try both original and cleaned query)
+        match = next((jid for jid, name in all_chats.items() if name.lower() == chat_q_clean), None)
+        if not match and chat_q_clean != chat_q:
+            match = next((jid for jid, name in all_chats.items() if name.lower() == chat_q), None)
+        # 2. Substring match - prefer cleaned query to avoid false positives from "group" suffix
+        if not match:
+            match = next((jid for jid, name in all_chats.items() if name_match(chat_q_clean, name)), None)
+        if not match and chat_q_clean != chat_q:
+            match = next((jid for jid, name in all_chats.items() if name_match(chat_q, name)), None)
+        if match:
+            target_jid, target_name = match, all_chats[match]
+        else:
+            return jsonify({"error": f"Chat '{chat_q}' not found"}), 404
+
+    # Resolve sender to phone numbers AND LID IDs - using emoji-aware name matching
+    sender_phones = set()
+    if sender_q:
+        for c in contacts_snap:
+            name = (c.get("name") or "")
+            number = (c.get("number") or "")
+            cid = c.get("id", "")
+            if name_match(sender_q, name) or sender_q in number:
+                if number:
+                    sender_phones.add(number)
+                # Also add the LID numeric ID so @lid fromJid entries match
+                if "@lid" in cid:
+                    sender_phones.add(cid.split("@")[0])
+        # Also check group participants (may not be in contacts)
+        for g in groups_snap:
+            for p in g.get("participants", []):
+                pname = (p.get("name") or "")
+                pnum = (p.get("number") or "")
+                pid = p.get("id", "")
+                if name_match(sender_q, pname) or (pnum and sender_q in pnum):
+                    if pnum:
+                        sender_phones.add(pnum)
+                    if pid and "@lid" in pid:
+                        sender_phones.add(pid.split("@")[0])
+
+    # Build phone/LID → saved contact name for resolving numeric `from` fields in results
+    phone_to_name = {}
+    for c in contacts_snap:
+        cname = c.get("name")
+        cnum = c.get("number")
+        cid = c.get("id", "")
+        if cname and cnum and cname != cnum:
+            phone_to_name[cnum] = cname
+        if cname and "@" in cid and cname != cnum:
+            phone_to_name[cid.split("@")[0]] = cname
+
+    def resolve_from(m):
+        """Replace `from` with the saved contact name when one is available.
+        Covers: raw phone number, partial push name (e.g. 'Rishi' instead of 'Rishi uncle 🙏'),
+        or any other mismatch between stored sender and the phone-book name."""
+        from_jid = (m.get("fromJid") or "")
+        # Don't touch group-origin JIDs (sender is a person inside a group - fromJid is their JID)
+        from_jid_phone = from_jid.split("@")[0] if "@" in from_jid else ""
+        if not from_jid_phone:
+            return m
+        saved_name = phone_to_name.get(from_jid_phone)
+        if saved_name:
+            return {**m, "from": saved_name}
+        # Fallback: if `from` is a raw phone number, try matching by that number too
+        from_val = (m.get("from") or "").strip()
+        if from_val and from_val.lstrip("+").isdigit():
+            saved_name = phone_to_name.get(from_val)
+            if saved_name:
+                return {**m, "from": saved_name}
+        return m
+
+    jids = [target_jid] if target_jid else list(set(messages_snap.keys()) | set(media_snap.keys()))
+    chat_name_map = {c["id"]: c.get("name", c["id"].split("@")[0]) for c in chats_snap}
+    for g in groups_snap:
+        chat_name_map.setdefault(g["id"], g.get("name", g["id"].split("@")[0]))
+    # Contacts override phone-number fallbacks in chat_name_map (direct chats have no display name)
+    for c in contacts_snap:
+        cname = c.get("name")
+        if cname and cname != c.get("number"):
+            chat_name_map[c["id"]] = cname
+    # Self-chat (Saved Messages) shows the user's own name
+    if user_phone:
+        chat_name_map[f"{user_phone}@s.whatsapp.net"] = user_name or "Saved Messages"
+
+    def passes_filters(m, jid):
+        if from_me_arg == "true" and not m.get("fromMe"):
+            return False
+        if from_me_arg == "false" and m.get("fromMe"):
+            return False
+        if day_start is not None:
+            if not (day_start <= m.get("timestamp", 0) < day_end):
+                return False
+        if sender_q:
+            if m.get("fromMe"):
+                return False
+            stored_name = (m.get("from") or "")
+            from_jid_phone = (m.get("fromJid") or "").split("@")[0]
+            # Also check resolved contact name - stored_name may be a partial push name
+            # (e.g. "Rasool" instead of "Rasool Khan") while phone_to_name has the full name.
+            resolved_name = phone_to_name.get(from_jid_phone, stored_name)
+            if (not name_match(sender_q, stored_name)
+                    and not name_match(sender_q, resolved_name)
+                    and from_jid_phone not in sender_phones):
+                return False
+        return True
+
+    if target_jid:
+        # Single chat - filter and sort within that chat
+        chat_name = target_name or chat_name_map.get(target_jid, target_jid.split("@")[0])
+        all_msgs = messages_snap.get(target_jid, []) + media_snap.get(target_jid, [])
+        filtered = [{**resolve_from(m), "chatName": chat_name} for m in all_msgs if passes_filters(m, target_jid)]
+        filtered.sort(key=lambda m: m.get("timestamp", 0), reverse=(order != "oldest"))
+        results = filtered[:limit]
+    else:
+        candidates = []
+
+        if sender_q:
+            # Sender specified without a chat → look only in the direct chat with that person.
+            # Never fall back to groups; groups must be named explicitly via chat= param.
+            direct_jid = None
+            # Use the contact's actual JID (id field) - more reliable than reconstructing
+            # from phone number which may differ in format from the messages_snap key.
+            for c in contacts_snap:
+                cname = (c.get("name") or "")
+                cid = c.get("id", "")
+                if "@s.whatsapp.net" in cid and name_match(sender_q, cname):
+                    if cid in messages_snap or cid in media_snap:
+                        direct_jid = cid
+                        break
+            if not direct_jid and sender_phones:
+                # Fallback: reconstruct JID from phone number
+                for phone in sorted(sender_phones):
+                    cjid = f"{phone}@s.whatsapp.net"
+                    if cjid in messages_snap or cjid in media_snap:
+                        direct_jid = cjid
+                        break
+            if not direct_jid:
+                if not sender_phones and not any(
+                    "@s.whatsapp.net" in c.get("id", "") and name_match(sender_q, c.get("name") or "")
+                    for c in contacts_snap
+                ):
+                    return jsonify({"error": f"Could not resolve sender '{sender_q}' to a contact"}), 404
+                return jsonify({"error": f"No direct chat found for '{sender_q}'. If you meant a group message, specify the group name too."}), 404
+            # In a direct chat, all non-fromMe messages are from the contact - no sender filter needed.
+            chat_name = chat_name_map.get(direct_jid, direct_jid.split("@")[0])
+            for m in messages_snap.get(direct_jid, []) + media_snap.get(direct_jid, []):
+                if not m.get("fromMe"):
+                    if from_me_arg == "true":
+                        continue
+                    candidates.append({**resolve_from(m), "chatName": chat_name})
+                else:
+                    if from_me_arg == "false":
+                        continue
+                    candidates.append({**resolve_from(m), "chatName": chat_name})
+        else:
+            # No sender, no chat - global scan across all JIDs
+            for jid in jids:
+                if "@newsletter" in jid or "@broadcast" in jid:
+                    continue
+                chat_name = chat_name_map.get(jid, jid.split("@")[0])
+                for m in messages_snap.get(jid, []) + media_snap.get(jid, []):
+                    if passes_filters(m, jid):
+                        candidates.append({**resolve_from(m), "chatName": chat_name})
+
+        candidates.sort(key=lambda m: m.get("timestamp", 0), reverse=(order != "oldest"))
+        results = candidates[:limit]
+
+    if not results:
+        return jsonify({"error": "No matching messages found"}), 404
+    return jsonify(clean(results))
+
+
+
+
+def periodic_persist():
+    while True:
+        try:
+            time.sleep(60)
+            for s in list(sessions.values()):
+                try:
+                    if s.connected:
+                        persist(s)
+                except Exception as e:
+                    pass
+        except Exception as e:
+            pass
+
+
+
+
+def cleanup_stale_files():
+    if not DATA_DIR.exists():
+        return
+    
+    for user_dir in DATA_DIR.iterdir():
+        if not user_dir.is_dir():
+            continue
+        for f in user_dir.glob("*.upload"):
+            try:
+                f.unlink()
+            except Exception:
+                pass
+        for f in user_dir.glob("*.db-wal"):
+            try:
+                f.unlink()
+            except Exception:
+                pass
+        for f in user_dir.glob("*.db-shm"):
+            try:
+                f.unlink()
+            except Exception:
+                pass
+
+
+def flush_all_sessions():
+    """Drain all pending uploads and wait for completion before process exit."""
+    active = list(sessions.values())
+    for s in active:
+        try:
+            if s.persist_timer:
+                s.persist_timer.cancel()
+                s.persist_timer = None
+            persist(s)
+        except Exception as e:
+            pass
+    for s in active:
+        try:
+            s.upload_executor.shutdown(wait=True, cancel_futures=False)
+        except Exception:
+            pass
+
+
+def handle_shutdown(signum, frame):
+    pass
+    flush_all_sessions()
+    sys.exit(0)
+
+
+if __name__ == "__main__":
+    import atexit
+    import signal
+
+    atexit.register(flush_all_sessions)
+    signal.signal(signal.SIGTERM, handle_shutdown)
+    try:
+        signal.signal(signal.SIGINT, handle_shutdown)
+    except (OSError, ValueError):
+        pass
+
+    cleanup_stale_files()
+    threading.Thread(target=periodic_persist, daemon=True).start()
+    pass
+    app.run(host="127.0.0.1", port=PORT, threaded=True)

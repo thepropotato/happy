@@ -39,10 +39,13 @@ def alone(known, row, compact=False):
     label = (known.get("short") or known["label"]) if compact else known["label"]
     tools = doing(row)
 
+    # A MEMBER OF A FAMILY OFFERS NEITHER A WAY IN NOR A WAY OUT. BOTH BELONG TO
+    # THE ONE SIGN IN ALL OF THEM SHARE.
+    again = None if compact else action(name, label, "connect", wording.asking(known, label), None)
+
     if tools:
-        # A SIGN IN THAT HAS DIED STILL HAS ITS TOOLS REMEMBERED, SO THE ROW OFFERS
-        # THE WAY BACK IN. WITHOUT IT THE ONLY PATH IS SIGNING OUT OF SOMETHING THAT
-        # IS ALREADY NOT WORKING, WHICH NOBODY WOULD GUESS AT.
+        # A SIGN IN THAT HAS DIED STILL HAS ITS TOOLS REMEMBERED, SO THE ROW STILL
+        # OFFERS THE WAY BACK IN.
         gone = wording.trouble(row)
 
         return service(
@@ -57,8 +60,10 @@ def alone(known, row, compact=False):
             tools=len(tools),
             doing=tools,
             note=wording.ended(gone) if compact else wording.story(known, row),
-            action=action(name, label, "connect", wording.asking(known, label), None) if gone else None,
-            leaving=[action(name, f"{label} sign in", "disconnect", wording.SIGN_OUT, None)],
+            action=again if gone else None,
+            leaving=[] if compact else [
+                action(name, f"{label} sign in", "disconnect", wording.SIGN_OUT, None)
+            ],
         )
 
     wants = filling.wanted(known, compact)
@@ -70,39 +75,43 @@ def alone(known, row, compact=False):
         wording.wrong(known, row, wants),
         tone=wording.care(known, row),
         careful=bool(known.get("care")),
-        wording=wording.pill(known, wants),
         ready=filling.poised(name, kind),
         note=None if compact else wording.story(known, row),
         fields=wants,
-        action=action(name, label, "connect", wording.asking(known, label), None),
+        action=again,
     )
 
 
 def household(known, kept):
-    """A FAMILY: ONE ROW, ONE SETUP, AND ITS SERVICES AS SWITCHES INSIDE IT.
+    """A FAMILY: ONE ROW, ONE SETUP, ONE SIGN IN, AND ITS SERVICES INSIDE IT.
 
-    THE BOXES ARE KEYED TO THE FIRST MEMBER BECAUSE THAT IS WHERE mcps.signing
-    LOOKS: A CLIENT PASTED ONTO ONE SERVICE IS FOUND BY EVERY RELATIVE OF IT. THE
-    FAMILY ITSELF IS NOT A CONNECTION AND HAS NOWHERE OF ITS OWN TO KEEP ONE.
+    THE CLIENT AND THE TOKEN ARE KEPT UNDER THE FAMILY'S OWN NAME, SO THE BOXES
+    AND THE BUTTON ARE KEYED TO IT TOO. PRESSING IT ONCE SIGNS INTO ALL OF THEM:
+    ONE GOOGLE ACCOUNT AGREEING TO MAIL, CALENDAR AND DRIVE IS ONE QUESTION, AND
+    ASKING IT THREE TIMES WAS WHERE PEOPLE PUT THE PANEL DOWN.
     """
+    name, label = known["name"], known["label"]
     members = [alone(each, kept.pop(each["name"], None), compact=True) for each in known["members"]]
     signed = [each for each in members if each["connected"]]
-    eldest = known["members"][0]["name"]
     tools = sum(each["tools"] for each in signed)
 
     return service(
-        known["name"],
-        known["label"],
+        name,
+        label,
         wording.initial(known),
         f"{wording.listing(signed)} · {wording.said(tools)}" if signed else wording.listing(members),
         tone="live" if any(each["tone"] == "live" for each in signed) else "",
         connected=bool(signed),
         signed=len(signed),
         tools=tools,
-        wording=wording.SET_UP,
+        ready=filling.poised(name, known["kind"]),
         note=known.get("hint"),
-        fields=filling.boxes(eldest, directory.CLIENT),
+        fields=filling.boxes(name, directory.CLIENT),
         parts=members,
+        action=action(name, label, "connect", f"Sign into {label}", None),
+        leaving=[action(name, f"{label} sign in", "disconnect", wording.SIGN_OUT, None)]
+        if signed
+        else [],
     )
 
 

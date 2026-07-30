@@ -17,8 +17,7 @@ from hands.controls.commands import (
 )
 
 # THREE WAYS OF SETTING A MAC'S BRIGHTNESS, BEST FIRST: THE FRAMEWORK THE SLIDER
-# ITSELF USES, THE HOMEBREW HELPER FOR THE OLD MACS THAT STILL ANSWER IT, AND
-# THE KEYS, WHICH ALWAYS WORK BUT ONLY MOVE IN NOTCHES.
+# ITSELF USES, THE HOMEBREW HELPER FOR OLD MACS, AND THE KEYS, WHICH ONLY NOTCH.
 HELPER = "brightness"
 HELPER_INSTALL = "brew install brightness"
 
@@ -30,16 +29,13 @@ NOTCH = 100 / 16
 
 MAC_LEVEL = re.compile(r"brightness\s+([0-9.]+)")
 
-# WMI KNOWS THE BRIGHTNESS OF A BUILT IN SCREEN. AN EXTERNAL MONITOR IS ITS OWN
-# DEVICE WITH ITS OWN BUTTONS AND DOES NOT ANSWER.
+# WMI KNOWS THE BRIGHTNESS OF A BUILT IN SCREEN. AN EXTERNAL MONITOR DOES NOT ANSWER.
 WINDOWS_READ = "(Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness).CurrentBrightness"
 WINDOWS_SET = (
     "(Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods)"
     ".WmiSetBrightness(1, {level})"
 )
 
-# TELLING EVERY WINDOW THE SCREEN IS GOING TO SLEEP, WHICH IS WHAT THE POWER
-# BUTTON DOES.
 WINDOWS_DISPLAY_OFF = (
     '(Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern int '
     "SendMessage(int handle, int message, int first, int second);' -Name Screen -PassThru)"
@@ -112,9 +108,7 @@ def set_level(wanted):
         found = helper()
 
         if not found:
-            # THE KEYS CANNOT NAME A LEVEL, BUT THEY CAN CLOSE THE GAP TO ONE,
-            # WHICH IS NEARER TO WHAT WAS ASKED FOR THAN DOING NOTHING AND
-            # RECOMMENDING HOMEBREW.
+            # THE KEYS CANNOT NAME A LEVEL, BUT THEY CAN CLOSE THE GAP TO ONE.
             now = mac_level()
 
             return NO_HELPER if now is None else f"{change(value - now)} {NO_HELPER}"
@@ -132,9 +126,8 @@ def change(step):
     if on_mac():
         now = mac_level()
 
-        # STEPPING IS SET_LEVEL WITH ONE EXTRA READ WHENEVER THE FRAMEWORK IS
-        # THERE. THE KEYS BELOW ARE FOR WHEN IT IS NOT, AND THEY ARE DELIBERATELY
-        # NOT REACHED THROUGH set_level, WHICH FALLS BACK TO HERE.
+        # THE KEYS BELOW ARE FOR WHEN THE FRAMEWORK IS NOT THERE, AND ARE
+        # DELIBERATELY NOT REACHED THROUGH set_level, WHICH FALLS BACK TO HERE.
         if now is not None and backlight.put(clamp(now + step) / 100):
             return f"Brightness set to {clamp(now + step)} percent."
 

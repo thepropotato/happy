@@ -7,7 +7,6 @@ from langchain_core.tools import tool
 from hands.files.finding import describe, hunt, locate
 from hands.files.readers import UNREADABLE, extract
 
-# ONE READ MUST NOT SWALLOW THE WHOLE CONTEXT. THE HISTORY HAS TO LIVE SOMEWHERE.
 MAX_CHARS = 40000
 
 CUT = "\n\n[...cut. Ask again with start set past here to read on.]"

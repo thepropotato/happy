@@ -44,7 +44,7 @@ def rows(behind=()):
         found = built(known, kept)
         (live if found["connected"] else cold).append(found)
 
-    for name, row in list(kept.items()):  # WHATEVER SOMEBODY ADDED THEMSELVES.
+    for name, row in list(kept.items()):
         found = drawing.mine(name, row)
         (live if found["connected"] else cold).append(found)
 

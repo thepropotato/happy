@@ -29,8 +29,7 @@ from face import console, orders, panel, show
 
 SERVE = "--serve"
 
-# ONE TURN AT A TIME. A LINE TYPED INTO THE WINDOW ARRIVES ON ITS OWN THREAD AND
-# MUST NOT LAND IN THE MIDDLE OF A SPOKEN ONE.
+# ONE TURN AT A TIME. A LINE TYPED INTO THE WINDOW ARRIVES ON ITS OWN THREAD.
 taking = threading.Lock()
 
 
@@ -44,11 +43,10 @@ def main():
 
     recorder = ears.Recorder()
 
-    # THE KEY GOING DOWN CUTS HAPPY OFF MID SENTENCE. SOMEONE WHO HAS STARTED
-    # TALKING HAS STOPPED LISTENING, AND THE MIC MUST NOT HEAR HIM EITHER.
+    # SOMEONE WHO HAS STARTED TALKING HAS STOPPED LISTENING, AND THE MIC MUST
+    # NOT HEAR HAPPY EITHER.
     ptt = ears.PushToTalk(on_press=speaker.stop)
 
-    # THE FACE WANTS TO KNOW WHERE EACH TURN'S TIME WENT.
     brain.watches(show.step)
 
     thrown = memory.prune(recorder.recordings)  # ONLY IF A SETTING SAYS TO.
@@ -56,12 +54,12 @@ def main():
     if thrown:
         show.note(f"Threw away {thrown}")
 
-    if windowed:  # THE WINDOW IS TOLD ABOUT A DEAF KEY IN ready(), AND SAYS SO ITSELF.
+    if windowed:
         attend(happy, speaker, recorder, ptt)
     else:
         show.note(f"Hold {ptt.key_name} to talk. Ctrl+C to quit.")
 
-        if ptt.deaf:  # HE HEARS THE KEY, JUST NOT FROM ANYWHERE THAT MATTERS.
+        if ptt.deaf:
             show.note(ears.DEAF)
 
     try:
@@ -95,23 +93,21 @@ def start():
     try:
         ears.load_model()
         ears.warm()
-    except ears.EarsError as error:  # NO HEARING AT ALL. NOTHING TO DO BUT SAY SO.
+    except ears.EarsError as error:
         raise SystemExit(error)
 
     speaker, mute = voice.create()
 
-    if mute:  # HAPPY STILL ANSWERS, HE JUST ANSWERS IN WRITING.
+    if mute:
         show.note(mute)
 
     speaker.warm()
 
     try:
         happy = brain.Happy()
-    except brain.LLMError as error:  # NO BACKEND AT ALL. NOTHING TO DO BUT SAY SO.
+    except brain.LLMError as error:
         raise SystemExit(error)
 
-    # A BACKEND THAT CANNOT BE TOLD A CONTEXT LENGTH SAYS SO NOW, RATHER THAN
-    # LETTING IT BE FOUND OUT THROUGH ANSWERS THAT QUIETLY GET WORSE.
     caveat = brain.caveat()
 
     if caveat:
@@ -119,7 +115,7 @@ def start():
 
     try:
         happy.warm()
-    except brain.LLMError as error:  # HE STILL HEARS, HE JUST CANNOT ANSWER YET.
+    except brain.LLMError as error:
         show.note(error)
 
     return happy, speaker
@@ -130,7 +126,7 @@ def listen(recorder, ptt, happy, speaker):
     while True:
         audio = capture(recorder, ptt)
 
-        if audio is None:  # THE KEY WAS BRUSHED. NOT A TURN, SAY NOTHING.
+        if audio is None:
             continue
 
         with taking:
@@ -187,12 +183,11 @@ def respond(happy, speaker, speech, audio=None):
     show.opening()
 
     try:
-        # SPOKEN AND PRINTED OFF THE ONE STREAM. THE SPEAKER HOLDS EACH PIECE
-        # BACK UNTIL IT HAS A WHOLE SENTENCE, THE PRINTING DOES NOT WAIT. THE WAV
-        # GOES IN THE CONVERSATION SO A LINE CAN BE HEARD AGAIN LATER.
+        # SPOKEN AND PRINTED OFF THE ONE STREAM: THE SPEAKER HOLDS EACH PIECE
+        # BACK UNTIL IT HAS A WHOLE SENTENCE, THE PRINTING DOES NOT WAIT.
         for piece in speaker.say(happy.say_streaming(speech, audio=audio)):
             show.piece(piece)
-    except brain.LLMError as error:  # A DEAD MODEL MUST NOT END THE SESSION.
+    except brain.LLMError as error:
         show.trouble(error)
 
 

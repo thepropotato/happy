@@ -12,13 +12,10 @@ MENU THAT OPENED HALF A SECOND LATE MAKES EVERY REMEMBERED POSITION A LIE.
 from eyes import estimating
 from eyes.parts import Scene
 
-# HOW MUCH OF THE SCREEN GOES TO THE MODEL. IT ARRIVES IN A CONTEXT THAT ALSO
-# HOLDS THE CONVERSATION AND EVERY TOOL SCHEMA, AND MAY END UP SPOKEN.
 MAX_CHARS = 1400
 MAX_PER_KIND = 12
 
-# THE ORDER A PERSON WOULD LOOK IN: WHAT YOU CAN PRESS, THEN WHAT YOU CAN FILL
-# IN, THEN WHAT IS MERELY WRITTEN THERE.
+# THE ORDER A PERSON WOULD LOOK IN: PRESS, THEN FILL IN, THEN MERELY READ.
 GROUPS = (
     ("Buttons", ("button", "menu button", "radio button")),
     ("Checkboxes", ("checkbox", "switch", "expander")),
@@ -121,7 +118,6 @@ def listing(scene):
         more = f", and {len(here) - len(shown)} more" if len(here) > len(shown) else ""
         lines.append(f"{title}: {' | '.join(shown)}{more}")
 
-    # ANYTHING WHOSE KIND NOBODY LISTED STILL GETS SAID, RATHER THAN VANISHING.
     rest = [described(each) for each in named if each.kind not in taken][:MAX_PER_KIND]
 
     if rest:
@@ -130,7 +126,6 @@ def listing(scene):
     if not scene.text:
         return trimmed("\n".join(lines))
 
-    # THE APPLICATION DESCRIBED ALMOST NOTHING, SO THE WORDS ARE ALL THERE IS.
     return trimmed("\n".join(lines) + f"\nWords on the screen:\n{scene.text}")
 
 

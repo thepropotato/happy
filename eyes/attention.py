@@ -72,9 +72,8 @@ def front():
         if running is None:
             return "", None
 
-        # THROUGH wording() FOR THE INVISIBLE DIRECTION MARKS: THE APPLICATION
-        # IN FRONT IS REPORTED AS "‎WhatsApp", NOT "WhatsApp", AND THAT NAME IS
-        # COMPARED AGAINST WHAT A PERSON SAID.
+        # THROUGH wording() FOR INVISIBLE DIRECTION MARKS: THE NAME IN FRONT COMES
+        # BACK AS "‎WhatsApp", NOT "WhatsApp".
         from eyes.naming import wording
 
         return wording(running.localizedName()), running.processIdentifier()
@@ -116,8 +115,6 @@ def window(handle=None):
 
         app = AXUIElementCreateApplication(pid)
 
-        # A WINDOW WITH NO TITLE IS COMMON AND IS NOT AN ANSWER. THE MAIN WINDOW
-        # AND THEN THE FIRST ONE ARE TRIED BEFORE GIVING UP.
         for attribute in ("AXFocusedWindow", "AXMainWindow"):
             title = wording(mac_attribute(mac_attribute(app, attribute), "AXTitle"))
 
@@ -199,5 +196,5 @@ def pointer():
         x, y = Controller().position
 
         return int(x), int(y)
-    except Exception:  # NO DISPLAY, OR NO PERMISSION TO ASK.
+    except Exception:
         return 0, 0

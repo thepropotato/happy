@@ -20,7 +20,6 @@ from ctypes import byref, c_float, c_int
 
 FRAMEWORK = "/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices"
 
-# ctypes.CDLL COSTS A dlopen, AND THE ANSWER NEVER CHANGES WHILE WE ARE RUNNING.
 # None MEANS NOT TRIED YET; False MEANS TRIED AND NOT THERE.
 loaded = None
 

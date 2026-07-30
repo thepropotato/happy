@@ -39,7 +39,7 @@ def write(text):
     if on_mac():
         done = run(["pbcopy"], feed=text)
     elif on_windows():
-        done = run(["clip"], feed=text)  # SHIPS WITH WINDOWS AND READS ITS INPUT.
+        done = run(["clip"], feed=text)
     else:
         return UNSUPPORTED
 

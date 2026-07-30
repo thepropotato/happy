@@ -2,8 +2,6 @@
 
 from eyes.parts import Shot, VisionError
 
-# CAPTURE NEEDS PERMISSION ON BOTH SYSTEMS AND IS REFUSED SILENTLY ON ONE OF
-# THEM, SO THE FIX IS SPELLED OUT RATHER THAN THE FAILURE REPORTED.
 BLIND = (
     "I cannot see the screen. Screen recording has to be allowed for whatever "
     "runs Happy: on macOS in System Settings, Privacy and Security, Screen and "
@@ -23,7 +21,7 @@ def density(pixels):
         from screeninfo import get_monitors
 
         monitors = get_monitors()
-    except Exception:  # NO DISPLAY, OR A PLATFORM IT DOES NOT KNOW.
+    except Exception:
         return 1.0
 
     for monitor in monitors:
@@ -45,8 +43,7 @@ def grab():
     if picture is None:
         raise VisionError(BLIND)
 
-    # PERMISSION IS NOT REFUSED OUT LOUD ON MACOS. THE GRAB SUCCEEDS AND EVERY
-    # PIXEL IN IT IS BLACK, WHICH WOULD OTHERWISE READ AS AN EMPTY SCREEN.
+    # MACOS DOES NOT REFUSE OUT LOUD: THE GRAB SUCCEEDS AND EVERY PIXEL IS BLACK.
     if picture.convert("L").getextrema() == (0, 0):
         raise VisionError(BLIND)
 

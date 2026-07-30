@@ -1,33 +1,29 @@
-/* THE SECTIONS, THE ROWS INSIDE ONE, AND THE LIST THAT OPENS INSIDE A ROW.
+/* THE SECTIONS, THE ROWS INSIDE ONE, AND THE THINGS A SETTING IS MOVED WITH.
 
    SIX SECTIONS THAT FOLD OPEN WHERE THEY SIT, NOT SIX TABS OVER FIFTY KNOBS.
    EVERY ONE SAYS WHAT IT IS SET TO WITHOUT BEING OPENED, BECAUSE MOST VISITS TO
-   THE CONTROLS ARE SOMEBODY CHECKING RATHER THAN CHANGING. */
+   THE CONTROLS ARE SOMEBODY CHECKING RATHER THAN CHANGING.
+
+   A SHUT SECTION IS A LINE IN A LIST AND NOT A CARD. SIX CARDS, EACH HOLDING
+   CARDS, EACH OF THOSE HOLDING MORE, IS THE SHAPE THE SHEET USED TO HAVE AND THE
+   REASON IT COULD NOT BE READ TOP TO BOTTOM. */
 
 .part {
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.025);
-  margin-bottom: 7px;
-  overflow: hidden;
+  border-bottom: 1px solid var(--line);
   animation: settle 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  transition: border-color 180ms, background 180ms;
+  transition: background 180ms, border-color 180ms;
 }
 
-@keyframes settle {
-  from {
-    opacity: 0;
-    transform: translateY(7px);
-  }
+.part:last-child {
+  border-bottom: 0;
 }
 
-.part:hover {
-  border-color: rgba(255, 255, 255, 0.13);
-}
-
+/* THE ONE SECTION SOMEBODY IS IN GETS THE SURFACE. NOTHING ELSE NEEDS ONE. */
 .part.open {
-  border-color: var(--glow-soft);
-  background: rgba(124, 92, 245, 0.06);
+  border-bottom-color: transparent;
+  border-radius: var(--r-lg);
+  background: var(--sunk);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 /* EVERYTHING HERE IS > SO THAT A SERVICE ROW LIVING INSIDE A SECTION KEEPS ITS
@@ -35,25 +31,31 @@
 .part > .face {
   display: flex;
   align-items: center;
-  gap: 11px;
+  gap: var(--gap);
   width: 100%;
   border: 0;
+  border-radius: var(--r-lg);
   background: transparent;
   color: var(--ink);
   font: inherit;
   text-align: left;
-  padding: 11px 12px;
+  padding: var(--pad);
   cursor: pointer;
+  transition: background 160ms;
+}
+
+.part:not(.open) > .face:hover {
+  background: var(--raise);
 }
 
 .part > .face .mark {
   flex: 0 0 auto;
-  width: 28px;
-  height: 28px;
+  width: 27px;
+  height: 27px;
   display: grid;
   place-items: center;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.07);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--dim);
   font-size: 12px;
   font-weight: 600;
@@ -93,22 +95,31 @@
   color: var(--dim);
 }
 
-.part > .face .go {
+/* ONE CHEVRON, ONE MEANING, EVERYWHERE IN THIS WINDOW: THERE IS MORE UNDER THIS
+   ROW. IT TURNS TO POINT AT WHAT IT OPENED. */
+.go {
   flex: 0 0 auto;
   color: var(--faint);
   font-size: 15px;
   line-height: 1;
-  transition: transform var(--pane);
+  transition: transform var(--pane), color 160ms;
+}
+
+.part > .face .go {
+  margin-left: 2px;
 }
 
 .part.open > .face .go {
   transform: rotate(90deg);
+  color: var(--dim);
 }
 
 .inside {
-  padding: 2px 13px 11px;
+  padding: 0 var(--pad) 9px;
   animation: settle 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* ── ONE SETTING ── */
 
 .knob {
   padding: 10px 0;
@@ -121,7 +132,7 @@
 
 .knob .top {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   margin-bottom: 7px;
 }
@@ -158,7 +169,7 @@
 .more {
   width: 100%;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--r-md);
   background: transparent;
   color: var(--faint);
   font: inherit;
@@ -171,7 +182,7 @@
 
 .more:hover {
   color: var(--ink);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--raise);
 }
 
 /* THE LIST OPENS IN PLACE AND PUSHES THE REST DOWN, SO IT IS NEVER CLIPPED BY
@@ -184,7 +195,7 @@
   position: relative;
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 9px;
+  border-radius: var(--r-md);
   background: rgba(255, 255, 255, 0.04);
   color: var(--ink);
   font: inherit;
@@ -205,7 +216,7 @@
 }
 
 .picker:hover {
-  border-color: rgba(255, 255, 255, 0.16);
+  border-color: var(--edge);
 }
 
 .options {
@@ -224,7 +235,7 @@
   display: block;
   width: 100%;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: transparent;
   color: var(--dim);
   font: inherit;
@@ -250,12 +261,12 @@
 .doer {
   width: 100%;
   border: 1px solid var(--glow-soft);
-  border-radius: 9px;
+  border-radius: var(--r-md);
   background: rgba(124, 92, 245, 0.18);
   color: var(--ink);
   font: inherit;
   font-size: 12px;
-  padding: 7px 10px;
+  padding: 8px 10px;
   cursor: pointer;
   transition: background 180ms, border-color 180ms, transform 180ms, opacity 180ms;
 }
@@ -271,4 +282,17 @@
 .doer:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* SOMETHING WORTH THINKING TWICE ABOUT IS STILL ONE BUTTON, BUT NOT AN INVITING
+   ONE. THE SERVICE ITSELF IS THE WARNING, SO THE BUTTON DOES NOT ALSO SHOUT. */
+.doer.careful {
+  border-color: var(--line);
+  background: var(--raise);
+  color: var(--dim);
+}
+
+.doer.careful:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.09);
 }

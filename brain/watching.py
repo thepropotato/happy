@@ -11,24 +11,33 @@ from langchain.agents.middleware import wrap_model_call, wrap_tool_call
 from langchain_core.messages import trim_messages
 
 import memory
+from hands import asking
 from memory import settings
 
 TOOL = "tool"
+
+# THE SAME CALL, SAID BEFORE IT RUNS.
+STARTED = "tool.started"
+
 MODEL = "model"
 
 report = None
 
 
 def watches(handler):
-    """BE TOLD HOW LONG EACH PART TOOK. handler(kind, name, seconds)."""
+    """BE TOLD HOW LONG EACH PART TOOK. handler(kind, name, seconds, about).
+
+    about IS WHAT A FACE MIGHT SHOW ABOUT ONE CALL, OR None. A DICT AND NOT THREE
+    MORE ARGUMENTS, BECAUSE EVERY FACE THAT DOES NOT CARE STILL HAS TO SPELL THEM.
+    """
     global report
 
     report = handler
 
 
-def tell(kind, name, seconds):
+def tell(kind, name, seconds, about=None):
     if report:
-        report(kind, name, seconds)
+        report(kind, name, seconds, about)
 
 
 @wrap_model_call
@@ -39,16 +48,56 @@ def keep_recent(request, handler):
 
 @wrap_tool_call
 def keep_record(request, handler):
-    """EVERY TOOL CALL GOES IN THE CONVERSATION, WITH ITS ARGUMENTS AND ITS TIME."""
+    """EVERY TOOL CALL GOES ON ITS EXCHANGE, WITH ITS REASON, ARGUMENTS AND TIME."""
+    call = request.tool_call
+
+    # READ, NOT TAKEN: THE CALL ITSELF GOES ON UNTOUCHED.
+    args, why = asking.without(call)
+    name = call.get("name")
+
+    # THE ID TIES THE STARTED AND FINISHED REPORTS TO THE ONE ROW.
+    which = call.get("id") or f"{name}-{id(call)}"
+
+    tell(STARTED, name, None, {"id": which, "args": args})
+
     started = time.perf_counter()
-    result = handler(request)
+
+    try:
+        result = handler(request)
+    except Exception as error:
+        taken = time.perf_counter() - started
+        gone = {"id": which, "why": why, "args": args, "result": str(error), "failed": True}
+
+        memory.used(name, args, str(error), taken, why)
+        tell(TOOL, name, taken, gone)
+
+        raise
+
     taken = time.perf_counter() - started
 
-    call = request.tool_call
-    memory.used(call.get("name"), call.get("args"), text(result), taken)
-    tell(TOOL, call.get("name"), taken)
+    why = why or reason(request)
+    said = text(result)
+
+    memory.used(name, args, said, taken, why)
+
+    tell(TOOL, name, taken, {"id": which, "why": why, "args": args, "result": memory.brief(said)})
 
     return result
+
+
+def reason(request):
+    """WHY THIS CALL, IN THE MODEL'S OWN WORDS BEFORE IT REACHED FOR THE TOOL.
+
+    THE FALLBACK NOW THAT why IS ASKED FOR OUTRIGHT, FOR THE ONE TOOL IN A HUNDRED
+    WHOSE SCHEMA WOULD NOT TAKE IT. None WHEN THE MODEL SAID NOTHING EITHER.
+    """
+    wanted = request.tool_call.get("id")
+
+    for message in reversed(request.state.get("messages", [])):
+        if any(each.get("id") == wanted for each in getattr(message, "tool_calls", None) or []):
+            return (message.text or "").strip() or None
+
+    return None
 
 
 def text(result):

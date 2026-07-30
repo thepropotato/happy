@@ -9,13 +9,10 @@ import re
 # A FULL STOP FOLLOWED BY SPACE, OR A LINE BREAK. THE SPACE KEEPS "3.5" WHOLE.
 ENDINGS = re.compile(r"(?<=[.!?])[\"')\]]*\s+|\n+")
 
-# TOO SHORT AND EVERY FRAGMENT GETS ITS OWN BREATH, WHICH SOUNDS CLIPPED.
 MIN_CHARS = 24
 
-# EXCEPT THE FIRST OF A REPLY, THE ONLY ONE ANYONE IS WAITING ON.
 MIN_CHARS_FIRST = 4
 
-# AND A SENTENCE THAT NEVER ENDS MUST NOT HOLD UP THE SOUND FOREVER.
 MAX_CHARS = 260
 
 # A FULL STOP AFTER ONE OF THESE BELONGS TO THE WORD, NOT THE SENTENCE.
@@ -34,7 +31,7 @@ class Sentences:
 
     def __init__(self):
         self.buffer = ""
-        self.started = False  # HAS THIS REPLY MADE A SOUND YET.
+        self.started = False
 
     def feed(self, piece):
         """TAKE A PIECE. WHOLE SENTENCES COME BACK, THE REST WAITS."""
@@ -56,7 +53,7 @@ class Sentences:
     def flush(self):
         """WHATEVER IS LEFT, EVEN WITHOUT A FULL STOP ON THE END."""
         rest, self.buffer = self.buffer.strip(), ""
-        self.started = False  # THE NEXT REPLY GETS ITS QUICK FIRST SENTENCE AGAIN.
+        self.started = False
 
         return [rest] if rest else []
 

@@ -22,10 +22,9 @@ from brain.prompt import system_prompt
 from brain.watching import MODEL, keep_recent, keep_record, tell, watches
 from memory import settings
 
-MODEL_NODE = "model"  # WHERE SPOKEN WORDS COME FROM. TOOL OUTPUT IS NOT SPOKEN.
+MODEL_NODE = "model"
 
-# THE GROUPS THE GRAPH IS BUILT OUT OF. mcps IS HERE BECAUSE CONNECTING A SERVICE
-# ADDS TOOLS, AND A TOOL THAT ONLY ARRIVES AFTER A RESTART IS NOT CONNECTED.
+# mcps IS HERE BECAUSE CONNECTING A SERVICE ADDS TOOLS.
 GROUPS = ("brain", "mcps")
 
 THREAD = "happy"
@@ -40,17 +39,15 @@ class Happy:
     """THE ASSISTANT. ONE PER SESSION, IT REMEMBERS WITHIN THAT SESSION."""
 
     def __init__(self, model=None, tools=None, prompt=None):
-        self.given = model  # HANDED ONE IN MEANS NEVER BUILDING ONE FROM SETTINGS.
+        self.given = model
 
-        # HELD, NOT RESOLVED. WHAT IS ON OFFER CHANGES WHILE HAPPY IS RUNNING, SO
-        # ASKING ONCE HERE WOULD PIN THE GRAPH TO WHATEVER WAS TRUE AT STARTUP.
+        # HELD, NOT RESOLVED: WHAT IS ON OFFER CHANGES WHILE HAPPY IS RUNNING.
         self.handed = tools
         self.wording = prompt
 
         self.thread = THREAD
 
-        # OUTLIVES EVERY REBUILD, SO CHANGING A SETTING MID CONVERSATION DOES NOT
-        # COST THE CONVERSATION.
+        # OUTLIVES EVERY REBUILD, SO A SETTING CHANGE DOES NOT COST THE CONVERSATION.
         self.kept = InMemorySaver()
 
         self.version = None
@@ -68,8 +65,6 @@ class Happy:
             middleware=[
                 keep_recent,
                 keep_record,
-                # HOW MANY TIMES THE MODEL MAY GO ROUND BEFORE IT HAS TO ANSWER. A
-                # LOOP THAT KEEPS GOING IS A PERSON STARING AT A SILENT ASSISTANT.
                 ModelCallLimitMiddleware(run_limit=settings.get("brain.calls")),
             ],
             checkpointer=self.kept,
@@ -87,7 +82,10 @@ class Happy:
     def say(self, speech, **about):
         """THE WHOLE REPLY AS ONE STRING."""
         self.refit()
-        memory.said(speech, **about)
+
+        # BEFORE THE GRAPH RUNS: THE TOOLS IT CALLS ARE WRITTEN ONTO THIS ROW.
+        memory.begin(speech, **about)
+        started = time.perf_counter()
 
         try:
             done = self.graph.invoke(self.turn(speech), self.config())
@@ -95,14 +93,14 @@ class Happy:
             raise LLMError(brain.reason(error))
 
         reply = done["messages"][-1].text.strip()
-        memory.replied(reply)
+        memory.close(reply, time.perf_counter() - started)
 
         return reply
 
     def say_streaming(self, speech, **about):
         """THE REPLY IN PIECES, FOR HANDING SENTENCES TO THE VOICE AS THEY LAND."""
         self.refit()
-        memory.said(speech, **about)
+        memory.begin(speech, **about)
         reply = ""
         started = time.perf_counter()
 
@@ -115,16 +113,18 @@ class Happy:
                 if piece:
                     reply += piece
 
+                    # WHERE THE ANSWER HAD GOT TO, SO A REOPENED TURN PUTS THE NEXT
+                    # CALL BACK BETWEEN THE SAME TWO SENTENCES.
+                    memory.progress(len(reply))
+
                     yield piece
         except Exception as error:
             raise LLMError(brain.reason(error))
         finally:
-            tell(MODEL, None, time.perf_counter() - started)
+            taken = time.perf_counter() - started
+            tell(MODEL, None, taken)
 
-            # RECORDED EVEN WHEN THE ANSWER WAS CUT OFF. HALF A SENTENCE IS STILL
-            # WHAT HAPPY SAID.
-            if reply.strip():
-                memory.replied(reply.strip())
+            memory.close(reply.strip() or None, taken)
 
     def forget(self):
         """A CLEAN SLATE. A NEW THREAD IS CHEAPER THAN EMPTYING THE OLD ONE."""
@@ -142,9 +142,6 @@ def spoken(chunk, note):
     if note.get("langgraph_node") != MODEL_NODE:
         return None
 
-    # THE TURN THAT DECIDES ON A TOOL ARRIVES HERE TOO, AS HALF BUILT ARGUMENTS.
-    # READING IT OUT WOULD BE THE ASSISTANT MUTTERING JSON.
-    if getattr(chunk, "tool_call_chunks", None) or getattr(chunk, "tool_calls", None):
-        return None
-
+    # A CHUNK CARRYING TOOL CALLS CAN CARRY TEXT TOO, AND THAT TEXT IS THE ONLY
+    # WARNING BEFORE THE PANEL GOES QUIET FOR AS LONG AS THE TOOL TAKES.
     return chunk.text or None

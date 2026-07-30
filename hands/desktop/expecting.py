@@ -80,12 +80,8 @@ def for_click(found):
             f"{label} should end up {'not ticked' if was else 'ticked'}", flipped
         )
 
-    # CLICKING SOMEWHERE TO TYPE CHANGES NOTHING A GLANCE CAN SEE. A CARET
-    # APPEARING IN AN EMPTY BOX MOVES NO PIXELS WORTH FINGERPRINTING, AND A BOX
-    # THAT ALREADY HELD THE KEYBOARD MOVES NONE AT ALL, SO "THE SCREEN SHOULD
-    # CHANGE" CALLED EVERY ONE OF THEM A FAILURE. WHATSAPP'S COMPOSE BOX TAKES
-    # THE KEYBOARD THE MOMENT A CHAT OPENS, SO TYPING INTO IT REPORTED "I CLICKED
-    # COMPOSE MESSAGE BUT NOTHING CHANGED" AND GAVE UP BEFORE TYPING A LETTER.
+    # CLICKING SOMEWHERE TO TYPE CHANGES NOTHING A GLANCE CAN SEE: A CARET IN AN
+    # EMPTY BOX MOVES NO PIXELS, AND A BOX THAT ALREADY HELD THE KEYBOARD NONE.
     if element is not None and element.kind in ENTRY:
         label = element.said
 
@@ -94,11 +90,8 @@ def for_click(found):
 
         return Expectation(f"the keyboard should end up in {label}", caught)
 
-    # THE KEYBOARD LANDING IN THE THING WE PRESSED IS A YES ON ITS OWN, AND IT IS
-    # THE ONLY ONE AVAILABLE WHEN THAT THING ALREADY HELD THE CARET. WHATSAPP'S
-    # SEARCH IS A BUTTON RATHER THAN A FIELD, SO CLICKING IT TWICE MOVED NO PIXELS
-    # AND WAS REPORTED AS "I CLICKED SEARCH BUT NOTHING CHANGED" WHILE THE CARET
-    # SAT IN IT, AND THE TYPING THAT WOULD HAVE FOLLOWED NEVER HAPPENED.
+    # THE KEYBOARD LANDING IN THE THING WE PRESSED IS A YES ON ITS OWN, AND THE
+    # ONLY ONE AVAILABLE WHEN THAT THING ALREADY HELD THE CARET.
     label = found.label
 
     def landed(before, after):
@@ -126,8 +119,8 @@ def for_typing(text):
         if holding(after, text):
             return True
 
-        # AN APPLICATION THAT DESCRIBES NOTHING CANNOT CONFIRM THE TEXT, SO
-        # FALL BACK TO WHETHER ANYTHING MOVED AT ALL RATHER THAN CRYING FAILURE.
+        # AN APPLICATION THAT DESCRIBES NOTHING CANNOT CONFIRM THE TEXT, SO FALL
+        # BACK TO WHETHER ANYTHING MOVED AT ALL.
         return None if not after.senses or after.blind else stirred(before, after)
 
     return Expectation(f'"{shorten(text)}" should appear where the keyboard was', arrived)
@@ -167,7 +160,7 @@ def verdict(expectation, before, after):
     """WHETHER REALITY DID WHAT WAS EXPECTED OF IT."""
     try:
         answer = expectation.check(before, after)
-    except Exception:  # A CHECK THAT BREAKS MUST NOT LOSE THE ACT THAT WORKED.
+    except Exception:
         answer = None
 
     happened = estimating.difference(before, after)

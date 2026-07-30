@@ -6,7 +6,9 @@ from memory import conversation, storage
 
 WIDTH = 5
 
-NAMES = {conversation.YOU: "you", conversation.HAPPY: "happy", conversation.TOOL: "  ·"}
+YOU = "you"
+HAPPY = "happy"
+TOOL = "  ·"
 
 
 def when(entry):
@@ -21,19 +23,36 @@ def show(entries=None, tools=False):
     lines = []
 
     for entry in conversation.history() if entries is None else entries:
-        if entry.get("who") == conversation.TOOL and not tools:
-            continue
-
         stamp = when(entry)
         clock = stamp.strftime("%d %b %H:%M") if stamp else "?"
-        who = NAMES.get(entry.get("who"), entry.get("who", "?"))
 
-        if entry.get("who") == conversation.TOOL:
-            lines.append(f"{clock}  {who:>{WIDTH}}  {entry.get('tool')}({entry.get('args')})")
-        else:
-            lines.append(f"{clock}  {who:>{WIDTH}}  {entry.get('text', '')}")
+        if entry.get("message"):
+            lines.append(said(clock, YOU, entry["message"]))
+
+        if tools:
+            lines.extend(called(clock, entry.get("tools", [])))
+
+        if entry.get("reply"):
+            lines.append(said(clock, HAPPY, entry["reply"]))
 
     return "\n".join(lines)
+
+
+def said(clock, who, words):
+    return f"{clock}  {who:>{WIDTH}}  {words}"
+
+
+def called(clock, calls):
+    """ONE LINE PER CALL, AND WHY IT WAS MADE WHEN THE MODEL SAID WHY."""
+    lines = []
+
+    for each in calls:
+        lines.append(said(clock, TOOL, f"{each.get('name')}({each.get('args')})"))
+
+        if each.get("why"):
+            lines.append(said(clock, "", f"  {each['why']}"))
+
+    return lines
 
 
 if __name__ == "__main__":

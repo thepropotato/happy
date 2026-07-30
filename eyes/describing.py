@@ -12,7 +12,6 @@ import re
 from eyes.parts import VisionError
 from memory import settings
 
-# HOW MANY LINES OF SCREEN TEXT THE MODEL IS OFFERED AT ONCE.
 MAX_LABELS = 150
 
 PICK = (
@@ -72,7 +71,7 @@ def asked(image, question):
     """ONE QUESTION ABOUT ONE PICTURE, ANSWERED BY THE LOOKING MODEL."""
     from langchain_core.messages import HumanMessage
 
-    from brain import model  # LATE: brain REACHES BACK INTO hands FOR THE APPS.
+    from brain import model  # LATE: brain REACHES BACK INTO hands.
 
     message = HumanMessage(
         content=[
@@ -86,7 +85,7 @@ def asked(image, question):
     except Exception as error:
         said = model.reason(error)
 
-        if "not found" in said.lower():  # THE SERVER IS UP, THE MODEL IS NOT THERE.
+        if "not found" in said.lower():
             raise VisionError(
                 MISSING.format(model=model.looking(), how=model.obtain(model.looking()))
             )

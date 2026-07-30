@@ -1,5 +1,3 @@
-// THE ONLY DOOR BETWEEN THE PAGE AND THE MACHINE.
-
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('happy', {

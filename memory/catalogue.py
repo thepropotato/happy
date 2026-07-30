@@ -28,7 +28,6 @@ TALK_KEYS = [
 FOREVER = "0 keeps everything."
 
 # WHAT IS SET ONCE AND NEVER AGAIN IS MARKED rare AND SITS BEHIND ONE MORE TAP.
-# THE HANDFUL LEFT OVER ARE THE ONES SOMEBODY OPENED THE SECTION FOR.
 BRAIN = [
     choice("brain.model", "Model", [], "gpt-oss:20b", "What does the talking.", source="models"),
     choice("brain.effort", "Thinking effort", EFFORTS, "low", "Low keeps answers conversational."),
@@ -41,10 +40,8 @@ BRAIN = [
            rare=True),
     number("brain.history", "History carried", 2, 64, 2, 24, "Messages of backchat.", "msgs",
            whole=True, rare=True),
-    # SIX WAS ONE SHORT OF THE REAL TASKS. OPENING AN APP, FINDING A CHAT, TYPING
-    # AND SENDING IS SIX ROUNDS WITH NOTHING GOING WRONG, AND THE FIRST GLANCE TO
-    # SEE WHERE IT LANDED MAKES SEVEN. A LIMIT ONLY BITES WHEN THE WORK IS LONG,
-    # SO A HIGHER ONE COSTS A SHORT ANSWER NOTHING.
+    # OPENING AN APP, FINDING A CHAT, TYPING AND SENDING IS SIX ROUNDS WITH
+    # NOTHING GOING WRONG, AND THE GLANCE TO SEE WHERE IT LANDED MAKES SEVEN.
     number("brain.calls", "Tool rounds", 1, 20, 1, 14, "Before it has to answer.", "max",
            whole=True, rare=True),
     number("brain.timeout", "Timeout", 30, 900, 10, 300, "A cold load is not a dead server.",
@@ -77,14 +74,11 @@ EYES = [
            rare=True),
 ]
 
-# THESE THREE ARE ALREADY A FOLD DEEP: THE CONNECTIONS PUT THEM INSIDE "HOW
-# CONNECTIONS BEHAVE", UNDER THE SERVICES THEMSELVES. NOTHING HERE IS rare.
 CONNECTIONS = [
     toggle("mcps.confirm", "Ask before changing", True, "Anything that is not just looking."),
     number("mcps.timeout", "Give up after", 5, 120, 5, 20, "A service is not this computer.",
            "sec", whole=True),
-    # A CAP ONLY BITES ON A SERVER NOBODY HAS PICKED TOOLS FOR. SIX IS ABOUT WHAT
-    # ONE SERVICE IS WORTH BEFORE IT CROWDS OUT EVERYTHING ON THIS MACHINE.
+    # A CAP ONLY BITES ON A SERVER NOBODY HAS PICKED TOOLS FOR.
     number("mcps.cap", "Tools per service", 1, 20, 1, 6, "Before it crowds the rest.", "max",
            whole=True),
 ]
@@ -99,7 +93,6 @@ GROUPS = [
     group("ears", "Ears", "Hearing you, and when.", EARS, ["ears.key"]),
     group("voice", "Voice", "How Happy sounds.", VOICE, ["voice.name", "voice.muted"]),
     group("eyes", "Eyes", "Looking at the screen.", EYES, ["eyes.model"]),
-    # THE CONNECTIONS COUNT THEMSELVES: A SECTION OF SERVICES SAYS HOW MANY ARE UP.
     group("mcps", "Connections", "Services that are not this computer.", CONNECTIONS),
     group("memory", "Memory", "What is kept, and how long.", REMEMBERING),
 ]

@@ -12,15 +12,13 @@ PASTE = "mcps.paste."
 
 HELD = "Added — paste over it to change it"
 
-# WHAT A SERVICE THAT WILL NOT REGISTER HAPPY ITSELF HAS TO BE GIVEN FIRST. THE
-# SERVICE'S OWN NAME IS NOT IN THESE LABELS: THE BOX SITS INSIDE THAT SERVICE'S
-# OWN ROW, AND SAYING "GMAIL CLIENT ID" UNDER THE WORD GMAIL WAS ONE READING OF
-# THE SAME WORD TOO MANY.
+# THE SERVICE'S OWN NAME IS NOT IN THESE LABELS: THE BOX SITS INSIDE THAT
+# SERVICE'S OWN ROW ALREADY.
 ASKED = {
     directory.TOKEN: [("token", "Token", "Kept on this machine, never shown again.")],
     directory.CLIENT: [
         # SIGNING INTO YOUR OWN UNVERIFIED APP STILL GETS THE RED SCREEN, AND
-        # SOMEBODY WHO WAS NOT WARNED READS IT AS HAPPY BEING THE UNSAFE PART.
+        # SOMEBODY UNWARNED READS IT AS HAPPY BEING THE UNSAFE PART.
         ("client", "Client ID", "It will warn that the app is unverified — it is yours. "
                                 "Open Advanced and carry on."),
         ("secret", "Client secret", "From the same one."),
@@ -34,10 +32,7 @@ def wanted(known, compact):
     A MEMBER OF A FAMILY NEVER HAS ITS OWN: THE ONE CLIENT THEY SHARE IS ASKED
     FOR ONCE, IN THE ROW ALL THREE OF THEM LIVE IN.
     """
-    if compact or borrows(known["name"]):
-        return []
-
-    return boxes(known["name"], known["kind"])
+    return [] if compact else boxes(known["name"], known["kind"])
 
 
 def boxes(name, asking_for):
@@ -58,15 +53,6 @@ def given(name, field):
     held = signing.client(name)
 
     return bool(held.get("client_secret" if field == "secret" else "client_id"))
-
-
-def borrows(name):
-    """TRUE WHEN A SERVICE THIS ONE SHARES A SIGN IN WITH ALREADY HAS THE CLIENT."""
-    from mcps import signing, tokens
-
-    own = tokens.kept(name).get("client") or {}
-
-    return not own.get("client_id") and bool(signing.client(name).get("client_id"))
 
 
 def poised(name, kind):

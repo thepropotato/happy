@@ -7,7 +7,6 @@ OPEN_TIMEOUT_SECONDS = 15
 # HOW LONG A BROWSER GETS TO FAIL BEFORE WE CALL IT LAUNCHED. SEE released().
 EARLY_SECONDS = 2
 
-# EVERY ONE OF THESE SITS BETWEEN A PERSON SPEAKING AND A PAGE OPENING.
 ASK_TIMEOUT_SECONDS = 5
 
 
@@ -48,7 +47,7 @@ def released(command):
     try:
         _, complaint = started.communicate(timeout=EARLY_SECONDS)
     except subprocess.TimeoutExpired:
-        return None  # STILL GOING, WHICH MEANS IT IS THE BROWSER NOW.
+        return None
 
     said = (complaint or "").strip()
 

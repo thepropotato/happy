@@ -100,7 +100,7 @@ def read():
 
     try:
         rows = storage.read(EVERYTHING)
-    except Exception:  # NO DATABASE YET IS NOT A REASON TO FAIL TO START.
+    except Exception:
         return kept
 
     for row in rows:

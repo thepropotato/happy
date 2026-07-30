@@ -90,7 +90,7 @@ class Session:
             self.session = None
 
             # SET EVEN WHEN IT FAILED, SO NOBODY WAITS OUT THE TIMEOUT FOR A
-            # CONNECTION THAT IS ALREADY KNOWN NOT TO BE COMING.
+            # CONNECTION ALREADY KNOWN NOT TO BE COMING.
             if self.ready is not None:
                 self.ready.set()
 
@@ -146,10 +146,10 @@ class Session:
         try:
             return await session.call_tool(name, arguments, read_timeout_seconds=waiting)
         except McpError:
-            raise  # THE SERVER ANSWERED AND SAID NO. RECONNECTING WOULD NOT CHANGE IT.
+            raise  # THE SERVER ANSWERED AND SAID NO.
         except Exception:
             # ONE RECONNECT, NEVER TWO. THE SECOND WAIT IS LONGER THAN A PERSON
-            # WILL STAND THERE FOR, AND PLAIN TEXT BACK IS BETTER THAN SILENCE.
+            # WILL STAND THERE FOR.
             await self.close()
 
             session = await self.open()

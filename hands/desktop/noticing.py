@@ -16,9 +16,8 @@ CATCHES THAT, AND IS WHY THIS IS A HELP RATHER THAN THE GUARANTEE.
 
 import time
 
-# HOW LONG AFTER WE SAY "THIS IS OURS" AN EVENT IS STILL OURS. LONG ENOUGH TO
-# COVER THE INJECTION AND THE SYSTEM DELIVERING IT, SHORT ENOUGH THAT A PERSON
-# REACHING IN IS NOT SWALLOWED BY IT.
+# HOW LONG AFTER WE SAY "THIS IS OURS" AN EVENT IS STILL OURS. SHORT ENOUGH THAT
+# A PERSON REACHING IN IS NOT SWALLOWED BY IT.
 OURS_SECONDS = 0.5
 
 
@@ -49,7 +48,7 @@ class Watch:
             for each in watchers:
                 each.daemon = True
                 each.start()
-        except Exception:  # NO PERMISSION TO LISTEN. HAPPY STILL ACTS AND VERIFIES.
+        except Exception:
             return False
 
         self.listeners = watchers
@@ -85,8 +84,7 @@ class Watch:
         self.note()
 
     def pressed(self, pressed_key):
-        # THE KEY ITSELF IS DELIBERATELY NOT LOOKED AT. ONLY THAT SOMETHING
-        # HAPPENED, AND WHEN.
+        # THE KEY ITSELF IS DELIBERATELY NOT LOOKED AT. ONLY THAT SOMETHING HAPPENED.
         self.note()
 
     def busy(self, since):

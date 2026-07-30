@@ -9,6 +9,18 @@ ARE A PREFERENCE AND NOT A DEMAND: A NAME THAT NO LONGER EXISTS COSTS NOTHING,
 AND A LIST THAT MATCHES NOTHING AT ALL FALLS BACK TO THE CAP.
 """
 
+import sys
+from pathlib import Path
+
+from mcps import permission
+
+# THE ONE SERVER HAPPY SHIPS ITSELF. THE PATH IS WORKED OUT RATHER THAN WRITTEN
+# DOWN, BECAUSE A CHECKOUT CAN SIT ANYWHERE, AND IT IS RUN BY THE SAME PYTHON
+# HAPPY IS RUNNING ON SO IT INHERITS THE VIRTUALENV WITHOUT BEING TOLD.
+OURS = Path(__file__).resolve().parents[1]
+
+WHATSAPP = f'"{sys.executable}" "{OURS / "mcps" / "servers" / "whatsapp" / "server.py"}"'
+
 # HOW A SERVICE IS SIGNED INTO.
 OPEN = "oauth"  # IT REGISTERS US ITSELF. ONE BUTTON, NOTHING TO PASTE.
 TOKEN = "token"  # PASTE A TOKEN YOU MADE ON THEIR SITE.
@@ -27,14 +39,18 @@ EASY = "One button. Nothing to paste."
 #
 # THE ONE THING PEOPLE GET WRONG IS LEAVING THE PROJECT IN TESTING, WHERE GOOGLE
 # THROWS THE REFRESH TOKEN AWAY AFTER SEVEN DAYS AND THEY SIGN IN AGAIN WEEKLY.
+# A WEB APPLICATION CLIENT AND NOT A DESKTOP ONE. THE DESKTOP KIND HAS NO
+# REDIRECT FIELD AT ALL, WHICH MAKES THE NEXT SENTENCE IMPOSSIBLE TO FOLLOW, AND
+# GOOGLE ALLOWS PLAIN http FOR A LOOPBACK ADDRESS ON A WEB CLIENT.
 YOUR_OWN = (
-    "Make a Google Cloud project, switch the API on, and add a Desktop app OAuth "
-    "client. Publish it — left in testing, Google forgets the sign in every week."
+    "Make a Google Cloud project, switch the API on, and add a Web application "
+    "OAuth client. Publish it — left in testing, Google forgets the sign in every week."
 )
 
 # THE ONE THING EVERY BRING YOUR OWN CLIENT SETUP GETS WRONG. IT IS WRITTEN OUT
-# IN FULL BECAUSE IT HAS TO BE COPIED EXACTLY INTO SOMEBODY ELSE'S CONSOLE.
-SENDS_BACK = "Register http://127.0.0.1:8765/callback as the redirect."
+# IN FULL BECAUSE IT HAS TO BE COPIED EXACTLY INTO SOMEBODY ELSE'S CONSOLE, AND
+# IT IS READ OFF THE DOOR ITSELF SO THE TWO CAN NEVER DRIFT APART.
+SENDS_BACK = f"Register {permission.expected()} as the redirect."
 
 # ONE GOOGLE CLOUD PROJECT COVERS ALL THREE, SO THE CLIENT IS ASKED FOR ONCE AND
 # THE OTHER TWO FIND IT. DOING THE SAME FIFTEEN MINUTE ERRAND THREE TIMES WOULD BE
@@ -133,19 +149,33 @@ KNOWN = [
         "name": "whatsapp",
         "label": "WhatsApp",
         "kind": LOCAL,
-        "address": "uv run --directory ~/whatsapp-mcp/whatsapp-mcp-server main.py",
+        "address": WHATSAPP,
+        # get_status EARNS ITS PLACE AMONG THE READS. THE BRIDGE GOING QUIET
+        # LOOKS EXACTLY LIKE A QUIET AFTERNOON, AND A MODEL THAT CAN ASK WHETHER
+        # WHATSAPP IS EVEN CONNECTED WILL SAY SO INSTEAD OF ANSWERING FROM
+        # WHATEVER IT LAST SAW.
+        #
+        # THE THREE SENDS ARE HERE ON PURPOSE AND ARE SAFE FOR ONE REASON ONLY:
+        # NONE OF THEM STARTS WITH A READING WORD, SO mcps/writing.py STOPS EVERY
+        # ONE AND ASKS. WHAT IS ALSO GONE FROM THE SERVER IS THE AUTO REPLY —
+        # SENDING NOBODY WAS ASKED ABOUT, ARRIVING WHILE NOBODY IS WATCHING, IS A
+        # DIFFERENT THING FROM SENDING SOMEBODY JUST SAID YES TO.
         "allowed": [
             "search_contacts",
-            "list_chats",
-            "list_messages",
+            "get_chats",
+            "get_messages",
+            "query_messages",
+            "get_unread_messages",
+            "get_status",
             "send_message",
-            "send_file",
+            "send_group_message",
+            "send_media_message",
         ],
-        # NOT MADE BY WHATSAPP, AND SIGNING IN WITH IT CAN GET THE NUMBER BANNED.
-        # HAPPY ALREADY SENDS WHATSAPP MESSAGES BY DRIVING THE APP ON THE SCREEN,
-        # WHICH IS SLOWER AND COSTS NOBODY THEIR ACCOUNT.
-        "hint": "Unofficial, and needs its bridge running. Your account may be banned.",
-        "care": "Unofficial · your account may be banned",
+        "hint": "Reads your chats and can send, asking first every time. Run "
+                "mcps/servers/whatsapp/bridge.py and scan the QR; it has to stay running or "
+                "the messages quietly go stale. It links to your account the way WhatsApp Web "
+                "does, which their terms do not allow, and sending from an unofficial client "
+                "is what gets numbers banned.",
     },
 ]
 
@@ -182,6 +212,30 @@ def label(name):
     found = BY_NAME.get(name)
 
     return found["label"] if found else str(name).replace("_", " ").title()
+
+
+def wants(name):
+    """EVERY SCOPE THIS SIGN IN HAS TO ASK FOR, IN THE ORDER THEY ARE LISTED.
+
+    ONE CONSENT COVERS A WHOLE FAMILY, SO IT ASKS FOR WHAT ALL OF THEM NEED AT
+    ONCE. ASKING FOR MAIL NOW AND CALENDAR LATER IS TWO TRIPS THROUGH THE SAME
+    GOOGLE SCREEN FOR THE SAME ACCOUNT, WHICH IS THE THING NOBODY FINISHES.
+    """
+    found = BY_NAME.get(name)
+
+    if found is None:
+        kin = household(name) if name in FAMILIES else []
+    else:
+        kin = household(found["family"]) if found.get("family") else [found]
+
+    asked = []
+
+    for each in kin:
+        for scope in each.get("scopes") or []:
+            if scope not in asked:
+                asked.append(scope)
+
+    return asked
 
 
 def relatives(name):

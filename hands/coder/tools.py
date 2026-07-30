@@ -24,7 +24,7 @@ def build(task: str) -> str:
 
     with job.lock:
         if job.busy():
-            return BUSY + job.current.task  # ONE CODER, ONE ERRAND AT A TIME.
+            return BUSY + job.current.task
 
         job.current = job.Job(names[0], task)
 
@@ -51,7 +51,7 @@ def build_answer(response: str) -> str:
 
     with job.lock:
         if job.busy():
-            return BUSY + job.current.task  # ONE CODER, ONE ERRAND AT A TIME.
+            return BUSY + job.current.task
 
         job.current = job.Job(
             job.current.coder_name,

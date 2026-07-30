@@ -32,7 +32,6 @@ speaker, why = voice.create(engine=engine)
 if why:
     print(why)
 
-# FED A WORD AT A TIME, THE WAY THE MODEL ACTUALLY DELIVERS AN ANSWER.
 for word in speaker.say(part + " " for part in words.split(" ")):
     print(word, end="", flush=True)
 

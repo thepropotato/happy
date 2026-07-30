@@ -7,6 +7,9 @@ DOT = "·"
 
 MODEL = "model"
 
+# REPORTED ON THE WAY IN: IT CARRIES NO TIME YET.
+STARTED = "tool.started"
+
 
 class Turn:
     def __init__(self):

@@ -30,9 +30,13 @@ CREATE TABLE IF NOT EXISTS connection_secrets (
     name   TEXT PRIMARY KEY,
     tokens TEXT,
     client TEXT,
+    auth   TEXT,
     at     TEXT NOT NULL
 );
 """
+
+# IF NOT EXISTS COVERS TABLES AND NOT COLUMNS, SO EACH TABLE IS ASKED WHAT IT HAS.
+GROWN = {"connection_secrets": {"auth": "TEXT"}}
 
 SAVE = """
 INSERT INTO connections (name, label, kind, address, enabled, allowed, tools, state, at)
@@ -43,8 +47,9 @@ ON CONFLICT(name) DO UPDATE SET
 """
 
 KEEP = """
-INSERT INTO connection_secrets (name, tokens, client, at) VALUES (?, ?, ?, ?)
-ON CONFLICT(name) DO UPDATE SET tokens=excluded.tokens, client=excluded.client, at=excluded.at
+INSERT INTO connection_secrets (name, tokens, client, auth, at) VALUES (?, ?, ?, ?, ?)
+ON CONFLICT(name) DO UPDATE SET
+    tokens=excluded.tokens, client=excluded.client, auth=excluded.auth, at=excluded.at
 """
 
 built = False
@@ -60,8 +65,19 @@ def setup():
 
     with handle:
         handle.executescript(SCHEMA)
+        grown(handle)
 
     built = True
+
+
+def grown(handle):
+    """WHATEVER THE SCHEMA GAINED SINCE THIS FILE WAS MADE, ADDED IN PLACE."""
+    for table, wanted in GROWN.items():
+        having = {row["name"] for row in handle.execute(f"PRAGMA table_info({table})")}
+
+        for column, kind in wanted.items():
+            if column not in having:
+                handle.execute(f"ALTER TABLE {table} ADD COLUMN {column} {kind}")
 
 
 def save(name, label, kind, address, allowed=None):
@@ -117,19 +133,25 @@ def forget(name):
     storage.write("DELETE FROM connection_secrets WHERE name = ?", (name,))
 
 
-def keep(name, tokens=None, client=None):
+def keep(name, tokens=None, client=None, auth=None):
     setup()
-    storage.write(KEEP, (name, dumped(tokens), dumped(client), now()))
+    storage.write(KEEP, (name, dumped(tokens), dumped(client), dumped(auth), now()))
 
 
 def secret(name):
     setup()
-    rows = storage.read("SELECT tokens, client FROM connection_secrets WHERE name = ?", (name,))
+    rows = storage.read(
+        "SELECT tokens, client, auth FROM connection_secrets WHERE name = ?", (name,)
+    )
 
     if not rows:
         return {}
 
-    return {"tokens": loaded(rows[0]["tokens"]), "client": loaded(rows[0]["client"])}
+    return {
+        "tokens": loaded(rows[0]["tokens"]),
+        "client": loaded(rows[0]["client"]),
+        "auth": loaded(rows[0]["auth"]),
+    }
 
 
 def unpacked(row):

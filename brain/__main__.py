@@ -22,7 +22,7 @@ def main():
         try:
             for part in happy.say_streaming(said):
                 print(part, end="", flush=True)
-        except LLMError as problem:  # FIX THE SERVER IN THE OTHER WINDOW AND ASK AGAIN.
+        except LLMError as problem:
             print(problem)
 
         print("\n")

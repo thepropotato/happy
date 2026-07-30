@@ -29,7 +29,7 @@ def messages():
     try:
         with storage.connect() as handle:
             count = handle.execute(OLDER, (cutoff(kept),)).rowcount
-    except Exception:  # A TIDY UP IS NEVER WORTH A FAILED START.
+    except Exception:
         return None
 
     return f"{count} messages" if count > 0 else None

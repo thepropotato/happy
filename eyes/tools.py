@@ -7,7 +7,6 @@ from eyes.parts import VisionError
 from eyes.reading import look
 from eyes.screen import grab
 
-# A SCREEN HOLDS A FEW HUNDRED WORDS. THIS ONLY CATCHES A SCAN OF SOMETHING VAST.
 MAX_CHARS = 20000
 
 
@@ -21,7 +20,7 @@ def read_image(path: str) -> str:
 
     Use this whenever you are asked what a picture says or shows in words. Do
     not say you cannot see images."""
-    from hands import files  # LATE, SO files CAN HAND PICTURES BACK HERE.
+    from hands import files  # LATE: files HANDS PICTURES BACK HERE.
 
     where, note = files.locate(path)
 

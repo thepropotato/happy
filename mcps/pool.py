@@ -65,13 +65,19 @@ def headers(row):
 
 
 def proving(row):
-    """THE OAUTH SIGN IN FOR THIS ROW, WHEN IT HAS ONE. REFRESH ONLY, NO BROWSER."""
+    """THE OAUTH SIGN IN FOR THIS ROW, WHEN IT HAS ONE. REFRESH ONLY, NO BROWSER.
+
+    A CONNECTION THAT COMES UP ON ITS OWN MUST NEVER BE ABLE TO OPEN A BROWSER.
+    A SIGN IN THAT HAS DIED COMES BACK AS THE SERVER REFUSING, WHICH THE PANEL
+    CAN SAY OUT LOUD, RATHER THAN AS A WINDOW IN FRONT OF WHOEVER IS STANDING
+    THERE MID SENTENCE.
+    """
     if not directory.signs_in(row["kind"]):
         return None
 
-    from mcps import signing
+    from mcps import granting
 
-    return signing.quietly(row)
+    return granting.Proving(row["name"])
 
 
 def live():
@@ -91,7 +97,7 @@ async def waking(row):
     try:
         offered = await here.listing()
     except Exception as error:
-        store.mark(row["name"], str(error)[:200] or "could not connect")
+        store.mark(row["name"], said(row, error))
 
         return False
 
@@ -106,9 +112,18 @@ def refresh(row):
     try:
         return loop.run(waking(row), patience() + 5)
     except Exception as error:
-        store.mark(row["name"], str(error)[:200])
+        store.mark(row["name"], said(row, error))
 
         return False
+
+
+def said(row, error):
+    """WHAT WENT WRONG, AS SOMETHING A ROW CAN SAY.
+
+    A TIMEOUT CARRIES NO WORDS AT ALL, AND A ROW MARKED WITH AN EMPTY STRING IS
+    A ROW THAT LOOKS PERFECTLY WELL WHILE NOTHING ABOUT IT WORKS.
+    """
+    return str(error)[:200] or f"{row['label']} did not answer in time"
 
 
 def drop(name):
@@ -119,5 +134,5 @@ def drop(name):
     if here is not None:
         try:
             loop.run(here.close(), 5)
-        except Exception:  # A CONNECTION THAT WILL NOT SHUT IS STILL A CLOSED ONE.
+        except Exception:
             pass

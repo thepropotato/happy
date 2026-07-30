@@ -11,7 +11,6 @@ from pathlib import Path
 
 WINDOWS = "win32"
 
-# WHAT COMES BACK GOES INTO A MODEL'S CONTEXT AND MAY THEN BE SPOKEN.
 MAX_OUTPUT_CHARS = 4000
 MIDDLE = "\n... [cut] ...\n"
 

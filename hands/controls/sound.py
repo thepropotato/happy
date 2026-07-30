@@ -16,8 +16,7 @@ MAC_READ = (
     'return (output volume of now as string) & " " & (output muted of now as string)'
 )
 
-# WINDOWS HAS NO COMMAND FOR THE VOLUME, SO THE AUDIO ENDPOINT IS ADDRESSED
-# DIRECTLY. THE UNNAMED METHODS ARE PLACEHOLDERS: THE ORDER IS THE INTERFACE.
+# THE UNNAMED METHODS ARE PLACEHOLDERS: THE ORDER IS THE INTERFACE.
 WINDOWS_SHIM = """
 Add-Type -TypeDefinition @'
 using System.Runtime.InteropServices;

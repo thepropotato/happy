@@ -1,12 +1,8 @@
-// EVERYTHING HAPPY SAYS ARRIVES HERE AND IS HANDED TO WHICHEVER PART OF THE
-// PANEL CARES ABOUT IT. NOTHING IN HERE DECIDES ANYTHING ON ITS OWN.
-
 const node = (id) => document.getElementById(id)
 
 const MAC = navigator.userAgent.includes('Mac')
 
-// THE KEY, SHORT ENOUGH FOR THE HEADER. THE SAME KEY IS CALLED DIFFERENT THINGS
-// ON THE TWO PLATFORMS, AND A MAC SYMBOL ON WINDOWS IS JUST A BOX.
+// A MAC SYMBOL ON WINDOWS IS JUST A BOX.
 const CAPS = MAC
   ? { alt_r: '⌥ R', alt_l: '⌥ L', cmd_r: '⌘ R', cmd_l: '⌘ L', ctrl_r: '⌃ R', ctrl_l: '⌃ L',
       shift_r: '⇧ R', caps_lock: '⇪', f13: 'F13' }
@@ -17,14 +13,13 @@ const HELD = 'Hold <b>{key}</b> to talk'
 
 const DEAF = 'Happy only hears <b>{key}</b> while this window is in front.'
 
-// SOUND OUTLIVES THE WORDS: HAPPY IS STILL A SENTENCE BEHIND HIMSELF WHEN THE
-// STREAM ENDS, SO GOING QUIET WAITS FOR THE LAST CLIP RATHER THAN THE LAST WORD.
+// SOUND OUTLIVES THE WORDS, SO GOING QUIET WAITS FOR THE LAST CLIP.
 const TAIL_MS = 120
 
 let mood = 'loading'
 let resting = 'idle'
 let sounding = null
-let allowed = false // THE PERMISSION HAS BEEN ASKED FOR, AND ONLY A RESTART TAKES IT.
+let allowed = false // ASKED FOR ALREADY; ONLY A RESTART TAKES IT.
 
 function ask(order) {
   window.happy.ask(order)
@@ -44,21 +39,20 @@ function feel(name) {
   Aurora.mood(name)
   Orb.mood(name)
 
-  // THE KEY IS DOWN FOR EXACTLY AS LONG AS HE IS LISTENING, WHICH IS THE ONLY
-  // PROOF A GLOBAL LISTENER CAN GIVE FROM BEHIND ANOTHER WINDOW.
   node('keycap').classList.toggle('down', name === 'listening')
 
-  // THE ORB GETS OUT OF THE WAY WHILE THERE IS SOMETHING HAPPENING TO READ.
   node('glass').classList.toggle('busy', name !== 'idle' && name !== 'gone')
 
-  for (const word of [node('mood'), node('doing')]) {
-    word.classList.add('fade')
+  Talk.doing(name, found.word)
 
-    setTimeout(() => {
-      word.textContent = found.word
-      word.classList.remove('fade')
-    }, 180)
-  }
+  const word = node('mood')
+
+  word.classList.add('fade')
+
+  setTimeout(() => {
+    word.textContent = found.word
+    word.classList.remove('fade')
+  }, 180)
 }
 
 function settle(name) {
@@ -92,7 +86,6 @@ function quiet() {
   feel(resting)
 }
 
-// ONCE THERE ARE WORDS, THEY GET THE PANEL AND THE ORB CARRIES ON IN THE HEADER.
 function showing() {
   node('glass').classList.add('talking')
 }
@@ -114,13 +107,22 @@ function hear(word) {
       Talk.piece(word.text)
       showing()
     },
+    began: () => {
+      Talk.began(word)
+      showing()
+    },
+    step: () => {
+      Talk.step(word)
+      showing()
+    },
+    done: () => Talk.done(),
     stats: () => Talk.spent(word),
     note: () => Talk.aside(word.text),
     trouble: () => Talk.aside(word.text, 'trouble'),
     settings: () => Knobs.show(word),
     history: () => {
       Talk.history(word.messages)
-      if (word.messages.some((each) => each.who === 'you' || each.who === 'happy')) showing()
+      if (word.messages.some((each) => each.message || each.reply)) showing()
     },
     confirm: () => beg(word),
     ready: () => ready(word),
@@ -147,8 +149,7 @@ function stopped(word) {
 }
 
 // MACOS HANDS AN UNTRUSTED LISTENER ONLY THE KEYS MEANT FOR THIS WINDOW, WHICH
-// LOOKS EXACTLY LIKE PUSH TO TALK WORKING UNTIL YOU CLICK ON SOMETHING ELSE. THE
-// PERMISSION BELONGS TO THIS APP, SO THIS IS WHERE IT IS ASKED FOR.
+// LOOKS EXACTLY LIKE PUSH TO TALK WORKING UNTIL YOU CLICK ON SOMETHING ELSE.
 function amiss(on, cap) {
   node('amiss').hidden = !on
   node('keycap').classList.toggle('deaf', on)
@@ -220,10 +221,8 @@ function buttons() {
   node('back').onclick = () => visiting(false)
   node('amissfix').onclick = () => fixing()
 
-  // THE BIG ORB BACK, FOR ANYBODY WHO WOULD RATHER LOOK AT HIM THAN READ HIM.
   node('puck').onclick = () => node('glass').classList.remove('talking')
 
-  // THE WAY OUT OF ANYTHING IS THE KEY IT IS EVERYWHERE ELSE ON THE COMPUTER.
   addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return
 

@@ -1,19 +1,42 @@
-/* THE SHELL, THE LIGHT BEHIND IT, THE HEADER, AND THE ORB. */
+/* THE SHELL, THE LIGHT BEHIND IT, THE HEADER, AND THE ORB.
+
+   ONE SET OF SURFACES FOR THE WHOLE WINDOW, DECLARED ONCE HERE. THE PANEL USED TO
+   DRAW A BORDERED CARD AROUND EVERY SECTION, EVERY CONNECTION, EVERY BLOCK OF
+   WORKING AND EVERY CALL INSIDE IT — BOXES INSIDE BOXES FOUR DEEP, WHICH READS AS
+   A LADDER RATHER THAN A LIST. NOW ONLY THE THING SOMEBODY HAS OPENED GETS A
+   SURFACE, AND EVERYTHING ELSE IS SEPARATED BY A LINE. */
 
 :root {
   --ink: #f2f3f8;
   --dim: #9aa0b4;
   --faint: #6b7186;
+
   --line: rgba(255, 255, 255, 0.07);
+  --edge: rgba(255, 255, 255, 0.14);
   --raise: rgba(255, 255, 255, 0.045);
+  --sunk: rgba(255, 255, 255, 0.026);
+
   --glow: #7c5cf5;
   --glow-soft: rgba(124, 92, 245, 0.5);
+
   /* THE ACCENT MOVES WITH HAPPY'S MOOD, SO WHAT IS WORKING AND WHAT WANTS MINDING
-     CANNOT BE SAID IN IT. THESE TWO STAY PUT. */
+     CANNOT BE SAID IN IT. THESE THREE STAY PUT. */
   --good: #4ad6a0;
   --wait: #f5a524;
+  --bad: #ff8080;
+
+  /* ONE RHYTHM FOR EVERY ROW IN THE WINDOW, SO A CONNECTION AND A SETTING AND A
+     SECTION ALL SIT ON THE SAME GRID INSTEAD OF EACH PICKING ITS OWN PADDING. */
+  --pad: 11px;
+  --gap: 10px;
+  --r-lg: 13px;
+  --r-md: 10px;
+  --r-sm: 7px;
+
   --pane: 260ms cubic-bezier(0.22, 1, 0.36, 1);
   --spring: 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 * {
@@ -59,6 +82,21 @@ body {
   }
 }
 
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+}
+
+/* THE SAME ARRIVAL, UNDER THE NAME THE CONTROLS HAVE ALWAYS CALLED IT. */
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+}
+
 .aurora {
   position: absolute;
   inset: 0;
@@ -68,7 +106,9 @@ body {
   pointer-events: none;
 }
 
-/* ONE LINE THAT SAYS WHAT HE IS DOING AND WHICH KEY DOES IT. */
+/* WHOSE WINDOW THIS IS, AND WHICH KEY TALKS TO IT. WHAT HE IS DOING IS NOT UP
+   HERE: IT SITS AT THE FOOT OF THE EXCHANGE IT BELONGS TO, WHERE WHOEVER IS
+   READING IS ALREADY LOOKING. */
 .bar {
   position: relative;
   display: flex;
@@ -105,16 +145,6 @@ body {
   letter-spacing: 0.02em;
 }
 
-.doing {
-  font-size: 11.5px;
-  color: var(--faint);
-  transition: opacity 200ms;
-}
-
-.doing.fade {
-  opacity: 0;
-}
-
 .spacer {
   flex: 1;
 }
@@ -127,7 +157,7 @@ body {
   display: flex;
   align-items: center;
   border: 1px solid var(--line);
-  border-radius: 7px;
+  border-radius: var(--r-sm);
   background: var(--raise);
   color: var(--dim);
   font-size: 10.5px;
@@ -171,7 +201,7 @@ body {
   display: grid;
   place-items: center;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--r-md);
   background: transparent;
   color: var(--faint);
   font: inherit;
@@ -201,7 +231,7 @@ body {
 }
 
 /* THE ORB OWNS THE PANEL WHILE THERE IS NOTHING TO READ, AND GETS OUT OF THE WAY
-   THE MOMENT THERE IS. WHAT IT WAS SAYING CARRIES ON IN THE HEADER. */
+   THE MOMENT THERE IS. */
 .hero {
   position: relative;
   display: flex;
@@ -270,12 +300,12 @@ body {
 .amiss {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--gap);
   flex: 0 0 auto;
   margin: 0 12px 8px;
   padding: 9px 11px;
   border: 1px solid rgba(245, 165, 36, 0.28);
-  border-radius: 12px;
+  border-radius: var(--r-lg);
   background: rgba(245, 165, 36, 0.07);
   animation: settle 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -299,7 +329,7 @@ body {
 .amiss .fix {
   flex: 0 0 auto;
   border: 1px solid rgba(245, 165, 36, 0.45);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   background: rgba(245, 165, 36, 0.16);
   color: #ffe6bd;
   font: inherit;

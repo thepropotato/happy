@@ -31,10 +31,8 @@ def clicked(target, times=1, button="left"):
     if trouble:
         return Done(trouble, False)
 
-    # ask=False STOPS THE ESCALATION AT OCR. THE LOOKING MODEL IS THE THIRD AND
-    # FOURTH WAYS OF FINDING SOMETHING, AND MEASURED HERE ONE OF ITS ANSWERS
-    # TOOK EIGHTY FOUR SECONDS AND EVICTED THE MODEL THAT HAS TO SPEAK. A CLICK
-    # IS NOT WORTH THAT, SO A THING WITH NO NAME ANYWHERE IS SIMPLY NOT FOUND.
+    # ask=False STOPS THE ESCALATION AT OCR. ONE OF THE LOOKING MODEL'S ANSWERS
+    # TOOK EIGHTY FOUR SECONDS AND EVICTED THE MODEL THAT HAS TO SPEAK.
     found = eyes.where(target, elements=before.elements, ask=False)
 
     if found is None:
@@ -58,14 +56,10 @@ def clicked(target, times=1, button="left"):
 
     answer, after = judged(expectation, before, settled(before), model)
 
-    # A COORDINATE FROM A MODEL IS A GUESS, AND SAYING SO IS THE DIFFERENCE
-    # BETWEEN A REPORT AND A CLAIM.
     sure = found.confidence > estimating.POINTED
     did = f"Clicked {found.label}" if sure else f"Clicked where I think {target} is"
     done = report(did, answer, after, at, ours=(found.x, found.y))
 
-    # SAYING SO BEATS GUESSING SILENTLY. TWO THINGS CALLED "AUNTY" ARE A CHAT AND
-    # A TITLE, AND PRESSING THE WRONG ONE LEAVES THE CONVERSATION WITHOUT SAYING SO.
     if found.rivals:
         return Done(f"{done.said} Something else here is called {found.label} too.", done.worked)
 

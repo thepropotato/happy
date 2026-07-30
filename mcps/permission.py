@@ -8,7 +8,6 @@ NOTHING IN HERE IS EVER REACHED BY A TOOL. THE MODEL MUST NOT BE ABLE TO MAKE A
 BROWSER WINDOW APPEAR, SO SIGNING IN IS ALWAYS SOMETHING A PERSON STARTED.
 """
 
-import asyncio
 import threading
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -18,9 +17,15 @@ HERE = "127.0.0.1"
 
 PATH = "/callback"
 
-# TRIED FIRST SO THERE IS ONE ADDRESS A PERSON CAN REGISTER WITH A SERVICE THAT
-# INSISTS ON KNOWING IT UP FRONT. A RANDOM PORT IS FINE FOR THE ONES THAT DO NOT.
+# THE ONLY PORT. IT IS THE ADDRESS PEOPLE REGISTER WITH GOOGLE AND SLACK BY HAND,
+# AND ONE THAT REGISTERED ITSELF UNDER A DIFFERENT NUMBER LAST TIME IS A SIGN IN
+# THAT WILL BE TURNED AWAY.
 PREFERRED = 8765
+
+BUSY = (
+    f"Something else on this computer is using port {PREFERRED}, which is where "
+    "signing in has to come back to. Close it and try again."
+)
 
 WAITING_SECONDS = 300
 
@@ -49,11 +54,11 @@ class Landing(BaseHTTPRequestHandler):
 
 
 def bound():
-    """THE USUAL PORT IF IT IS FREE, ANY PORT IF IT IS NOT."""
+    """THE ONE PORT A SERVICE IS ALLOWED TO SEND SOMEBODY BACK TO."""
     try:
         return HTTPServer((HERE, PREFERRED), Landing)
     except OSError:
-        return HTTPServer((HERE, 0), Landing)
+        raise PermissionError(BUSY) from None
 
 
 def expected():
@@ -65,8 +70,8 @@ class Doorway:
     """THE LOOPBACK ADDRESS A SERVICE IS ALLOWED TO SEND SOMEBODY BACK TO."""
 
     def __init__(self):
-        # BOUND BEFORE ANYTHING ELSE, BECAUSE THE PORT IT LANDS ON IS PART OF THE
-        # ADDRESS THE SERVICE IS TOLD TO SEND SOMEBODY BACK TO.
+        # BOUND FIRST, BECAUSE THE PORT IT LANDS ON IS PART OF THE ADDRESS THE
+        # SERVICE IS TOLD TO SEND SOMEBODY BACK TO.
         self.server = bound()
         self.server.caught = (None, None)
         self.server.landed = threading.Event()
@@ -79,19 +84,19 @@ class Doorway:
     def address(self):
         return f"http://{HERE}:{self.port}{PATH}"
 
-    async def opening(self, where):
+    def show(self, where):
         """SHOW THE PERSON THE SIGN IN PAGE, OR TELL THEM WHERE IT IS."""
         if not webbrowser.open(where):
             print(f"\n  Open this to sign in:\n    {where}\n")
 
-    async def landed(self):
-        """THE CODE THE SERVICE SENT BACK, ONCE SOMEBODY HAS SAID YES."""
-        waiting = asyncio.get_running_loop().run_in_executor(
-            None, self.server.landed.wait, WAITING_SECONDS
-        )
+    def waited(self):
+        """THE CODE THE SERVICE SENT BACK, ONCE SOMEBODY HAS SAID YES.
 
+        THE THREAD THAT ASKED FOR IT WAITS HERE, WHICH IS THE PANEL'S OWN AND
+        NOT THE ONE ANYBODY IS TALKING TO.
+        """
         try:
-            await asyncio.wait_for(waiting, WAITING_SECONDS + 5)
+            self.server.landed.wait(WAITING_SECONDS)
         finally:
             self.close()
 
@@ -106,5 +111,5 @@ class Doorway:
         try:
             self.server.shutdown()
             self.server.server_close()
-        except Exception:  # A DOOR THAT WILL NOT SHUT IS STILL A DOOR NOBODY USES.
+        except Exception:
             pass

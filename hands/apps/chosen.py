@@ -8,8 +8,7 @@ from hands.apps.running import ask
 
 APP = ".app"
 
-# THE SAME FILE `open` READS, SO THE ANSWER HERE AND THE BROWSER THAT ACTUALLY
-# APPEARS CANNOT DISAGREE.
+# THE SAME FILE `open` READS, SO THIS AND THE BROWSER THAT APPEARS CANNOT DISAGREE.
 MAC_HANDLERS = (
     Path.home()
     / "Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist"

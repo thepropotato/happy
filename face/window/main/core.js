@@ -10,7 +10,6 @@ const ROOT = path.resolve(__dirname, '..', '..', '..')
 const ENTRY = 'main.py'
 const SERVE = '--serve'
 
-// WHERE A VIRTUAL ENVIRONMENT USUALLY SITS, IN THE ORDER WORTH LOOKING.
 const PYTHONS = {
   win32: ['.venv\\Scripts\\python.exe', 'venv\\Scripts\\python.exe'],
   other: ['.venv/bin/python', 'venv/bin/python'],
@@ -27,7 +26,7 @@ function interpreter() {
     if (fs.existsSync(full)) return full
   }
 
-  return windows ? 'python' : 'python3' // NOTHING LOCAL. HOPE FOR ONE ON THE PATH.
+  return windows ? 'python' : 'python3'
 }
 
 class Core extends EventEmitter {
@@ -57,7 +56,6 @@ class Core extends EventEmitter {
     this.child.stdout.setEncoding('utf-8')
     this.child.stdout.on('data', (lump) => this.absorb(lump))
 
-    // NOTHING PARSES STDERR. IT IS WHERE THE LIBRARIES DO THEIR COMPLAINING.
     this.child.stderr.setEncoding('utf-8')
     this.child.stderr.on('data', (text) => process.stderr.write(text))
 
@@ -95,7 +93,7 @@ class Core extends EventEmitter {
     if (!this.child) return
 
     this.leaving = true
-    this.child.stdin.end() // HIS OWN READER SEES THE END AND SHUTS HIM DOWN TIDILY.
+    this.child.stdin.end()
 
     const leaving = this.child
     setTimeout(() => leaving.kill('SIGKILL'), 2000).unref()
