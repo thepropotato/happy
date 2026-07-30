@@ -47,8 +47,8 @@ not finished.
    gates whether it *keeps* what it hears. Opening a device costs about a tenth of a second,
    which is enough to swallow your first word. Each take is padded at both ends because
    nobody presses a key exactly on the first syllable.
-3. `ears/transcribing.py` runs WhisperX locally. The model is loaded at startup so the first
-   take isn't the one that pays for it.
+3. `ears/transcribing.py` runs Parakeet locally through `onnx-asr`. The model is loaded and
+   warmed at startup so the first take isn't the one that pays for it.
 4. `brain/thinking.py` runs the transcribed speech through the graph. The model may call
    tools; when it is done it streams an answer back in pieces.
 5. `voice/` speaks those pieces as they land. It gathers them until a sentence ends, then
@@ -69,13 +69,16 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | --- | --- |
 | `main.py` | The loop. Hold, speak, release, hear an answer. Nothing else. |
 | `brain/thinking.py` | The graph. Speech in, spoken answer out, tools called along the way. |
+| `brain/watching.py` | What wraps every call: what goes in, what is kept, how long it took. |
 | `brain/model.py` | Which model, at which URL, with which settings. |
 | `brain/prompt.py` | What the model is told before it hears anything. |
 | `brain/providers.py` | The backends. One entry each, and the only file that knows a server's habits. |
 | `ears/trigger.py` | Push to talk. |
 | `ears/microphone.py` | Microphone capture, one WAV per take. |
 | `ears/transcribing.py` | Speech to text. |
-| `voice/piper.py` | The voice model itself, and the mute stand-in when it will not load. |
+| `voice/engines.py` | Which engine speaks, and loading only that one. |
+| `voice/piper.py` | The voice model itself. |
+| `voice/mute.py` | The stand-in when no voice will load. |
 | `voice/sentences.py` | Where one spoken sentence ends and the next begins. |
 | `voice/speaker.py` | Saying it out loud: synthesis, playback, barge-in. |
 | `hands/__init__.py` | The registry. Collects every tool from every module into one flat list. |
@@ -109,8 +112,22 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `face/console.py` | What the terminal shows: one block per turn, and where the time went. |
 | `face/panel.py` | What the window is told, as one JSON object per line on stdout. |
 | `face/orders.py` | What the window asks for, read off stdin on its own thread. |
+| `face/sources.py` | The catalogue finished off with the lists only a running machine knows. |
 | `face/window/` | The Electron app: the icon in the menu bar and the panel that drops out of it. |
-| `face/silence.py` | Silences the libraries. Must be called before anything imports whisperx. |
+| `face/silence.py` | Silences the libraries. Must be called before anything opens an ONNX session. |
+| `mcps/__init__.py` | Services that are not this computer. What is connected, and its tools. |
+| `mcps/joining.py` | Signing in, switching on, pasting something in. Never reached by a tool. |
+| `mcps/session.py` | One live connection, held open, and got back when it drops. |
+| `mcps/loop.py` | The one event loop the connections live on. The async side of the wall. |
+| `mcps/binding.py` | A tool on a server somewhere, as one the graph calls like any other. |
+| `mcps/speaking.py` | What came back, squeezed down to something that can be said out loud. |
+| `mcps/writing.py` | Which of those tools changes something out there, and asking first. |
+| `mcps/directory.py` | The services Happy knows, and what each one costs to sign into. |
+| `mcps/showing.py` | Every connection as a list somebody can read, for the window to draw. |
+| `mcps/store.py` | What is connected and what each one last said it could do. |
+| `mcps/signing.py` | How a connection proves who it is, registered or pasted in. |
+| `mcps/tokens.py` | Where a sign in is kept: the keychain if there is one, the database if not. |
+| `mcps/permission.py` | The browser, and the loopback door the service sends you back through. |
 | `conscience/` | Asking before something that cannot be undone. |
 | `AGENTS.md` | How to write code in this repo. Read it before you write any. |
 | `TODO.md` | What is still pending. |
@@ -137,13 +154,26 @@ registry does not change.** `hands/browser/` is blank right now and being rebuil
 registry skips a module with no `TOOLS` rather than breaking, so it can stay in the list
 while it is empty.
 
-### Why not MCP
+### MCP, in one direction only
 
-MCP is a transport for tools that live in another process. Every tool here is Python running
-on the same machine as the model, so MCP would buy a subprocess and a JSON-RPC hop for
-nothing. It becomes worth it the day you want something *else* — Claude Desktop, another
-client — driving these same tools, or the day you want the shell tool genuinely sandboxed
+Happy is an MCP **client** and not an MCP **server**, and the difference is the whole
+argument. Nothing under `hands/` is exposed over MCP: every tool there is Python running on
+the same machine as the model, so wrapping it in a subprocess and a JSON-RPC hop would buy
+nothing. That becomes worth doing the day you want something *else* — Claude Desktop,
+another client — driving these tools, or the day you want the shell tool genuinely sandboxed
 rather than pattern-checked. Not before.
+
+Reaching *out* is a different question, and the answer changed. A calendar, a mailbox, a
+tickets board — none of those are on this computer, and MCP is the only way any of them
+publish themselves. So `mcps/` is a client that connects to them, and the tools it brings
+back are bound flat into the one graph beside `read_file` and `click_on`. There is still one
+loop and still no routing, which is the rule that mattered.
+
+The costs are real and are paid for deliberately: a tool that takes a second instead of a
+millisecond, a wall of JSON that must be cut down before it can be spoken, and credentials
+that did not exist here before. Every one of them is handled in `mcps/`, and **nothing is
+connected until somebody connects it** — a person who never opens the panel has exactly the
+tools this machine always had.
 
 ### Adding a capability
 
@@ -203,10 +233,40 @@ fourteen now, and it costs a short answer nothing — a cap only bites when the 
 messages, starting on a human message so a tool reply never appears whose tool call was
 trimmed away. That orphan is an API error, not a degradation.
 
+## The ears
+
+**Parakeet TDT 0.6B v2**, int8, through `onnx-asr`. Measured on this machine over the fifty takes
+in `recordings/`: **232.8 s of speech in 4.5 s — 51.8x realtime**, against WhisperX medium's 2.9x.
+The model loads and warms in 0.77 s where WhisperX took 2.89 s. 631 MB in `models/parakeet/`.
+
+**v2 is the English one, and it was picked over multilingual v3 by listening.** v3 covers 25
+languages and mis-hears *"open the most recent **chat**"* as "chart" or "set" in four of the fifty
+takes. That phrase is a command Happy is actually given, so being right about it beats a language
+nobody here speaks. v2 gets all four. There is no `ears.language` any more — pinning it existed
+because Whisper's detection cost a pass, and this model takes no language at all.
+
+**int8, and no knob for it.** Full precision is 2.55 GB against int8's 631 MB for a vendor claim of
+parity. A knob whose other setting nobody has downloaded only ever produces an error.
+
+**`ears.device` names an execution provider, not a torch device.** Left alone, onnxruntime puts
+CoreML ahead of CPU and would compile a 650 MB encoder on the way up; CPU is pinned by default and
+`auto` is opt-in and unmeasured.
+
+Silence comes back empty, which is the reason to have moved as much as the speed: WhisperX
+answered one 1.5-second take of room tone with "Thank you." Two things got worse and are written
+down rather than hidden — one quiet take that WhisperX heard and this does not, and proper nouns
+are no better. `python -m ears` transcribes everything in `recordings/` with timings, which is how
+both of those were found.
+
+Nothing in the process imports torch any more. That was the only thing pulling it in, and with it
+went 55 packages and a gigabyte.
+
 ## The voice
 
-**Piper**, and nothing else. One voice module, no engine abstraction — an abstraction with one
-implementation is just indirection.
+**Piper**, and nothing else speaks today. `voice/engines.py` names the engines and imports only
+the one chosen, so an engine nobody picked costs nothing; adding one is a module, a dict entry
+and a label. That seam is deliberately thin, because the last two candidates both lost on speed
+and the register exists to make the next one cheap to try, not to invite it.
 
 Measured on this machine, warmed: **15 ms to first word**, 56x realtime, ~60 MB on disk. It
 sounds less like a person than the heavier options, and that is the trade taken on purpose. A
@@ -217,6 +277,14 @@ reads as someone who does not, whatever the timbre.
 and lost anyway: 264 ms to first word against Piper's 15 ms, and 7x realtime against 56x. In
 use that gap is the difference between an assistant and a demo. Judging it from measurements
 alone was a mistake — it took hearing both in the loop to settle it.
+
+*This computer's own voice was tried and removed too.* macOS `say`, asked to write a WAV so the
+speaker keeps barge-in, is **330 ms to first word warmed** and flat at that whatever the sentence
+— slower than the Kokoro that had already lost. There is a fast path, `AVSpeechSynthesizer`
+in-process at 12 ms, and it cannot be used: its callback only fires on the main thread's runloop,
+while sentences are synthesised on a daemon thread and the main thread sits blocked on the
+push-to-talk key. Nothing to download and a genuinely different timbre were not worth 20x the
+latency. Windows SAPI was never measured, since the macOS half already failed.
 
 Phonemes come from an espeak-ng that ships inside the package, so there is nothing to install
 besides the voice file and it behaves the same on Windows. Any Piper voice works; drop it in
@@ -490,6 +558,31 @@ What the panel shows:
 Sound outlives the words. Happy is still a sentence behind himself when the model has finished,
 so the panel goes quiet when the last clip ends and not when the last word arrives.
 
+**The orb yields.** It owns the panel while there is nothing to read and shrinks into the header
+the moment there is, which is 250 pixels of conversation that used to be decoration. What it was
+saying carries on beside his name. Tapping the small one brings the big one back.
+
+**The key is always on screen** and lights while it is held. Holding it from another window is
+the whole point of push to talk, and until the cap was there, the only proof it had worked was
+Happy answering — which is a long way to find out that he had not heard you.
+
+**The controls are the whole panel**, not a drawer over part of one, and they are six sections
+that fold open where they sit rather than six tabs over fifty knobs. A shut section still says
+what it is set to, because most visits are somebody checking rather than changing, and anything
+set once and never again is marked `rare` in the catalogue and sits behind one more tap.
+
+### He comes up when he is spoken to
+
+A panel that hides when it loses focus is a panel that is never on the screen at the moment it
+matters: you hold the key in another application, say something, and nothing anywhere moves. So
+a turn nobody opened the window for brings the window up on its own — `showInactive()`, never
+`show()`, because taking the focus would pull the caret out of whatever sentence somebody is in
+the middle of typing. It goes away again five seconds after the turn ends, unless it was pinned,
+opened on purpose, or clicked on in the meantime.
+
+This is the other half of "the key is global". The permission makes him *hear* it from anywhere;
+this makes him *answer* somewhere you can see.
+
 ## Controls come from the database
 
 Nothing Happy runs on is written into the code any more. `memory/catalogue.py` lists every knob
@@ -511,6 +604,32 @@ survives a rebuild because the checkpointer outlives the graph.
 Two of them are not knobs so much as a broom: `memory.messages` and `memory.recordings` say how
 many days to keep things, and `memory/pruning.py` runs once at startup. Zero keeps everything,
 which is what they ship as.
+
+### A connection is not a setting
+
+Connections were knobs once, and the panel proved it does not work. Every service arrived as a
+row for the switch, a row for signing out, and a row per secret it wanted pasted — twenty-one
+identical rows deep, in which a timeout slider, a client secret and a thing you sign into all
+looked the same. The Google instructions were printed three times because Gmail, Calendar and
+Drive are three services, and nowhere did it say what was actually connected.
+
+So `memory/knobs.py` has three shapes that are not settings, and `mcps/showing.py` builds the
+whole panel out of them: a **heading** over a run of rows, a **service** — one row saying what
+it is and how it is, with what it wants folded inside until somebody taps it — and a **folded**
+row, which is an ordinary group of knobs behind one line. The three global settings live in one
+of those at the bottom, because nobody opens this panel to move a timeout.
+
+What is *inside* a service is still ordinary knobs, so the window draws the boxes and buttons
+with the same code it draws everything else with. It knows what a service looks like and still
+nothing about any particular one — which services exist, what each wants pasted, what is worth
+warning about, and which of them share a sign in are all in `mcps/directory.py`.
+
+Two things fall out of that shape and are worth keeping. Services that share an OAuth client are
+listed as the one thing they are: `directory.listed()` folds a `family` into a single row, so
+Google's fifteen-minute errand is explained once and its three sign ins sit inside it. And a
+connected service shows the **tool names it actually hands over** — run through the same
+`binding.wanted()` the graph is built with, so it is what Happy can really do with it rather
+than what the server offered.
 
 ## The conversation
 
@@ -879,14 +998,42 @@ first. The battery and the lock do not, because neither costs you anything.
   It also needs `comtypes`, which macOS does not.
 - **A second monitor.** Everything assumes the application in front, on the current Space. A
   full-screen app on another Space is invisible and cannot be driven.
-- **Anything on the web that needs a login** works only after you have signed in once, by
-  hand, in Happy's own browser profile. There is no credential handling and there should not
-  be one.
-- **A setup script.** Meant to be one-command setup — Ollama, the model pull, the STT weights,
+- **Anything on the web that needs a login**, in the *browser*, works only after you have
+  signed in once by hand in Happy's own profile. There are no browser credentials and there
+  should not be any. Connections under `mcps/` are the separate, narrower case below.
+- **A setup script.** Meant to be one-command setup — Ollama, the model pull, the ears' weights,
   a voice, Tesseract. There is none; see `TODO.md`.
-- **Gmail.** There was a Gmail module. It was removed on purpose: it is a remote
-  service behind OAuth, not computer control, and it was the odd one out. Happy is about
-  this machine for now. Revisit once bash, system and browser are solid.
+- **Gmail, Calendar or Drive at any scale.** The Gmail module was deleted once for being a
+  remote service behind OAuth rather than computer control, and `mcps/` is where that came
+  back — but on Google's terms, not ours. Google runs real MCP endpoints and states plainly
+  that they do not support Dynamic Client Registration, so Happy cannot register itself the
+  way Notion and Linear let it. There are two ways round that and `mcps/` does both.
+
+  **Happy ships no Google client, deliberately.** Embedding one would be allowed — a desktop
+  client's secret is not a secret, and `gcloud` ships one too — and the unverified warning it
+  produces is only a warning: Advanced, then continue. The ceiling is what kills it. An
+  unverified app asking for Gmail or Drive scopes is capped at **a hundred people for the life
+  of the project**, and the hundred and first is refused with nothing to click through.
+  Lifting that cap means verification, and for Gmail and Drive — whose scopes are
+  **restricted** — a third-party CASA security assessment repeated every year, for as long as
+  the project exists. That is a permanent bill attached to a local assistant that runs on
+  other people's machines, so it is not paid.
+
+  A client per person has no ceiling and costs nobody anything, so that is the trade: the
+  setup is the price. The boxes in the panel take a client ID and secret, the panel says what
+  to go and make, and it says the two things people get wrong — publish the project rather
+  than leaving it in testing, or Google discards the refresh token every seven days; and the
+  unverified warning is about *your* app, not about Happy. Calendar's scopes are only
+  *sensitive* rather than restricted, so if a shipped client is ever revisited, Calendar alone
+  is the one that needs verification without CASA. All of it is against an API still in
+  developer preview.
+
+There **is** credential handling now, and it is confined to `mcps/`. It holds OAuth refresh
+tokens and pasted API tokens for services somebody explicitly connected, in the system
+keychain where there is one and in `data/happy.db` where there is not — and the panel says
+which. It holds no passwords and no cookies. Signing in is only ever started by a person, from
+the panel or `python -m mcps connect`: no tool can reach it, because a browser window opening
+in the middle of a spoken answer is not an answer.
 
 ## Running it
 
@@ -898,6 +1045,10 @@ ollama pull qwen3-vl         # the eyes. only for look_at_screen, OCR needs noth
 # reading text off pictures. NOT a python package, it is a program.
 brew install tesseract                          # macOS
 winget install UB-Mannheim.TesseractOCR         # Windows, and it does not add itself to PATH
+
+# the ears. 631 MB, into models/parakeet.
+.venv/bin/python -m ears --get
+.venv/bin/python -m ears               # transcribe everything in recordings/, with timings
 
 # the voice. any piper voice works, this one is a plain American man.
 .venv/bin/python -m piper.download_voices en_US-hfc_male-medium --download-dir models/piper
@@ -926,7 +1077,7 @@ run `/Applications/Python\ 3.13/Install\ Certificates.command` once, or prefix t
 with ``SSL_CERT_FILE=`.venv/bin/python -c "import certifi;print(certifi.where())"` ``. pip
 carries its own certificates, which is why it works when nothing else does.
 
-`python -m brain` is the one to use while developing. It skips the microphone and WhisperX
+`python -m brain` is the one to use while developing. It skips the microphone and the ears
 entirely and exercises the graph, the tools and the guard — everything except audio.
 
 **Two permissions, both granted to whatever runs Happy, not to Happy.** Accessibility, which
@@ -935,6 +1086,15 @@ which capture needs. macOS refuses the second silently — you get a black pictu
 — so if Happy says he cannot see the screen, that is the one to check. Both live in System
 Settings, Privacy & Security, and both need the app restarting after they are given. Run the
 window and it is **Electron** that has to be given them, not Python.
+
+Accessibility is refused as quietly as capture is. An untrusted event tap is still created and
+still delivers — but only the keys meant for this process, which looks exactly like push to talk
+working right up until you click on another window. `ears.trigger.deaf()` asks
+`AXIsProcessTrusted()` once per listener and the answer rides out in `ready`, so the panel says
+so in as many words and offers the button. The asking itself is `systemPreferences
+.isTrustedAccessibilityClient(true)` in the Electron main process, because that is the process
+macOS holds responsible for the Python it started. A tap built without the permission stays deaf
+after it is granted, so the button turns into **Restart**.
 
 A terminal that lives inside an Electron app — VS Code's — exports `ELECTRON_RUN_AS_NODE=1` to
 everything it starts. Inherit it and Electron comes up as plain Node, where there is no window

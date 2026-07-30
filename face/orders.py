@@ -7,20 +7,28 @@ ITS LIFE WAITING ON A KEY AND WOULD OTHERWISE ANSWER NOTHING UNTIL SOMEONE SPOKE
 import json
 import sys
 import threading
-import time
 
 import memory
-from face import panel
+from face import panel, sources
 from memory import settings
-
-# A LIST OF MODELS COSTS A ROUND TRIP TO THE BACKEND, SO IT IS NOT FETCHED AGAIN
-# FOR EVERY NUDGE OF A SLIDER.
-SOURCE_SECONDS = 30
 
 RECENT_MESSAGES = 60
 
+# A KNOB THAT DECIDES WHAT THE NEXT ONE OFFERS. MOVING IT DROPS THAT ONE CACHED
+# LIST, RATHER THAN LEAVING THE CONTROL SHOWING THE OLD BACKEND'S MODELS FOR HALF
+# A MINUTE. ONLY THESE, BECAUSE A SLIDER FIRES ONE SET PER NUDGE AND ASKING A
+# BACKEND WHAT IT HAS IS A ROUND TRIP.
+GOVERNS = {"brain.provider": "models", "brain.url": "models"}
+
+ON = "mcps.on."
+
+PASTE = "mcps.paste."
+
+NEW = "mcps.new"
+
+REACHING = ("connect", "disconnect", "forget")
+
 doing = {}
-found = {}
 
 
 def serve(**handlers):
@@ -57,17 +65,26 @@ def carry(order):
     asked = order.get("do")
 
     if asked in ("hello", "refresh"):
-        found.clear()
+        sources.clear()
         describe()
         recall(order.get("limit", RECENT_MESSAGES))
     elif asked == "settings":
         describe()
     elif asked == "set":
-        settings.put(order.get("key"), order.get("value"))
+        changed(order.get("key"), order.get("value"))
+        governed = GOVERNS.get(order.get("key"))
+
+        if governed:  # clear() WITH NOTHING DROPS EVERY LIST, WHICH IS NOT THE ASK.
+            sources.clear(governed)
+
         describe()
     elif asked == "reset":
         settings.clear(order.get("key"))
         describe()
+    elif asked in REACHING:
+        # A SIGN IN IS A BROWSER AND A PERSON, WHICH IS MINUTES. HOLDING THIS
+        # THREAD FOR IT WOULD LEAVE THE WINDOW UNABLE TO SAY ANYTHING AT ALL.
+        threading.Thread(target=reaching, args=(asked, order.get("name")), daemon=True).start()
     elif asked == "history":
         recall(order.get("limit", RECENT_MESSAGES))
     elif asked == "answer":
@@ -85,63 +102,62 @@ def call(what, *args):
         handler(*args)
 
 
+def changed(key, value):
+    """A KNOB MOVED. MOST ARE ORDINARY SETTINGS, A FEW ARE CONNECTIONS."""
+    reach = connections()
+    key = str(key or "")
+
+    if reach is None:
+        settings.put(key, value)
+    elif key.startswith(ON):
+        reach.enable(key[len(ON) :], bool(value))
+    elif key.startswith(PASTE):
+        reach.paste(key[len(PASTE) :], value)
+    elif key == NEW:
+        reach.custom(value)
+    else:
+        settings.put(key, value)
+
+
+def reaching(asked, name):
+    """CONNECTING, ON ITS OWN THREAD, TELLING THE WINDOW HOW IT WENT."""
+    reach = connections()
+
+    if reach is None or not name:
+        return
+
+    try:
+        if asked == "connect":
+            panel.note(reach.connect(name))
+        elif asked == "disconnect":
+            reach.disconnect(name)
+        else:
+            reach.forget(name)
+    except Exception as error:
+        panel.trouble(error)
+
+    describe()
+
+
+def connections():
+    """THE CONNECTIONS, IF THEY LOAD. A BROKEN ONE MUST NOT STOP THE PANEL."""
+    try:
+        import mcps
+
+        return mcps
+    except Exception:
+        return None
+
+
 def describe():
-    panel.send("settings", groups=drawn(), values=settings.every())
+    reach = connections()
+    values = dict(settings.every())
+
+    if reach is not None:
+        values.update(reach.values())
+
+    panel.send("settings", groups=sources.drawn(reach), values=values)
 
 
 def recall(limit):
     panel.send("history", messages=memory.history(limit=max(1, int(limit))))
-
-
-def drawn():
-    """THE CATALOGUE WITH THE LISTS ONLY A RUNNING MACHINE KNOWS FILLED IN."""
-    return [
-        {**group, "settings": [fill(entry) for entry in group["settings"]]}
-        for group in settings.groups()
-    ]
-
-
-def fill(entry):
-    source = entry.get("source")
-
-    if not source:
-        return entry
-
-    offered = sourced(source)
-    here = settings.get(entry["key"])
-
-    # WHAT IS SET STAYS IN THE LIST EVEN WHEN THE BACKEND IS DOWN AND OFFERS
-    # NOTHING, SO THE CONTROL NEVER SHOWS A BLANK FOR A WORKING SETTING.
-    if here and here not in offered:
-        offered = [here] + offered
-
-    return {**entry, "options": [{"value": each, "label": each} for each in offered], "open": True}
-
-
-def sourced(name):
-    kept = found.get(name)
-
-    if kept and time.monotonic() - kept[0] < SOURCE_SECONDS:
-        return kept[1]
-
-    offered = ask(name)
-    found[name] = (time.monotonic(), offered)
-
-    return offered
-
-
-def ask(name):
-    try:
-        if name == "models":
-            from brain import model
-
-            return model.offered()
-
-        if name == "voices":
-            import voice
-
-            return voice.installed()
-    except Exception:  # NOTHING TO OFFER IS A SHORTER LIST, NOT A FAILURE.
-        pass
-
-    return []

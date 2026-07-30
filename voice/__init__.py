@@ -1,27 +1,23 @@
 """WHERE SPEAKING HAPPENS."""
 
-from voice.piper import MODELS, SUFFIX, Mute, Voice, VoiceError, installed
+from voice.engines import VoiceError, attempt, chosen, installed, names
+from voice.mute import Mute
 from voice.speaker import Speaker
 
 __all__ = [
-    "MODELS",
     "Mute",
-    "SUFFIX",
     "Speaker",
-    "Voice",
     "VoiceError",
+    "attempt",
+    "chosen",
     "create",
     "installed",
+    "names",
 ]
 
 
 def create(**kwargs):
-    """A SPEAKER, PLUS THE REASON IT IS MUTE WHEN IT IS.
+    """A SPEAKER, PLUS THE REASON IT IS MUTE WHEN IT IS."""
+    voice, why = attempt(**kwargs)
 
-    CATCHES EVERYTHING ON PURPOSE. LOSING THE VOICE IS NOT A REASON TO LOSE THE
-    ASSISTANT: HAPPY GOES BACK TO ANSWERING IN WRITING.
-    """
-    try:
-        return Speaker(Voice(**kwargs)), None
-    except Exception as error:
-        return Speaker(Mute()), f"{error}"
+    return Speaker(voice), why

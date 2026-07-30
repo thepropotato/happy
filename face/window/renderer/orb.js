@@ -1,5 +1,8 @@
 // THE ORB. IT BREATHES WHEN NOTHING IS HAPPENING, SWELLS WITH THE MICROPHONE
 // WHILE YOU TALK, TURNS WHILE HAPPY THINKS, AND RIDES THE CLIP HE IS PLAYING.
+//
+// IT DRAWS INTO EVERY CANVAS IT WAS GIVEN, WHICH IS HOW THE BIG ONE AND THE ONE
+// IN THE HEADER ARE THE SAME ORB RATHER THAN TWO THAT DISAGREE.
 
 const RESTING = { idle: 0.16, loading: 0.1, thinking: 0.42, gone: 0.06 }
 
@@ -8,8 +11,7 @@ const MIC_GAIN = 5.5 // SPEECH SITS LOW IN A 0 TO 1 LOUDNESS.
 const CLIP_GAIN = 7
 
 const Orb = (() => {
-  let paint = null
-  let canvas = null
+  let faces = []
   let mood = 'loading'
   let energy = 0
   let clock = 0
@@ -41,7 +43,7 @@ const Orb = (() => {
 
   // ROUND WHEN NOTHING IS HAPPENING AND ONLY REALLY RESTLESS WHEN THERE IS
   // SOMETHING TO BE RESTLESS ABOUT.
-  function blob(middle, span) {
+  function blob(paint, middle, span) {
     paint.beginPath()
 
     for (let step = 0; step <= 120; step += 1) {
@@ -62,7 +64,7 @@ const Orb = (() => {
     paint.closePath()
   }
 
-  function halo(middle, span) {
+  function halo(paint, middle, span) {
     const [warm, cool] = shown
     const wash = paint.createRadialGradient(middle, middle, span * 0.2, middle, middle, span * 2.4)
 
@@ -76,7 +78,7 @@ const Orb = (() => {
     paint.fill()
   }
 
-  function sweep(middle, span) {
+  function sweep(paint, middle, span, size) {
     if (mood !== 'thinking' && mood !== 'hearing') return
 
     const turn = clock * 1.9
@@ -85,44 +87,53 @@ const Orb = (() => {
       paint.beginPath()
       paint.arc(middle, middle, span * 1.5, turn + offset, turn + offset + width)
       paint.strokeStyle = tint(shown[0], 0.55)
-      paint.lineWidth = 2.5
+      paint.lineWidth = size * 0.0057 // THE SAME WEIGHT AT EITHER SIZE.
       paint.lineCap = 'round'
       paint.stroke()
     }
   }
 
-  function ring(middle, span) {
+  function ring(paint, middle, span, size) {
     paint.beginPath()
     paint.arc(middle, middle, span * (1.28 + energy * 0.3), 0, Math.PI * 2)
     paint.strokeStyle = tint(shown[1], 0.22 + energy * 0.3)
-    paint.lineWidth = 1.2
+    paint.lineWidth = size * 0.0027
     paint.stroke()
   }
 
-  function frame() {
-    clock += 0.016
-    energy += (wanted() - energy) * SMOOTH
-    shown = shown.map((each, index) => toward(each, rgb((MOODS[mood] || MOODS.idle).colours[index]), 0.05))
-
+  function draw(canvas) {
+    const paint = canvas.getContext('2d')
     const size = canvas.width
     const middle = size / 2
     const span = size * 0.17 * (1 + energy * 0.42)
 
     paint.clearRect(0, 0, size, size)
-    halo(middle, span)
-    sweep(middle, span)
-    ring(middle, span)
+    halo(paint, middle, span)
+    sweep(paint, middle, span, size)
+    ring(paint, middle, span, size)
 
-    const skin = paint.createLinearGradient(middle - span, middle - span, middle + span, middle + span)
+    const skin = paint.createLinearGradient(
+      middle - span, middle - span, middle + span, middle + span,
+    )
     skin.addColorStop(0, tint(shown[0], 0.95))
     skin.addColorStop(1, tint(shown[1], 0.85))
 
-    blob(middle, span)
+    blob(paint, middle, span)
     paint.fillStyle = skin
     paint.shadowColor = tint(shown[0], 0.7)
-    paint.shadowBlur = 34 + energy * 46
+    paint.shadowBlur = size * 0.077 + energy * size * 0.104
     paint.fill()
     paint.shadowBlur = 0
+  }
+
+  function frame() {
+    clock += 0.016
+    energy += (wanted() - energy) * SMOOTH
+    shown = shown.map((each, index) =>
+      toward(each, rgb((MOODS[mood] || MOODS.idle).colours[index]), 0.05),
+    )
+
+    for (const face of faces) draw(face)
 
     requestAnimationFrame(frame)
   }
@@ -133,9 +144,8 @@ const Orb = (() => {
   }
 
   return {
-    start(element) {
-      canvas = element
-      paint = canvas.getContext('2d')
+    start(...canvases) {
+      faces = canvases
       requestAnimationFrame(frame)
     },
 

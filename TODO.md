@@ -23,7 +23,7 @@ delete the line when it stops being interesting.
         there, unused, waiting for it.
       - `conversation.add(unprompted=True)` is still in the schema and nothing sets it.
 - [ ] **Setup script** — there is no one-time installer any more. It should get Ollama and
-      the models, WhisperX, a Piper voice, Tesseract, and say what it could not do.
+      the models, the ears' weights, a Piper voice, Tesseract, and say what it could not do.
 
 ## Controls that are not built yet
 
@@ -66,11 +66,16 @@ delete the line when it stops being interesting.
 - [ ] `data/happy.db` prunes only if `memory.messages` says how many days to keep. No export.
 - [ ] `recordings/` the same, under `memory.recordings`. Both ship keeping everything.
 - [ ] No tests anywhere.
-- [ ] `av` (WhisperX) and `cv2` (eyes) both ship a copy of `libavdevice`, so importing both
-      prints an objc duplicate-class warning at startup. Harmless so far, and it says it may
-      cause "mysterious crashes". Predates the rename.
-- [ ] `requirements.txt` is a frozen dump, including packages only the old browser agent
-      needed. Worth splitting into what Happy needs and what an errand needs.
+- [ ] `requirements.txt` is still a frozen dump. The WhisperX half is gone, but the packages
+      only the old browser agent needed are still in it — `browser-use` and friends are pinned
+      and nothing imports them.
+- [ ] Parakeet's own docs put the ceiling at 20-30 seconds a call and suggest VAD past that.
+      A 14-second take is the longest tried and it was fine. `model.with_vad(load_vad("silero"))`
+      is the fix if a long ramble ever comes back cut short.
+- [ ] `ears.device = auto` lets onnxruntime pick CoreML. Never measured against the pinned CPU
+      it ships with, and a 650 MB encoder is not an obvious win to compile.
+- [ ] One take in `recordings/` that WhisperX heard — "It looks familiar." — comes back empty
+      now. It is the quietest of the fifty at peak 0.08, and gain does not recover it.
 
 ## Done
 

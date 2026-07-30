@@ -90,6 +90,8 @@ const Talk = (() => {
       settle(was)
     },
 
+    // ONE FAINT NUMBER, WHICH BECOMES THE WHOLE ACCOUNT WHEN IT IS POINTED AT.
+    // NOBODY OPENS THE PANEL TO READ TIMINGS, AND EVERYBODY WHO OPENS IT SAW THEM.
     spent(word) {
       const parts = []
 
@@ -101,7 +103,10 @@ const Talk = (() => {
       const tools = word.tools.map((each) => `${each.name} ${clock(each.seconds)}`).join(' · ')
 
       const line = element('div', 'spent')
-      line.innerHTML = parts.join(' · ') + (tools ? `<br />${tools}` : '')
+
+      line.innerHTML =
+        `<span class="all">${clock(word.total)}</span>` +
+        `<span class="parts">${parts.join(' · ')}${tools ? `<br />${tools}` : ''}</span>`
 
       const was = pinned()
       stream.append(line)

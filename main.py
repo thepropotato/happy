@@ -12,7 +12,7 @@ face/window RUNS IT.
 
 from face import silence
 
-silence.configure()  # MUST RUN BEFORE THE IMPORTS BELOW PULL IN WHISPERX.
+silence.configure()  # MUST RUN BEFORE THE IMPORTS BELOW OPEN AN ONNX SESSION.
 
 import os
 import sys
@@ -22,6 +22,7 @@ import time
 import brain
 import conscience
 import ears
+import mcps
 import memory
 import voice
 from face import console, orders, panel, show
@@ -55,10 +56,13 @@ def main():
     if thrown:
         show.note(f"Threw away {thrown}")
 
-    if windowed:
+    if windowed:  # THE WINDOW IS TOLD ABOUT A DEAF KEY IN ready(), AND SAYS SO ITSELF.
         attend(happy, speaker, recorder, ptt)
     else:
         show.note(f"Hold {ptt.key_name} to talk. Ctrl+C to quit.")
+
+        if ptt.deaf:  # HE HEARS THE KEY, JUST NOT FROM ANYWHERE THAT MATTERS.
+            show.note(ears.DEAF)
 
     try:
         listen(recorder, ptt, happy, speaker)
@@ -78,14 +82,21 @@ def attend(happy, speaker, recorder, ptt):
         quit=lambda: leave(speaker, recorder, ptt),
     )
 
-    panel.ready(key=ptt.key_name)
+    panel.ready(key=ptt.key_said, code=ptt.chosen, deaf=ptt.deaf)
     show.state(panel.IDLE)
 
 
 def start():
     """LOAD EVERY MODEL UP FRONT, SO NO TAKE PAYS FOR IT LATER."""
     show.note("Loading models")
-    ears.load_model()
+
+    mcps.start()  # IN THE BACKGROUND. THE TOOLS ARE BOUND ALREADY, FROM LAST TIME.
+
+    try:
+        ears.load_model()
+        ears.warm()
+    except ears.EarsError as error:  # NO HEARING AT ALL. NOTHING TO DO BUT SAY SO.
+        raise SystemExit(error)
 
     speaker, mute = voice.create()
 
@@ -172,6 +183,7 @@ def typed(happy, speaker, text):
 
 
 def respond(happy, speaker, speech, audio=None):
+    speaker.refit()  # A DIFFERENT ENGINE WAS PICKED WHILE THE LAST TURN RAN.
     show.opening()
 
     try:

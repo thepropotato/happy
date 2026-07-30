@@ -1,4 +1,4 @@
-/* THE SHELL, THE LIGHT BEHIND IT, AND THE ORB. */
+/* THE SHELL, THE LIGHT BEHIND IT, THE HEADER, AND THE ORB. */
 
 :root {
   --ink: #f2f3f8;
@@ -8,6 +8,10 @@
   --raise: rgba(255, 255, 255, 0.045);
   --glow: #7c5cf5;
   --glow-soft: rgba(124, 92, 245, 0.5);
+  /* THE ACCENT MOVES WITH HAPPY'S MOOD, SO WHAT IS WORKING AND WHAT WANTS MINDING
+     CANNOT BE SAID IN IT. THESE TWO STAY PUT. */
+  --good: #4ad6a0;
+  --wait: #f5a524;
   --pane: 260ms cubic-bezier(0.22, 1, 0.36, 1);
   --spring: 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -64,12 +68,14 @@ body {
   pointer-events: none;
 }
 
+/* ONE LINE THAT SAYS WHAT HE IS DOING AND WHICH KEY DOES IT. */
 .bar {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 12px 10px 14px;
+  gap: 9px;
+  padding: 12px 12px 11px 14px;
+  flex: 0 0 auto;
   -webkit-app-region: drag;
 }
 
@@ -99,57 +105,130 @@ body {
   letter-spacing: 0.02em;
 }
 
+.doing {
+  font-size: 11.5px;
+  color: var(--faint);
+  transition: opacity 200ms;
+}
+
+.doing.fade {
+  opacity: 0;
+}
+
 .spacer {
   flex: 1;
 }
 
-.chip {
+/* THE KEY IS THE ONE THING NOBODY SHOULD HAVE TO REMEMBER, SO IT IS ALWAYS ON
+   SCREEN. IT LIGHTS THE INSTANT THE KEY GOES DOWN, WHICH IS ALSO HOW A GLOBAL
+   LISTENER PROVES IT IS ALIVE FROM A WINDOW THAT IS NOT IN FRONT. */
+.key {
   -webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--raise);
   color: var(--dim);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  padding: 3px 8px;
+  transition: color var(--pane), border-color var(--pane), background var(--pane),
+    box-shadow var(--pane);
+}
+
+.key[hidden] {
+  display: none;
+}
+
+.key b {
+  font-weight: 600;
+}
+
+.key.down {
+  color: #fff;
+  border-color: rgba(245, 165, 36, 0.55);
+  background: rgba(245, 165, 36, 0.18);
+  box-shadow: 0 0 14px rgba(245, 165, 36, 0.35);
+}
+
+.key.deaf {
+  color: var(--wait);
+  border-color: rgba(245, 165, 36, 0.35);
+}
+
+.icons {
+  display: flex;
+  gap: 3px;
+}
+
+/* DRAWN, NOT TYPED. A GLYPH BORROWED OFF A KEYBOARD READS AS A KEY, WHICH IS
+   EXACTLY THE WRONG THING FOR A BUTTON TO SAY. */
+.icon {
+  -webkit-app-region: no-drag;
+  width: 26px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--faint);
   font: inherit;
-  font-size: 11px;
-  padding: 3px 9px;
   cursor: pointer;
   transition: color 160ms, border-color 160ms, background 160ms, transform 160ms;
 }
 
-.chip:hover {
+.icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.icon:hover {
   color: var(--ink);
-  border-color: rgba(255, 255, 255, 0.16);
+  background: var(--raise);
+  border-color: var(--line);
 }
 
-.chip:active {
-  transform: scale(0.94);
+.icon:active {
+  transform: scale(0.92);
 }
 
-.chip.on {
+.icon.on {
   color: var(--ink);
   border-color: var(--glow-soft);
   background: rgba(124, 92, 245, 0.16);
 }
 
+/* THE ORB OWNS THE PANEL WHILE THERE IS NOTHING TO READ, AND GETS OUT OF THE WAY
+   THE MOMENT THERE IS. WHAT IT WAS SAYING CARRIES ON IN THE HEADER. */
 .hero {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 2px 0 14px;
+  flex: 0 0 auto;
+  height: 250px;
+  overflow: hidden;
+  transition: height var(--pane), opacity var(--pane);
+}
+
+.glass.busy .hero,
+.glass.talking .hero {
+  height: 0;
+  opacity: 0;
 }
 
 .orb {
-  width: 220px;
-  height: 220px;
-  margin: -18px 0 -14px;
+  width: 230px;
+  height: 230px;
+  margin: -14px 0 -18px;
 }
 
 .mood {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: var(--ink);
   transition: opacity 200ms;
 }
 
@@ -158,9 +237,83 @@ body {
 }
 
 .hint {
-  margin-top: 4px;
-  font-size: 11px;
+  margin-top: 5px;
+  font-size: 11.5px;
   color: var(--faint);
   letter-spacing: 0.02em;
-  transition: opacity 200ms;
+}
+
+.hint b {
+  color: var(--dim);
+  font-weight: 600;
+}
+
+/* THE SAME ORB, SHRUNK INTO THE HEADER. TAPPING IT BRINGS THE BIG ONE BACK. */
+.puck {
+  -webkit-app-region: no-drag;
+  width: 0;
+  height: 26px;
+  margin-left: -9px;
+  opacity: 0;
+  cursor: pointer;
+  transition: width var(--pane), opacity var(--pane), margin var(--pane);
+}
+
+.glass.busy .puck,
+.glass.talking .puck {
+  width: 26px;
+  margin-left: 0;
+  opacity: 1;
+}
+
+/* THE ONE THING THAT IS WRONG, WHEN SOMETHING IS, AND THE BUTTON THAT FIXES IT. */
+.amiss {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  margin: 0 12px 8px;
+  padding: 9px 11px;
+  border: 1px solid rgba(245, 165, 36, 0.28);
+  border-radius: 12px;
+  background: rgba(245, 165, 36, 0.07);
+  animation: settle 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.amiss[hidden] {
+  display: none;
+}
+
+.amiss .words {
+  flex: 1;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #f0d5a8;
+}
+
+.amiss .words b {
+  color: #fff;
+  font-weight: 600;
+}
+
+.amiss .fix {
+  flex: 0 0 auto;
+  border: 1px solid rgba(245, 165, 36, 0.45);
+  border-radius: 8px;
+  background: rgba(245, 165, 36, 0.16);
+  color: #ffe6bd;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background 160ms, transform 160ms;
+}
+
+.amiss .fix:hover {
+  background: rgba(245, 165, 36, 0.28);
+}
+
+.amiss .fix:active {
+  transform: scale(0.96);
 }

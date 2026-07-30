@@ -12,20 +12,15 @@ from pathlib import Path
 import numpy as np
 
 from memory import settings
+from voice.engines import VoiceError
 
 MODELS = Path(__file__).resolve().parent.parent / "models" / "piper"
 SUFFIX = "*.onnx"
-
-RATE = 22050  # ONLY THE MUTE ONE'S. A REAL VOICE REPORTS ITS OWN.
 
 GET_THEM = (
     f"No voice in {MODELS}. Get one with:\n"
     "  python -m piper.download_voices en_US-hfc_male-medium --download-dir models/piper"
 )
-
-
-class VoiceError(Exception):
-    pass
 
 
 class Voice:
@@ -36,7 +31,7 @@ class Voice:
         self.path = None
         self.pace = None
         self.voice = None
-        self.rate = RATE
+        self.rate = None  # A REAL VOICE REPORTS ITS OWN, AND load() ASKS IT.
 
         self.load(Path(path) if path else find(), length)
 
@@ -69,21 +64,6 @@ class Voice:
     def warm(self):
         """SYNTHESISE ONCE NOW. THE FIRST CALL COSTS THIRTY TIMES THE REST."""
         self.say("Ready.")
-
-
-class Mute:
-    """STANDS IN WHEN THE VOICE WILL NOT LOAD, SO NOTHING ELSE NEEDS AN IF."""
-
-    rate = RATE
-
-    def say(self, text):
-        return np.zeros(0, dtype=np.float32)
-
-    def refit(self):
-        pass
-
-    def warm(self):
-        pass
 
 
 def whole(path):

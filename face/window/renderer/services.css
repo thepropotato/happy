@@ -1,0 +1,169 @@
+/* A CONNECTION AS ONE ROW: WHAT IT IS, HOW IT IS, AND WHAT OPENS UNDER IT.
+
+   THESE USED TO BE ORDINARY KNOBS AND READ AS TWENTY IDENTICAL ROWS OF WHICH
+   THREE WERE SLIDERS AND SIX WERE SECRETS. A SERVICE IS NOT A SETTING AND IS NOT
+   SHAPED LIKE ONE HERE. */
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 15px 2px 7px;
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.heading:first-child {
+  margin-top: 4px;
+}
+
+.heading .count {
+  margin-left: auto;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 11px;
+}
+
+.service {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px 11px;
+  margin-bottom: 6px;
+  animation: settle 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: border-color 180ms, background 180ms;
+}
+
+.service:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+/* CONNECTED AND IN USE. THE ONE COLOUR IN THE LIST THAT IS NOT THE ACCENT, SO
+   WHAT IS ALREADY WORKING IS THE THING THE EYE FINDS WITHOUT READING. */
+.service.live {
+  border-color: rgba(74, 214, 160, 0.28);
+  background: rgba(74, 214, 160, 0.05);
+}
+
+.service.open {
+  border-color: var(--glow-soft);
+  background: rgba(124, 92, 245, 0.07);
+}
+
+.service .face {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  padding: 1px 0;
+  cursor: pointer;
+}
+
+.service .mark {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--dim);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.service.live > .face .mark {
+  background: rgba(74, 214, 160, 0.16);
+  color: var(--good);
+}
+
+.service .who {
+  flex: 1;
+  min-width: 0;
+}
+
+.service .title {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.service .under {
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.service.live > .face .under {
+  color: var(--good);
+}
+
+.service.warn > .face .under {
+  color: var(--wait);
+}
+
+.service .go {
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-size: 15px;
+  line-height: 1;
+  padding-right: 2px;
+  transition: transform var(--pane);
+}
+
+.service.open > .go {
+  transform: rotate(90deg);
+}
+
+.pill {
+  flex: 0 0 auto;
+  border: 1px solid var(--glow-soft);
+  border-radius: 20px;
+  background: rgba(124, 92, 245, 0.18);
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 11px;
+  cursor: pointer;
+  transition: background 180ms, transform 160ms, opacity 180ms;
+}
+
+.pill:hover {
+  background: rgba(124, 92, 245, 0.3);
+}
+
+.pill:active {
+  transform: scale(0.96);
+}
+
+.pill:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* SOMETHING THAT NEEDS FILLING IN FIRST IS NOT AN INVITATION TO PRESS ANYTHING,
+   SO IT DOES NOT DRESS LIKE ONE. */
+.pill.quiet {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--dim);
+}
+
+.pill.quiet:hover {
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.09);
+}

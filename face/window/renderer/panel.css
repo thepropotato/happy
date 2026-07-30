@@ -1,76 +1,83 @@
-/* THE TWO PANES, AND THE ASKING THAT INTERRUPTS BOTH OF THEM. */
-
-.tabs {
-  position: relative;
-  display: flex;
-  gap: 2px;
-  margin: 0 14px;
-  padding: 3px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid var(--line);
-}
-
-.tab {
-  position: relative;
-  z-index: 1;
-  flex: 1;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--dim);
-  font: inherit;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 5px 0;
-  cursor: pointer;
-  transition: color 200ms;
-}
-
-.tab.on {
-  color: var(--ink);
-}
-
-.slide {
-  position: absolute;
-  z-index: 0;
-  top: 3px;
-  left: 3px;
-  height: calc(100% - 6px);
-  width: calc(50% - 3px);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.09);
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.25);
-  transition: transform var(--spring);
-}
-
-.slide.right {
-  transform: translateX(calc(100% - 1px));
-}
+/* THE TALKING, THE CONTROLS OVER THE TOP OF IT, AND THE ASKING OVER BOTH. */
 
 .panes {
   position: relative;
-  flex: 1;
-  min-height: 0;
-  margin-top: 10px;
-}
-
-.pane {
-  position: absolute;
-  inset: 0;
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-height: 0;
-  opacity: 0;
-  transform: translateY(6px);
-  pointer-events: none;
-  transition: opacity var(--pane), transform var(--pane);
 }
 
-.pane.on {
+/* THE CONTROLS ARE THE WHOLE PANEL, NOT A DRAWER OVER PART OF ONE. GOING TO THEM
+   IS SOMEWHERE YOU GO, AND HALF A PANEL OF CONVERSATION BEHIND THEM IS ONE MORE
+   THING TO IGNORE WHILE YOU READ. */
+/* display: none, NOT AN INVISIBLE PANEL. THE SYSTEM'S DRAG HANDLE IS CUT FROM
+   WHAT IS LAID OUT, NOT FROM WHAT CAN BE SEEN OR CLICKED, SO A SCREEN LEFT
+   LYING THERE AT ZERO OPACITY STILL HANDS ITS HEADER TO THE WINDOW MANAGER —
+   AND THAT HEADER SITS EXACTLY OVER THE REAL ONE, PUTTING THE WHOLE TOP STRIP
+   BACK UNDER THE DRAG AND SWALLOWING EVERY CLICK ON THE ICONS. */
+.screen {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: none;
+  flex-direction: column;
+  background: rgba(9, 10, 16, 0.94);
+  backdrop-filter: blur(18px);
+  opacity: 0;
+  transform: translateX(14px);
+  pointer-events: none;
+  transition: opacity var(--pane), transform var(--pane), display var(--pane) allow-discrete;
+}
+
+.screen.on {
+  display: flex;
   opacity: 1;
   transform: none;
   pointer-events: auto;
+}
+
+/* COMING AND GOING STILL SLIDES: display FLIPS AT ONCE ON THE WAY IN AND WAITS
+   FOR THE FADE ON THE WAY OUT. */
+@starting-style {
+  .screen.on {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+
+.screen .bar {
+  padding: 12px 12px 10px 8px;
+}
+
+/* AND FOR THE QUARTER SECOND IT IS STILL THERE, FADING OUT, IT IS NOBODY'S HANDLE. */
+.screen:not(.on) .bar {
+  -webkit-app-region: no-drag;
+}
+
+/* .heading BELONGS TO THE LINE OVER A RUN OF SERVICES, WHICH IS SMALL AND SHOUTED.
+   THE TITLE OF THIS SCREEN IS THE SAME NAME THE HEADER WEARS, SO IT WEARS IT. */
+.screen .sub {
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.screen .rows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 14px 18px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.screen .rows::-webkit-scrollbar {
+  width: 6px;
+}
+
+.screen .rows::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
 }
 
 /* display ON THE ELEMENT ITSELF BEATS THE hidden ATTRIBUTE, SO SAY SO OUT LOUD. */
@@ -111,7 +118,7 @@
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #f5a524;
+  color: var(--wait);
   margin-bottom: 8px;
 }
 

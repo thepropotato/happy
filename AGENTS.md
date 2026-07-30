@@ -19,6 +19,10 @@
 - The folders are named after a person: `brain` thinks, `ears` hear, `voice` speaks, `eyes`
   see, `hands` do, `memory` remembers, `face` shows, `conscience` asks before something
   cannot be undone. A new capability gets the name of the part of a person that would do it.
+- `mcps` is the one deliberate exception, and it stays one. It holds connections to MCP
+  servers that are not on this machine, and a body part would hide what they actually are.
+  It cannot be `mcp`, which would shadow the installed SDK, nor `tools`, which collides with
+  `hands.tools()`. Do not rename it back.
 - No file may be longer than 200 lines. Split it by job, not by size.
 - Modularity is the most important thing. DO NOT use provider specific terms. Each
   class/interface should be named after their job, not their provider or something.

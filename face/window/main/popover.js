@@ -3,8 +3,8 @@
 const { BrowserWindow, screen } = require('electron')
 const path = require('node:path')
 
-const WIDTH = 396
-const HEIGHT = 640
+const WIDTH = 420
+const HEIGHT = 720
 
 const GAP = 8 // BETWEEN THE ICON AND THE PANEL.
 const EDGE = 12 // THE CLOSEST IT EVER GETS TO THE SIDE OF A SCREEN.

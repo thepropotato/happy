@@ -8,9 +8,7 @@ from memory.knobs import choice, group, number, text, toggle
 
 EFFORTS = [("off", "Off"), ("low", "Low"), ("medium", "Medium"), ("high", "High")]
 
-SIZES = ["tiny", "base", "small", "medium", "large-v2", "large-v3", "turbo"]
-
-DEVICES = [("cpu", "CPU"), ("cuda", "CUDA")]
+DEVICES = [("cpu", "CPU"), ("auto", "Anything faster")]
 
 PROVIDERS = [("ollama", "Ollama"), ("openai", "OpenAI shape")]
 
@@ -29,48 +27,65 @@ TALK_KEYS = [
 
 FOREVER = "0 keeps everything."
 
+# WHAT IS SET ONCE AND NEVER AGAIN IS MARKED rare AND SITS BEHIND ONE MORE TAP.
+# THE HANDFUL LEFT OVER ARE THE ONES SOMEBODY OPENED THE SECTION FOR.
 BRAIN = [
-    choice("brain.effort", "Thinking effort", EFFORTS, "low", "Low keeps answers conversational."),
     choice("brain.model", "Model", [], "gpt-oss:20b", "What does the talking.", source="models"),
-    choice("brain.provider", "Backend", PROVIDERS, "ollama", "Who runs the model."),
-    text("brain.url", "Address", "", "Empty uses the backend's own.", "http://localhost:11434"),
+    choice("brain.effort", "Thinking effort", EFFORTS, "low", "Low keeps answers conversational."),
+    choice("brain.provider", "Backend", PROVIDERS, "ollama", "Who runs the model.", rare=True),
+    text("brain.url", "Address", "", "Empty uses the backend's own.", "http://localhost:11434",
+         rare=True),
     number("brain.context", "Context window", 4096, 262144, 4096, 131072, "Sent every request.",
-           "tokens", whole=True),
-    number("brain.temperature", "Temperature", 0, 2, 0.05, 0.7, "Higher wanders further."),
+           "tokens", whole=True, rare=True),
+    number("brain.temperature", "Temperature", 0, 2, 0.05, 0.7, "Higher wanders further.",
+           rare=True),
     number("brain.history", "History carried", 2, 64, 2, 24, "Messages of backchat.", "msgs",
-           whole=True),
+           whole=True, rare=True),
     # SIX WAS ONE SHORT OF THE REAL TASKS. OPENING AN APP, FINDING A CHAT, TYPING
     # AND SENDING IS SIX ROUNDS WITH NOTHING GOING WRONG, AND THE FIRST GLANCE TO
     # SEE WHERE IT LANDED MAKES SEVEN. A LIMIT ONLY BITES WHEN THE WORK IS LONG,
     # SO A HIGHER ONE COSTS A SHORT ANSWER NOTHING.
     number("brain.calls", "Tool rounds", 1, 20, 1, 14, "Before it has to answer.", "max",
-           whole=True),
+           whole=True, rare=True),
     number("brain.timeout", "Timeout", 30, 900, 10, 300, "A cold load is not a dead server.",
-           "sec", whole=True),
+           "sec", whole=True, rare=True),
 ]
 
 EARS = [
-    choice("ears.model", "Speech model", SIZES, "medium", "Bigger hears better and slower."),
-    choice("ears.device", "Runs on", DEVICES, "cpu"),
-    text("ears.language", "Language", "en", "Pinned, detecting costs a pass.", "en"),
-    choice("ears.key", "Hold to talk", TALK_KEYS, "alt_r", "Held down while you speak."),
-    number("ears.hold", "Shortest take", 0.05, 2, 0.05, 0.25, "Briefer was a brush.", "sec"),
-    number("ears.preroll", "Lead in", 0, 1.5, 0.05, 0.3, "Kept from before the key.", "sec"),
-    number("ears.tail", "Lead out", 0, 1.5, 0.05, 0.2, "Kept after you let go.", "sec"),
+    choice("ears.key", "Hold to talk", TALK_KEYS, "alt_r", "Held from any window, not just this."),
+    choice("ears.device", "Runs on", DEVICES, "cpu", "CPU is the sure one."),
+    number("ears.hold", "Shortest take", 0.05, 2, 0.05, 0.25, "Briefer was a brush.", "sec",
+           rare=True),
+    number("ears.preroll", "Lead in", 0, 1.5, 0.05, 0.3, "Kept from before the key.", "sec",
+           rare=True),
+    number("ears.tail", "Lead out", 0, 1.5, 0.05, 0.2, "Kept after you let go.", "sec", rare=True),
 ]
 
 VOICE = [
     choice("voice.name", "Voice", [], "", "Whichever is installed.", source="voices"),
-    number("voice.pace", "Pace", 0.6, 1.6, 0.05, 0.95, "Below one is faster speech."),
     toggle("voice.muted", "Mute", False, "Happy still answers, in writing."),
+    number("voice.pace", "Pace", 0.6, 1.6, 0.05, 0.95, "Below one is faster speech."),
 ]
 
 EYES = [
     choice("eyes.model", "Looking model", [], "qwen3-vl", "Only for looking.", source="models"),
-    number("eyes.context", "Context window", 4096, 131072, 4096, 32768, None, "tokens",
-           whole=True),
-    choice("eyes.effort", "Thinking effort", EFFORTS, "off", "Off. It is asked what it sees."),
     number("eyes.width", "Picture width", 512, 3024, 8, 1512, "Every byte is time.", "px",
+           whole=True),
+    number("eyes.context", "Context window", 4096, 131072, 4096, 32768, None, "tokens",
+           whole=True, rare=True),
+    choice("eyes.effort", "Thinking effort", EFFORTS, "off", "Off. It is asked what it sees.",
+           rare=True),
+]
+
+# THESE THREE ARE ALREADY A FOLD DEEP: THE CONNECTIONS PUT THEM INSIDE "HOW
+# CONNECTIONS BEHAVE", UNDER THE SERVICES THEMSELVES. NOTHING HERE IS rare.
+CONNECTIONS = [
+    toggle("mcps.confirm", "Ask before changing", True, "Anything that is not just looking."),
+    number("mcps.timeout", "Give up after", 5, 120, 5, 20, "A service is not this computer.",
+           "sec", whole=True),
+    # A CAP ONLY BITES ON A SERVER NOBODY HAS PICKED TOOLS FOR. SIX IS ABOUT WHAT
+    # ONE SERVICE IS WORTH BEFORE IT CROWDS OUT EVERYTHING ON THIS MACHINE.
+    number("mcps.cap", "Tools per service", 1, 20, 1, 6, "Before it crowds the rest.", "max",
            whole=True),
 ]
 
@@ -80,10 +95,12 @@ REMEMBERING = [
 ]
 
 GROUPS = [
-    group("brain", "Brain", "What does the thinking.", BRAIN),
-    group("ears", "Ears", "Hearing you, and when.", EARS),
-    group("voice", "Voice", "How Happy sounds.", VOICE),
-    group("eyes", "Eyes", "Looking at the screen.", EYES),
+    group("brain", "Brain", "What does the thinking.", BRAIN, ["brain.model", "brain.effort"]),
+    group("ears", "Ears", "Hearing you, and when.", EARS, ["ears.key"]),
+    group("voice", "Voice", "How Happy sounds.", VOICE, ["voice.name", "voice.muted"]),
+    group("eyes", "Eyes", "Looking at the screen.", EYES, ["eyes.model"]),
+    # THE CONNECTIONS COUNT THEMSELVES: A SECTION OF SERVICES SAYS HOW MANY ARE UP.
+    group("mcps", "Connections", "Services that are not this computer.", CONNECTIONS),
     group("memory", "Memory", "What is kept, and how long.", REMEMBERING),
 ]
 
