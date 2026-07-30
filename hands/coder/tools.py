@@ -1,6 +1,7 @@
 """CODER TOOLS THE MODEL CAN CALL."""
 
 from langchain_core.tools import tool
+import memory.storage as storage
 
 from hands.coder import job
 from hands.coder.registry import available
@@ -50,7 +51,36 @@ def build_answer(response: str) -> str:
 
     Send your reply here to continue that same session; chat replies alone do not
     reach the coding tool."""
-    if job.current is None or not job.current.session_id:
+    if job.current is None:
+        job.setup()
+        rows = storage.read(
+            """
+            SELECT coder_name, session_id
+            FROM coder_jobs
+            WHERE session_id IS NOT NULL AND coder_name = 'Claude Code'
+            ORDER BY epoch DESC
+            LIMIT 1
+            """
+        )
+
+        if not rows:
+            return NO_CONTINUE
+
+        latest = rows[0]
+
+        with job.lock:
+            if job.busy():
+                return BUSY + job.current.task  # ONE CODER, ONE ERRAND AT A TIME.
+
+            job.current = job.Job(
+                latest["coder_name"],
+                response,
+                session_id=latest["session_id"],
+            )
+
+        return STARTED
+
+    if not job.current.session_id:
         return NO_CONTINUE
 
     if job.current.coder_name != "Claude Code":
