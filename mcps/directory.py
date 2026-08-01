@@ -167,6 +167,7 @@ KNOWN = [
             "query_messages",
             "get_unread_messages",
             "get_status",
+            "get_qr_code",
             "send_message",
             "send_group_message",
             "send_media_message",

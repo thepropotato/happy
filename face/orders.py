@@ -82,6 +82,8 @@ def carry(order):
     elif asked in REACHING:
         # A SIGN IN IS MINUTES. HOLDING THIS THREAD WOULD MUTE THE WINDOW.
         threading.Thread(target=reaching, args=(asked, order.get("name")), daemon=True).start()
+    elif asked == "qr":
+        threading.Thread(target=qr_reaching, args=(order.get("name"),), daemon=True).start()
     elif asked == "history":
         recall(order.get("limit", RECENT_MESSAGES))
     elif asked == "answer":
@@ -134,6 +136,19 @@ def reaching(asked, name):
         panel.trouble(error)
 
     describe()
+
+
+def qr_reaching(name):
+    """ASK FOR A QR ON ITS OWN THREAD, THEN TELL THE WINDOW WHAT CAME BACK."""
+    reach = connections()
+
+    if reach is None:
+        return
+
+    try:
+        panel.send("qr", name=name, **reach.qr(name))
+    except Exception as error:
+        panel.trouble(error)
 
 
 def connections():

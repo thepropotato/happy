@@ -6,6 +6,7 @@ NOT AN ANSWER TO ANYTHING SOMEBODY ASKED OUT LOUD.
 """
 
 from mcps import binding, directory, pool, store
+from mcps import whatsapp
 from memory import settings
 
 
@@ -135,6 +136,9 @@ def counted(row):
 def disconnect(name):
     """FORGET THE SIGN IN AND SWITCH IT OFF. THE CONNECTION ITSELF STAYS LISTED."""
     from mcps import tokens
+
+    if name == "whatsapp":
+        whatsapp.disconnect(name)
 
     if name in directory.FAMILIES:
         for each in directory.household(name):

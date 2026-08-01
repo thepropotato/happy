@@ -691,7 +691,7 @@ def register_events(session):
             pass
             session.client = None
             session.connect_thread = None
-            threading.Timer(2, lambda: start_session(session)).start()
+            os.execv(sys.executable, [sys.executable] + sys.argv)
 
     @client.event(MessageEv)
     def on_message(c, message):
