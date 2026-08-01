@@ -165,6 +165,7 @@ const Knobs = (() => {
       Services.start({
         value: (key) => values[key],
         tell,
+        ask,
         knob,
         doer: Fields.doer,
         typing: Fields.typing,

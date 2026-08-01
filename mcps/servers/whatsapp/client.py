@@ -53,7 +53,7 @@ class WhatsAppClient:
         self.username = username
 
     async def get(self, path: str, timeout: float = 5.0) -> Any:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
             r = await client.get(f"{BRIDGE_BASE}/{self.username}{path}", headers=BRIDGE_HEADERS)
             if r.status_code >= 400:
                 try:
@@ -63,7 +63,7 @@ class WhatsAppClient:
             return clean_surrogates(r.json())
 
     async def post(self, path: str, body: dict, timeout: float = 10.0) -> Any:
-        async with httpx.AsyncClient(timeout=timeout) as client:
+        async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
             r = await client.post(f"{BRIDGE_BASE}/{self.username}{path}", json=body, headers=BRIDGE_HEADERS)
             if r.status_code >= 400:
                 try:

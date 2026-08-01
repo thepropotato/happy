@@ -23,6 +23,7 @@ from mcps.joining import (
     paste,
     stir,
 )
+from mcps.whatsapp import qr
 from memory import settings
 
 TOOLS = []

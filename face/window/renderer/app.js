@@ -120,6 +120,7 @@ function hear(word) {
     note: () => Talk.aside(word.text),
     trouble: () => Talk.aside(word.text, 'trouble'),
     settings: () => Knobs.show(word),
+    qr: () => Services.showQR(word),
     history: () => {
       Talk.history(word.messages)
       if (word.messages.some((each) => each.message || each.reply)) showing()
@@ -178,7 +179,8 @@ function beg(word) {
   node('what').textContent = word.what
   asking.hidden = false
 
-  const answer = (yes) => {
+    const answer = (yes) => {
+      console.log('CLICKED', yes, word.id)
     ask({ do: 'answer', id: word.id, yes })
     asking.hidden = true
   }

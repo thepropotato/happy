@@ -7,6 +7,9 @@ const USING = 'Let Happy use this'
 
 const Services = (() => {
   let help = null
+  const qrs = new Map()
+  let lastStatus = null
+  let polling = null
 
   // WHICH ROWS ARE OPEN. IT OUTLIVES THE REDRAW A SIGN IN CAUSES.
   const opened = new Set()
@@ -40,6 +43,13 @@ const Services = (() => {
 
     if (opened.has(entry.name)) {
       row.classList.add('open')
+      if (
+        entry.name === 'whatsapp' &&
+        polling === null &&
+        lastStatus !== 'connected' &&
+        lastStatus !== 'unsupported'
+      )
+        startPolling('whatsapp')
       row.append(inside(entry))
     }
 
@@ -62,6 +72,35 @@ const Services = (() => {
   function inside(entry) {
     const drawer = element('div', 'drawer')
 
+    if (entry.name === 'whatsapp') {
+      const info = qrs.get('whatsapp')
+
+      if (info) {
+        if (info.status === 'waiting' && info.qr) {
+          const section = element('div', 'qr')
+          const code = element('img', 'qr-code')
+
+          code.src = info.qr
+
+          section.append(code)
+          section.append(
+            element('p', 'note', 'Scan with WhatsApp: Settings -> Linked Devices -> Link a Device.'),
+          )
+          drawer.append(section)
+        } else if (info.status === 'loading') {
+          drawer.append(element('p', 'note', 'Starting up...'))
+        } else if (info.status === 'offline') {
+          drawer.append(
+            element(
+              'p',
+              'note',
+              "The WhatsApp bridge isn't running. Start it with: python mcps/servers/whatsapp/bridge.py",
+            ),
+          )
+        }
+      }
+    }
+
     if (entry.note) drawer.append(element('p', 'note', entry.note))
 
     if (entry.key) drawer.append(using(entry))
@@ -80,6 +119,7 @@ const Services = (() => {
     for (const part of entry.parts) drawer.append(serving(part, entry.name))
 
     for (const leaving of entry.leaving) drawer.append(help.doer(leaving, 'leave'))
+    if (entry.name === 'whatsapp') lastStatus = null
 
     return drawer
   }
@@ -141,6 +181,13 @@ const Services = (() => {
   function fold(which, within) {
     const already = opened.has(which)
 
+    if (which === 'whatsapp') {
+      if (!already) startPolling('whatsapp')
+      else stopPolling()
+    } else {
+      stopPolling()
+    }
+
     opened.clear()
 
     if (within) opened.add(within)
@@ -155,17 +202,50 @@ const Services = (() => {
     if (found) found.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
+  function showQR(word) {
+    qrs.set(word.name, word)
+    lastStatus = word.status
+
+    if (word.status === 'connected' || word.status === 'unsupported') {
+      stopPolling()
+    }
+
+    const img = help.sheet().querySelector('.qr-code')
+
+    if (img && word.status === 'waiting' && word.qr) {
+      img.src = word.qr
+      return
+    }
+
+    help.repaint()
+  }
+
+  function startPolling(name) {
+    stopPolling()
+    polling = setInterval(() => help.ask({ do: 'qr', name }), 3000)
+    help.ask({ do: 'qr', name })
+  }
+
+  function stopPolling() {
+    if (polling) {
+      clearInterval(polling)
+      polling = null
+    }
+  }
+
   return {
     start(helpers) {
       help = helpers
     },
 
     shut() {
+      stopPolling()
       opened.clear()
     },
 
     heading: words,
     row: serving,
     folded: folding,
+    showQR,
   }
 })()
