@@ -88,6 +88,13 @@ class Job:
         if not self.answer:
             return f"Finished {self.task}, but it came back with nothing to tell you."
 
+        if self.session_id:
+            return (
+                f"About {self.task}. {self.answer}"
+                " To continue, call build_answer with the user's reply"
+                " - do not try to resolve this yourself."
+            )
+
         return f"About {self.task}. {self.answer}"
 
 
