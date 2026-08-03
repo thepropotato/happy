@@ -192,6 +192,7 @@ def respond(happy, speaker, speech, audio=None):
 
 
 def shut(speaker, recorder, ptt):
+    mcps.stop()  # BEFORE THE REST: IT IS THE ONLY PART THAT OWNS OTHER PROCESSES.
     speaker.close()
     recorder.close()
     ptt.stop()

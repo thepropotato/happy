@@ -1,39 +1,34 @@
-"""THE WORDS A CONNECTION'S ROW SAYS ABOUT IT, AND NOTHING ABOUT ITS SHAPE.
+"""THE WORDS A SERVICE'S ROW SAYS ABOUT IT, AND NOTHING ABOUT ITS SHAPE.
 
 ONE LINE UNDER THE NAME, ONE WORD ON THE BUTTON. THE LONGER STORY IS ONLY EVER
 READ BY SOMEBODY WHO OPENED THE ROW, WHICH IS WHY IT IS NOT IN THE LIST.
 """
 
-from mcps import directory, filling
+from mcps import registry
 
 SIGN_OUT = "Sign out"
 
-REMOVE = "Remove from the list"
-
 CONNECT = "Connect"
 
-SWITCH_ON = "Switch on"
-
-MINE = "Added by you"
-
-FIRST = "Add the client first"
+FIRST = "Add the app first"
 
 READY = "Ready to sign in"
 
 AGAIN = "Sign in again"
 
-# WHAT A SIGN IN THAT HAS DIED LOOKS LIKE COMING BACK. A CONNECTION THAT CAME UP
-# ON ITS OWN HAS NO WAY TO OPEN A BROWSER, ON PURPOSE, SO A TOKEN THAT CANNOT BE
-# RENEWED COMES BACK AS THE SERVER REFUSING.
-DIED = ("401", "unauthorized", "no redirect handler")
+WAITING = "Waiting for the QR to be scanned"
+
+# WHAT A SIGN IN THAT HAS DIED LOOKS LIKE COMING BACK. A SERVER STARTS WITHOUT
+# EVER OPENING A BROWSER, ON PURPOSE, SO A TOKEN THAT CANNOT BE RENEWED COMES
+# BACK AS THE SERVICE REFUSING RATHER THAN AS A WINDOW IN FRONT OF SOMEBODY.
+DIED = ("401", "unauthorized", "invalid_grant", "not signed in", "not connected")
 
 # THE ONE LINE UNDER A SERVICE'S NAME. IT SAYS WHAT CONNECTING WILL COST AND
 # NOTHING ELSE.
 SAYS = {
-    directory.OPEN: "Nothing to paste",
-    directory.TOKEN: "Needs a token",
-    directory.CLIENT: "Needs an app of your own",
-    directory.LOCAL: "Runs on this machine",
+    registry.NONE: "Runs on this machine",
+    registry.TOKEN: "Needs a token",
+    registry.OAUTH: "Needs an app of your own",
 }
 
 
@@ -45,7 +40,7 @@ def plainly(state):
     return AGAIN if any(each in said for each in DIED) else state
 
 
-def wrong(known, row, fields):
+def wrong(known, row, poised):
     """THE LINE UNDER THE NAME: WHAT WENT WRONG, WHAT TO MIND, OR WHAT IT COSTS."""
     kind = known["kind"]
 
@@ -55,12 +50,10 @@ def wrong(known, row, fields):
     if known.get("care"):
         return known["care"]
 
-    # A MEMBER OF A FAMILY HAS NO BOXES OF ITS OWN, SO WHAT IT IS WAITING FOR IS
-    # THE ONE CLIENT ITS FAMILY SHARES, A FEW LINES ABOVE IT.
-    if not filling.poised(known["name"], kind):
-        return SAYS.get(kind, CONNECT) if fields else FIRST
+    if not poised:
+        return SAYS.get(kind, CONNECT)
 
-    return READY if directory.signs_in(kind) else SAYS.get(kind, CONNECT)
+    return READY if registry.signs_in(kind) else SAYS.get(kind, CONNECT)
 
 
 def story(known, row):
@@ -78,15 +71,16 @@ def ended(said):
     return said if said.endswith((".", "!", "?")) else said + "."
 
 
-def asking(known, label):
-    """THE BUTTON ITSELF. IT NAMES THE SERVICE, BECAUSE IT IS THE LAST STEP."""
-    if known["kind"] == directory.LOCAL:
-        return SWITCH_ON
+def asking(known):
+    """THE BUTTON ITSELF. IT NAMES THE SERVICE, BECAUSE IT IS THE LAST STEP.
 
-    if directory.signs_in(known["kind"]):
-        return f"Sign into {label}"
+    NOTHING SAYS SWITCH ON ANY MORE. THERE WAS A SWITCH INSIDE EVERY CONNECTED
+    ROW ONCE, AND A BUTTON WEARING ITS WORDS READS AS THAT SWITCH COMING BACK.
+    """
+    if registry.signs_in(known["kind"]):
+        return f"Sign into {known['label']}"
 
-    return f"{CONNECT} {label}"
+    return f"{CONNECT} {known['label']}"
 
 
 def care(known, row):
@@ -99,10 +93,6 @@ def initial(known):
 
 def said(count):
     return f"{count} tool" if count == 1 else f"{count} tools"
-
-
-def listing(members):
-    return ", ".join(each["label"] for each in members)
 
 
 def trouble(row):

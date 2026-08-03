@@ -120,7 +120,6 @@ function hear(word) {
     note: () => Talk.aside(word.text),
     trouble: () => Talk.aside(word.text, 'trouble'),
     settings: () => Knobs.show(word),
-    qr: () => Services.showQR(word),
     history: () => {
       Talk.history(word.messages)
       if (word.messages.some((each) => each.message || each.reply)) showing()
@@ -218,7 +217,7 @@ function buttons() {
     window.happy.pin(on)
   }
 
-  node('quit').onclick = () => window.happy.quit()
+  node('tuck').onclick = () => window.happy.hide()
   node('controls').onclick = () => visiting(!node('screen').classList.contains('on'))
   node('back').onclick = () => visiting(false)
   node('amissfix').onclick = () => fixing()

@@ -1,17 +1,20 @@
-"""EVERY CONNECTION THAT IS SWITCHED ON, AND THE ONE PLACE THAT HOLDS THEM.
+"""EVERY SERVER THAT IS SWITCHED ON, AND THE ONE PLACE THAT HOLDS THEM.
 
 NOTHING IN HERE IS ALLOWED TO BLOCK STARTING UP. THE TOOLS ARE BOUND OUT OF WHAT
-THE STORE REMEMBERS, AND THE CONNECTIONS THEMSELVES COME UP ON THE LOOP WHILE THE
+THE STORE REMEMBERS, AND THE SERVERS THEMSELVES START ON THE LOOP WHILE THE
 SPEECH MODEL IS STILL LOADING. A SERVICE THAT IS DOWN COSTS A SENTENCE, NOT A
 SLOWER START.
+
+NOTHING IN HERE CARRIES A TOKEN EITHER. EVERY SERVER LOOKS ITS OWN CREDENTIALS
+UP IN THE DATABASE, SO STARTING ONE IS THE SAME THREE LINES WHETHER IT IS SIGNED
+INTO OR NOT.
 """
 
-import os
-import shlex
+import sys
 import threading
 
-from mcps import directory, loop, store
-from mcps.session import Session, local, remote
+from mcps import loop, registry, store
+from mcps.session import Session, local
 from memory import settings
 
 held = {}
@@ -23,12 +26,12 @@ def patience():
 
 
 def session(row):
-    """THE CONNECTION FOR ONE ROW, MADE THE FIRST TIME ANYBODY WANTS IT."""
+    """THE SERVER FOR ONE ROW, STARTED THE FIRST TIME ANYBODY WANTS IT."""
     with lock:
         here = held.get(row["name"])
 
         if here is None:
-            here = Session(row["label"], opening(row), timeout=patience())
+            here = Session(registry.label(row["name"]), opening(row), timeout=patience())
             held[row["name"]] = here
 
         here.timeout = patience()
@@ -37,56 +40,18 @@ def session(row):
 
 
 def opening(row):
-    """HOW THIS PARTICULAR CONNECTION IS REACHED, KIND BY KIND."""
-    if row["kind"] == directory.LOCAL:
-        words = [expanded(each) for each in shlex.split(row["address"])]
-
-        return local(words[0], words[1:])
-
-    return remote(row["address"], headers=headers(row), auth=proving(row))
-
-
-def expanded(word):
-    """A COMMAND SOMEBODY TYPED CAN SAY ~, AND A PIPE WILL NOT UNDERSTAND IT."""
-    return os.path.expanduser(word)
-
-
-def headers(row):
-    """A PASTED TOKEN IS JUST A HEADER. NOTHING TO DISCOVER, NOTHING TO REFRESH."""
-    if row["kind"] != directory.TOKEN:
-        return None
-
-    from mcps import tokens
-
-    kept = (tokens.kept(row["name"]) or {}).get("tokens") or {}
-    token = kept.get("access_token")
-
-    return {"Authorization": f"Bearer {token}"} if token else None
-
-
-def proving(row):
-    """THE OAUTH SIGN IN FOR THIS ROW, WHEN IT HAS ONE. REFRESH ONLY, NO BROWSER.
-
-    A CONNECTION THAT COMES UP ON ITS OWN MUST NEVER BE ABLE TO OPEN A BROWSER.
-    A SIGN IN THAT HAS DIED COMES BACK AS THE SERVER REFUSING, WHICH THE PANEL
-    CAN SAY OUT LOUD, RATHER THAN AS A WINDOW IN FRONT OF WHOEVER IS STANDING
-    THERE MID SENTENCE.
-    """
-    if not directory.signs_in(row["kind"]):
-        return None
-
-    from mcps import granting
-
-    return granting.Proving(row["name"])
+    """HOW THIS SERVER IS STARTED, WHICH IS THE PYTHON HAPPY IS ALREADY RUNNING ON
+    SO IT INHERITS THE VIRTUALENV WITHOUT BEING TOLD WHERE IT IS."""
+    return local(sys.executable, [str(registry.server(row["name"]))])
 
 
 def live():
-    """EVERY CONNECTION THE PERSON HAS SWITCHED ON."""
-    return [row for row in store.every() if row["enabled"]]
+    """EVERY SERVICE THAT IS CONNECTED, WHICH IS EVERY ONE REMEMBERING TOOLS."""
+    return [row for row in store.every() if row["tools"]]
 
 
 def warm():
-    """OPEN WHAT IS SWITCHED ON, IN THE BACKGROUND, ANSWERING TO NOBODY."""
+    """START WHAT IS SWITCHED ON, IN THE BACKGROUND, ANSWERING TO NOBODY."""
     for row in live():
         loop.submit(waking(row))
 
@@ -101,14 +66,30 @@ async def waking(row):
 
         return False
 
-    store.remember(row["name"], [tool.model_dump() for tool in offered])
+    told(row, [tool.model_dump() for tool in offered])
     store.mark(row["name"], None)
 
     return True
 
 
+def told(row, offered):
+    """WHAT THE SERVER REALLY OFFERS, AND THE GRAPH TOLD WHEN THAT IS NEWS.
+
+    A SERVER THAT GAINED OR LOST A TOOL SINCE LAST TIME HAS MOVED WHAT THE MODEL
+    IS HOLDING, AND WITHOUT THE NUDGE brain/ WOULD GO ON HANDING OUT THE OLD LIST
+    UNTIL SOMEBODY HAPPENED TO TOUCH THE PANEL.
+    """
+    if offered == row["tools"]:
+        return
+
+    from mcps.joining import stir
+
+    store.remember(row["name"], offered)
+    stir()
+
+
 def refresh(row):
-    """ASK A SERVER WHAT IT OFFERS NOW, AND WAIT FOR THE ANSWER."""
+    """START A SERVER, ASK WHAT IT OFFERS, AND WAIT FOR THE ANSWER."""
     try:
         return loop.run(waking(row), patience() + 5)
     except Exception as error:
@@ -123,11 +104,11 @@ def said(row, error):
     A TIMEOUT CARRIES NO WORDS AT ALL, AND A ROW MARKED WITH AN EMPTY STRING IS
     A ROW THAT LOOKS PERFECTLY WELL WHILE NOTHING ABOUT IT WORKS.
     """
-    return str(error)[:200] or f"{row['label']} did not answer in time"
+    return str(error)[:200] or f"{registry.label(row['name'])} did not answer in time"
 
 
 def drop(name):
-    """CLOSE ONE CONNECTION AND FORGET WE EVER HELD IT."""
+    """STOP ONE SERVER AND FORGET WE EVER HELD IT."""
     with lock:
         here = held.pop(name, None)
 
@@ -136,3 +117,9 @@ def drop(name):
             loop.run(here.close(), 5)
         except Exception:
             pass
+
+
+def shut():
+    """STOP EVERY SERVER, FOR A HAPPY THAT IS GOING AWAY."""
+    for name in list(held):
+        drop(name)

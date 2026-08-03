@@ -3,13 +3,8 @@
 // EVERY ROW IS THE SAME ROW: A MARK, A NAME, ONE LINE OF HOW IT IS, AND A
 // CHEVRON. NOTHING ELSE, EVER.
 
-const USING = 'Let Happy use this'
-
 const Services = (() => {
   let help = null
-  const qrs = new Map()
-  let lastStatus = null
-  let polling = null
 
   // WHICH ROWS ARE OPEN. IT OUTLIVES THE REDRAW A SIGN IN CAUSES.
   const opened = new Set()
@@ -24,7 +19,7 @@ const Services = (() => {
     return row
   }
 
-  function serving(entry, within) {
+  function serving(entry) {
     const row = element('div', ['service', entry.tone].join(' ').trim())
     const face = element('button', 'face')
     const who = element('div', 'who')
@@ -36,20 +31,13 @@ const Services = (() => {
     face.append(element('span', 'mark', entry.mark), who)
 
     // A ROW WITH NOTHING INSIDE IT DOES NOT OPEN.
-    if (worth(entry)) face.onclick = () => fold(entry.name, within)
+    if (worth(entry)) face.onclick = () => fold(entry.name)
     else face.classList.add('shut')
 
     row.append(face, element('span', 'go', '›'))
 
     if (opened.has(entry.name)) {
       row.classList.add('open')
-      if (
-        entry.name === 'whatsapp' &&
-        polling === null &&
-        lastStatus !== 'connected' &&
-        lastStatus !== 'unsupported'
-      )
-        startPolling('whatsapp')
       row.append(inside(entry))
     }
 
@@ -59,51 +47,18 @@ const Services = (() => {
   function worth(entry) {
     return Boolean(
       entry.note ||
-        entry.key ||
         entry.action ||
         entry.fields.length ||
-        entry.parts.length ||
         entry.doing.length ||
         entry.leaving.length,
     )
   }
 
-  // THE SAME SEVEN THINGS IN THE SAME ORDER ON EVERY CONNECTION.
+  // THE SAME FEW THINGS IN THE SAME ORDER ON EVERY CONNECTION.
   function inside(entry) {
     const drawer = element('div', 'drawer')
 
-    if (entry.name === 'whatsapp') {
-      const info = qrs.get('whatsapp')
-
-      if (info) {
-        if (info.status === 'waiting' && info.qr) {
-          const section = element('div', 'qr')
-          const code = element('img', 'qr-code')
-
-          code.src = info.qr
-
-          section.append(code)
-          section.append(
-            element('p', 'note', 'Scan with WhatsApp: Settings -> Linked Devices -> Link a Device.'),
-          )
-          drawer.append(section)
-        } else if (info.status === 'loading') {
-          drawer.append(element('p', 'note', 'Starting up...'))
-        } else if (info.status === 'offline') {
-          drawer.append(
-            element(
-              'p',
-              'note',
-              "The WhatsApp bridge isn't running. Start it with: python mcps/servers/whatsapp/bridge.py",
-            ),
-          )
-        }
-      }
-    }
-
     if (entry.note) drawer.append(element('p', 'note', entry.note))
-
-    if (entry.key) drawer.append(using(entry))
 
     if (entry.doing.length) drawer.append(offering(entry.doing))
 
@@ -116,22 +71,9 @@ const Services = (() => {
       drawer.append(button)
     }
 
-    for (const part of entry.parts) drawer.append(serving(part, entry.name))
-
     for (const leaving of entry.leaving) drawer.append(help.doer(leaving, 'leave'))
-    if (entry.name === 'whatsapp') lastStatus = null
 
     return drawer
-  }
-
-  function using(entry) {
-    const row = element('div', 'knob flat')
-    const top = element('div', 'top')
-
-    top.append(element('span', 'label', USING), help.switcher(entry, help.value(entry.key)))
-    row.append(top)
-
-    return row
   }
 
   function asking(field) {
@@ -144,7 +86,7 @@ const Services = (() => {
     return box
   }
 
-  // WHAT A CONNECTED SERVICE ACTUALLY HANDS OVER, WHICH IS NOT ALWAYS ALL OF IT.
+  // WHAT A CONNECTED SERVICE HANDS OVER, WHICH IS EVERYTHING ITS SERVER HAS.
   function offering(names) {
     const holder = element('div', 'offering')
 
@@ -153,7 +95,7 @@ const Services = (() => {
     return holder
   }
 
-  // THE TWO ROWS AT THE BOTTOM THAT ARE NOT CONNECTIONS AT ALL.
+  // THE ROW AT THE BOTTOM THAT IS NOT A CONNECTION AT ALL.
   function folding(entry) {
     const row = element('div', 'service quiet')
     const face = element('button', 'face')
@@ -176,21 +118,12 @@ const Services = (() => {
     return row
   }
 
-  // ONE ROW OPEN AT A TIME. within IS THE ROW THIS ONE LIVES INSIDE, WHICH STAYS
-  // OPEN EITHER WAY: SHUTTING THE FAMILY WOULD TAKE THE TAPPED ROW OFF SCREEN.
-  function fold(which, within) {
+  // ONE ROW OPEN AT A TIME.
+  function fold(which) {
     const already = opened.has(which)
-
-    if (which === 'whatsapp') {
-      if (!already) startPolling('whatsapp')
-      else stopPolling()
-    } else {
-      stopPolling()
-    }
 
     opened.clear()
 
-    if (within) opened.add(within)
     if (!already) opened.add(which)
 
     help.repaint()
@@ -202,50 +135,17 @@ const Services = (() => {
     if (found) found.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
-  function showQR(word) {
-    qrs.set(word.name, word)
-    lastStatus = word.status
-
-    if (word.status === 'connected' || word.status === 'unsupported') {
-      stopPolling()
-    }
-
-    const img = help.sheet().querySelector('.qr-code')
-
-    if (img && word.status === 'waiting' && word.qr) {
-      img.src = word.qr
-      return
-    }
-
-    help.repaint()
-  }
-
-  function startPolling(name) {
-    stopPolling()
-    polling = setInterval(() => help.ask({ do: 'qr', name }), 3000)
-    help.ask({ do: 'qr', name })
-  }
-
-  function stopPolling() {
-    if (polling) {
-      clearInterval(polling)
-      polling = null
-    }
-  }
-
   return {
     start(helpers) {
       help = helpers
     },
 
     shut() {
-      stopPolling()
       opened.clear()
     },
 
     heading: words,
     row: serving,
     folded: folding,
-    showQR,
   }
 })()

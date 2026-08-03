@@ -16,6 +16,12 @@
   --raise: rgba(255, 255, 255, 0.045);
   --sunk: rgba(255, 255, 255, 0.026);
 
+  /* SOLID, NOT A WASH OVER THE GLASS. A TOOL CALL IS A BLOCK OF MACHINE OUTPUT
+     SITTING IN THE MIDDLE OF A CONVERSATION, AND THE AURORA MOVING BEHIND ITS
+     ARGUMENTS MADE IT THE HARDEST THING ON THE PANEL TO READ. */
+  --block: #13141d;
+  --block-open: #191a26;
+
   --glow: #7c5cf5;
   --glow-soft: rgba(124, 92, 245, 0.5);
 

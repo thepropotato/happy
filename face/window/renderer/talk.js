@@ -172,8 +172,8 @@ const Talk = (() => {
     const pairs = []
     const said = returned(each)
 
-    if (worth(each.args)) pairs.push(['asked', body(each.args)])
-    if (said) pairs.push([each.failed ? 'went wrong' : 'back', said])
+    if (worth(each.args)) pairs.push(['Arguments', body(each.args)])
+    if (said) pairs.push([each.failed ? 'Error' : 'Result', said])
 
     if (!pairs.length) return null
 

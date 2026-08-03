@@ -18,13 +18,9 @@ RECENT_MESSAGES = 60
 # ONLY THESE, BECAUSE ASKING A BACKEND WHAT IT HAS IS A ROUND TRIP PER NUDGE.
 GOVERNS = {"brain.provider": "models", "brain.url": "models"}
 
-ON = "mcps.on."
-
 PASTE = "mcps.paste."
 
-NEW = "mcps.new"
-
-REACHING = ("connect", "disconnect", "forget")
+REACHING = ("connect", "disconnect")
 
 doing = {}
 
@@ -32,6 +28,13 @@ doing = {}
 def serve(**handlers):
     """START LISTENING. handlers NAME THE THINGS ONLY main.py CAN DO."""
     doing.update(handlers)
+
+    reach = connections()
+
+    # A QR SCANNED IN A BROWSER TAB IS THE ONE CHANGE THE WINDOW CANNOT ASK ABOUT,
+    # BECAUSE IT NEVER TOUCHED THIS PANEL AT ALL. SO THE PANEL IS TOLD INSTEAD.
+    if reach is not None:
+        reach.whenever(describe)
 
     reader = threading.Thread(target=read, daemon=True)
     reader.start()
@@ -82,8 +85,6 @@ def carry(order):
     elif asked in REACHING:
         # A SIGN IN IS MINUTES. HOLDING THIS THREAD WOULD MUTE THE WINDOW.
         threading.Thread(target=reaching, args=(asked, order.get("name")), daemon=True).start()
-    elif asked == "qr":
-        threading.Thread(target=qr_reaching, args=(order.get("name"),), daemon=True).start()
     elif asked == "history":
         recall(order.get("limit", RECENT_MESSAGES))
     elif asked == "answer":
@@ -108,12 +109,8 @@ def changed(key, value):
 
     if reach is None:
         settings.put(key, value)
-    elif key.startswith(ON):
-        reach.enable(key[len(ON) :], bool(value))
     elif key.startswith(PASTE):
         reach.paste(key[len(PASTE) :], value)
-    elif key == NEW:
-        reach.custom(value)
     else:
         settings.put(key, value)
 
@@ -126,29 +123,18 @@ def reaching(asked, name):
         return
 
     try:
+        # WHAT CONNECTING HAD TO SAY IS NOT SAID IN THE CONVERSATION. THAT STREAM IS
+        # WHAT HAPPY AND A PERSON SAID TO EACH OTHER, AND "SCAN THE QR IN YOUR
+        # BROWSER" IS NEITHER. THE SERVICE'S OWN ROW IS ALREADY SAYING IT, WHICH IS
+        # WHERE SOMEBODY WHO JUST PRESSED THE BUTTON IS LOOKING.
         if asked == "connect":
-            panel.note(reach.connect(name))
-        elif asked == "disconnect":
-            reach.disconnect(name)
+            reach.connect(name)
         else:
-            reach.forget(name)
+            reach.disconnect(name)
     except Exception as error:
         panel.trouble(error)
 
     describe()
-
-
-def qr_reaching(name):
-    """ASK FOR A QR ON ITS OWN THREAD, THEN TELL THE WINDOW WHAT CAME BACK."""
-    reach = connections()
-
-    if reach is None:
-        return
-
-    try:
-        panel.send("qr", name=name, **reach.qr(name))
-    except Exception as error:
-        panel.trouble(error)
 
 
 def connections():
@@ -163,12 +149,8 @@ def connections():
 
 def describe():
     reach = connections()
-    values = dict(settings.every())
 
-    if reach is not None:
-        values.update(reach.values())
-
-    panel.send("settings", groups=sources.drawn(reach), values=values)
+    panel.send("settings", groups=sources.drawn(reach), values=dict(settings.every()))
 
 
 def recall(limit):

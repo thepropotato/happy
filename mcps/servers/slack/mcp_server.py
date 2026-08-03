@@ -1,0 +1,172 @@
+"""THE SLACK SERVER: WHAT CHANNELS THERE ARE, WHAT WAS SAID, AND SAYING SOMETHING.
+
+SLACK ANSWERS EVERY REFUSAL WITH A PERFECTLY ORDINARY 200 AND ok: false IN THE
+BODY, SO THE SHARED CLIENT NEVER SEES ONE AND checked() HAS TO LOOK ITSELF.
+"""
+
+import sys
+from pathlib import Path
+
+# THE SERVER'S OWN FOLDER COMES OFF THE PATH AND mcps/ GOES ON IN ITS PLACE, SO
+# EVERYTHING IS REACHED AS servers.something AND NOTHING BESIDE THIS FILE CAN
+# EVER BE WHAT AN import SOMEWHERE DEEP IN A LIBRARY FINDS FIRST.
+sys.path[0] = str(Path(__file__).resolve().parents[2])
+
+from mcp.server.fastmcp import FastMCP  # noqa: E402
+
+from servers.shared import credentials  # noqa: E402
+from servers.shared.answering import ok, some  # noqa: E402
+from servers.shared.reaching import Service  # noqa: E402
+
+mcp = FastMCP("slack", log_level="ERROR")
+
+NAME = "slack"
+
+BASE = "https://slack.com/api"
+
+MISSING = "Slack is not connected. Paste a user token in Happy's connections panel."
+
+KINDS = "public_channel,private_channel"
+
+known = {}
+
+
+@mcp.tool()
+def list_channels(limit: int = 20) -> str:
+    """List the channels this account is in, so one can be named in the others."""
+    found = asked("conversations.list", {"types": KINDS, "limit": counted(limit)})
+
+    return ok(
+        [
+            {
+                "id": each.get("id"),
+                "name": each.get("name"),
+                "members": each.get("num_members"),
+                "topic": some((each.get("topic") or {}).get("value", ""), 120),
+            }
+            for each in found.get("channels", [])
+            if each.get("is_member")
+        ]
+    )
+
+
+@mcp.tool()
+def read_channel(channel: str, limit: int = 20) -> str:
+    """Read what was said in a channel, newest first. channel is the id list_channels gave back.
+
+    A message with replies gives back a count and its `at`, which is what
+    read_thread wants.
+    """
+    found = asked("conversations.history", {"channel": channel, "limit": counted(limit)})
+
+    return ok([message(each, people()) for each in found.get("messages", [])])
+
+
+@mcp.tool()
+def read_thread(channel: str, at: str, limit: int = 20) -> str:
+    """Read the replies under one message, given its channel and its `at`."""
+    found = asked(
+        "conversations.replies", {"channel": channel, "ts": at, "limit": counted(limit)}
+    )
+
+    return ok([message(each, people()) for each in found.get("messages", [])])
+
+
+@mcp.tool()
+def search_messages(query: str, limit: int = 20) -> str:
+    """Search everything this account can see in Slack for a word or a phrase."""
+    found = asked("search.messages", {"query": query, "count": counted(limit)})
+
+    return ok(
+        [
+            {
+                "at": each.get("ts"),
+                "by": each.get("username"),
+                "channel": (each.get("channel") or {}).get("name"),
+                "text": some(each.get("text", ""), 300),
+            }
+            for each in (found.get("messages") or {}).get("matches", [])
+        ]
+    )
+
+
+@mcp.tool()
+def list_users(limit: int = 30) -> str:
+    """List the people in this Slack, for turning a name into somebody to message."""
+    found = asked("users.list", {"limit": counted(limit)})
+
+    return ok(
+        [
+            {"id": each.get("id"), "name": each.get("real_name") or each.get("name")}
+            for each in found.get("members", [])
+            if not each.get("is_bot") and not each.get("deleted")
+        ]
+    )
+
+
+@mcp.tool()
+def send_message(channel: str, text: str) -> str:
+    """Post a message to a channel, where everybody in it will see it.
+
+    channel is an id from list_channels. Say which channel and what it says
+    before calling this.
+    """
+    sent = told("chat.postMessage", {"channel": channel, "text": text})
+
+    return ok({"sent": True, "channel": sent.get("channel"), "at": sent.get("ts")})
+
+
+def slack():
+    token = credentials.token(NAME)
+
+    if not token:
+        raise PermissionError(MISSING)
+
+    return Service(BASE, {"Authorization": f"Bearer {token}"}, "Slack")
+
+
+def asked(method, params=None):
+    return checked(slack().get(method, params))
+
+
+def told(method, body):
+    return checked(slack().post(method, body))
+
+
+def checked(answer):
+    if not answer.get("ok"):
+        raise PermissionError(f"Slack said no. {answer.get('error') or 'it did not say why'}")
+
+    return answer
+
+
+def message(each, who):
+    return {
+        "at": each.get("ts"),
+        "by": who.get(each.get("user"), each.get("username") or each.get("user")),
+        "text": some(each.get("text", ""), 400),
+        "replies": each.get("reply_count"),
+    }
+
+
+def people():
+    """WHO EVERY USER ID BELONGS TO, ASKED ONCE AND THEN KEPT FOR THIS PROCESS.
+
+    A CHANNEL OF TWENTY MESSAGES IS TWENTY LOOKUPS OTHERWISE, AND SLACK RATE
+    LIMITS LONG BEFORE THE MODEL RUNS OUT OF THINGS TO ASK.
+    """
+    if not known:
+        found = asked("users.list", {"limit": 200})
+
+        for each in found.get("members", []):
+            known[each["id"]] = each.get("real_name") or each.get("name")
+
+    return known
+
+
+def counted(limit):
+    return max(1, min(int(limit), 50))
+
+
+if __name__ == "__main__":
+    mcp.run()

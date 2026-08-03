@@ -1,58 +1,52 @@
 """THE CONNECTIONS FROM A TERMINAL: python -m mcps
 
     python -m mcps                     what is connected, and what it can do
-    python -m mcps connect notion      sign in, in a real browser
-    python -m mcps disconnect notion
-    python -m mcps probe https://mcp.notion.com/mcp
-    python -m mcps probe "npx -y @modelcontextprotocol/server-everything"
-    python -m mcps call <where> <tool> '{"query": "dentist"}'
+    python -m mcps connect google      sign in, in a real browser
+    python -m mcps disconnect google
+    python -m mcps probe notion        what one of the servers offers, right now
+    python -m mcps call notion search '{"query": "dentist"}'
 
-WHERE IS A URL, OR A WHOLE COMMAND IN ONE PAIR OF QUOTES.
-
-probe SAYS WHAT A SERVER OFFERS. call PRINTS WHAT THE MODEL WOULD ACTUALLY SEE,
-WHICH IS THE ONLY PLACE A SERVER THAT ANSWERS IN FIVE KILOBYTES OF JSON SHOWS UP
-BEFORE IT IS BEING READ OUT LOUD TO SOMEBODY.
+probe STARTS A SERVER AND SAYS WHAT IT OFFERS. call PRINTS WHAT THE MODEL WOULD
+ACTUALLY SEE, WHICH IS THE ONLY PLACE A SERVER THAT ANSWERS IN FIVE KILOBYTES OF
+JSON SHOWS UP BEFORE IT IS BEING READ OUT LOUD TO SOMEBODY.
 """
 
 import json
-import shlex
 import sys
 
-from mcps import binding, loop, speaking
-from mcps.session import Session, local, remote
+from mcps import binding, loop, registry, speaking
+from mcps.session import Session, local
 
 USAGE = __doc__
 
 
-def opening(where):
-    """A URL IS SOMEWHERE ELSE. ANYTHING ELSE IS A PROGRAM ON THIS MACHINE."""
-    if where.startswith(("http://", "https://")):
-        return remote(where)
+def opened(name):
+    """ONE OF THE SERVERS HAPPY SHIPS, STARTED ON ITS OWN FOR A LOOK AT IT."""
+    where = registry.server(name)
 
-    words = shlex.split(where)
+    if where is None:
+        raise SystemExit(f"There is nothing called {name}.")
 
-    return local(words[0], words[1:])
+    return Session(registry.label(name), local(sys.executable, [str(where)]))
 
 
-def probe(where):
-    name, opener = where, opening(where)
-    session = Session(name, opener)
+def probe(name):
+    session = opened(name)
 
     try:
         offered = loop.run(session.listing(), session.timeout)
     finally:
         loop.run(session.close(), 5)
 
-    print(f"{name} — {len(offered)} tools\n")
+    print(f"{registry.label(name)} — {len(offered)} tools\n")
 
     for tool in offered:
-        print(f"  {binding.named('service', tool.name)}")
-        print(f"    {speaking.blurb(tool.description, 'Service')}\n")
+        print(f"  {binding.named(name, tool.name)}")
+        print(f"    {speaking.blurb(tool.description, registry.label(name))}\n")
 
 
-def call(where, tool, arguments):
-    name, opener = where, opening(where)
-    session = Session(name, opener)
+def call(name, tool, arguments):
+    session = opened(name)
 
     try:
         result = loop.run(session.call(tool, arguments), session.timeout)
@@ -64,21 +58,21 @@ def call(where, tool, arguments):
 
 
 def listing():
-    """EVERY CONNECTION, WHETHER IT IS ON, AND WHAT THE MODEL WOULD SEE OF IT."""
+    """EVERY SERVICE, WHETHER IT IS ON, AND WHAT THE MODEL WOULD SEE OF IT."""
     import mcps
-    from mcps import directory, store, tokens
+    from mcps import store, tokens
 
     rows = {row["name"]: row for row in store.every()}
     bound = {each.name for each in mcps.offering()}
 
     print(f"sign ins are kept in {tokens.where()}\n")
 
-    for known in directory.known():
+    for known in registry.known():
         row = rows.get(known["name"], {})
-        state = "on" if row.get("enabled") else ("known" if row else "not set up")
+        state = "connected" if row.get("tools") else "not connected"
         mine = sorted(each for each in bound if each.startswith(binding.tidy(known["label"])))
 
-        print(f"  {known['label']:<18} {state:<10} {known['kind']}")
+        print(f"  {known['label']:<12} {state:<12} {known['kind']}")
         print(f"    {row.get('state') or known['hint']}")
 
         if mine:

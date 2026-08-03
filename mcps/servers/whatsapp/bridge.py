@@ -60,6 +60,10 @@ def require_bridge_key():
     # LIVENESS PROBE IS UNAUTHENTICATED - IT LEAKS NOTHING AND is_bridge_running() POLLS IT WITHOUT THE KEY.
     if request.path == "/health":
         return
+    # THE SCAN PAGE IS OPENED IN A REAL BROWSER, WHICH CANNOT BE MADE TO SEND A
+    # HEADER. IT SHOWS ONLY A QR THAT IS USELESS TO ANYBODY NOT HOLDING THE PHONE.
+    if request.path.endswith("/scan"):
+        return
     # WITH NO KEY SET THERE IS NOTHING TO CHECK. IT USED TO REFUSE EVERYTHING IN
     # THAT CASE, WHICH IS RIGHT FOR A SHARED DEPLOYMENT AND WRONG FOR A SERVER
     # BOUND TO LOOPBACK ON ONE PERSON'S LAPTOP.
@@ -1532,6 +1536,46 @@ def qr(username):
     if s.qr_data:
         return jsonify({"status": "waiting", "qr": s.qr_data})
     return jsonify({"status": "loading", "qr": None})
+
+
+SCAN_PAGE = """<!doctype html><meta charset="utf-8"><title>Link WhatsApp to Happy</title>
+{refresh}<style>
+body{{font:16px system-ui;background:#111;color:#eee;display:flex;min-height:100vh;margin:0;
+align-items:center;justify-content:center}}
+main{{text-align:center;padding:2rem}}
+img{{width:280px;height:280px;background:#fff;padding:12px;border-radius:12px}}
+p{{color:#9a9a9a;max-width:34rem;line-height:1.5}}
+</style><main>{body}</main>"""
+
+WAITING_BODY = """<h2>Scan this with WhatsApp</h2>
+<img src="{qr}" alt="QR code">
+<p>On your phone: Settings, then Linked Devices, then Link a Device.
+This code refreshes itself, so scan whichever one is on screen.</p>"""
+
+STARTING_BODY = "<h2>Starting WhatsApp</h2><p>The code will appear here in a moment.</p>"
+
+LINKED_BODY = """<h2>WhatsApp is linked</h2>
+<p>You can close this tab and go back to Happy.</p>"""
+
+
+@app.get("/<username>/scan")
+def scan(username):
+    """THE QR AS A PAGE, FOR A BROWSER RATHER THAN FOR THE PANEL.
+
+    IT REFRESHES ITSELF RATHER THAN POLLING WITH SCRIPT, SO THERE IS NOTHING TO
+    AUTHENTICATE AND NOTHING TO GO WRONG. THE REFRESH STOPS ONCE IT IS LINKED.
+    """
+    s = get_session(username)
+
+    if s.authenticated or s.connected:
+        return SCAN_PAGE.format(refresh="", body=LINKED_BODY)
+
+    if not (s.client and s.connect_thread and s.connect_thread.is_alive()):
+        start_session(s)
+
+    body = WAITING_BODY.format(qr=s.qr_data) if s.qr_data else STARTING_BODY
+
+    return SCAN_PAGE.format(refresh='<meta http-equiv="refresh" content="2">', body=body)
 
 
 @app.post("/<username>/start")

@@ -81,6 +81,7 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `voice/mute.py` | The stand-in when no voice will load. |
 | `voice/sentences.py` | Where one spoken sentence ends and the next begins. |
 | `voice/speaker.py` | Saying it out loud: synthesis, playback, barge-in. |
+| `hands/__main__.py` | Every tool the model is handed, and the prompt, for a person to read. |
 | `hands/__init__.py` | The registry. Collects every tool from every module into one flat list. |
 | `hands/apps/` | The machine: what's installed, what it is, opening apps, paths and addresses. |
 | `hands/controls/` | The machine's settings: sound, brightness, media, display, power, Wi-Fi, clipboard. |
@@ -116,20 +117,27 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `face/window/` | The Electron app: the icon in the menu bar and the panel that drops out of it. |
 | `face/silence.py` | Silences the libraries. Must be called before anything opens an ONNX session. |
 | `mcps/__init__.py` | Services that are not this computer. What is connected, and its tools. |
-| `mcps/joining.py` | Signing in, switching on, pasting something in. Never reached by a tool. |
-| `mcps/session.py` | One live connection, held open, and got back when it drops. |
-| `mcps/loop.py` | The one event loop the connections live on. The async side of the wall. |
-| `mcps/binding.py` | A tool on a server somewhere, as one the graph calls like any other. |
+| `mcps/registry.py` | Every service Happy ships, and what each one costs to connect. |
+| `mcps/joining.py` | Signing in, signing out, pasting something in. Never reached by a tool. |
+| `mcps/session.py` | One running server, held open, and got back when it dies. |
+| `mcps/pool.py` | Every connected server, started in the background, never blocking a start. |
+| `mcps/loop.py` | The one event loop the servers live on. The async side of the wall. |
+| `mcps/binding.py` | A tool on one of those servers, as one the graph calls like any other. |
 | `mcps/speaking.py` | What came back, squeezed down to something that can be said out loud. |
 | `mcps/writing.py` | Which of those tools changes something out there, and asking first. |
-| `mcps/directory.py` | The services Happy knows, and what each one costs to sign into. |
-| `mcps/showing.py` | Every connection as a list somebody can read, for the window to draw. |
-| `mcps/store.py` | What is connected and what each one last said it could do. |
-| `mcps/signing.py` | The client a connection signs in as, registered or pasted in. |
-| `mcps/granting.py` | The sign in itself: the consent page, the token, and keeping it alive. |
+| `mcps/panel.py` | Every service as one row somebody can read, for the window to draw. |
+| `mcps/wording.py` | The words a row says about a service, and nothing about its shape. |
+| `mcps/store.py` | What is connected, which is whatever remembers tools, and what those are. |
+| `mcps/oauth.py` | The browser sign in: the consent page and the token it comes back with. |
 | `mcps/tokens.py` | Where a sign in is kept, which is `data/happy.db` and nowhere else. |
 | `mcps/permission.py` | The browser, and the loopback door the service sends you back through. |
-| `mcps/servers/whatsapp/` | The one MCP server Happy ships. Reads WhatsApp, and asks before sending. |
+| `mcps/servers/shared/` | What every server shares: its credentials, its HTTP, its answers. |
+| `mcps/servers/google/` | Mail, calendar and drive on one sign in. One server, not three. |
+| `mcps/servers/notion/` | Searching a workspace, reading a page, and writing one. |
+| `mcps/servers/github/` | Repositories, the files in them, their issues and their commits. |
+| `mcps/servers/slack/` | Channels, what was said in them, and saying something. |
+| `mcps/whatsapp.py` | The bridge from Happy's side: starting it, asking it, putting it down. |
+| `mcps/servers/whatsapp/` | Reads your chats over a local bridge, and asks before sending. |
 | `conscience/` | Asking before something that cannot be undone. |
 | `AGENTS.md` | How to write code in this repo. Read it before you write any. |
 | `TODO.md` | What is still pending. |
@@ -166,23 +174,41 @@ another client — driving these tools, or the day you want the shell tool genui
 rather than pattern-checked. Not before.
 
 Reaching *out* is a different question, and the answer changed. A calendar, a mailbox, a
-tickets board — none of those are on this computer, and MCP is the only way any of them
-publish themselves. So `mcps/` is a client that connects to them, and the tools it brings
-back are bound flat into the one graph beside `read_file` and `click_on`. There is still one
-loop and still no routing, which is the rule that mattered.
+tickets board — none of those are on this computer. So `mcps/` reaches them, and the tools it
+brings back are bound flat into the one graph beside `read_file` and `click_on`. There is
+still one loop and still no routing, which is the rule that mattered.
 
-The costs are real and are paid for deliberately: a tool that takes a second instead of a
-millisecond, a wall of JSON that must be cut down before it can be spoken, and credentials
-that did not exist here before. Every one of them is handled in `mcps/`, and **nothing is
-connected until somebody connects it** — a person who never opens the panel has exactly the
-tools this machine always had.
+**Happy writes those servers itself.** Every service in the list is a Python MCP server under
+`mcps/servers/<service>/mcp_server.py`, started on Happy's own Python and talked to over a
+pipe. Happy used to be a client of *somebody else's* hosted MCP endpoints instead, and that
+is what all the machinery was for: dynamic client registration, protected-resource discovery,
+a bearer header renewed on the way past every request, a per-service list of which of a
+stranger's tools were worth binding, and a cap in case that list matched nothing. All of it
+existed to make an unknown server usable. None of it is needed for a server we wrote.
+
+What replaced it is one rule: **a server looks up its own credentials.** Every one of them
+reads `connection_secrets` in `data/happy.db` through `mcps/servers/shared/credentials.py`,
+which is the single module both sides import. Nothing is passed on a command line, where
+every `ps` on the machine would see it, and the client half now carries no tokens at all —
+starting a server is the same three lines whether it is signed into or not.
+
+The rest follows from writing them. There is no picked list of tools and no cap, because
+choosing what a service can do is done by writing that tool or not writing it — one place
+instead of two that disagree. And **there is no way to add a server of your own.** That was a
+box in the panel that took a URL or a shell command; what came back was an unknown program
+with the model's hands on it and a row that could not say what it was about to do.
+
+The costs that remain are real and paid for deliberately: a tool that takes a second instead
+of a millisecond, a wall of JSON that must be cut down before it can be spoken, and
+credentials that did not exist here before. **Nothing is connected until somebody connects
+it** — a person who never opens the panel has exactly the tools this machine always had.
 
 ### WhatsApp reads over the bridge and writes on the screen
 
-The one server Happy ships itself, and the one connection that is deliberately half a
-connection. It lives in `mcps/servers/whatsapp/` and is two processes: `bridge.py` is a Flask
-server on loopback running **neonize**, which links to your account the way WhatsApp Web does;
-`server.py` is the MCP side and talks to it over HTTP. Only the bridge ever touches WhatsApp.
+The one connection that is deliberately half a connection. It lives in
+`mcps/servers/whatsapp/` and is two processes: `bridge.py` is a Flask server on loopback
+running **neonize**, which links to your account the way WhatsApp Web does; `mcp_server.py`
+is the MCP side and talks to it over HTTP. Only the bridge ever touches WhatsApp.
 
 Linking an unofficial client is against their terms whether it sends anything or not. That is the
 part you accept when you press it, and no amount of care here removes it — but it is written in
@@ -205,40 +231,82 @@ is the whole safety property — turn `mcps.confirm` off and it is gone.
 round-tripping through a backend and replying into the thread, and `/create-group`,
 `/add-to-group` and `/delete-message` went with it. Sending somebody just said yes to and sending
 nobody was asked about are different things: the second arrives while nobody is watching, which
-is exactly the shape that looks like a bot from the outside. Twenty-one tools now — eighteen
-read, three send, none of them unattended.
+is exactly the shape that looks like a bot from the outside. Ten tools now — seven read, three
+send, none of them unattended. It used to be twenty-one, with eleven of them filtered back out
+by a list on the client; the list is gone and so are the eleven, because a server whose tools
+are chosen twice is a server that will one day disagree with itself.
 
 The cloud storage, the telemetry and the backend callbacks went with it: this runs on one machine
 for one person, and the S3 snapshot restore was already a no-op locally because both its read and
 its write were skipped whenever no bucket was configured.
 
-The failure to know about: **if `bridge.py` is not running, nothing errors.** The MCP half
+**Happy starts the bridge itself.** It used to be a second terminal somebody had to remember,
+which is the worst possible shape for it given the paragraph below: forget it and nothing
+errors. `mcps/whatsapp.py` owns that now — it starts the bridge when WhatsApp is connected and
+not before, never doubles up on one already serving the port, puts down only a bridge it
+started, and refuses to respawn a dead one more than once every thirty seconds so that a bridge
+which cannot start is one dead process and not a stream of them. Its output goes to
+`data/whatsapp.log` and never to ours: in `--serve` mode Happy's stdout *is* the protocol the
+window reads, and one Flask request log on it is a panel that stops updating.
+
+**The QR is scanned in a browser, not in the panel.** Pressing Connect opens
+`127.0.0.1:3001/default/scan`, a page the bridge serves that shows the code and refreshes itself
+every two seconds until it is linked — no script, so there is nothing to authenticate. That is
+the same shape as signing into Google, which has always been a button and then a tab, so both
+services now work the one way. It also deleted the panel's whole QR path: the three-second poll,
+the `qr` order, the image in the drawer and the status juggling behind it.
+
+Two things fall out of that and both are the point. **Connecting is not linking** — WhatsApp's
+server starts and offers all ten of its tools with nobody signed in at all, so a row that read
+`tools` alone said *Connected* the instant somebody pressed the button and would have said it
+forever if they never scanned. The registry marks WhatsApp `scan: True`, and until the bridge
+reports a real linked account the row says *Waiting for the QR to be scanned* under **Not
+connected**. And because the scan happens in a tab this side would never notice, a watcher
+started by Connect looks every three seconds until it lands, then tells the panel to redraw —
+the window asks for its settings exactly once, when it starts.
+
+**One button, never two.** A row waiting to be scanned offers Connect and nothing else; a linked
+one offers Sign out and nothing else. Both at once asks somebody to work out which of the two
+they are, and before the scan there is nothing signed in to sign out of.
+
+None of it is announced in the conversation. Connecting used to print whatever it had to say
+into the stream, so "Scan the QR in your browser to finish linking WhatsApp" arrived in the
+middle of what Happy and a person had been saying to each other. That stream is the conversation
+and nothing else; the service's own row is already saying it, which is where somebody who just
+pressed the button is looking.
+
+The failure to know about: **if the bridge is not running, nothing errors.** The MCP half
 answers happily from whatever it last saw. A WhatsApp connection that has quietly stopped looks
-exactly like a quiet afternoon, which is why `get_status` is one of the six tools bound to the
+exactly like a quiet afternoon, which is why `get_status` is one of the ten tools bound to the
 model rather than a diagnostic nobody calls.
 
 ### Signing in is its own step, not something a refusal sets off
 
 The MCP SDK's sign in is sprung by a **401**: you connect, the server turns you away, and the
-browser opens. That assumes every server turns a stranger away. Google's do not. `gmailmcp`,
-`calendarmcp` and `drivemcp` answer `initialize` and `tools/list` to anybody and only refuse
-when a tool is actually *called* — so nothing ever sprang it. Connecting reported success,
-counted the tools, switched the service on, and no consent page ever opened; every one of those
-tools then failed the first time the model reached for it. It looked like three broken services
-and was one wrong assumption.
+browser opens. That assumes a server turns a stranger away. Ours do not, and neither did
+Google's when Happy was still talking to those. A server answers `initialize` and `tools/list`
+to anybody and only refuses when a tool is actually *called* — so nothing ever sprang it.
+Connecting reported success, counted the tools, switched the service on, and no consent page
+ever opened; every one of those tools then failed the first time the model reached for it.
 
-So `mcps/granting.py` owns the whole flow and does it in the open, the moment a person presses
-Connect: discover the server's protected-resource metadata, discover its authorization server,
-register if it allows that and use the pasted client if it does not, then PKCE, browser, code,
-token. Only after that is the connection opened and asked what it offers.
+So `mcps/oauth.py` owns the flow and does it in the open, the moment a person presses Connect:
+PKCE, browser, code, token, written down. Only after that is the server started and asked what
+it offers. What is *not* in there any more is the discovery — protected-resource metadata, the
+authorization server behind it, dynamic client registration and the guesses when a well-known
+document was missing. The one service that needs a consent screen is named in
+`mcps/registry.py` along with the two addresses its sign in uses, so a connection is one round
+trip rather than four fetches and a fallback.
 
-Owning it is also the only way to ask Google for a **refresh token**, which it gives only to
-somebody who says `access_type=offline` and shows the consent screen. Without those the sign in
-is dead an hour later. And renewal is ours too: `granting.Proving` puts a live bearer on every
-request and renews it on the way past, so a token renewed for Calendar is the one Gmail uses on
-its very next call. Nothing that comes up on its own can open a browser — a sign in that has
-died surfaces as the server refusing, which a row can say out loud, and not as a window
-appearing in front of whoever is standing there mid sentence.
+Asking in the open is also the only way to get Google's **refresh token**, which it gives only
+to somebody who says `access_type=offline` and shows the consent screen. Without those the sign
+in is dead an hour later.
+
+**Renewal is not here at all now, and that is the point.** The server holds the credentials, so
+it refreshes them itself the moment it needs to and writes the new token straight back into the
+same row the panel reads. `mcps/oauth.py` ends the instant the first token is written down.
+Nothing that starts on its own can open a browser — a sign in that has finally died surfaces as
+the service refusing, which a row can say out loud, and not as a window appearing in front of
+whoever is standing there mid sentence.
 
 ### Adding a capability
 
@@ -253,6 +321,44 @@ appearing in front of whoever is standing there mid sentence.
 
 That is the whole extension point. A module with no `TOOLS` at all is valid and registers
 nothing, which is how something being rebuilt stays in the list without breaking startup.
+
+**`python -m hands` prints exactly what the model was handed** — every tool in the order it
+sees them, grouped by where each came from, with the description it actually reads. `--full`
+adds the argument names, `--prompt` dumps the system prompt word for word, and a bare word
+filters. When Happy reaches for the wrong tool, that list and those words are the only honest
+place to look; a tool missing there is missing from the model too.
+
+### Adding a service
+
+1. Write `mcps/servers/yourthing/mcp_server.py` — **the whole server, in the one file.** Make a
+   `FastMCP`, decorate functions with `@mcp.tool()`, and put the credentials, the HTTP and the
+   tidying of what comes back underneath them. **The docstring is the prompt** here too.
+2. Take what you need from `servers.shared`: `credentials.token(name)` is the pasted token,
+   `reaching.Service` is an HTTP client with the sign in already on it, and `answering.ok` is
+   what a tool returns. Do not catch exceptions — a tool that raises comes back as a failed
+   call carrying the reason, and `mcps/speaking.py` turns that into one plain line.
+3. Add one entry to `KNOWN` in `mcps/registry.py`: a name, a label, the folder, and whether it
+   wants nothing, a pasted token, or a browser sign in.
+
+There is no fourth step. Nothing in the panel, the store or the binding knows any service by
+name, so a row, its paste boxes, its button and its tools all appear from that one entry.
+
+The one line of ceremony every server starts with is `sys.path[0] = …parents[2]`, which takes
+the server's own folder **off** the path and puts `mcps/` on in its place. Everything is then
+reached as `servers.something`. Left on, a file sitting beside the server is what an `import`
+anywhere in the process finds first — `google/calendar.py` would be what the standard library
+gets when it asks for `calendar`, and the `google/` folder itself would swallow the real
+`google.auth` that `googleapiclient` needs.
+
+Split a server across files only when it earns it. Google is four — `mail.py`, `calendar.py`,
+`drive.py` and the `account.py` all three sign in through — because one file for all fourteen
+tools would run past 200 lines. The others are one file each.
+
+Two rules the servers live by. **Every tool you write is a tool the model gets** — there is no
+allowlist to also remember, which is why the WhatsApp server lost the eleven tools that a list
+had been quietly filtering out. And **name tools so a reader can tell what they touch**:
+`mcps/writing.py` gates anything not starting with a plainly reading word (`search`, `list`,
+`get`, `read`, `find`…), so `send_email` stops and asks and `search_emails` does not.
 
 ## Things that are easy to get wrong here
 
@@ -598,8 +704,13 @@ the app.
 **Electron owns the process.** It spawns `python main.py --serve` as a child and the two talk
 over that child's own pipes: one JSON object per line, events down stdout, orders up stdin. No
 port, no server, no dependency on either side — `json` on one end and `JSON.parse` on the other.
-Closing the window closes Happy, because the reader in `face/orders.py` sees stdin end and
-shuts him down.
+Electron exiting ends Happy, because the reader in `face/orders.py` sees stdin end and shuts him
+down.
+
+**The panel has no close button, only minimize.** It used to carry a cross, which promised
+something it could not mean: Happy is still listening with the panel shut, and the key is global
+precisely so it works from anywhere. So the button puts the panel away and nothing else. Ending
+him lives on the menu bar icon, which is where a thing that ends him belongs.
 
 While the window is attached, **stdout carries nothing but JSON**. Anything a person might want
 to read goes to stderr, which Electron logs and nobody parses. That is the only rule the two
@@ -613,6 +724,13 @@ What the panel shows:
   `voice/speaker.py` sends the shape of every clip just before it plays. The colour behind
   everything moves with it — amber for listening, violet for thinking, green for speaking.
 - **What was said**, streaming a piece at a time, with the same stats line the terminal prints.
+- **Every tool call as one row**, on a solid surface rather than a wash over the moving colour
+  behind it — it is a block of machine output in the middle of a conversation, and the aurora
+  drifting through its arguments made it the hardest thing on the panel to read. Shut, the row
+  is the tool's name and the model's own reason for calling it, clipped to one line. Open, that
+  reason takes a line of its own beneath the name — it is a whole sentence, and sharing a row
+  with the name and the stopwatch left it a fragment exactly where somebody had asked to read
+  all of it — and the **Arguments** and the **Result** follow underneath.
 - **A box to type in**, because not every question is worth saying out loud. A typed line takes
   the same turn a spoken one does, on the same lock, so the two can never overlap.
 - **Every control**, which is the next section.
@@ -678,27 +796,35 @@ identical rows deep, in which a timeout slider, a client secret and a thing you 
 looked the same. The Google instructions were printed three times because Gmail, Calendar and
 Drive are three services, and nowhere did it say what was actually connected.
 
-So `memory/knobs.py` has three shapes that are not settings, and `mcps/showing.py` builds the
+So `memory/knobs.py` has three shapes that are not settings, and `mcps/panel.py` builds the
 whole panel out of them: a **heading** over a run of rows, a **service** — one row saying what
 it is and how it is, with what it wants folded inside until somebody taps it — and a **folded**
-row, which is an ordinary group of knobs behind one line. The three global settings live in one
+row, which is an ordinary group of knobs behind one line. The two global settings live in one
 of those at the bottom, because nobody opens this panel to move a timeout.
 
 What is *inside* a service is still ordinary knobs, so the window draws the boxes and buttons
 with the same code it draws everything else with. It knows what a service looks like and still
-nothing about any particular one — which services exist, what each wants pasted, what is worth
-warning about, and which of them share a sign in are all in `mcps/directory.py`.
+nothing about any particular one — which services exist, what each wants pasted and what is
+worth warning about are all in `mcps/registry.py`.
 
-Two things fall out of that shape and are worth keeping. Services that share an OAuth client are
-listed as the one thing they are: `directory.listed()` folds a `family` into a single row, so
-Google's fifteen-minute errand is explained once — and there is one sign in inside it, not three.
-The client and the token are both kept under the family's own name, the consent asks for what all
-three need at once, and the switches inside the row are only which of them the model may reach.
-One Google account agreeing to mail, calendar and drive is one question, and asking it three
-times was where people put the panel down. And a
-connected service shows the **tool names it actually hands over** — run through the same
-`binding.wanted()` the graph is built with, so it is what Happy can really do with it rather
-than what the server offered.
+**Google is one row because it is one server.** It used to be three rows folded into a family:
+Gmail, Calendar and Drive were three hosted endpoints sharing one OAuth client, so the panel
+had a row inside a row, a switch per member, and a sign in that had to be kept under the
+family's name rather than any one service's. Writing the three into a single server deleted all
+of it — the family, the members, the nesting in the renderer. One Google account agreeing to
+mail, calendar and drive is one question, and now it is also one row, one sign in and one
+process.
+
+A connected service shows the **tool names it hands over**, which is simply everything its
+server offers. There is no filtering step left to disagree with the list.
+
+**Connected means used.** There was a "Let Happy use this" switch inside every connected row,
+and it was the wrong idea twice over. It described a state nobody wants — a service you went
+and signed into, that then answers nothing — and signing out was already the way to stop a
+service, so the switch was a second, quieter way to do the same thing that left the row
+looking connected. So `enabled` is gone from the table as well as the panel: a service is
+connected when it remembers tools, every tool it remembers goes to the model, and signing out
+forgets them. One state, one place, nothing to disagree with.
 
 ## The conversation
 
@@ -1074,9 +1200,9 @@ first. The battery and the lock do not, because neither costs you anything.
   a voice, Tesseract. There is none; see `TODO.md`.
 - **Gmail, Calendar or Drive at any scale.** The Gmail module was deleted once for being a
   remote service behind OAuth rather than computer control, and `mcps/` is where that came
-  back — but on Google's terms, not ours. Google runs real MCP endpoints and states plainly
-  that they do not support Dynamic Client Registration, so Happy cannot register itself the
-  way Notion and Linear let it. There are two ways round that and `mcps/` does both.
+  back — but on Google's terms, not ours. Happy talks to Google's own REST APIs now, from a
+  server it writes, rather than to Google's hosted MCP endpoints; either way the sign in is
+  the same and Google will not register Happy as a client.
 
   **Happy ships no Google client, deliberately.** Embedding one would be allowed — a desktop
   client's secret is not a secret, and `gcloud` ships one too — and the unverified warning it
@@ -1094,8 +1220,10 @@ first. The battery and the lock do not, because neither costs you anything.
   than leaving it in testing, or Google discards the refresh token every seven days; and the
   unverified warning is about *your* app, not about Happy. Calendar's scopes are only
   *sensitive* rather than restricted, so if a shipped client is ever revisited, Calendar alone
-  is the one that needs verification without CASA. All of it is against an API still in
-  developer preview.
+  is the one that needs verification without CASA. One consequence of the merge: mail,
+  calendar and drive share a consent, so the one client asks for all three scopes at once and
+  a project with only some of those APIs switched on fails at the consent screen rather than
+  at the first call.
 
 There **is** credential handling now, and it is confined to `mcps/`. It holds OAuth refresh
 tokens and pasted API tokens for services somebody explicitly connected, in `data/happy.db`,
@@ -1117,6 +1245,11 @@ ollama pull qwen3-vl         # the eyes. only for look_at_screen, OCR needs noth
 # reading text off pictures. NOT a python package, it is a program.
 brew install tesseract                          # macOS
 winget install UB-Mannheim.TesseractOCR         # Windows, and it does not add itself to PATH
+
+# whatsapp only. neonize imports python-magic, which loads a system library.
+# without it the bridge dies on its first import and whatsapp answers nothing.
+brew install libmagic                           # macOS
+pip install python-magic-bin                    # Windows, which carries the DLLs itself
 
 # the ears. 631 MB, into models/parakeet.
 .venv/bin/python -m ears --get

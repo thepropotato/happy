@@ -1,49 +1,24 @@
-"""ONE LIVE CONNECTION TO ONE SERVER, HELD OPEN BETWEEN CALLS.
+"""ONE RUNNING SERVER, HELD OPEN BETWEEN CALLS.
 
-OPENING COSTS A HANDSHAKE OR A WHOLE PROCESS, WHICH IS MOST OF A SECOND, AND
-DOING THAT PER CALL WOULD BE HEARD. SO EACH CONNECTION GETS A TASK THAT OPENS IT
-AND THEN SITS ON AN EVENT UNTIL SOMEBODY ASKS IT TO GO. THE TASK HAS TO BE THE
-ONE THAT CLOSES IT TOO: THE TRANSPORTS ARE ANYIO SCOPES, AND A SCOPE LEFT BY A
-DIFFERENT TASK THAN ENTERED IT IS AN ERROR.
+STARTING ONE COSTS A WHOLE PYTHON PROCESS, WHICH IS MOST OF A SECOND, AND DOING
+THAT PER CALL WOULD BE HEARD. SO EACH SERVER GETS A TASK THAT STARTS IT AND THEN
+SITS ON AN EVENT UNTIL SOMEBODY ASKS IT TO GO. THE TASK HAS TO BE THE ONE THAT
+CLOSES IT TOO: THE TRANSPORT IS AN ANYIO SCOPE, AND A SCOPE LEFT BY A DIFFERENT
+TASK THAN ENTERED IT IS AN ERROR.
 """
 
 import asyncio
-from contextlib import asynccontextmanager
 from datetime import timedelta
 
-import httpx
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from mcp.client.streamable_http import streamable_http_client
 from mcp.shared.exceptions import McpError
 
 GOODBYE_SECONDS = 2
 
-# WHAT THE PROTOCOL RECOMMENDS: THIRTY SECONDS, AND REDIRECTS FOLLOWED.
-PATIENCE = httpx.Timeout(30, read=60 * 5)
-
 
 class Unreachable(Exception):
     """THE SERVER DID NOT COME UP. THE REASON IS WHAT A PERSON SHOULD HEAR."""
-
-
-@asynccontextmanager
-async def carrying(address, headers=None, auth=None):
-    """THE HTTP CLIENT AND THE TRANSPORT ON TOP OF IT, OPENED AND CLOSED TOGETHER.
-
-    THE CLIENT IS MADE IN HERE SO THE TASK THAT OPENS IT IS THE ONE THAT SHUTS
-    IT. HANDING IN A READY MADE ONE LEAKS A CONNECTION POOL PER RECONNECT.
-    """
-    async with httpx.AsyncClient(
-        headers=headers, auth=auth, timeout=PATIENCE, follow_redirects=True
-    ) as client:
-        async with streamable_http_client(address, http_client=client) as streams:
-            yield streams
-
-
-def remote(address, headers=None, auth=None):
-    """A SERVER SOMEWHERE ELSE. auth IS WHERE A SIGN IN LIVES, WHEN THERE IS ONE."""
-    return lambda: carrying(address, headers, auth)
 
 
 def local(command, arguments=None, environment=None):
@@ -56,7 +31,7 @@ def local(command, arguments=None, environment=None):
 
 
 class Session:
-    """A CONNECTION AND WHAT IT TAKES TO GET IT BACK WHEN IT DROPS."""
+    """A RUNNING SERVER AND WHAT IT TAKES TO GET IT BACK WHEN IT DIES."""
 
     def __init__(self, name, opening, timeout=20):
         self.name = name
@@ -73,7 +48,7 @@ class Session:
         return self.session is not None
 
     async def serve(self):
-        """THE TASK THAT OWNS THE CONNECTION FOR ITS WHOLE LIFE."""
+        """THE TASK THAT OWNS THE SERVER FOR ITS WHOLE LIFE."""
         try:
             async with self.opening() as streams:
                 async with ClientSession(streams[0], streams[1]) as session:
@@ -90,7 +65,7 @@ class Session:
             self.session = None
 
             # SET EVEN WHEN IT FAILED, SO NOBODY WAITS OUT THE TIMEOUT FOR A
-            # CONNECTION ALREADY KNOWN NOT TO BE COMING.
+            # SERVER ALREADY KNOWN NOT TO BE COMING.
             if self.ready is not None:
                 self.ready.set()
 
@@ -112,7 +87,7 @@ class Session:
             raise Unreachable(f"{self.name} did not answer in time") from None
 
         if not self.up():
-            raise Unreachable(f"{self.name} could not be reached") from self.trouble
+            raise Unreachable(f"{self.name} could not be started") from self.trouble
 
         return self.session
 
@@ -148,7 +123,7 @@ class Session:
         except McpError:
             raise  # THE SERVER ANSWERED AND SAID NO.
         except Exception:
-            # ONE RECONNECT, NEVER TWO. THE SECOND WAIT IS LONGER THAN A PERSON
+            # ONE RESTART, NEVER TWO. THE SECOND WAIT IS LONGER THAN A PERSON
             # WILL STAND THERE FOR.
             await self.close()
 

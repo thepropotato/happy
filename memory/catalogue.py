@@ -78,9 +78,6 @@ CONNECTIONS = [
     toggle("mcps.confirm", "Ask before changing", True, "Anything that is not just looking."),
     number("mcps.timeout", "Give up after", 5, 120, 5, 20, "A service is not this computer.",
            "sec", whole=True),
-    # A CAP ONLY BITES ON A SERVER NOBODY HAS PICKED TOOLS FOR.
-    number("mcps.cap", "Tools per service", 1, 20, 1, 6, "Before it crowds the rest.", "max",
-           whole=True),
 ]
 
 REMEMBERING = [

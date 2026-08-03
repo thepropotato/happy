@@ -12,9 +12,10 @@ import mcps
 from hands import apps, asking, browser, coder, controls, desktop, files, shell
 
 # THE ORDER THE MODEL SEES THEM IN. THE NARROW, SAFE ONES GO FIRST SO THEY READ
-# AS THE OBVIOUS CHOICE BEFORE THE SHELL DOES, AND WHAT IS ON THIS MACHINE
-# BEFORE ANYTHING THAT COSTS A ROUND TRIP TO SOMEBODY ELSE'S SERVER.
-MODULES = [apps, controls, files, eyes, desktop, browser, coder, mcps, shell]
+# AS THE OBVIOUS CHOICE BEFORE THE SHELL DOES. mcps SITS AHEAD OF THE ONES THAT
+# WORK BY LOOKING AT THE SCREEN, BECAUSE A CONNECTED SERVICE ANSWERS FOR ITS OWN
+# MAIL OR CHATS IN ONE EXACT CALL AND READING THE PIXELS OF ITS APP DOES NOT.
+MODULES = [apps, controls, files, mcps, eyes, desktop, browser, coder, shell]
 
 
 def tools():

@@ -1,9 +1,13 @@
-"""A TOOL ON A SERVER SOMEWHERE, TURNED INTO ONE THE GRAPH CAN CALL LIKE ANY OTHER.
+"""A TOOL ON ONE OF THE SERVERS, TURNED INTO ONE THE GRAPH CAN CALL LIKE ANY OTHER.
 
 THE GRAPH IS SYNCHRONOUS AND THE PROTOCOL IS NOT, SO WHAT IS HANDED OVER IS AN
 ORDINARY FUNCTION THAT PUTS THE WORK ON mcps.loop AND WAITS. NAMES ARE ALWAYS
 PREFIXED WITH THE SERVICE, NEVER ONLY WHEN TWO OF THEM CLASH: A TOOL WHOSE NAME
 CHANGES THE DAY A SECOND SERVICE IS CONNECTED STRANDS EVERY CALL ALREADY MADE.
+
+EVERYTHING A SERVER OFFERS IS BOUND. THERE IS NO PICKED LIST AND NO CAP ANY
+MORE, BECAUSE WE WRITE THE SERVERS: WHAT A SERVICE CAN DO IS DECIDED BY WRITING
+THAT TOOL OR NOT WRITING IT, WHICH IS ONE PLACE INSTEAD OF TWO THAT DISAGREE.
 """
 
 import re
@@ -37,28 +41,12 @@ def tidy(word):
     return UNTIDY.sub("_", str(word).lower()).strip("_")
 
 
-def wanted(offered, allowed=None, cap=0):
-    """THE TOOLS WORTH BINDING: THE CHOSEN ONES, OR THE FIRST FEW OF WHATEVER CAME.
-
-    A CAP ON ITS OWN PICKS AT RANDOM, BECAUSE NOTHING PROMISES WHAT ORDER A
-    SERVER LISTS ITS TOOLS IN. A HAND WRITTEN LIST IS WHAT MAKES A SERVICE USEFUL
-    RATHER THAN MERELY CONNECTED, SO THE CAP IS ONLY THE BACKSTOP BEHIND IT.
-    """
-    if allowed:
-        chosen = [each for each in offered if each.name in set(allowed)]
-
-        if chosen:
-            return chosen
-
-    return offered[:cap] if cap else offered
-
-
-def bind(service, session, offered, allowed=None, cap=0, taken=None):
+def bind(service, session, offered, taken=None):
     """EVERY TOOL FROM ONE SERVER AS SOMETHING hands.tools() CAN HAND TO THE MODEL."""
     spoken = set(taken or [])
     built = []
 
-    for tool in wanted(offered, allowed, cap):
+    for tool in offered:
         name = named(service, tool.name)
 
         # A CLASH IS SKIPPED, NEVER SHADOWED: NOBODY ELSE'S read_file WINS.

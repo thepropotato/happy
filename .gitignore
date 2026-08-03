@@ -10,3 +10,5 @@
 recordings
 models
 data
+
+.env

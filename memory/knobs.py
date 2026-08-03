@@ -85,9 +85,9 @@ def heading(label, count=None):
 def service(name, label, mark, under, **extra):
     """A WHOLE CONNECTION AS ONE ROW, AND WHAT OPENS UNDER IT WHEN IT IS TAPPED.
 
-    key IS THE SWITCH'S SETTING, WHICH ONLY EXISTS ONCE THERE IS SOMETHING TO
-    SWITCH. fields, action AND leaving ARE ORDINARY KNOBS, SO WHAT IS INSIDE THE
-    ROW IS DRAWN BY THE SAME CODE THAT DRAWS EVERYTHING ELSE.
+    fields, action AND leaving ARE ORDINARY KNOBS, SO WHAT IS INSIDE THE ROW IS
+    DRAWN BY THE SAME CODE THAT DRAWS EVERYTHING ELSE. key STAYS None: A SERVICE
+    HOLDS NO SETTING OF ITS OWN NOW THAT CONNECTED MEANS USED.
 
     NONE OF IT REACHES THE LIST. THE ROW ITSELF IS A NAME, A LINE AND A CHEVRON ON
     EVERY CONNECTION WITHOUT EXCEPTION, AND ALL OF THIS OPENS UNDERNEATH IT.
@@ -108,7 +108,6 @@ def service(name, label, mark, under, **extra):
         "doing": [],  # THE TOOL NAMES IT ACTUALLY HANDS OVER.
         "note": None,
         "fields": [],
-        "parts": [],
         "action": None,
         "leaving": [],
         **extra,

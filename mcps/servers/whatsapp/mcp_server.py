@@ -2,6 +2,7 @@ import asyncio
 import json
 import sys
 import time
+from pathlib import Path
 from typing import Annotated, Optional
 
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
@@ -9,9 +10,15 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 if sys.stderr and hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
+# THE SERVER'S OWN FOLDER COMES OFF THE PATH AND mcps/ GOES ON IN ITS PLACE, SO
+# EVERYTHING IS REACHED AS servers.something AND NOTHING BESIDE THIS FILE CAN
+# EVER BE WHAT AN import SOMEWHERE DEEP IN A LIBRARY FINDS FIRST.
+sys.path[0] = str(Path(__file__).resolve().parents[2])
+
 from mcp.server.fastmcp import FastMCP
 from pydantic import BeforeValidator, Field
-from client import WhatsAppClient
+
+from servers.whatsapp.client import WhatsAppClient
 
 
 def coerce_str(v):
@@ -33,7 +40,7 @@ def coerce_str(v):
 
 CoercedStr = Annotated[str, BeforeValidator(coerce_str)]
 
-mcp = FastMCP("whatsapp")
+mcp = FastMCP("whatsapp", log_level="ERROR")
 
 from contextvars import ContextVar
 
@@ -88,24 +95,6 @@ async def get_qr_code() -> str:
     wa = get_client()
     return _json(await wa.get_qr_code())
 
-@mcp.tool()
-async def get_contacts() -> str:
-    """Get all WhatsApp contacts with name and phone number."""
-    wa = get_client()
-    sync_status = await check_sync_status(wa)
-    if sync_status:
-        return _json({
-            "sync_in_progress": True,
-            "message": sync_status.get("message"),
-            "user_message": f"WhatsApp sync in progress ({sync_status.get('message', 'syncing')}). Please wait 30-60 seconds and try again."
-        })
-
-    result = await wa.get_contacts()
-    if not result:
-        pass
-        await wa.sync()
-        result = await wa.get_contacts()
-    return _json(result)
 
 @mcp.tool()
 async def search_contacts(query: str) -> str:
@@ -183,119 +172,16 @@ async def get_messages(contact: list[str], limit: int = 10, order_newest: bool =
     return _json(data[contacts[0]] if len(contacts) == 1 else data)
 
 
-@mcp.tool()
-async def search_media_messages(contact: list[str], limit: int = 100, received_only: bool = False) -> str:
-    """Search for media files (PDFs, images, videos, documents) in one or more chats. Pass a list - use a one-item list for a single contact, e.g. ["john"]. Each result includes a "downloadable" field - only attempt download_media_from_message when downloadable=true. All returned timestamps are in UTC.
-
-    Args:
-        contact: List of contact names, phone numbers, or group names. For a single contact pass a one-item list: ["john"]
-        limit: Number of messages to scan per contact (default: 100).
-        received_only: If True, only return media received from the contact (excludes files you sent). Defaults to False.
-    """
-    wa = get_client()
-    if isinstance(contact, list):
-        contacts = [c.strip() for c in contact if c.strip()]
-    else:
-        contacts = [c.strip() for c in contact.split(",") if c.strip()]
-
-    async def fetch_one(c: str):
-        result = await wa.get_messages(c, limit, media_only=True, received_only=received_only)
-        if not result:
-            sync_status = await check_sync_status(wa)
-            if sync_status:
-                return c, [{"syncing": True, "contact": c, "message": f"Contact '{c}' not found yet - sync in progress."}]
-        return c, result
-
-    results = await asyncio.gather(*[fetch_one(c) for c in contacts])
-    data = {c: msgs for c, msgs in results}
-    return _json(data[contacts[0]] if len(contacts) == 1 else data)
 
 
 # @mcp.tool()
 
 
-@mcp.tool()
-async def get_groups() -> str:
-    """Get all WhatsApp group names. Use get_groups_detailed for participant counts and IDs."""
-    wa = get_client()
-    sync_status = await check_sync_status(wa)
-    if sync_status:
-        return _json({
-            "sync_in_progress": True,
-            "phase": sync_status.get("phase"),
-            "message": sync_status.get("message"),
-            "contacts_loaded": sync_status.get("contacts", 0),
-            "user_message": f"WhatsApp sync in progress ({sync_status.get('message', 'syncing')}). Please wait 30-60 seconds after QR scan and try again."
-        })
 
-    groups = await wa.get_groups()
-    if not groups:
-        pass
-        await wa.sync()
-        groups = await wa.get_groups()
-    return _json([g.get("name", "") for g in groups])
 
-@mcp.tool()
-async def get_groups_detailed() -> str:
-    """Get all WhatsApp groups with name, participant count, group ID, creation date, and archived status."""
-    wa = get_client()
-    sync_status = await check_sync_status(wa)
-    if sync_status:
-        return _json({
-            "sync_in_progress": True,
-            "message": sync_status.get("message"),
-            "user_message": f"WhatsApp sync in progress ({sync_status.get('message', 'syncing')}). Please wait 30-60 seconds and try again."
-        })
 
-    groups = await wa.get_groups()
-    if not groups:
-        pass
-        await wa.sync()
-        groups = await wa.get_groups()
-    return _json(groups)
 
-@mcp.tool()
-async def search_groups(query: str) -> str:
-    """Search groups by name or description.
 
-    Args:
-        query: Search string to match against group names or descriptions
-    """
-    if isinstance(query, dict):
-        query = query.get("query", query.get("q", str(query)))
-    query = str(query).strip()
-    wa = get_client()
-    return _json(await wa.search_groups(query))
-
-@mcp.tool()
-async def get_group_by_id(group_id: str) -> str:
-    """Get detailed info about a specific group.
-
-    Args:
-        group_id: WhatsApp group ID (e.g. "123456789@g.us")
-    """
-    wa = get_client()
-    return _json(await wa.get_group_by_id(group_id))
-
-@mcp.tool()
-async def get_group_participants(group_id: str) -> str:
-    """Get the full participant list for a specific group (names and phone numbers).
-
-    Args:
-        group_id: WhatsApp group ID (e.g. "120363409011828954@g.us" - get from get_groups_detailed).
-    """
-    wa = get_client()
-    return _json(await wa.get_group_participants(group_id))
-
-@mcp.tool()
-async def find_common_groups(contacts: list[str]) -> str:
-    """Find groups where ALL specified contacts are members. Pass "me" for the logged-in user.
-
-    Args:
-        contacts: List of contact names, phone numbers, or "me" for the logged-in user.
-    """
-    wa = get_client()
-    return _json(await wa.find_common_groups(contacts))
 
 # @mcp.tool()
 
@@ -304,51 +190,8 @@ async def find_common_groups(contacts: list[str]) -> str:
 # @mcp.tool()
 
 
-@mcp.tool()
-async def download_media_from_message(
-    message_id: str,
-    group_or_contact: str = "",
-    download_path: Annotated[str, Field(description=f"Directory to save the file to - the conversation's downloads folder (e.g. '~/Downloads').")] = "",
-) -> str:
-    """Download media from a WhatsApp message. Returns file_path, filename, mime type, and size.
-    Only call when downloadable=true in the message. SKIP messages with type="viewonce" - they cannot be downloaded.
-
-    Args:
-        message_id: The message ID containing media (use the "id" field from get_messages or search_media_messages results).
-        group_or_contact: The group name or contact name the message belongs to (use the "chatName" field from the previous result). Pass only the bare name.
-    """
-    if isinstance(message_id, dict):
-        message_id = message_id.get("message_id", message_id.get("id", str(message_id)))
-    if isinstance(group_or_contact, dict):
-        group_or_contact = group_or_contact.get("group_or_contact", group_or_contact.get("chat", group_or_contact.get("contact", str(group_or_contact))))
-    if isinstance(download_path, dict):
-        download_path = download_path.get("download_path", download_path.get("path", str(download_path)))
-    message_id = str(message_id).strip()
-    chat = str(group_or_contact).strip()
-    if chat.startswith("```") or (chat.startswith("{") and chat.endswith("}")):
-        chat = ""
-    import re as _re
-    chat = _re.sub(r"(?i)^(your\s+|the\s+|my\s+|with\s+)", "", chat).strip()
-    chat = _re.sub(r"(?i)\s+(chat|conversation|contact|whatsapp)$", "", chat).strip()
-    if len(chat) > 50 or chat.count(" ") > 4:
-        chat = ""
-    download_path = str(download_path).strip()
-    wa = get_client()
-    return _json(await wa.download_media_from_message(message_id, chat, download_path))
 
 
-@mcp.tool()
-async def get_latest_received_message(include_groups: bool = False) -> str:
-    """Get the single most recently received WhatsApp message across all chats (fastest lookup).
-    Use this for: "latest message received", "what was the last message someone sent me?", "what did X last send me?".
-    Returns instantly from in-memory cache. All returned timestamps are in UTC.
-    For "any unread messages?" or "new messages?" - use get_unread_messages instead.
-
-    Args:
-        include_groups: If True, also check group chats. Defaults to False (direct messages only).
-    """
-    wa = get_client()
-    return _json(await wa.get_latest_received_message(include_groups=include_groups))
 
 
 @mcp.tool()
@@ -388,12 +231,6 @@ async def get_unread_messages(include_archived: bool = True) -> str:
     })
 
 
-@mcp.tool()
-async def get_latest_sent_message() -> str:
-    """Get the single most recently sent WhatsApp message across all chats, based on timestamp.
-    Returns instantly from in-memory cache - no chat list fetch needed. All timestamps are in UTC."""
-    wa = get_client()
-    return _json(await wa.get_latest_sent_message())
 
 
 @mcp.tool()

@@ -20,7 +20,9 @@ FAILED = "That did not work."
 
 PICTURE = "(a picture)"
 
-MARKDOWN = re.compile(r"[*_`#>]+")
+# NO UNDERSCORE. IT IS MARKDOWN'S ITALICS AND IT IS ALSO EVERY TOOL NAME WE HAVE,
+# AND A DESCRIPTION THAT TELLS THE MODEL TO CALL searchemails IS WORSE THAN ITALICS.
+MARKDOWN = re.compile(r"[*`#>]+")
 
 LINKS = re.compile(r"\[([^\]]*)\]\([^)]*\)")
 

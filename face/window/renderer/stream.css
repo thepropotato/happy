@@ -79,17 +79,18 @@
   align-self: stretch;
   border: 1px solid transparent;
   border-radius: var(--r-md);
+  background: var(--block);
   animation: rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
   transition: border-color 180ms, background 180ms;
 }
 
 .call:not(.open):hover {
-  background: var(--raise);
+  background: var(--block-open);
 }
 
 .call.open {
   border-color: var(--glow-soft);
-  background: rgba(124, 92, 245, 0.07);
+  background: var(--block-open);
 }
 
 .call > .face {
@@ -172,9 +173,23 @@
   white-space: nowrap;
 }
 
+/* OPEN, IT GETS A LINE OF ITS OWN UNDER THE NAME. IT IS A WHOLE SENTENCE, AND
+   SHARING A ROW WITH THE NAME AND THE STOPWATCH LEFT IT A CLIPPED FRAGMENT
+   EXACTLY WHERE SOMEBODY HAD JUST ASKED TO READ THE WHOLE THING. order PUTS IT
+   AFTER THE STOPWATCH, SO THE FIRST LINE KEEPS ITS SHAPE. */
+.call.open > .face {
+  flex-wrap: wrap;
+}
+
 .call.open > .face .why {
+  order: 5;
+  flex: 0 0 100%;
+  margin-top: 5px;
+  padding-left: 12px;
   color: var(--dim);
+  line-height: 1.45;
   white-space: normal;
+  overflow: visible;
 }
 
 .call > .face .took {
