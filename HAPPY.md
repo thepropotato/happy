@@ -173,35 +173,29 @@ nothing. That becomes worth doing the day you want something *else* — Claude D
 another client — driving these tools, or the day you want the shell tool genuinely sandboxed
 rather than pattern-checked. Not before.
 
-Reaching *out* is a different question, and the answer changed. A calendar, a mailbox, a
-tickets board — none of those are on this computer. So `mcps/` reaches them, and the tools it
-brings back are bound flat into the one graph beside `read_file` and `click_on`. There is
-still one loop and still no routing, which is the rule that mattered.
+Reaching *out* is a different question. A calendar, a mailbox, a tickets board — none of
+those are on this computer. So `mcps/` reaches them, and the tools it brings back are bound
+flat into the one graph beside `read_file` and `click_on`. Still one loop, still no routing.
 
-**Happy writes those servers itself.** Every service in the list is a Python MCP server under
+**Happy writes those servers itself.** Every service is a Python MCP server under
 `mcps/servers/<service>/mcp_server.py`, started on Happy's own Python and talked to over a
-pipe. Happy used to be a client of *somebody else's* hosted MCP endpoints instead, and that
-is what all the machinery was for: dynamic client registration, protected-resource discovery,
-a bearer header renewed on the way past every request, a per-service list of which of a
-stranger's tools were worth binding, and a cap in case that list matched nothing. All of it
-existed to make an unknown server usable. None of it is needed for a server we wrote.
+pipe. Writing them is what makes the rest simple: there is no discovery, no registration and
+no allowlist, because none of that is needed for a server we wrote.
 
-What replaced it is one rule: **a server looks up its own credentials.** Every one of them
-reads `connection_secrets` in `data/happy.db` through `mcps/servers/shared/credentials.py`,
-which is the single module both sides import. Nothing is passed on a command line, where
-every `ps` on the machine would see it, and the client half now carries no tokens at all —
-starting a server is the same three lines whether it is signed into or not.
+One rule holds it together: **a server looks up its own credentials.** Every one reads
+`connection_secrets` in `data/happy.db` through `mcps/servers/shared/credentials.py`, the
+single module both sides import. Nothing is passed on a command line, where every `ps` on the
+machine would see it, and the client half carries no tokens at all — starting a server is the
+same three lines whether it is signed into or not.
 
-The rest follows from writing them. There is no picked list of tools and no cap, because
-choosing what a service can do is done by writing that tool or not writing it — one place
-instead of two that disagree. And **there is no way to add a server of your own.** That was a
-box in the panel that took a URL or a shell command; what came back was an unknown program
-with the model's hands on it and a row that could not say what it was about to do.
+**There is no way to add a server of your own**, and that is deliberate: a URL or a shell
+command somebody pasted is an unknown program with the model's hands on it, and a row that
+cannot say what it is about to do.
 
-The costs that remain are real and paid for deliberately: a tool that takes a second instead
-of a millisecond, a wall of JSON that must be cut down before it can be spoken, and
-credentials that did not exist here before. **Nothing is connected until somebody connects
-it** — a person who never opens the panel has exactly the tools this machine always had.
+The costs are real and paid for deliberately: a tool that takes a second instead of a
+millisecond, a wall of JSON that must be cut down before it can be spoken, and credentials on
+disk. **Nothing is connected until somebody connects it** — a person who never opens the panel
+has exactly the tools this machine always had.
 
 ### WhatsApp reads over the bridge and writes on the screen
 
@@ -227,22 +221,17 @@ cautious way round: not "gate the ones that write" but "anything not known to on
 `send_message` does not start with a reading word, so it stops and asks, every time. That gating
 is the whole safety property — turn `mcps.confirm` off and it is gone.
 
-**What stays deleted is the auto reply.** The original answered any chat beginning with a keyword by
-round-tripping through a backend and replying into the thread, and `/create-group`,
-`/add-to-group` and `/delete-message` went with it. Sending somebody just said yes to and sending
-nobody was asked about are different things: the second arrives while nobody is watching, which
-is exactly the shape that looks like a bot from the outside. Ten tools now — seven read, three
-send, none of them unattended. It used to be twenty-one, with eleven of them filtered back out
-by a list on the client; the list is gone and so are the eleven, because a server whose tools
-are chosen twice is a server that will one day disagree with itself.
+**There is no auto reply, and there will not be one.** Sending somebody just said yes to and
+sending nobody was asked about are different things: the second arrives while nobody is
+watching, which is exactly the shape that looks like a bot from the outside. Ten tools — seven
+read, three send, none of them unattended. There is no allowlist trimming that list either: a
+server whose tools are chosen twice is a server that will one day disagree with itself.
 
-The cloud storage, the telemetry and the backend callbacks went with it: this runs on one machine
-for one person, and the S3 snapshot restore was already a no-op locally because both its read and
-its write were skipped whenever no bucket was configured.
+No cloud storage, no telemetry, no backend callbacks. This runs on one machine for one person.
 
-**Happy starts the bridge itself.** It used to be a second terminal somebody had to remember,
-which is the worst possible shape for it given the paragraph below: forget it and nothing
-errors. `mcps/whatsapp.py` owns that now — it starts the bridge when WhatsApp is connected and
+**Happy starts the bridge itself**, rather than leaving it a second terminal somebody has to
+remember — the worst possible shape given the paragraph below, since forgetting it errors
+nothing. `mcps/whatsapp.py` owns it: it starts the bridge when WhatsApp is connected and
 not before, never doubles up on one already serving the port, puts down only a bridge it
 started, and refuses to respawn a dead one more than once every thirty seconds so that a bridge
 which cannot start is one dead process and not a stream of them. Its output goes to
@@ -252,9 +241,8 @@ window reads, and one Flask request log on it is a panel that stops updating.
 **The QR is scanned in a browser, not in the panel.** Pressing Connect opens
 `127.0.0.1:3001/default/scan`, a page the bridge serves that shows the code and refreshes itself
 every two seconds until it is linked — no script, so there is nothing to authenticate. That is
-the same shape as signing into Google, which has always been a button and then a tab, so both
-services now work the one way. It also deleted the panel's whole QR path: the three-second poll,
-the `qr` order, the image in the drawer and the status juggling behind it.
+the same shape as signing into Google, a button and then a tab, so both services work the one
+way and the panel needs no QR path of its own.
 
 Two things fall out of that and both are the point. **Connecting is not linking** — WhatsApp's
 server starts and offers all ten of its tools with nobody signed in at all, so a row that read
@@ -269,11 +257,9 @@ the window asks for its settings exactly once, when it starts.
 one offers Sign out and nothing else. Both at once asks somebody to work out which of the two
 they are, and before the scan there is nothing signed in to sign out of.
 
-None of it is announced in the conversation. Connecting used to print whatever it had to say
-into the stream, so "Scan the QR in your browser to finish linking WhatsApp" arrived in the
-middle of what Happy and a person had been saying to each other. That stream is the conversation
-and nothing else; the service's own row is already saying it, which is where somebody who just
-pressed the button is looking.
+None of it is announced in the conversation. That stream is what Happy and a person said to
+each other and nothing else — "Scan the QR in your browser" is neither. The service's own row
+is already saying it, which is where somebody who just pressed the button is looking.
 
 The failure to know about: **if the bridge is not running, nothing errors.** The MCP half
 answers happily from whatever it last saw. A WhatsApp connection that has quietly stopped looks
@@ -283,19 +269,16 @@ model rather than a diagnostic nobody calls.
 ### Signing in is its own step, not something a refusal sets off
 
 The MCP SDK's sign in is sprung by a **401**: you connect, the server turns you away, and the
-browser opens. That assumes a server turns a stranger away. Ours do not, and neither did
-Google's when Happy was still talking to those. A server answers `initialize` and `tools/list`
-to anybody and only refuses when a tool is actually *called* — so nothing ever sprang it.
-Connecting reported success, counted the tools, switched the service on, and no consent page
-ever opened; every one of those tools then failed the first time the model reached for it.
+browser opens. That assumes a server turns a stranger away, and ours do not — a server answers
+`initialize` and `tools/list` to anybody and only refuses when a tool is actually *called*. So
+nothing ever sprang it: connecting reported success, counted the tools, switched the service
+on, and every one of those tools then failed the first time the model reached for it.
 
 So `mcps/oauth.py` owns the flow and does it in the open, the moment a person presses Connect:
 PKCE, browser, code, token, written down. Only after that is the server started and asked what
-it offers. What is *not* in there any more is the discovery — protected-resource metadata, the
-authorization server behind it, dynamic client registration and the guesses when a well-known
-document was missing. The one service that needs a consent screen is named in
-`mcps/registry.py` along with the two addresses its sign in uses, so a connection is one round
-trip rather than four fetches and a fallback.
+it offers. There is no discovery step — the one service needing a consent screen is named in
+`mcps/registry.py` with the two addresses its sign in uses, so a connection is one round trip
+rather than four fetches and a fallback.
 
 Asking in the open is also the only way to get Google's **refresh token**, which it gives only
 to somebody who says `access_type=offline` and shows the consent screen. Without those the sign
@@ -355,8 +338,7 @@ Split a server across files only when it earns it. Google is four — `mail.py`,
 tools would run past 200 lines. The others are one file each.
 
 Two rules the servers live by. **Every tool you write is a tool the model gets** — there is no
-allowlist to also remember, which is why the WhatsApp server lost the eleven tools that a list
-had been quietly filtering out. And **name tools so a reader can tell what they touch**:
+allowlist to also remember. And **name tools so a reader can tell what they touch**:
 `mcps/writing.py` gates anything not starting with a plainly reading word (`search`, `list`,
 `get`, `read`, `find`…), so `send_email` stops and asks and `search_emails` does not.
 
@@ -385,20 +367,19 @@ is not how you check whether an app exists — that is `list_installed_apps`, wh
 nothing.
 
 **Opening is not the same as being in front.** `open -a` launches an application but does not
-reliably raise one that is already running, and the old `open_app` reported "Opened WhatsApp"
-on a zero exit code without looking. WhatsApp never came forward, Opera stayed in front, and
-every look afterwards read Opera's window — so the model hunted for a chat in a browser and
-eventually opened `web.whatsapp.com`. It now tells the application to activate, waits until it
-really is the one in front, and when it is not it says so and says not to click. Everything
-downstream reads whatever is in front, so this is the one claim the rest of a task rests on.
+reliably raise one already running, and a zero exit code says nothing about which window came
+forward. Trusting it once meant WhatsApp never appeared, Opera stayed in front, every look
+afterwards read Opera's window, and the model went hunting for a chat in a browser. So the
+application is told to activate, waited for until it really is in front, and when it is not,
+that is said out loud along with "do not click". Everything downstream reads whatever is in
+front, so this is the one claim the rest of a task rests on.
 
-**Bound the loop.** `brain.calls` caps how many times the model
-may go round before it has to answer. A loop that keeps going is a person staring at a silent
-assistant, which is worse than a half answer. **But bound it above the real work.** Six was the
-first guess and it was one short: opening an app, finding a chat, typing and sending is six
-rounds with nothing going wrong, and the glance to see where the click landed makes seven. Asked
-to send a message, Happy did every step right and then died on the limit. The default is
-fourteen now, and it costs a short answer nothing — a cap only bites when the work is long.
+**Bound the loop.** `brain.calls` caps how many times the model may go round before it has to
+answer. A loop that keeps going is a person staring at a silent assistant, which is worse than
+a half answer. **But bound it above the real work**, which is easy to underestimate: opening an
+app, finding a chat, typing and sending is six rounds with nothing going wrong, and the glance
+to see where the click landed makes seven. The default is fourteen, and it costs a short answer
+nothing — a cap only bites when the work is long.
 
 **History is trimmed, not kept.** `recent()` keeps the last `brain.history`
 messages, starting on a human message so a tool reply never appears whose tool call was
@@ -413,8 +394,8 @@ The model loads and warms in 0.77 s where WhisperX took 2.89 s. 631 MB in `model
 **v2 is the English one, and it was picked over multilingual v3 by listening.** v3 covers 25
 languages and mis-hears *"open the most recent **chat**"* as "chart" or "set" in four of the fifty
 takes. That phrase is a command Happy is actually given, so being right about it beats a language
-nobody here speaks. v2 gets all four. There is no `ears.language` any more — pinning it existed
-because Whisper's detection cost a pass, and this model takes no language at all.
+nobody here speaks. v2 gets all four. There is no `ears.language` knob, because this model takes
+no language at all.
 
 **int8, and no knob for it.** Full precision is 2.55 GB against int8's 631 MB for a vendor claim of
 parity. A knob whose other setting nobody has downloaded only ever produces an error.
@@ -423,14 +404,12 @@ parity. A knob whose other setting nobody has downloaded only ever produces an e
 CoreML ahead of CPU and would compile a 650 MB encoder on the way up; CPU is pinned by default and
 `auto` is opt-in and unmeasured.
 
-Silence comes back empty, which is the reason to have moved as much as the speed: WhisperX
-answered one 1.5-second take of room tone with "Thank you." Two things got worse and are written
-down rather than hidden — one quiet take that WhisperX heard and this does not, and proper nouns
-are no better. `python -m ears` transcribes everything in `recordings/` with timings, which is how
-both of those were found.
+Silence comes back empty, which mattered as much as the speed: WhisperX answered one 1.5-second
+take of room tone with "Thank you." Two things got worse and are written down rather than hidden
+— one quiet take WhisperX heard and this does not, and proper nouns are no better. `python -m
+ears` transcribes everything in `recordings/` with timings, which is how both were found.
 
-Nothing in the process imports torch any more. That was the only thing pulling it in, and with it
-went 55 packages and a gigabyte.
+Nothing imports torch, which is 55 packages and a gigabyte not installed.
 
 ## The voice
 
@@ -444,18 +423,14 @@ sounds less like a person than the heavier options, and that is the trade taken 
 reply that starts instantly and keeps up reads as someone who knows the answer; one that drags
 reads as someone who does not, whatever the timbre.
 
-*Kokoro was the default briefly and has been removed.* It sounds markedly better in isolation
-and lost anyway: 264 ms to first word against Piper's 15 ms, and 7x realtime against 56x. In
-use that gap is the difference between an assistant and a demo. Judging it from measurements
-alone was a mistake — it took hearing both in the loop to settle it.
-
-*This computer's own voice was tried and removed too.* macOS `say`, asked to write a WAV so the
-speaker keeps barge-in, is **330 ms to first word warmed** and flat at that whatever the sentence
-— slower than the Kokoro that had already lost. There is a fast path, `AVSpeechSynthesizer`
-in-process at 12 ms, and it cannot be used: its callback only fires on the main thread's runloop,
-while sentences are synthesised on a daemon thread and the main thread sits blocked on the
-push-to-talk key. Nothing to download and a genuinely different timbre were not worth 20x the
-latency. Windows SAPI was never measured, since the macOS half already failed.
+*Two engines were tried and rejected; do not reach for either again.* **Kokoro** sounds markedly
+better in isolation and lost anyway — 264 ms to first word against Piper's 15 ms, 7x realtime
+against 56x, which in use is the difference between an assistant and a demo. **macOS `say`**,
+asked to write a WAV so the speaker keeps barge-in, is 330 ms warmed and flat at that whatever
+the sentence. Its fast path, `AVSpeechSynthesizer` at 12 ms, cannot be used: the callback only
+fires on the main thread's runloop, while sentences are synthesised on a daemon thread and the
+main thread sits blocked on the push-to-talk key. Windows SAPI was never measured, since the
+macOS half already failed.
 
 Phonemes come from an espeak-ng that ships inside the package, so there is nothing to install
 besides the voice file and it behaves the same on Windows. Any Piper voice works; drop it in
@@ -490,11 +465,10 @@ live in `voice/speaker.py`.
 
 ## The browser — blank, being rebuilt
 
-> `hands/browser/` is empty on purpose and is being written again from scratch. Everything
-> below is what the first one learned the hard way. None of it is code any more, and all of
-> it is still true about this machine, so read it before writing the next one. What went with
-> it: unprompted speech is no longer wired up in `main.py`, though `face.console.unprompted()`
-> is still there waiting, and nothing sets the `unprompted` column any more.
+> `hands/browser/` is empty on purpose and is being written again from scratch. None of what
+> follows is code, and all of it is still true about this machine, so read it before writing
+> the next one. Unprompted speech went with it: `face.console.unprompted()` is still there
+> waiting, and nothing sets the `unprompted` column.
 
 The first one was built on [browser-use](https://github.com/browser-use/browser-use), driving the local model
 text-only (`use_vision=False`) — the accessibility/DOM representation is read as text, so no
@@ -555,11 +529,11 @@ QR code nobody can see is a task that hangs forever without saying why.
 
 ## Opening a page: your browser, your profile
 
-`open_url`, in `hands/apps/`, is for anything an address reaches — a site, a video, a search. It lands in
-the browser you already use, signed in to your accounts, and it is what "play this on
-YouTube" should always have done. Before it existed the model had no tool for an address at
-all, so it reached for `open_app` — whose docstring offered **"Safari"** as its example — and
-typed into it. An example in a tool description is an instruction.
+`open_url`, in `hands/apps/`, is for anything an address reaches — a site, a video, a search. It
+lands in the browser you already use, signed in to your accounts, and it is what "play this on
+YouTube" should always have done. Without it the model reaches for `open_app` instead and types
+into whatever that opened: when `open_app`'s docstring offered **"Safari"** as its example, that
+is exactly what happened. An example in a tool description is an instruction.
 
 It addresses your **profile**, not just your application, and that distinction is the whole
 point. The system opener hands a link to whichever copy of that browser is already running,
@@ -628,15 +602,14 @@ What works and what does not — the first row is the trap, because it looks lik
 | --- | --- |
 | `extra_body={"options": {"num_ctx": N}}` via `/v1` | **Silently ignored.** Still loads at 4096. |
 | `ChatOllama(num_ctx=N)` via `/api/chat` | Works. This is what `brain/providers.py` does. |
-| A `Modelfile` with `PARAMETER num_ctx N` | Works, and was how this used to be done. |
+| A `Modelfile` with `PARAMETER num_ctx N` | Works, and is the wrong fix. |
 
-The Modelfile was the right fix for the wrong problem. It only existed because the OpenAI
-`/v1` request has nowhere to put a context length — so the workaround was to bake one into a
-copy of the model under another name. Talking to Ollama natively makes it a field on the
-request, which deletes a setup step, a second name for the same weights, and a fact that was
-only true on the machine where the tag got built. **Prefer a provider's own client over a
-compatibility shim**: a shim quietly drops whatever it cannot express, which is exactly how
-this cost an afternoon.
+The Modelfile is the right fix for the wrong problem: it exists only because the OpenAI `/v1`
+request has nowhere to put a context length, so it bakes one into a copy of the model under
+another name — a setup step, a second name for the same weights, and a fact only true on the
+machine where the tag was built. Talking to Ollama natively makes it a field on the request.
+**Prefer a provider's own client over a compatibility shim**: a shim quietly drops whatever it
+cannot express, which is exactly how this cost an afternoon.
 
 The vision model wants the same thing for a sharper reason. `qwen3-vl` thinks before it
 answers, and a screenshot is ~1800 tokens of prompt on its own. At 4096 it spends every
@@ -707,10 +680,10 @@ port, no server, no dependency on either side — `json` on one end and `JSON.pa
 Electron exiting ends Happy, because the reader in `face/orders.py` sees stdin end and shuts him
 down.
 
-**The panel has no close button, only minimize.** It used to carry a cross, which promised
-something it could not mean: Happy is still listening with the panel shut, and the key is global
-precisely so it works from anywhere. So the button puts the panel away and nothing else. Ending
-him lives on the menu bar icon, which is where a thing that ends him belongs.
+**The panel has no close button, only minimize.** A cross would promise something it cannot
+mean: Happy is still listening with the panel shut, and the key is global precisely so it works
+from anywhere. So the button puts the panel away and nothing else. Ending him lives on the menu
+bar icon, which is where a thing that ends him belongs.
 
 While the window is attached, **stdout carries nothing but JSON**. Anything a person might want
 to read goes to stderr, which Electron logs and nobody parses. That is the only rule the two
@@ -742,12 +715,12 @@ Sound outlives the words. Happy is still a sentence behind himself when the mode
 so the panel goes quiet when the last clip ends and not when the last word arrives.
 
 **The orb yields.** It owns the panel while there is nothing to read and shrinks into the header
-the moment there is, which is 250 pixels of conversation that used to be decoration. What it was
-saying carries on beside his name. Tapping the small one brings the big one back.
+the moment there is, which is 250 pixels won back for the conversation. What it was saying
+carries on beside his name. Tapping the small one brings the big one back.
 
 **The key is always on screen** and lights while it is held. Holding it from another window is
-the whole point of push to talk, and until the cap was there, the only proof it had worked was
-Happy answering — which is a long way to find out that he had not heard you.
+the whole point of push to talk, and without the cap the only proof it worked is Happy
+answering — a long way to find out he had not heard you.
 
 **The controls are the whole panel**, not a drawer over part of one, and they are six sections
 that fold open where they sit rather than six tabs over fifty knobs. A shut section still says
@@ -790,11 +763,10 @@ which is what they ship as.
 
 ### A connection is not a setting
 
-Connections were knobs once, and the panel proved it does not work. Every service arrived as a
-row for the switch, a row for signing out, and a row per secret it wanted pasted — twenty-one
-identical rows deep, in which a timeout slider, a client secret and a thing you sign into all
-looked the same. The Google instructions were printed three times because Gmail, Calendar and
-Drive are three services, and nowhere did it say what was actually connected.
+Connections as ordinary knobs was tried and does not work: every service became a row for the
+switch, a row for signing out and a row per secret, twenty-one identical rows deep, in which a
+timeout slider, a client secret and a thing you sign into all looked the same — and nowhere did
+it say what was actually connected.
 
 So `memory/knobs.py` has three shapes that are not settings, and `mcps/panel.py` builds the
 whole panel out of them: a **heading** over a run of rows, a **service** — one row saying what
@@ -807,22 +779,16 @@ with the same code it draws everything else with. It knows what a service looks 
 nothing about any particular one — which services exist, what each wants pasted and what is
 worth warning about are all in `mcps/registry.py`.
 
-**Google is one row because it is one server.** It used to be three rows folded into a family:
-Gmail, Calendar and Drive were three hosted endpoints sharing one OAuth client, so the panel
-had a row inside a row, a switch per member, and a sign in that had to be kept under the
-family's name rather than any one service's. Writing the three into a single server deleted all
-of it — the family, the members, the nesting in the renderer. One Google account agreeing to
-mail, calendar and drive is one question, and now it is also one row, one sign in and one
-process.
+**Google is one row because it is one server.** One account agreeing to mail, calendar and
+drive is one question, so it is one row, one sign in and one process — no family, no members,
+no row inside a row.
 
 A connected service shows the **tool names it hands over**, which is simply everything its
 server offers. There is no filtering step left to disagree with the list.
 
-**Connected means used.** There was a "Let Happy use this" switch inside every connected row,
-and it was the wrong idea twice over. It described a state nobody wants — a service you went
-and signed into, that then answers nothing — and signing out was already the way to stop a
-service, so the switch was a second, quieter way to do the same thing that left the row
-looking connected. So `enabled` is gone from the table as well as the panel: a service is
+**Connected means used**, and there is no "Let Happy use this" switch. It would describe a
+state nobody wants — a service you went and signed into that then answers nothing — and signing
+out is already the way to stop a service. So there is no `enabled` column either: a service is
 connected when it remembers tools, every tool it remembers goes to the model, and signing out
 forgets them. One state, one place, nothing to disagree with.
 
@@ -842,11 +808,11 @@ Tuesday*. `messages` carries `who`, `text`, `at`, `epoch`, and — on the rows t
 `tool`, `args` as JSON, `seconds`, the `audio` path of the recording behind a spoken line, and
 `unprompted` for a browser job reporting back on its own.
 
-**There is one table and one index, and that is deliberate.** An FTS5 full-text index lived
-here briefly. It worked, and it quietly brought four shadow tables and three triggers with it —
-all created by SQLite on your behalf, none of them ever read by anything here. That is a lot of
-machinery to avoid a scan that takes **159 ms across two hundred thousand messages**, which is
-more than anyone will ever say to Happy. So `memory.search()` is a `LIKE` now.
+**There is one table and one index, and that is deliberate.** An FTS5 full-text index was tried:
+it works, and it quietly brings four shadow tables and three triggers with it, none of them ever
+read by anything here. That is a lot of machinery to avoid a scan taking **159 ms across two
+hundred thousand messages**, which is more than anyone will ever say to Happy. So
+`memory.search()` is a `LIKE`.
 
 What that costs: no relevance ranking, and no stemming, so "meet" will not find "meeting". What
 it buys: `sqlite_master` has two rows in it and you can read the whole schema at a glance. The
@@ -870,10 +836,9 @@ own times on them — everything live leaves it alone and means now.
 
 ## Reading files
 
-`hands/files/` is the answer to "I don't have the ability to read that file", which was a
-real gap and not a design choice. `read_file` handles PDF, Word, spreadsheets, presentations,
-RTF, and anything textual, and always returns plain text — the model should not have to know
-which kind of file it is before it asks.
+`hands/files/` is the answer to "I don't have the ability to read that file". `read_file`
+handles PDF, Word, spreadsheets, presentations, RTF and anything textual, and always returns
+plain text — the model should not have to know which kind of file it is before it asks.
 
 A person does not say "read `/Users/me/Documents/CV_final_v3.pdf`", they say "read my resume".
 So `read_file` takes a description as readily as a path, and `find_files` searches where
@@ -882,12 +847,11 @@ pruning `Library`, `node_modules` and friends.
 
 Long files are cut at `MAX_CHARS` with a marker, and `start` reads on from there.
 
-Images used to be **named, not guessed at** — "that's a PNG, I can't see it" was worth more
-than a confident hallucination. That is no longer the trade, because OCR is not guessing.
-`.png`, `.jpg`, `.bmp`, `.tiff` and `.webp` are now formats like any other in `READERS` and
-go to `eyes/`; `.gif` and `.heic` stay named, because OpenCV will not reliably
-decode either. Happy still does not *look* at a photograph — he reads the text off it, so a
-screenshot of a message reads fine and a picture of a dog comes back empty.
+Images go to `eyes/` because OCR is not guessing: `.png`, `.jpg`, `.bmp`, `.tiff` and `.webp`
+are formats like any other in `READERS`. `.gif` and `.heic` are only named, because OpenCV will
+not reliably decode either, and a name beats a confident hallucination. Happy still does not
+*look* at a photograph — he reads the text off it, so a screenshot of a message reads fine and a
+picture of a dog comes back empty.
 
 ## Seeing the screen
 
@@ -998,11 +962,10 @@ where it read every word. So `where(target)` escalates and stops at the first st
 3. **The model points.** Only for what has no text at all — an icon, a switch. Least exact, and
    last.
 
-Matching is scored, not first-hit. An early version resolved `"OUTPUT"` to the sentence *"we may
-also feed the OCR output"* — which contains the word exactly as much as a tab labelled OUTPUT
-does. A match is now worth **how much of the label it accounts for**, which is all of a button
-and almost none of a paragraph. Below the floor, the model is asked; that is slower and better
-than a confident wrong click.
+Matching is scored, not first-hit: `"OUTPUT"` matches the sentence *"we may also feed the OCR
+output"* exactly as well as it matches a tab labelled OUTPUT. So a match is worth **how much of
+the label it accounts for**, which is all of a button and almost none of a paragraph. Below the
+floor the model is asked, which is slower and better than a confident wrong click.
 
 Ties are broken towards **the thing you could actually press**, and then towards the one that is
 not greyed out. A label and the button under it very often say the same word, and the person
@@ -1050,7 +1013,7 @@ would ever pay for it, and a constant nothing can reach is a lie in the source.
 **Change detection is deliberately cheap.** Measured here: asking is 90 ms, a screen grab is
 270 ms, fingerprinting that grab is 3 ms, and OCR is about 1500 ms. So verification compares the
 tree, and falls back to a 64×64 fingerprint of the screen when the application describes nothing.
-**OCR never runs inside the verify loop.** It did briefly, and it put five seconds on every act.
+**OCR never runs inside the verify loop** — it puts five seconds on every act.
 
 What comes back out is one sentence, not a list. `difference()` returns the single most
 significant change, because this ends up spoken and *"the window is now Documents, and one thing
@@ -1084,10 +1047,10 @@ still catches the failure that actually happens, which is nothing happening at a
 can tell us either way it says so rather than inventing a verdict — `Verdict.sure` is a separate
 field from `Verdict.ok` for exactly that reason.
 
-It came up immediately in testing. Clicking a Finder sidebar item straight after bringing Finder
-to the front does nothing at all: the first click activates the window. The old code would have
-said "Clicked Documents" and moved on. This one says *"I clicked Documents but nothing on the
-screen changed"*, which is both true and the thing you needed to know.
+The case that proves it: clicking a Finder sidebar item straight after bringing Finder to the
+front does nothing at all, because the first click activates the window. What comes back is
+*"I clicked Documents but nothing on the screen changed"*, which is both true and the thing you
+needed to know.
 
 **Waiting is two questions, not one.** `settled()` first waits for the screen to *react*, then
 waits for it to *stop*. Waiting only for it to stop is a bug that looks like it works: a window
@@ -1168,12 +1131,11 @@ is always installed; on Windows it is the audio endpoint addressed directly thro
 C# shim, because Windows ships no command for the volume at all and the media keys can only
 step it. Brightness is WMI on Windows and, on macOS, `DisplayServices` — the private framework
 the slider in System Settings and the keys on the keyboard both go through, called directly
-through `ctypes`. It was the Homebrew `brightness` helper, which is built on `IODisplay` calls
-Apple silicon no longer answers: on every recent Mac it is both missing and, once installed,
-wrong, so telling someone to go and brew it was not even good advice. The helper and then the
-brightness keys remain as fallbacks for the Macs that predate the framework, and a level that
-can only be stepped is stepped rather than refused. **A control that cannot do something says
-which, and how to fix it — but it tries everything it has first.**
+through `ctypes`. The Homebrew `brightness` helper is a fallback and not the first choice: it is
+built on `IODisplay` calls Apple silicon does not answer, so on a recent Mac it is both missing
+and, once installed, wrong. The helper and then the brightness keys cover the Macs predating the
+framework, and a level that can only be stepped is stepped rather than refused. **A control that
+cannot do something says which, and how to fix it — but it tries everything it has first.**
 
 Anything that loses unsaved work — sleep, restart, shut down — goes through `conscience/`
 first. The battery and the lock do not, because neither costs you anything.
@@ -1198,11 +1160,8 @@ first. The battery and the lock do not, because neither costs you anything.
   should not be any. Connections under `mcps/` are the separate, narrower case below.
 - **A setup script.** Meant to be one-command setup — Ollama, the model pull, the ears' weights,
   a voice, Tesseract. There is none; see `TODO.md`.
-- **Gmail, Calendar or Drive at any scale.** The Gmail module was deleted once for being a
-  remote service behind OAuth rather than computer control, and `mcps/` is where that came
-  back — but on Google's terms, not ours. Happy talks to Google's own REST APIs now, from a
-  server it writes, rather than to Google's hosted MCP endpoints; either way the sign in is
-  the same and Google will not register Happy as a client.
+- **Gmail, Calendar or Drive at any scale.** Happy talks to Google's own REST APIs from a
+  server it writes, and the limit is not the code: Google will not register Happy as a client.
 
   **Happy ships no Google client, deliberately.** Embedding one would be allowed — a desktop
   client's secret is not a secret, and `gcloud` ships one too — and the unverified warning it
@@ -1225,13 +1184,13 @@ first. The battery and the lock do not, because neither costs you anything.
   a project with only some of those APIs switched on fails at the consent screen rather than
   at the first call.
 
-There **is** credential handling now, and it is confined to `mcps/`. It holds OAuth refresh
-tokens and pasted API tokens for services somebody explicitly connected, in `data/happy.db`,
-unencrypted, and nowhere else — the panel says so. The system keychain was tried here and taken
-back out: writes failed silently for a process nobody was sitting in front of, macOS allowed two
-items under one name, and a read and a write could land on different copies, so a connection's
-state disagreed with itself. One store Happy can see beats a safer one it cannot; guard the
-database instead. It holds no passwords and no cookies. Signing in is only ever started by a person, from
+Credential handling is confined to `mcps/`. It holds OAuth refresh tokens and pasted API tokens
+for services somebody explicitly connected, in `data/happy.db`, unencrypted, and nowhere else —
+the panel says so. *The system keychain was tried and taken back out; do not reach for it again.*
+Writes failed silently for a process nobody was sitting in front of, macOS allowed two items
+under one name, and a read and a write could land on different copies, so a connection's state
+disagreed with itself. One store Happy can see beats a safer one it cannot; guard the database
+instead. It holds no passwords and no cookies. Signing in is only ever started by a person, from
 the panel or `python -m mcps connect`: no tool can reach it, because a browser window opening
 in the middle of a spoken answer is not an answer.
 

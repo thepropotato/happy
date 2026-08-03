@@ -17,18 +17,15 @@ from mcps import permission
 OURS = Path(__file__).resolve().parents[1]
 
 # HOW A SERVICE IS SIGNED INTO.
-NONE = "none"  # NOTHING TO SIGN INTO AT ALL.
-TOKEN = "token"  # PASTE ONE TOKEN YOU MADE ON THEIR SITE.
+NONE = "none"
+TOKEN = "token"  # ONE TOKEN MADE ON THEIR SITE.
 OAUTH = "oauth"  # A BROWSER AND A CONSENT SCREEN, WITH A CLIENT OF YOUR OWN.
 
-# THE ONE THING EVERY BRING YOUR OWN CLIENT SETUP GETS WRONG. IT IS READ OFF THE
-# DOOR ITSELF SO THE TWO CAN NEVER DRIFT APART.
+# READ OFF THE DOOR ITSELF SO THE TWO CAN NEVER DRIFT APART.
 SENDS_BACK = f"Register {permission.expected()} as the redirect."
 
-# GOOGLE WILL NOT REGISTER HAPPY, AND A SHARED CLIENT WOULD BE EASIER FOR THE
-# FIRST HUNDRED PEOPLE AND IMPOSSIBLE AFTER THEM: GOOGLE CAPS AN UNVERIFIED APP
-# AT A HUNDRED FOR THE LIFE OF THE PROJECT, AND LIFTING THAT FOR GMAIL OR DRIVE
-# MEANS A SECURITY ASSESSMENT EVERY YEAR FOR AS LONG AS IT RUNS.
+# EVERYONE BRINGS THEIR OWN CLIENT: GOOGLE CAPS AN UNVERIFIED APP AT A HUNDRED
+# USERS FOR THE LIFE OF THE PROJECT.
 GOOGLE = (
     "Make a Google Cloud project, switch on the Gmail, Calendar and Drive APIs, and add a "
     "Web application OAuth client. Publish it — left in testing, Google forgets the sign in "
@@ -41,10 +38,7 @@ KNOWN = [
         "label": "Google",
         "folder": "google",
         "kind": OAUTH,
-        # ONE SIGN IN FOR MAIL, CALENDAR AND DRIVE, BECAUSE THEY ARE ONE ACCOUNT
-        # SAYING YES ONCE. THEY USED TO BE THREE THINGS TO CONNECT SEPARATELY,
-        # WHICH WAS THE SAME FIFTEEN MINUTE ERRAND THREE TIMES AND WHERE PEOPLE
-        # PUT THE PANEL DOWN.
+        # ONE SIGN IN FOR MAIL, CALENDAR AND DRIVE: THEY ARE ONE ACCOUNT SAYING YES ONCE.
         "authorize": "https://accounts.google.com/o/oauth2/v2/auth",
         "token": "https://oauth2.googleapis.com/token",
         "scopes": [
@@ -59,14 +53,11 @@ KNOWN = [
         "label": "WhatsApp",
         "folder": "whatsapp",
         "kind": NONE,
-        # CONNECTING STARTS THE SERVER; SCANNING THE QR IS WHAT ACTUALLY LINKS AN
-        # ACCOUNT, AND THE SERVER OFFERS EVERY TOOL EITHER WAY. THIS IS WHAT TELLS
-        # THE PANEL THE TWO ARE NOT THE SAME THING.
+        # THE SERVER OFFERS EVERY TOOL WHETHER OR NOT THE QR WAS SCANNED, SO THE
+        # PANEL NEEDS TELLING THAT STARTED AND LINKED ARE NOT THE SAME THING.
         "scan": True,
-        # NO care HERE ON PURPOSE. LINKING AN UNOFFICIAL CLIENT IS A STANDING
-        # CONDITION OF THIS CONNECTION AND NOT A FAULT, AND AMBER IS FOR A FAULT.
-        # THE ROW WENT AMBER THE MOMENT SOMEBODY SIGNED OUT, WHICH READS EXACTLY
-        # LIKE THE SIGN OUT HAVING FAILED. THE WARNING BELONGS IN THE NOTE BELOW.
+        # NO care ON PURPOSE: AN UNOFFICIAL CLIENT IS A CONDITION OF THIS
+        # CONNECTION, NOT A FAULT, AND AMBER IS FOR A FAULT.
         "hint": "Reads your chats and can send, asking first every time. Connect it and scan "
         "the QR that appears here; Happy runs the bridge behind it and stops it again on the "
         "way out, so there is nothing to start yourself. It links to your account the way "

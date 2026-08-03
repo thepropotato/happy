@@ -119,8 +119,7 @@ def for_typing(text):
         if holding(after, text):
             return True
 
-        # AN APPLICATION THAT DESCRIBES NOTHING CANNOT CONFIRM THE TEXT, SO FALL
-        # BACK TO WHETHER ANYTHING MOVED AT ALL.
+        # AN APP THAT DESCRIBES NOTHING LEAVES ONLY "DID ANY PIXEL MOVE".
         return None if not after.senses or after.blind else stirred(before, after)
 
     return Expectation(f'"{shorten(text)}" should appear where the keyboard was', arrived)

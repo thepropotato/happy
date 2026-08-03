@@ -31,13 +31,11 @@ BEHAVING = "How connections behave"
 
 HELD = "Added — paste over it to change it"
 
-# WHAT A SERVICE WANTS PASTED IN BEFORE IT CAN BE CONNECTED. THE SERVICE'S OWN
-# NAME IS NOT IN THESE LABELS: THE BOX SITS INSIDE THAT SERVICE'S ROW ALREADY.
+# NO SERVICE NAME IN THESE LABELS: THE BOX SITS INSIDE THAT SERVICE'S ROW ALREADY.
 ASKED = {
     registry.TOKEN: [("token", "Token", "Kept in Happy's database, on this machine.")],
     registry.OAUTH: [
-        # SIGNING INTO YOUR OWN UNVERIFIED APP STILL GETS THE RED SCREEN, AND
-        # SOMEBODY UNWARNED READS IT AS HAPPY BEING THE UNSAFE PART.
+        # UNWARNED, THE RED UNVERIFIED SCREEN READS AS HAPPY BEING THE UNSAFE PART.
         (
             "client",
             "Client ID",
@@ -71,13 +69,8 @@ def one(known, row):
     again = action(name, label, "connect", wording.asking(known), None)
     leaving = [action(name, f"{label} sign in", "disconnect", wording.SIGN_OUT, None)]
 
-    # A SERVER STARTING IS NOT THE SAME AS A SERVICE BEING SIGNED INTO. WHATSAPP'S
-    # OFFERS ALL TEN OF ITS TOOLS WITH NOBODY LINKED AT ALL, SO tools ON ITS OWN
-    # SAID CONNECTED THE INSTANT SOMEBODY PRESSED THE BUTTON — MINUTES BEFORE THE
-    # QR WAS SCANNED, AND FOREVER IF IT NEVER WAS.
-    # ONE BUTTON, NEVER TWO. A ROW OFFERING BOTH A WAY IN AND A WAY OUT AT ONCE
-    # ASKS SOMEBODY TO WORK OUT WHICH OF THEM THEY ARE, AND UNTIL THE QR IS
-    # SCANNED THERE IS NOTHING SIGNED IN TO SIGN OUT OF.
+    # A STARTED SERVER IS NOT A SIGNED IN SERVICE: WHATSAPP'S OFFERS EVERY TOOL
+    # WITH NOBODY LINKED, SO tools ALONE WOULD SAY CONNECTED BEFORE THE QR.
     if tools and known.get("scan") and not scanned():
         return service(
             name,
@@ -90,8 +83,7 @@ def one(known, row):
         )
 
     if tools:
-        # A SIGN IN THAT HAS DIED STILL HAS ITS TOOLS REMEMBERED, SO THE ROW STILL
-        # OFFERS THE WAY BACK IN.
+        # A DEAD SIGN IN KEEPS ITS REMEMBERED TOOLS, SO THE ROW STILL OFFERS THE WAY BACK.
         return service(
             name,
             label,

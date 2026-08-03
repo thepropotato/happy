@@ -4,9 +4,8 @@ import base64
 import sys
 from pathlib import Path
 
-# THE SERVER'S OWN FOLDER COMES OFF THE PATH AND mcps/ GOES ON IN ITS PLACE, SO
-# EVERYTHING IS REACHED AS servers.something AND NOTHING BESIDE THIS FILE CAN
-# EVER BE WHAT AN import SOMEWHERE DEEP IN A LIBRARY FINDS FIRST.
+# THE SERVER'S OWN FOLDER COMES OFF THE PATH SO A FILE BESIDE THIS ONE CAN NEVER
+# BE WHAT SOME LIBRARY'S import FINDS FIRST.
 sys.path[0] = str(Path(__file__).resolve().parents[2])
 
 from mcp.server.fastmcp import FastMCP  # noqa: E402

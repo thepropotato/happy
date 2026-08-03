@@ -57,16 +57,13 @@ app.config["JSON_AS_ASCII"] = False
 
 @app.before_request
 def require_bridge_key():
-    # LIVENESS PROBE IS UNAUTHENTICATED - IT LEAKS NOTHING AND is_bridge_running() POLLS IT WITHOUT THE KEY.
+    # is_bridge_running() POLLS THIS WITHOUT THE KEY, AND IT LEAKS NOTHING.
     if request.path == "/health":
         return
-    # THE SCAN PAGE IS OPENED IN A REAL BROWSER, WHICH CANNOT BE MADE TO SEND A
-    # HEADER. IT SHOWS ONLY A QR THAT IS USELESS TO ANYBODY NOT HOLDING THE PHONE.
+    # A REAL BROWSER CANNOT BE MADE TO SEND A HEADER, AND THE QR IS USELESS TO
+    # ANYBODY NOT HOLDING THE PHONE.
     if request.path.endswith("/scan"):
         return
-    # WITH NO KEY SET THERE IS NOTHING TO CHECK. IT USED TO REFUSE EVERYTHING IN
-    # THAT CASE, WHICH IS RIGHT FOR A SHARED DEPLOYMENT AND WRONG FOR A SERVER
-    # BOUND TO LOOPBACK ON ONE PERSON'S LAPTOP.
     if not BRIDGE_SECRET:
         return
     provided = request.headers.get("X-Bridge-Key", "")
@@ -147,9 +144,7 @@ def name_match(query: str, name: str) -> bool:
     q2, n2 = strip_emoji(q), strip_emoji(n)
     if bool(q2) and q2 in n2:
         return True
-    # Third tier: strip all non-alphanumeric chars and check bidirectionally.
-    # Handles "fans @ sathi tata group" matching "Fans @ SATHI TATA." and
-    # "fans sathi tata" matching "Fans @ SATHI TATA." (agent drops @).
+    # BIDIRECTIONAL: THE AGENT DROPS PUNCTUATION AND ADDS WORDS IN EITHER DIRECTION.
     q3 = re.sub(r'\s+', ' ', re.sub(r'[^a-z0-9\s]', ' ', q2)).strip()
     n3 = re.sub(r'\s+', ' ', re.sub(r'[^a-z0-9\s]', ' ', n2)).strip()
     if q3 and n3:
@@ -176,12 +171,11 @@ def contact_name(contact_msg) -> str:
             fn = line[3:].strip()
             if fn:
                 return fn
-    # waid= is the WhatsApp phone number embedded in the TEL field
+    # waid= IS THE WHATSAPP NUMBER EMBEDDED IN THE TEL FIELD.
     for line in vcard.splitlines():
         m = re.search(r'waid=(\d+)', line, re.IGNORECASE)
         if m:
             return f"+{m.group(1)}"
-    # Plain phone number from TEL: as last resort
     for line in vcard.splitlines():
         if line.upper().startswith("TEL"):
             parts = line.split(":")
@@ -281,18 +275,18 @@ class Session:
         self.contacts = []
         self.chats = []
         self.groups = []
-        self.messages = {}   # { jid: [text/chat messages] }
-        self.media = {}      # { jid: [media messages] }
-        self.latest_received_message = None  # always the newest non-fromMe message, updated live
-        self.latest_sent_message = None      # always the newest fromMe message, updated live
+        self.messages = {}   # { jid: [text] }
+        self.media = {}      # { jid: [media] }
+        self.latest_received_message = None
+        self.latest_sent_message = None
         self.downloaded_media = {}
         self.raw_messages = {}
-        self.failed_downloads = set()  # message IDs that failed auto_download_history
+        self.failed_downloads = set()
 
         self.lid_name_map = {}
         self.jid_cache = {}
         self.lid_to_pn = {}
-        self.active_conversations = {}  # { chat_jid: {"id": conv_id, "ts": timestamp, "thread_id": str} }
+        self.active_conversations = {}  # { chat_jid: {"id", "ts", "thread_id"} }
 
         self.sync_status = {
             "syncing": False, "phase": "idle",
@@ -312,9 +306,6 @@ class Session:
         self.stop_event = threading.Event()
         self.deleted = False
         self.upload_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"upload-{username}")
-
-        # A SNAPSHOT USED TO BE RESTORED FROM CLOUD STORAGE HERE. THERE IS NO
-        # CLOUD, SO THE SESSION STARTS FROM ITS OWN FILES ON THIS DISK.
 
     def build_jid_to_name(self):
         jid_to_name = {c["id"]: c.get("name", c["id"].split("@")[0]) for c in self.chats}
@@ -357,7 +348,7 @@ class Session:
                     if not m.get("fromMe") or m.get("type") == "reaction":
                         continue
                     ts = m.get("timestamp", 0)
-                    # Prefer media messages over text when timestamps are equal
+                    # ON A TIE THE MEDIA COPY WINS: THE TEXT ONE IS THE DEGRADED CAPTION.
                     is_better = ts > best_ts or (ts == best_ts and m.get("hasMedia") and best and not best.get("hasMedia"))
                     if is_better:
                         best_ts = ts
@@ -393,13 +384,11 @@ class Session:
                     from_jid = m.get("fromJid", "")
                     sender_name = (m.get("from") or "").strip()
 
-                    # Case 1: fromJid is still a @lid - resolve via lid_to_pn
                     if "@lid" in from_jid:
                         resolved = self.lid_to_pn.get(from_jid)
                         if resolved:
                             m["fromJid"] = resolved
                             m["phoneNumber"] = resolved.split("@")[0] if "@" in resolved else None
-                            # Try to get name from contacts
                             for c in self.contacts:
                                 if c["id"] == resolved:
                                     m["from"] = c.get("name") or resolved.split("@")[0]
@@ -407,7 +396,7 @@ class Session:
                             fixed += 1
                             continue
 
-                    # Case 2: fromJid is group JID (unknown sender with a pushName)
+                    # fromJid STILL THE GROUP MEANS THE SENDER IS ONLY A pushName.
                     if from_jid != jid or not sender_name or sender_name == "unknown":
                         continue
                     matched_jid = name_to_jid.get(sender_name.lower())
@@ -440,7 +429,7 @@ def format_message(session, message):
     from_me = src.IsFromMe
     msg_id = info.ID
     raw_ts = int(info.Timestamp)
-    if raw_ts > 4102444800:  # milliseconds - convert to seconds
+    if raw_ts > 4102444800:  # PAST THE YEAR 2100, SO IT IS MILLISECONDS.
         raw_ts = raw_ts // 1000
     timestamp = raw_ts if 0 < raw_ts < 4102444800 else 0
     push_name = info.Pushname or ""
@@ -452,7 +441,7 @@ def format_message(session, message):
     if from_me:
         sender_name = session.name or session.phone or "Me"
     else:
-        # User-saved contact name wins over WhatsApp pushName
+        # A SAVED CONTACT NAME BEATS THE pushName.
         sender_name = "unknown"
         for c in session.contacts:
             if c["id"] == sender_jid:
@@ -537,7 +526,7 @@ def format_message(session, message):
     elif msg.HasField('protocolMessage'):
         return None
 
-    # Forwarded messages wrap media inside contextInfo - check if we missed it above
+    # A FORWARD WRAPS ITS MEDIA INSIDE contextInfo, WHERE THE PASS ABOVE CANNOT SEE IT.
     if not body and not has_media:
         try:
             ctx = getattr(msg, 'contextInfo', None)
@@ -768,7 +757,7 @@ def handle_message(session, message):
                     "status": "",
                 })
             elif entry["from"] and entry["from"] != "unknown":
-                # Only update name if current stored name is the phone number (never properly named)
+                # A STORED NAME THAT IS THE PHONE NUMBER WAS NEVER A REAL NAME.
                 existing_name = session.contacts[existing].get("name", "")
                 existing_num = session.contacts[existing].get("number", "")
                 if not existing_name or existing_name == existing_num:
@@ -792,11 +781,11 @@ def handle_message(session, message):
         if entry["hasMedia"]:
             store = session.media[chat_jid]
             session.raw_messages[entry["id"]] = message
-            # Remove stale text copy from messages store (cross-store dedup)
+            # THE SAME MESSAGE MUST NEVER SIT IN BOTH STORES.
             session.messages[chat_jid] = [m for m in session.messages[chat_jid] if m["id"] != entry["id"]]
         else:
             store = session.messages[chat_jid]
-            # Skip if a media version already exists (don't overwrite with degraded copy)
+            # THE TEXT COPY IS THE DEGRADED ONE, SO IT NEVER OVERWRITES MEDIA.
             if any(m["id"] == entry["id"] for m in session.media[chat_jid]):
                 store = None
 
@@ -812,7 +801,7 @@ def handle_message(session, message):
             session.chats[cidx]["lastMessage"] = entry["body"]
             session.chats[cidx]["timestamp"] = entry["timestamp"]
 
-        # Keep latest_received_message and latest_sent_message up to date for O(1) retrieval
+        # KEPT CURRENT HERE SO READING THE NEWEST NEVER SCANS EVERY CHAT.
         if entry.get("type") != "reaction" and not any(x in chat_jid for x in ("@newsletter", "@broadcast")):
             ts = entry.get("timestamp", 0)
             if session.phone and chat_jid == f"{session.phone}@s.whatsapp.net":
@@ -960,7 +949,7 @@ def handle_history_sync(session, evt):
             if existing < 0:
                 session.contacts.append({"id": jid, "name": clean(pn_name), "number": pn_id.split("@")[0], "status": ""})
             elif pn_name:
-                # Only update if stored name is the phone number (never properly named by user)
+                # A STORED NAME THAT IS THE PHONE NUMBER WAS NEVER A REAL NAME.
                 existing_name = session.contacts[existing].get("name", "")
                 existing_num = session.contacts[existing].get("number", "")
                 if not existing_name or existing_name == existing_num:
@@ -1009,7 +998,6 @@ def handle_history_sync(session, evt):
                     from_me = getattr(key, 'fromMe', False)
                     remote_jid = str(getattr(key, 'remoteJID', ""))
                     participant = str(getattr(key, 'participant', ""))
-                    # Also check top-level participant on WebMessageInfo
                     web_participant = str(getattr(web_msg, 'participant', ""))
                     if is_group and not participant and web_participant:
                         participant = web_participant
@@ -1017,7 +1005,7 @@ def handle_history_sync(session, evt):
                     ts = raw_ts if 0 < raw_ts < 4102444800 else conv_ts
                     sender_jid = participant if is_group and participant else remote_jid
                     sender_jid = resolve_lid_str(session, sender_jid) if sender_jid else sender_jid
-                    # If still a LID, keep it as fromJid (not group JID) so we can re-resolve later
+                    # AN UNRESOLVED LID IS KEPT AS fromJid SO A LATER PASS CAN RESOLVE IT.
                     is_lid_sender = sender_jid and "@lid" in str(sender_jid)
                     phone = sender_jid.split("@")[0] if "@" in str(sender_jid) and not is_lid_sender else None
 
@@ -1091,17 +1079,14 @@ def handle_history_sync(session, evt):
                     if from_me:
                         sender_name = session.name or session.phone or "Me"
                     elif phone and not (is_group and sender_jid == chat_id):
-                        # Normal case: we have a valid individual sender JID
                         for c in session.contacts:
                             if c["id"] == str(sender_jid) or c.get("number") == phone:
                                 sender_name = c.get("name", phone); break
                         if sender_name == "unknown":
                             sender_name = push_name_hist or phone
                     elif is_group and not participant and push_name_hist:
-                        # Group message with missing participant JID - use pushName as sender name
-                        # so name-based filtering still works
+                        # NO PARTICIPANT JID, SO THE pushName IS ALL A NAME FILTER HAS.
                         sender_name = push_name_hist
-                        # Also try to resolve to a contact JID via pushName
                         resolved_jid = session.lid_name_map.get(push_name_hist.lower())
                         if resolved_jid:
                             sender_jid = resolved_jid
@@ -1114,11 +1099,11 @@ def handle_history_sync(session, evt):
                         if ts and ts > cutoff:
                             threading.Thread(target=auto_download_history, args=(session, web_msg, entry), daemon=True).start()
                         store = session.media[chat_id]
-                        # Remove from messages if it was previously stored there (cross-store dedup)
+                        # THE SAME MESSAGE MUST NEVER SIT IN BOTH STORES.
                         session.messages[chat_id] = [m for m in session.messages[chat_id] if m["id"] != msg_id]
                     else:
                         store = session.messages[chat_id]
-                        # If a media version already exists, skip storing a degraded text copy
+                        # THE TEXT COPY IS THE DEGRADED ONE, SO IT NEVER OVERWRITES MEDIA.
                         if any(m["id"] == msg_id for m in session.media[chat_id]):
                             continue
                     eidx = next((i for i, m in enumerate(store) if m["id"] == msg_id), -1)
@@ -1129,7 +1114,6 @@ def handle_history_sync(session, evt):
                     if ts and ts > session.chats[cidx].get("timestamp", 0):
                         session.chats[cidx]["lastMessage"] = clean(body)
                         session.chats[cidx]["timestamp"] = ts
-                    # Keep latest_received_message and latest_sent_message current
                     if msg_type != "reaction" and ts and not any(x in chat_id for x in ("@newsletter", "@broadcast")):
                         chat_name = session.chats[cidx].get("name", chat_id.split("@")[0])
                         if from_me:
@@ -1164,8 +1148,8 @@ def enrich_contacts_from_store(session):
         for sc in store_contacts:
             cid = jid_str(sc.JID)
             info = sc.Info
-            # Prefer phone-book name (FullName/FirstName) over WhatsApp push name
-            # so contacts saved as "john" in phone appear as "john", not their WhatsApp display name
+            # THE PHONE BOOK WINS: SOMEBODY SAVED AS "john" IS ASKED FOR AS "john",
+            # NOT BY WHATEVER THEY CALL THEMSELVES ON WHATSAPP.
             phone_book_name = info.FullName or info.FirstName or ""
             name = phone_book_name or info.PushName or info.BusinessName or ""
             number = cid.split("@")[0] if "@" in cid else ""
@@ -1173,7 +1157,6 @@ def enrich_contacts_from_store(session):
                 if name:
                     for c in session.contacts:
                         if c["id"] == cid:
-                            # Always prefer phone-book name; fall back to push name only if no phone-book name
                             if phone_book_name or not c.get("name") or c["name"] == c.get("number"):
                                 c["name"] = clean(name)
                             break
@@ -1198,7 +1181,6 @@ def bulk_resolve_group_lids(session):
                 pid = p.get("id", "")
                 if pid and "@lid" in pid and pid not in session.lid_to_pn:
                     lid_set.add(pid)
-        # Also collect @lid JIDs from stored messages (if we now store them)
         for msgs in list(session.messages.values()) + list(session.media.values()):
             for m in msgs:
                 fj = m.get("fromJid", "")
@@ -1218,7 +1200,6 @@ def bulk_resolve_group_lids(session):
             if pn_str and "@lid" not in pn_str:
                 with session.lock:
                     session.lid_to_pn[lid_jid] = pn_str
-                    # Also update group participant records
                     for g in session.groups:
                         for p in g.get("participants", []):
                             if p.get("id") == lid_jid:
@@ -1305,7 +1286,7 @@ def do_sync(session):
             if time.time() - session.last_history_sync_at > 5:
                 break
             time.sleep(1)
-        # Mark done immediately so the frontend exits the sync screen
+        # SET BEFORE PERSISTING, SO THE PANEL LEAVES THE SYNC SCREEN AT ONCE.
         session.do_sync_done = True
         session.sync_status.update({"syncing": False, "phase": "done", "completedAt": datetime.utcnow().isoformat() + "Z", "message": "Sync complete"})
         persist(session)
@@ -1601,8 +1582,8 @@ def disconnect(username):
     with sessions_lock:
         s = sessions.pop(username, None)
     if s:
-        s.deleted = True  # stop new uploads from being submitted
-        s.upload_executor.shutdown(wait=True, cancel_futures=True)  # drain in-flight, cancel pending
+        s.deleted = True  # STOPS NEW UPLOADS BEING SUBMITTED.
+        s.upload_executor.shutdown(wait=True, cancel_futures=True)
         s.stop_event.set()
         s.connected = False
         s.authenticated = False
@@ -1836,14 +1817,14 @@ def download_media(username):
         return jsonify({"error": "Not connected"}), 503
     if message_id in s.downloaded_media:
         return jsonify({"success": True, **s.downloaded_media[message_id]})
-    # View-once messages self-destruct after opening - neonize has no attachments to download
+    # A VIEW ONCE HAS ALREADY SELF DESTRUCTED, SO THERE IS NOTHING TO FETCH.
     for msgs in s.media.values():
         cached = next((m for m in msgs if m["id"] == message_id), None)
         if cached and cached.get("type") == "viewonce":
             return jsonify({"error": "View-once messages cannot be downloaded"}), 400
 
-    # Check if the file was already auto-downloaded to disk (e.g. history-sync messages
-    # are not kept in raw_messages, but auto_download may have saved them to dl_dir).
+    # A HISTORY SYNC MESSAGE IS NOT IN raw_messages, BUT AUTO DOWNLOAD MAY HAVE
+    # PUT ITS FILE ON DISK ALREADY.
     cached_entry = None
     if chat_id:
         cached_entry = next((m for m in s.media.get(chat_id, []) if m["id"] == message_id), None)
@@ -1862,9 +1843,8 @@ def download_media(username):
             s.downloaded_media[message_id] = result
             return jsonify({"success": True, **result})
 
-    # filename is null - auto_download_history failed or bridge was restarted (raw_messages lost).
-    # Re-queue a fresh auto-download attempt using raw_messages if available, or fall through
-    # to get_message_for_retry below. Also check if S3 already has the file under a guessed name.
+    # NO filename MEANS THE DOWNLOAD FAILED, OR THE BRIDGE RESTARTED AND TOOK
+    # raw_messages WITH IT. THE NAME IS GUESSABLE FROM THE MIME TYPE.
     if cached_entry and not cached_entry.get("filename") and s.client and s.connected:
         mime = cached_entry.get("mimeType") or "application/octet-stream"
         ext = mime.split("/")[-1].split(";")[0]
@@ -1884,11 +1864,10 @@ def download_media(username):
     raw_msg = s.raw_messages.get(message_id)
     msg_proto = None
     if raw_msg:
-        # Live messages: raw_msg is a neonize Message; .Message gives the proto
-        # History-sync messages: raw_msg is WebMessageInfo; .message gives the proto
+        # A LIVE MESSAGE CARRIES .Message, A HISTORY SYNCED ONE .message.
         msg_proto = getattr(raw_msg, 'Message', None) or getattr(raw_msg, 'message', None)
         if msg_proto is None:
-            # Fallback: pass the raw object itself, some neonize versions accept WebMessageInfo
+            # SOME NEONIZE VERSIONS TAKE THE WebMessageInfo WHOLE.
             msg_proto = raw_msg
     if not msg_proto and s.client:
         try:
@@ -1910,7 +1889,6 @@ def download_media(username):
     try:
         media_bytes = s.client.download_any(msg_proto)
         if not media_bytes:
-            # Try with the raw message object if inner proto gave no bytes
             if raw_msg and msg_proto is not raw_msg:
                 media_bytes = s.client.download_any(raw_msg)
         if not media_bytes:
@@ -2007,7 +1985,7 @@ def latest_received_message(username):
         if include_groups or "@g.us" not in chat_jid:
             return jsonify(clean(msg))
 
-    # Fallback: use conversation timestamps from history sync metadata
+    # NOTHING LIVE YET, SO FALL BACK ON THE HISTORY SYNC TIMESTAMPS.
     with s.lock:
         chats = [c for c in s.chats if c.get("timestamp", 0) > 0 and "@broadcast" not in c.get("id", "") and "@newsletter" not in c.get("id", "")]
         if not include_groups:
@@ -2056,15 +2034,13 @@ def query_messages(username):
     chat_q = (request.args.get("chat") or "").strip().lower()
     sender_q = (request.args.get("sender") or "").strip().lower()
     raw_limit = int(request.args.get("limit", 5))
-    # Sender queries scan all messages first then limit - use a higher cap so
-    # the agent gets enough results without an explicit limit override.
+    # A SENDER QUERY SCANS EVERYTHING BEFORE IT CUTS, SO IT NEEDS THE HIGHER CAP.
     max_limit = 200 if sender_q else 50
     limit = min(raw_limit, max_limit)
     from_me_arg = request.args.get("fromMe", "").lower()
-    date_q = (request.args.get("date") or "").strip().lower()  # "today", "yesterday", or "YYYY-MM-DD"
-    order = (request.args.get("order") or "newest").strip().lower()  # "newest" or "oldest"
+    date_q = (request.args.get("date") or "").strip().lower()  # "today", "yesterday" OR "YYYY-MM-DD".
+    order = (request.args.get("order") or "newest").strip().lower()
 
-    # Resolve date filter to UTC day boundaries (timestamps in seconds)
     day_start = day_end = None
     if date_q:
         from datetime import timezone
@@ -2083,8 +2059,7 @@ def query_messages(username):
         day_start = int(datetime(target_date.year, target_date.month, target_date.day, tzinfo=timezone.utc).timestamp())
         day_end = day_start + 86400
 
-    # Snapshot all session state under the lock - prevents race conditions with
-    # concurrent history sync events that may be adding/modifying entries.
+    # SNAPSHOTTED WHOLE: A HISTORY SYNC IS ADDING TO THESE ON ANOTHER THREAD.
     with s.lock:
         messages_snap = {k: list(v) for k, v in s.messages.items()}
         media_snap = {k: list(v) for k, v in s.media.items()}
@@ -2094,26 +2069,23 @@ def query_messages(username):
         user_phone = s.phone
         user_name = s.name
 
-    # Resolve chat name to JID - exact first, then substring, then emoji-stripped fallback
+    # EXACT FIRST, THEN SUBSTRING, THEN EMOJI STRIPPED.
     target_jid = None
     target_name = None
     if chat_q:
         all_chats = {c["id"]: c.get("name", c["id"].split("@")[0]) for c in chats_snap}
         for g in groups_snap:
             all_chats.setdefault(g["id"], g.get("name", g["id"].split("@")[0]))
-        # Include contacts so "venu" matches even when chat display name is the phone number
+        # CONTACTS TOO: A DIRECT CHAT'S DISPLAY NAME IS OFTEN THE PHONE NUMBER.
         for c in contacts_snap:
             cname = c.get("name")
             if cname and cname != c.get("number"):
                 all_chats[c["id"]] = cname
-        # Strip trailing filler words the agent commonly appends ("group", "chat", "bhai")
-        # so "the boys group" resolves to "The boys" correctly.
+        # THE AGENT APPENDS FILLER, SO "the boys group" HAS TO REACH "The boys".
         chat_q_clean = re.sub(r'\s+(group|chat|bhai)\s*$', '', chat_q, flags=re.IGNORECASE).strip() or chat_q
-        # 1. Exact match (try both original and cleaned query)
         match = next((jid for jid, name in all_chats.items() if name.lower() == chat_q_clean), None)
         if not match and chat_q_clean != chat_q:
             match = next((jid for jid, name in all_chats.items() if name.lower() == chat_q), None)
-        # 2. Substring match - prefer cleaned query to avoid false positives from "group" suffix
         if not match:
             match = next((jid for jid, name in all_chats.items() if name_match(chat_q_clean, name)), None)
         if not match and chat_q_clean != chat_q:
@@ -2123,7 +2095,7 @@ def query_messages(username):
         else:
             return jsonify({"error": f"Chat '{chat_q}' not found"}), 404
 
-    # Resolve sender to phone numbers AND LID IDs - using emoji-aware name matching
+    # BOTH PHONE NUMBERS AND LID IDS: STORED MESSAGES USE EITHER.
     sender_phones = set()
     if sender_q:
         for c in contacts_snap:
@@ -2133,10 +2105,9 @@ def query_messages(username):
             if name_match(sender_q, name) or sender_q in number:
                 if number:
                     sender_phones.add(number)
-                # Also add the LID numeric ID so @lid fromJid entries match
                 if "@lid" in cid:
                     sender_phones.add(cid.split("@")[0])
-        # Also check group participants (may not be in contacts)
+        # GROUP PARTICIPANTS ARE NOT ALWAYS IN CONTACTS.
         for g in groups_snap:
             for p in g.get("participants", []):
                 pname = (p.get("name") or "")
@@ -2148,7 +2119,7 @@ def query_messages(username):
                     if pid and "@lid" in pid:
                         sender_phones.add(pid.split("@")[0])
 
-    # Build phone/LID → saved contact name for resolving numeric `from` fields in results
+    # phone/LID → SAVED NAME, FOR THE NUMERIC `from` FIELDS IN THE RESULTS.
     phone_to_name = {}
     for c in contacts_snap:
         cname = c.get("name")
@@ -2164,14 +2135,12 @@ def query_messages(username):
         Covers: raw phone number, partial push name (e.g. 'Rishi' instead of 'Rishi uncle 🙏'),
         or any other mismatch between stored sender and the phone-book name."""
         from_jid = (m.get("fromJid") or "")
-        # Don't touch group-origin JIDs (sender is a person inside a group - fromJid is their JID)
         from_jid_phone = from_jid.split("@")[0] if "@" in from_jid else ""
         if not from_jid_phone:
             return m
         saved_name = phone_to_name.get(from_jid_phone)
         if saved_name:
             return {**m, "from": saved_name}
-        # Fallback: if `from` is a raw phone number, try matching by that number too
         from_val = (m.get("from") or "").strip()
         if from_val and from_val.lstrip("+").isdigit():
             saved_name = phone_to_name.get(from_val)
@@ -2183,12 +2152,11 @@ def query_messages(username):
     chat_name_map = {c["id"]: c.get("name", c["id"].split("@")[0]) for c in chats_snap}
     for g in groups_snap:
         chat_name_map.setdefault(g["id"], g.get("name", g["id"].split("@")[0]))
-    # Contacts override phone-number fallbacks in chat_name_map (direct chats have no display name)
+    # A DIRECT CHAT HAS NO DISPLAY NAME, SO THE CONTACT BEATS THE PHONE NUMBER.
     for c in contacts_snap:
         cname = c.get("name")
         if cname and cname != c.get("number"):
             chat_name_map[c["id"]] = cname
-    # Self-chat (Saved Messages) shows the user's own name
     if user_phone:
         chat_name_map[f"{user_phone}@s.whatsapp.net"] = user_name or "Saved Messages"
 
@@ -2205,8 +2173,7 @@ def query_messages(username):
                 return False
             stored_name = (m.get("from") or "")
             from_jid_phone = (m.get("fromJid") or "").split("@")[0]
-            # Also check resolved contact name - stored_name may be a partial push name
-            # (e.g. "Rasool" instead of "Rasool Khan") while phone_to_name has the full name.
+            # A STORED pushName IS OFTEN THE SHORT ONE: "Rasool", NOT "Rasool Khan".
             resolved_name = phone_to_name.get(from_jid_phone, stored_name)
             if (not name_match(sender_q, stored_name)
                     and not name_match(sender_q, resolved_name)
@@ -2215,7 +2182,6 @@ def query_messages(username):
         return True
 
     if target_jid:
-        # Single chat - filter and sort within that chat
         chat_name = target_name or chat_name_map.get(target_jid, target_jid.split("@")[0])
         all_msgs = messages_snap.get(target_jid, []) + media_snap.get(target_jid, [])
         filtered = [{**resolve_from(m), "chatName": chat_name} for m in all_msgs if passes_filters(m, target_jid)]
@@ -2225,11 +2191,10 @@ def query_messages(username):
         candidates = []
 
         if sender_q:
-            # Sender specified without a chat → look only in the direct chat with that person.
-            # Never fall back to groups; groups must be named explicitly via chat= param.
+            # A SENDER WITH NO CHAT MEANS THE DIRECT CHAT, NEVER A GROUP: A GROUP
+            # HAS TO BE NAMED OUTRIGHT.
             direct_jid = None
-            # Use the contact's actual JID (id field) - more reliable than reconstructing
-            # from phone number which may differ in format from the messages_snap key.
+            # THE CONTACT'S OWN id, NOT A JID REBUILT FROM THE NUMBER: THE FORMATS DIFFER.
             for c in contacts_snap:
                 cname = (c.get("name") or "")
                 cid = c.get("id", "")
@@ -2238,7 +2203,6 @@ def query_messages(username):
                         direct_jid = cid
                         break
             if not direct_jid and sender_phones:
-                # Fallback: reconstruct JID from phone number
                 for phone in sorted(sender_phones):
                     cjid = f"{phone}@s.whatsapp.net"
                     if cjid in messages_snap or cjid in media_snap:
@@ -2251,7 +2215,7 @@ def query_messages(username):
                 ):
                     return jsonify({"error": f"Could not resolve sender '{sender_q}' to a contact"}), 404
                 return jsonify({"error": f"No direct chat found for '{sender_q}'. If you meant a group message, specify the group name too."}), 404
-            # In a direct chat, all non-fromMe messages are from the contact - no sender filter needed.
+            # IN A DIRECT CHAT EVERY INCOMING MESSAGE IS THEIRS, SO NO SENDER FILTER.
             chat_name = chat_name_map.get(direct_jid, direct_jid.split("@")[0])
             for m in messages_snap.get(direct_jid, []) + media_snap.get(direct_jid, []):
                 if not m.get("fromMe"):
@@ -2263,7 +2227,6 @@ def query_messages(username):
                         continue
                     candidates.append({**resolve_from(m), "chatName": chat_name})
         else:
-            # No sender, no chat - global scan across all JIDs
             for jid in jids:
                 if "@newsletter" in jid or "@broadcast" in jid:
                     continue

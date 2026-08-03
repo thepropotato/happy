@@ -43,8 +43,7 @@ def main():
 
     recorder = ears.Recorder()
 
-    # SOMEONE WHO HAS STARTED TALKING HAS STOPPED LISTENING, AND THE MIC MUST
-    # NOT HEAR HAPPY EITHER.
+    # SOMEBODY WHO HAS STARTED TALKING HAS STOPPED LISTENING.
     ptt = ears.PushToTalk(on_press=speaker.stop)
 
     brain.watches(show.step)

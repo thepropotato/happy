@@ -84,8 +84,7 @@ def program(app):
 def engine(app):
     """WHETHER THIS BROWSER IS A CHROMIUM ONE."""
     if sys.platform == MACOS:
-        # EVERY CHROMIUM BUNDLE SHIPS ITS ENGINE AS A FRAMEWORK BESIDE THE
-        # PROGRAM, AND NOTHING ELSE DOES.
+        # ONLY A CHROMIUM BUNDLE SHIPS ITS ENGINE AS A FRAMEWORK BESIDE THE PROGRAM.
         return any((Path(app) / MAC_FRAMEWORKS).glob(MAC_ENGINE))
 
     return Path(app).stem.lower() in CHROMIUM_NAMES

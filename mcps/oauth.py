@@ -25,8 +25,7 @@ from mcps import registry, tokens
 
 PATIENCE = 30
 
-# GOOGLE HANDS OVER A REFRESH TOKEN ONLY TO SOMEBODY WHO ASKS IN THESE WORDS, AND
-# ONLY WHEN THE CONSENT IS ACTUALLY SHOWN. WITHOUT THEM THE SIGN IN DIES IN AN HOUR.
+# WITHOUT THESE, GOOGLE WITHHOLDS THE REFRESH TOKEN AND THE SIGN IN DIES IN AN HOUR.
 LASTING = {"access_type": "offline", "prompt": "consent"}
 
 BRING_ONE = "{label} needs an app of your own. Add its client ID and secret first."

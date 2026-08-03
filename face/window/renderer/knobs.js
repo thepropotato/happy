@@ -175,8 +175,8 @@ const Knobs = (() => {
       })
     },
 
-    // REDRAWING A CONTROL THAT WAS JUST MOVED WOULD SHUT THE LIST STILL OPEN UNDER
-    // SOMEBODY'S FINGER, SO THE SHEET IS REBUILT ONLY WHEN SOMETHING CHANGED.
+    // REBUILT ONLY ON A REAL CHANGE: A REDRAW WOULD SHUT THE LIST STILL OPEN
+    // UNDER SOMEBODY'S FINGER.
     show(word) {
       const agreed =
         JSON.stringify(word.values) === JSON.stringify(values) &&

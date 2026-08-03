@@ -11,10 +11,8 @@ import eyes
 import mcps
 from hands import apps, asking, browser, coder, controls, desktop, files, shell
 
-# THE ORDER THE MODEL SEES THEM IN. THE NARROW, SAFE ONES GO FIRST SO THEY READ
-# AS THE OBVIOUS CHOICE BEFORE THE SHELL DOES. mcps SITS AHEAD OF THE ONES THAT
-# WORK BY LOOKING AT THE SCREEN, BECAUSE A CONNECTED SERVICE ANSWERS FOR ITS OWN
-# MAIL OR CHATS IN ONE EXACT CALL AND READING THE PIXELS OF ITS APP DOES NOT.
+# THE ORDER THE MODEL SEES THEM IN: NARROW AND SAFE FIRST, SO THEY READ AS THE
+# OBVIOUS CHOICE BEFORE THE SHELL AND THE SCREEN DO.
 MODULES = [apps, controls, files, mcps, eyes, desktop, browser, coder, shell]
 
 
@@ -29,8 +27,7 @@ def tools():
     for module in MODULES:
         found.extend(getattr(module, "TOOLS", []))
 
-        # SOME TOOLS ONLY EXIST ONCE SOMETHING IS CONNECTED, SO THEY ARE ASKED
-        # FOR EVERY TIME RATHER THAN LISTED ONCE AT IMPORT.
+        # SOME TOOLS ONLY EXIST ONCE SOMETHING IS CONNECTED, SO NEVER CACHE THIS.
         offering = getattr(module, "offering", None)
 
         if offering:

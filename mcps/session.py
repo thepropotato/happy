@@ -64,8 +64,8 @@ class Session:
         finally:
             self.session = None
 
-            # SET EVEN WHEN IT FAILED, SO NOBODY WAITS OUT THE TIMEOUT FOR A
-            # SERVER ALREADY KNOWN NOT TO BE COMING.
+            # SET EVEN ON FAILURE: NOBODY SHOULD WAIT OUT THE TIMEOUT FOR A SERVER
+            # ALREADY KNOWN NOT TO BE COMING.
             if self.ready is not None:
                 self.ready.set()
 
@@ -123,8 +123,7 @@ class Session:
         except McpError:
             raise  # THE SERVER ANSWERED AND SAID NO.
         except Exception:
-            # ONE RESTART, NEVER TWO. THE SECOND WAIT IS LONGER THAN A PERSON
-            # WILL STAND THERE FOR.
+            # ONE RESTART, NEVER TWO: THE SECOND WAIT OUTLASTS ANYONE'S PATIENCE.
             await self.close()
 
             session = await self.open()

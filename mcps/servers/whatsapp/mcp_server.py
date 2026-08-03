@@ -10,9 +10,8 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 if sys.stderr and hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
-# THE SERVER'S OWN FOLDER COMES OFF THE PATH AND mcps/ GOES ON IN ITS PLACE, SO
-# EVERYTHING IS REACHED AS servers.something AND NOTHING BESIDE THIS FILE CAN
-# EVER BE WHAT AN import SOMEWHERE DEEP IN A LIBRARY FINDS FIRST.
+# THE SERVER'S OWN FOLDER COMES OFF THE PATH SO A FILE BESIDE THIS ONE CAN NEVER
+# BE WHAT SOME LIBRARY'S import FINDS FIRST.
 sys.path[0] = str(Path(__file__).resolve().parents[2])
 
 from mcp.server.fastmcp import FastMCP
@@ -29,10 +28,9 @@ def coerce_str(v):
     if v is None:
         return ""
     s = str(v).strip()
-    # Discard code blocks (```...```) or raw JSON objects passed as values
     if s.startswith("```") or (s.startswith("{") and s.endswith("}")):
         return ""
-    # Strip surrounding quotes added by LLM (e.g. '"the boys"' -> 'the boys')
+    # THE MODEL QUOTES ITS OWN ARGUMENTS: '"the boys"' IS MEANT AS 'the boys'.
     if len(s) >= 2 and ((s[0] == '"' and s[-1] == '"') or (s[0] == "'" and s[-1] == "'")):
         s = s[1:-1].strip()
     return s
@@ -44,9 +42,8 @@ mcp = FastMCP("whatsapp", log_level="ERROR")
 
 from contextvars import ContextVar
 
-# PER-REQUEST WHATSAPP CLIENT - A CONTEXTVAR (NOT A MODULE GLOBAL) SO CONCURRENT
-# USERS IN THE SHARED MCP GATEWAY EACH GET THEIR OWN CLIENT INSTEAD OF SHARING
-# WHICHEVER USER'S CLIENT WAS LAZILY CREATED FIRST.
+# A CONTEXTVAR, NOT A GLOBAL: CONCURRENT REQUESTS MUST NOT SHARE WHICHEVER
+# CLIENT WAS LAZILY MADE FIRST.
 client: ContextVar["WhatsAppClient | None"] = ContextVar("whatsapp_client", default=None)
 
 
@@ -79,8 +76,7 @@ async def should_sync_on_error(result: dict) -> bool:
     error = result.get("error", "")
     if not error:
         return False
-    # Only trigger sync for genuine contact-not-found errors.
-    # Do NOT match "Media file not found" or other unrelated errors.
+    # NARROW ON PURPOSE: "Media file not found" MUST NOT START A SYNC.
     return "Contact not found" in error
 
 @mcp.tool()
@@ -170,27 +166,6 @@ async def get_messages(contact: list[str], limit: int = 10, order_newest: bool =
     results = await asyncio.gather(*[fetch_one(c) for c in contacts])
     data = {c: msgs for c, msgs in results}
     return _json(data[contacts[0]] if len(contacts) == 1 else data)
-
-
-
-
-# @mcp.tool()
-
-
-
-
-
-
-
-
-# @mcp.tool()
-
-
-
-# @mcp.tool()
-
-
-
 
 
 
@@ -290,11 +265,9 @@ async def query_messages(
     group, contact, sender, date = _s(group), _s(contact), _s(sender), _s(date)
     order = "oldest" if oldest_first else "newest"
 
-    # group takes priority; fall back to contact as the chat filter
     chat = group if group else contact
 
-    # When group + contact are both set but sender is empty, the agent put the person's
-    # name in the wrong field. Treat contact as sender so the person filter is applied.
+    # BOTH FIELDS SET AND NO SENDER MEANS THE AGENT PUT THE PERSON IN THE WRONG ONE.
     if group and contact and not sender:
         sender = contact
         contact = ""
@@ -310,7 +283,7 @@ async def query_messages(
     if sender.lower() in KNOWN_NON_NAMES:
         sender = ""
 
-    # Detect garbage (full sentences). Try to extract the actual name before erroring.
+    # A WHOLE SENTENCE IN THE FIELD. THE NAME IS DUG OUT OF IT BEFORE GIVING UP.
     orig_chat, orig_sender = chat, sender
     chat_garbage = len(chat) > 80 or chat.count(" ") > 5
     sender_garbage = len(sender) > 60 or sender.count(" ") > 4
@@ -352,16 +325,14 @@ async def query_messages(
     wa = get_client()
     result = await wa.query_messages(chat=chat, sender=sender, limit=limit, from_me=from_me_str, date=date, order=order)
 
-    # If no results and both group + contact were provided, retry with the other one.
-    # Handles the case where LLM filled the wrong field (e.g. put group name in contact).
+    # NOTHING BACK WITH BOTH FIELDS FILLED: THE OTHER ONE WAS PROBABLY THE CHAT.
     if isinstance(result, list) and len(result) == 0 and group and contact:
         fallback_chat = contact if chat == group else group
         result2 = await wa.query_messages(chat=fallback_chat, sender=sender, limit=limit, from_me=from_me_str, date=date, order=order)
         if isinstance(result2, list) and len(result2) > 0:
             result = result2
 
-    # If query_messages returned an error for a sender-only lookup, fall back to get_messages
-    # internally so the model never has to pick a second tool and waste LLM time.
+    # FALLING BACK IN HERE SPARES THE MODEL A SECOND ROUND TRIP TO PICK ANOTHER TOOL.
     is_error = isinstance(result, dict) and "error" in result
     if is_error and sender and not chat:
         fallback = await wa.get_messages(sender, limit, order=order, received_only=(from_me_str == "false"))

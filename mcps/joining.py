@@ -35,9 +35,8 @@ def connect(name):
 
     stir()
 
-    # A SERVICE THAT STILL WANTS SCANNING FINISHES IN A BROWSER, THE WAY SIGNING
-    # INTO GOOGLE ALREADY DOES. WAITING FOR THE BRIDGE HERE IS FINE: CONNECTING
-    # RUNS ON ITS OWN THREAD AND NOBODY IS WAITING ON THIS ONE TO SPEAK.
+    # WAITING FOR THE BRIDGE IS FINE HERE: CONNECTING HAS ITS OWN THREAD AND
+    # NOBODY IS WAITING ON THIS ONE TO SPEAK.
     if known.get("scan"):
         if not whatsapp.scan():
             return f"Could not start {known['label']}. See data/whatsapp.log."

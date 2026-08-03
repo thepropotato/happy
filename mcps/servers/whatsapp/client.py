@@ -238,7 +238,7 @@ class WhatsAppClient:
     async def query_messages(self, chat: str = "", sender: str = "", limit: int = 5, from_me: str = "", date: str = "", order: str = "newest") -> list[dict[str, Any]]:
         try:
             from urllib.parse import urlencode
-            def clean_param(v): return " ".join(str(v).split())  # collapse all whitespace/newlines
+            def clean_param(v): return " ".join(str(v).split())
             params = {}
             if chat: params["chat"] = clean_param(chat)
             if sender: params["sender"] = clean_param(sender)

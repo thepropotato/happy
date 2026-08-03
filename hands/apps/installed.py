@@ -28,8 +28,7 @@ MENU = Path("Microsoft/Windows/Start Menu/Programs")
 WINDOWS_ROOTS = ["PROGRAMDATA", "APPDATA"]
 WINDOWS_PATTERNS = ["**/*.lnk"]
 
-# WHAT INSTALLERS LEAVE BESIDE THE APP. MATCHED WHOLE WORD, SO A REAL APP WITH
-# ONE OF THESE INSIDE ITS NAME SURVIVES.
+# WHAT INSTALLERS LEAVE BESIDE THE APP. WHOLE WORD, SO A REAL APP SURVIVES.
 SKIP = {"uninstall", "readme", "documentation"}
 
 SENTENCE = "Apps installed on this computer: "
