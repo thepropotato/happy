@@ -2268,17 +2268,11 @@ def cleanup_stale_files():
     for user_dir in DATA_DIR.iterdir():
         if not user_dir.is_dir():
             continue
+        # A HALF WRITTEN UPLOAD IS RUBBISH. A -wal IS NOT: THE SESSION DATABASE IS
+        # IN WAL MODE, SO WHAT WAS WRITTEN LAST LIVES THERE UNTIL IT IS CHECKPOINTED
+        # IN. DELETING IT AFTER AN UNCLEAN EXIT WINDS THE PAIRING BACK TO WHENEVER
+        # SQLITE LAST CHECKPOINTED, WHICH IS THE LINK GONE AND THE QR AGAIN.
         for f in user_dir.glob("*.upload"):
-            try:
-                f.unlink()
-            except Exception:
-                pass
-        for f in user_dir.glob("*.db-wal"):
-            try:
-                f.unlink()
-            except Exception:
-                pass
-        for f in user_dir.glob("*.db-shm"):
             try:
                 f.unlink()
             except Exception:

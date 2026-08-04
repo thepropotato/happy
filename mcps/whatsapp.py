@@ -88,11 +88,46 @@ def waking():
 
     for _ in range(COMING_TRIES):
         if answering():
-            look()
+            resume()
 
             return
 
         time.sleep(1)
+
+
+def resume():
+    """AN ACCOUNT THAT WAS ALREADY LINKED, BACK ON THE WIRE WITHOUT THE PHONE.
+
+    THE PAIRING OUTLIVES BOTH PROCESSES: IT IS IN THE BRIDGE'S OWN DATABASE AND
+    STILL THERE ON THE NEXT RUN. NOTHING PUT IT BACK ON THOUGH. ASKING FOR THE QR
+    ONLY READS HOW FAR A SESSION HAS GOT AND NEVER STARTS ONE, SO A RESTART LEFT A
+    LINKED ACCOUNT LOOKING EXACTLY LIKE ONE NOBODY HAD EVER SCANNED, AND THE WAY
+    BACK WAS THE QR AGAIN. STARTING IT IS THE MISSING ASK, AND THE ANSWER IS THE
+    SAME WATCH AS A SCAN: IT LANDS IN A FEW SECONDS AND THE PANEL REDRAWS ITSELF.
+    """
+    if look() == "connected":
+        return
+
+    if not configured():
+        return
+
+    try:
+        httpx.post(f"{BASE}/default/start", headers=HEADERS, timeout=10, trust_env=False)
+    except Exception:
+        return
+
+    watch()
+
+
+def configured():
+    """TRUE WHEN THE BRIDGE STILL HOLDS WHAT A PAST SCAN LEFT IT. NOT THE SAME AS
+    LINKED: THIS IS AN ACCOUNT ON DISK, NOT ONE CURRENTLY ON THE WIRE."""
+    try:
+        answer = httpx.get(f"{BASE}/default/status", headers=HEADERS, timeout=3, trust_env=False)
+
+        return bool(answer.json().get("configured"))
+    except Exception:
+        return False
 
 
 def linked():
