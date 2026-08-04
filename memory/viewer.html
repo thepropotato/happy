@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Happy — logs</title>
+    <style>
+      __STYLE__
+    </style>
+  </head>
+  <body>
+    <!-- THE DATA SITS IN THE PAGE AND NOT BESIDE IT: A file:// PAGE IS NOT
+         ALLOWED TO FETCH ITS OWN SIBLING. logs.json IS THE SAME THING, WRITTEN
+         OUT AGAIN FOR ANYTHING THAT IS NOT A BROWSER. -->
+    <script id="logs" type="application/json">
+      __LOGS__
+    </script>
+
+    <div class="sheet">
+      <header>
+        <h1>Happy <span>logs</span></h1>
+        <p class="about" id="about"></p>
+        <div class="tools">
+          <input id="find" type="search" placeholder="Search what was said, tool names, arguments, output…" />
+          <button id="all">Open all</button>
+        </div>
+      </header>
+      <div id="turns"></div>
+    </div>
+
+    <script>
+      const LOGS = JSON.parse(document.getElementById('logs').textContent)
+      const TURNS = LOGS.turns || []
+
+      const node = (id) => document.getElementById(id)
+
+      let wanted = ''
+      let everything = false
+
+      // WHICH CALLS ARE OPEN, BY TURN AND POSITION. IT OUTLIVES A REDRAW, SO
+      // TYPING IN THE SEARCH BOX DOES NOT SHUT WHAT SOMEBODY IS READING.
+      const opened = new Set()
+
+      function make(tag, look, words) {
+        const made = document.createElement(tag)
+
+        if (look) made.className = look
+        if (words !== undefined) made.textContent = words
+
+        return made
+      }
+
+      function clock(turn) {
+        const stamp = new Date(turn.at)
+
+        return isNaN(stamp) ? '?' : stamp.toLocaleString([], { dateStyle: 'medium', timeStyle: 'medium' })
+      }
+
+      function spell(value) {
+        if (typeof value === 'string') return value
+
+        return JSON.stringify(value, null, 2)
+      }
+
+      // EVERYTHING ONE TURN HOLDS, FLATTENED, SO A SEARCH REACHES INSIDE A CALL
+      // AND NOT ONLY INTO WHAT WAS SAID OUT LOUD.
+      function haystack(turn) {
+        const calls = turn.tools || []
+
+        return [
+          turn.message,
+          turn.reply,
+          ...calls.map((each) => [each.name, each.why, spell(each.args), each.result].join(' ')),
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase()
+      }
+
+      function matching() {
+        if (!wanted) return TURNS
+
+        return TURNS.filter((turn) => haystack(turn).includes(wanted))
+      }
+
+      // ── ONE CALL ──
+
+      function drawer(call) {
+        const box = make('div', 'drawer')
+
+        box.append(make('h2', '', 'Given'), make('pre', '', spell(call.args ?? {})))
+        box.append(make('h2', '', 'Came back'), make('pre', '', call.result ?? '—'))
+
+        // THE ROW WAS WRITTEN CLIPPED AND NOTHING HERE CAN GET THE REST BACK.
+        if (typeof call.result === 'string' && call.result.endsWith('...')) {
+          box.append(make('p', 'clipped', 'Cut short when it was recorded.'))
+        }
+
+        return box
+      }
+
+      function calling(call, which) {
+        const open = everything || opened.has(which)
+        const row = make('div', open ? 'call open' : 'call')
+        const face = make('div', 'face')
+
+        face.append(make('span', 'name', call.name || '?'))
+        face.append(make('span', 'why', call.why || ''))
+
+        if (call.seconds != null) face.append(make('span', 'took', `${call.seconds}s`))
+
+        face.onclick = () => {
+          if (opened.has(which)) opened.delete(which)
+          else opened.add(which)
+
+          everything = false
+          paint()
+        }
+
+        row.append(face)
+
+        if (open) row.append(drawer(call))
+
+        return row
+      }
+
+      // ── ONE EXCHANGE ──
+
+      function drawn(turn) {
+        const box = make('div', 'turn')
+        const when = make('div', 'when')
+
+        when.append(make('span', '', clock(turn)))
+        when.append(make('span', '', `#${turn.id}`))
+
+        if (turn.seconds != null) when.append(make('span', '', `${turn.seconds}s`))
+        if (turn.unprompted) when.append(make('span', 'flag', 'unprompted'))
+
+        box.append(when)
+
+        if (turn.message) box.append(make('div', 'said you', turn.message))
+
+        const calls = turn.tools || []
+
+        if (calls.length) {
+          const holder = make('div', 'calls')
+
+          calls.forEach((call, index) => holder.append(calling(call, `${turn.id}.${index}`)))
+          box.append(holder)
+        }
+
+        box.append(
+          turn.reply
+            ? make('div', 'said happy', turn.reply)
+            : make('div', 'said none', 'Nothing was said back.'),
+        )
+
+        return box
+      }
+
+      function paint() {
+        const found = matching()
+        const holder = node('turns')
+
+        holder.replaceChildren()
+
+        if (!found.length) {
+          holder.append(make('p', 'empty', 'Nothing here matches that.'))
+        } else {
+          for (const turn of found) holder.append(drawn(turn))
+        }
+
+        const calls = found.reduce((sum, turn) => sum + (turn.tools || []).length, 0)
+        const shown = wanted ? `${found.length} of ${TURNS.length}` : `${TURNS.length}`
+
+        node('about').textContent =
+          `${shown} exchanges · ${calls} tool calls · written ${LOGS.written} · ${LOGS.database}`
+
+        node('all').textContent = everything ? 'Close all' : 'Open all'
+      }
+
+      node('find').oninput = (event) => {
+        wanted = event.target.value.trim().toLowerCase()
+        paint()
+      }
+
+      node('all').onclick = () => {
+        everything = !everything
+        opened.clear()
+        paint()
+      }
+
+      paint()
+    </script>
+  </body>
+</html>

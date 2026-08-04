@@ -87,6 +87,8 @@ def carry(order):
         threading.Thread(target=reaching, args=(asked, order.get("name")), daemon=True).start()
     elif asked == "history":
         recall(order.get("limit", RECENT_MESSAGES))
+    elif asked == "logs":
+        logs()
     elif asked == "answer":
         panel.answered(order.get("id"), order.get("yes"))
     elif asked == "say":
@@ -153,3 +155,11 @@ def describe():
 
 def recall(limit):
     panel.send("history", messages=memory.history(limit=max(1, int(limit))))
+
+
+def logs():
+    """WRITE THE PAGE OUT AND HAND THE WINDOW SOMETHING TO OPEN IT WITH."""
+    try:
+        panel.send("open", url=memory.exported().as_uri())
+    except Exception as error:
+        panel.trouble(error)

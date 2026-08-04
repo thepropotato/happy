@@ -45,13 +45,17 @@ def toggle(key, label, default=False, hint=None, rare=False):
     return knob(key, label, TOGGLE, default, hint, rare)
 
 
-def action(key, label, verb, wording, hint=None):
+def action(key, label, verb, wording, hint=None, instant=False):
     """A BUTTON, NOT A SETTING. NOTHING IS KEPT: PRESSING IT ASKS FOR SOMETHING.
 
     THE CONTROL DRAWS ITSELF THE SAME WAY EVERY OTHER ONE DOES, SO A THING THAT
     HAS TO BE DONE RATHER THAN CHOSEN COSTS THE WINDOW NO NEW IDEAS.
+
+    instant IS FOR ONE THAT IS OVER BEFORE THE FINGER IS OFF IT. A SIGN IN TAKES
+    MINUTES AND THE BUTTON WAITS OUT LOUD; A BUTTON WAITING ON NOTHING WOULD SIT
+    THERE GREYED UNTIL SOME OTHER CHANGE HAPPENED TO REDRAW THE SHEET.
     """
-    return knob(key, label, ACTION, None, hint, verb=verb, wording=wording)
+    return knob(key, label, ACTION, None, hint, verb=verb, wording=wording, instant=instant)
 
 
 def knob(key, label, kind, default, hint, rare=False, **extra):

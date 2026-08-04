@@ -4,7 +4,7 @@ THE DEFAULTS LIVE HERE AND NOWHERE ELSE. A MODULE THAT WANTS ONE ASKS
 memory.settings FOR IT, SO CHANGING A NUMBER IS NEVER EDITING CODE.
 """
 
-from memory.knobs import choice, group, number, text, toggle
+from memory.knobs import action, choice, group, number, text, toggle
 
 EFFORTS = [("off", "Off"), ("low", "Low"), ("medium", "Medium"), ("high", "High")]
 
@@ -26,6 +26,8 @@ TALK_KEYS = [
 ]
 
 FOREVER = "0 keeps everything."
+
+LOGS = "Every turn in a browser, with what each tool was given and what came back."
 
 # WHAT IS SET ONCE AND NEVER AGAIN IS MARKED rare AND SITS BEHIND ONE MORE TAP.
 BRAIN = [
@@ -83,6 +85,7 @@ CONNECTIONS = [
 REMEMBERING = [
     number("memory.messages", "Keep messages", 0, 730, 1, 0, FOREVER, "days", whole=True),
     number("memory.recordings", "Keep recordings", 0, 730, 1, 0, FOREVER, "days", whole=True),
+    action("memory.logs", "Full logs", "logs", "Open", LOGS, instant=True),
 ]
 
 GROUPS = [

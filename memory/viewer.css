@@ -1,0 +1,244 @@
+/* THE LOG PAGE. HAPPY'S OWN SURFACES, WIDENED: THE PANEL IS THE WIDTH OF A
+   PHONE AND THIS IS READ ON A WHOLE SCREEN. */
+
+:root {
+  --ink: #f2f3f8;
+  --dim: #9aa0b4;
+  --faint: #6b7186;
+
+  --line: rgba(255, 255, 255, 0.07);
+  --edge: rgba(255, 255, 255, 0.14);
+  --raise: rgba(255, 255, 255, 0.045);
+
+  --back: #0d0e14;
+  --block: #13141d;
+  --block-open: #191a26;
+
+  --glow: #7c5cf5;
+  --good: #4ad6a0;
+  --wait: #f5a524;
+  --bad: #ff8080;
+
+  --pad: 11px;
+  --r-lg: 13px;
+  --r-md: 10px;
+  --r-sm: 7px;
+
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--back);
+  color: var(--ink);
+  font: 14px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  padding: 0 24px 80px;
+}
+
+.sheet {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+/* ── THE HEAD ── */
+
+header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(var(--back) 72%, transparent);
+  padding: 26px 0 14px;
+}
+
+h1 {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+h1 span {
+  color: var(--glow);
+}
+
+.about {
+  color: var(--faint);
+  font-size: 12px;
+  margin-top: 3px;
+}
+
+.tools {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+input {
+  flex: 1;
+  background: var(--block);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  color: var(--ink);
+  font: inherit;
+  padding: 9px 12px;
+}
+
+input:focus {
+  border-color: var(--edge);
+  outline: none;
+}
+
+input::placeholder {
+  color: var(--faint);
+}
+
+button {
+  background: var(--raise);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  color: var(--dim);
+  cursor: pointer;
+  font: inherit;
+  padding: 9px 14px;
+}
+
+button:hover {
+  border-color: var(--edge);
+  color: var(--ink);
+}
+
+/* ── ONE EXCHANGE ── */
+
+.turn {
+  border-top: 1px solid var(--line);
+  padding: 20px 0;
+}
+
+.when {
+  color: var(--faint);
+  display: flex;
+  font-size: 11px;
+  gap: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.flag {
+  color: var(--wait);
+}
+
+.said {
+  margin-top: 7px;
+}
+
+.said.you {
+  font-size: 16px;
+  font-weight: 550;
+  letter-spacing: -0.01em;
+}
+
+.said.happy {
+  color: var(--dim);
+  border-left: 2px solid var(--line);
+  padding-left: 11px;
+  white-space: pre-wrap;
+}
+
+.none {
+  color: var(--faint);
+  font-style: italic;
+}
+
+/* ── THE CALLS: NAME AND WHY SHUT, ARGUMENTS AND OUTPUT OPEN ── */
+
+.calls {
+  margin: 11px 0;
+}
+
+.call {
+  background: var(--block);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.call.open {
+  background: var(--block-open);
+}
+
+.face {
+  align-items: baseline;
+  cursor: pointer;
+  display: flex;
+  gap: 9px;
+  padding: 9px var(--pad);
+}
+
+.face:hover .name {
+  color: var(--glow);
+}
+
+.name {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
+.why {
+  color: var(--dim);
+  flex: 1;
+  font-size: 12.5px;
+}
+
+.took {
+  color: var(--faint);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.drawer {
+  border-top: 1px solid var(--line);
+  padding: var(--pad);
+}
+
+.drawer h2 {
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+}
+
+.drawer h2:not(:first-child) {
+  margin-top: 13px;
+}
+
+pre {
+  background: rgba(0, 0, 0, 0.28);
+  border-radius: var(--r-sm);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  max-height: 340px;
+  overflow: auto;
+  padding: 9px 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.clipped {
+  color: var(--wait);
+  font-size: 11px;
+  margin-top: 5px;
+}
+
+.empty {
+  color: var(--faint);
+  padding: 40px 0;
+  text-align: center;
+}

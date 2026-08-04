@@ -81,6 +81,13 @@ app.on('window-all-closed', (event) => event.preventDefault()) // THE ICON IS TH
 app.on('before-quit', () => core.stop())
 
 function relay(word) {
+  // A PAGE BELONGS IN A BROWSER, NOT IN THE PANEL: THIS ONE IS WIDE AND IS READ
+  // FOR A WHILE, AND THE PANEL PUTS ITSELF AWAY THE MOMENT IT LOSES FOCUS.
+  if (word.is === 'open') {
+    shell.openExternal(word.url)
+    return
+  }
+
   if (listening && panel && !panel.isDestroyed()) panel.webContents.send('happy:event', word)
   else backlog.push(word)
 

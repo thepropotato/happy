@@ -11,6 +11,7 @@ from memory.conversation import (
     since,
     used,
 )
+from memory.exporting import written as exported
 from memory.pruning import prune
 from memory.settings import get, put
 from memory.storage import path
@@ -20,6 +21,7 @@ __all__ = [
     "begin",
     "brief",
     "close",
+    "exported",
     "get",
     "history",
     "path",

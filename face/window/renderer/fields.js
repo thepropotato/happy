@@ -116,9 +116,13 @@ const Fields = (() => {
 
     button.onclick = (event) => {
       event.stopPropagation()
+      help.ask({ do: entry.verb, name: entry.key })
+
+      // NOTHING TO WAIT ON, AND NOTHING WILL CHANGE TO REDRAW IT BACK.
+      if (entry.instant) return
+
       button.disabled = true
       button.textContent = '…'
-      help.ask({ do: entry.verb, name: entry.key })
     }
 
     return button
