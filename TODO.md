@@ -16,6 +16,14 @@ delete the line when it stops being interesting.
       window. Happy reports this honestly rather than lying about it, which is the right
       behaviour but not the nicest one. Worth seeing whether the window can be activated
       first without stealing focus from the person.
+- [ ] **A third search engine, from someone else's index.** `hands/web/engines.py` has two
+      doors and both are DuckDuckGo's, so a bad day there is a bad day for both. Mojeek and
+      the public SearXNG instances were tried and answer a script with a captcha or a 429.
+      A search API is the other way out and costs a key; see HAPPY.md before reaching for it.
+- [ ] **Pages that are only a script.** `read_page` fetches and parses, so a site that
+      renders itself in the browser comes back as "it wants a real browser" and the model
+      reads the next result instead. That is the honest answer and usually the right one.
+      The day it is not, the fallback is the browser errand, not a second fetcher.
 - [ ] **Rebuild the browser agent** — `hands/browser/` is blank. It owned the multi-step web
       errand in its own process. Two things went with it and need putting back if the new one
       works the same way:

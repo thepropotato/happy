@@ -88,6 +88,7 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `hands/files/` | Finding files and reading what is inside them, whatever the format. |
 | `hands/shell/` | The shell. One command in, what it printed back out. |
 | `hands/desktop/` | The pointer and the keyboard, and checking that they worked. |
+| `hands/web/` | Searching the web, and reading whichever result holds the answer. |
 | `hands/browser/` | The browser errand. **Blank — being rebuilt.** |
 | `eyes/asking.py` | Asking each system to describe its own screen. macOS and Windows side by side. |
 | `eyes/naming.py` | What each system calls a thing, and what a person calls it. |
@@ -462,6 +463,65 @@ live in `voice/speaker.py`.
   the microphone must not hear Happy either.
 - **In-flight work is cancelled by an era counter**, not by trying to kill a thread. `stop()`
   bumps it; work stamped with an older era is thrown away when it surfaces.
+
+## Searching the web, and reading a result
+
+`hands/web/` is two tools and the line between them and everything else is worth holding.
+**Searching** is `search_web`: a question in, five titles and summaries back. **Reading** is
+`read_page`: one address in, the words on that page back. **Opening** is `open_url`, which
+puts a page in front of the person. An **errand** is clicking and typing on a site, which is
+the browser and nothing else. Most of what gets asked out loud — a score, a price, when a
+place opens, what the weather is — is the first two, and before they existed the model either
+guessed or said it could not check.
+
+**The answer is almost never in the results. It is inside one of them.** A snippet describes
+a page rather than quoting the number off it: search "hyderabad weather today" and five
+weather sites come back, not a temperature. So `search_web` finds *which page holds it* and
+the model picks one and reads it. That choice is the model's and is deliberately not
+automated — nothing in this module decides which result is the answer. The prompt and both
+docstrings say the same thing, because a search tool that returns a list is the single easiest
+thing for a model to answer straight out of and be wrong.
+
+**It is requests and parses, not a browser.** A results page is plain HTML that says
+everything it has to say without running a script, so `httpx` fetches it and `BeautifulSoup`
+reads it: **about a second**, against the seconds a browser costs before it has even
+navigated, and none of the memory. A whole search-then-read-a-result round is a second plus
+one page fetch. A browser here would buy nothing but the wait, and somebody is stood in their
+kitchen through all of it.
+
+**Two engines, tried in order.** `hands/web/engines.py` is the only file that knows how any
+engine writes its page; everything else sees the same three fields. The second door is not a
+luxury. An engine that decides a script is asking serves a **captcha with a 200 on it**, which
+parses as zero results and is otherwise indistinguishable from a question nobody has ever
+written about — so the page's own title is checked for one, and a refusal moves to the next
+engine rather than being reported as ignorance.
+
+**A search engine wants a browser asking. A page's own host often wants the opposite.** This
+inverts and it will waste your afternoon if you assume one identity does both. The engines
+serve a script a different page or none, so `searching.py` asks wearing Chrome's user agent.
+Wikipedia does the reverse: it **403s anything calling itself Chrome** and answers an honest
+`Happy/1.0` — but only one with a contact URL in it, so `Happy/1.0 (voice assistant; reads a
+page)` is refused and `Happy/1.0 (+https://github.com/thepropotato/happy)` is served. So
+`reading.py` says who it is first and only dresses up for the hosts that turn that away, which
+is one retry and covers both populations. AccuWeather is the mirror image of Wikipedia: it
+answers the honest one and 403s the browser.
+
+**A site that will not hand its text over is one site, not a dead end.** Some 403, some are a
+JavaScript shell with nothing in it, some trickle a script along until it times out. All three
+come back as one plain sentence ending *"Try another result"*, and both docstrings and the
+prompt say to read the next result down rather than guess at what could not be read. Ten
+seconds is all any page gets, because there are four more behind it.
+
+**Tried and rejected: the instant answer API.** `api.duckduckgo.com` returns an abstract for
+encyclopedic queries and an empty string for everything live — nothing for the weather,
+nothing for a conversion, nothing for who runs a company. A second request on every search to
+occasionally repeat what result one already says is not worth the wait.
+
+**Not used: a search API.** Google's Custom Search JSON API needs a key *and* a search engine
+ID, gives 100 queries a day and then charges, and puts a signup in front of a machine that
+otherwise needs none. Reading the HTML costs nothing and needs nobody's account. The day the
+engines start refusing in earnest, that is the trade to revisit — and it is a new entry in
+`ENGINES`, not a rewrite.
 
 ## The browser — blank, being rebuilt
 
