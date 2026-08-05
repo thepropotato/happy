@@ -85,27 +85,35 @@ def transcribe(audio_file):
     if language != "auto":
         return clean(load_model(language).recognize(source, language=language))
 
-    if refused(source):
+    guess = firstly(source)
+
+    if guess == REFUSAL:
         return second(source, audio_file)
+
+    # IT HAS NAMED ONE WE KEEP A MODEL FOR. GOING STRAIGHT THERE SKIPS A FULL DECODE THAT
+    # WOULD ONLY LOOP, SINCE NOT BEING ABLE TO WRITE THESE IS WHY THE FINE-TUNES ARE HERE.
+    if guess in LANGUAGES:
+        return sharper(source, settled(audio_file, guess)) or ""
 
     # FORCING NO LANGUAGE MAKES WHISPER PICK ONE ITSELF, HERE, WITH NOTHING OVER THE NETWORK.
     # WHICH ONE IT PICKED IS WRITTEN IN THE SCRIPT OF THE WORDS, AND STILL IS WHERE THOSE
     # WORDS CAME BACK A LOOP, SO THE LANGUAGE IS READ BEFORE ANY OF THEM ARE THROWN AWAY.
     raw = (load_model("auto").recognize(source) or "").strip()
     heard = "" if looping(raw) else raw
+    found = tongue.language(raw)
+
+    # OFF THE RAW TEXT, LOOP AND ALL: REPEATING ITSELF COSTS WHISPER THE WORDS BUT NOT THE
+    # SCRIPT, AND WHICH ALPHABET IT REACHED FOR IS THE SUREST THING IT KNOWS ABOUT A TAKE.
+    # A MODEL TRAINED ON ONE LANGUAGE CANNOT WRITE THE OTHER HALF OF A MIXED SENTENCE.
+    if found in LANGUAGES and not tongue.mixed(raw):
+        return sharper(source, settled(audio_file, found)) or heard
 
     # NOTHING AT ALL IS NOT ONLY WHAT SILENCE SOUNDS LIKE. IT IS ALSO WHAT A LANGUAGE THIS
     # MODEL CANNOT HEAR SOUNDS LIKE, SO THE SOUND ITSELF IS ASKED BEFORE GIVING UP ON IT.
     if not heard:
         return second(source, audio_file)
 
-    found = tongue.language(raw)
-
-    # A MODEL TRAINED ON ONE LANGUAGE CANNOT WRITE THE OTHER HALF OF A MIXED SENTENCE.
-    if found not in LANGUAGES or tongue.mixed(raw):
-        return heard
-
-    return sharper(source, settled(audio_file, found)) or heard
+    return heard
 
 
 def settled(audio_file, found):
@@ -117,16 +125,17 @@ def settled(audio_file, found):
     return listened if listened in LANGUAGES else found
 
 
-REFUSAL = "<|nocaptions|>"
+REFUSAL = "nocaptions"
 
 
-def refused(source):
-    """WHISPER'S OWN FIRST ANSWER, IN THREE TOKENS. nocaptions MEANS IT WILL NOT WRITE THIS.
+def firstly(source):
+    """WHISPER'S OWN FIRST ANSWER, IN THREE TOKENS: THE LANGUAGE IT THINKS IT IS HEARING,
+    OR nocaptions FOR ONE IT WILL NOT WRITE AT ALL.
 
     ASKING COSTS THE ENCODER AND NOTHING ELSE. LETTING recognize() FIND OUT INSTEAD COSTS
-    SIX SECONDS, BECAUSE IT PUTS nocaptions BACK IN WHERE THE LANGUAGE GOES AND THEN DECODES
-    THE WHOLE WAY TO THE TOKEN LIMIT. GUARDED, SINCE NONE OF THIS IS PROMISED TO US: WHERE
-    IT STOPS WORKING THE TAKE IS MERELY HEARD THE SLOW WAY.
+    SIX SECONDS, BECAUSE IT PUTS THAT ANSWER BACK IN WHERE THE LANGUAGE GOES AND THEN
+    DECODES THE WHOLE WAY TO THE TOKEN LIMIT. GUARDED, SINCE NONE OF THIS IS PROMISED TO
+    US: WHERE IT STOPS WORKING THE TAKE IS MERELY HEARD THE SLOW WAY.
     """
     try:
         from onnx_asr.utils import read_wav_files
@@ -137,10 +146,11 @@ def refused(source):
 
         seed = np.repeat(inner._detect_lang_input, len(waveforms), axis=0)
         first = inner._decoding(inner._encode(waveforms, lengths), seed, 3)[:, 1]
+        token = inner._vocab[int(first[0])]
 
-        return inner._vocab[int(first[0])] == REFUSAL
+        return token[2:-2] if token.startswith("<|") and token.endswith("|>") else None
     except Exception:
-        return False
+        return None
 
 
 def second(source, audio_file):
