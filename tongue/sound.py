@@ -1,12 +1,13 @@
 """WHICH LANGUAGE A PIECE OF SOUND IS IN, WHEN THE WORDS THEMSELVES NEVER CAME BACK."""
 
+import logging
 import threading
 import wave
 from pathlib import Path
 
 import numpy as np
 
-from face import show
+from face import show, silence
 
 MODELS = Path(__file__).resolve().parent.parent / "models" / "voxlingua107"
 SOURCE = "speechbrain/lang-id-voxlingua107-ecapa"
@@ -33,7 +34,20 @@ def load_model():
     if model is None:
         from speechbrain.inference.classifiers import EncoderClassifier
 
-        model = EncoderClassifier.from_hparams(source=SOURCE, savedir=str(MODELS))
+        # IT NARRATES EVERY FILE IT OPENS, ON LOGGERS THAT SOME OF THEM ONLY COME INTO
+        # BEING PART WAY THROUGH THE LOAD, SO LEVELS SET BEFOREHAND CANNOT CATCH THEM ALL.
+        # NOTHING OF HAPPY'S OWN GOES THROUGH logging, SO SHUTTING IT LOSES NOTHING.
+        silence.hush_tree("speechbrain")
+        logging.disable(logging.WARNING)
+
+        try:
+            model = EncoderClassifier.from_hparams(source=SOURCE, savedir=str(MODELS))
+        finally:
+            logging.disable(logging.NOTSET)
+
+        # ONLY THE HIGHEST SCORE IS EVER READ, SO HOW MANY THERE ARE IS NOT OURS TO PROMISE.
+        # SAYING SO IS WHAT STOPS IT WARNING ABOUT THE COUNT THE FIRST TIME IT IS ASKED.
+        model.hparams.label_encoder.ignore_len()
 
     return model
 

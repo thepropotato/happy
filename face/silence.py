@@ -48,5 +48,19 @@ def hush_onnx():
     onnxruntime.set_default_logger_severity(QUIET)
 
 
+def hush_tree(prefix, level=LEVEL):
+    """FOR A PACKAGE THAT SETS A LEVEL ON EVERY ONE OF ITS OWN LOGGERS.
+
+    THE PARENT CANNOT QUIET THOSE, BECAUSE A LOGGER'S OWN LEVEL IS WHAT DECIDES
+    WHETHER IT SPEAKS. THEY ONLY EXIST ONCE IT IS IMPORTED, SO THIS IS CALLED THEN
+    RATHER THAN IN configure().
+    """
+    logging.getLogger(prefix).setLevel(level)
+
+    for name, logger in list(logging.Logger.manager.loggerDict.items()):
+        if name.startswith(f"{prefix}.") and isinstance(logger, logging.Logger):
+            logger.setLevel(level)
+
+
 def configured():
     return done
