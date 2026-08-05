@@ -4,31 +4,32 @@ PHONEMES COME FROM AN ESPEAK-NG THAT SHIPS INSIDE THE PACKAGE, SO THERE IS
 NOTHING TO INSTALL BESIDE THE VOICE FILE AND IT BEHAVES THE SAME ON WINDOWS.
 
 GET A VOICE:
-    python -m piper.download_voices en_US-hfc_male-medium --download-dir models/piper
+    python -m voice --get [hi | te]
 """
 
+import threading
 from pathlib import Path
 
 import numpy as np
 
+import tongue
+from face import show
 from memory import settings
 from voice.engines import VoiceError
 
 MODELS = Path(__file__).resolve().parent.parent / "models" / "piper"
 SUFFIX = "*.onnx"
 DEFAULT = "en_US-hfc_male-medium"
+REPO = "rhasspy/piper-voices"
 VOICES_BY_LANGUAGE = {
     "hi": "hi_IN-pratham-medium",
     "te": "te_IN-venkatesh-medium",
 }
-TELUGU = "te"
-HINDI = "hi"
-FALLBACK = "en"
 
-GET_THEM = (
-    f"No voice in {MODELS}. Get one with:\n"
-    f"  python -m piper.download_voices {DEFAULT} --download-dir models/piper"
-)
+# ONE ATTEMPT EACH PER RUN. A FAILED DOWNLOAD SHOULD NOT RETRY ON EVERY SENTENCE.
+getting = set()
+
+GET_THEM = f"No voice in {MODELS}. Get one with:\n  python -m voice --get"
 
 
 class Voice:
@@ -86,27 +87,6 @@ def language(path):
     return prefix.split("_", 1)[0]
 
 
-def detected(text):
-    telugu = 0
-    hindi = 0
-
-    for character in (text or ""):
-        point = ord(character)
-
-        if 0x0C00 <= point <= 0x0C7F:
-            telugu += 1
-        elif 0x0900 <= point <= 0x097F:
-            hindi += 1
-
-    if telugu > hindi and telugu > 0:
-        return TELUGU
-
-    if hindi > telugu and hindi > 0:
-        return HINDI
-
-    return FALLBACK
-
-
 def target_language():
     return (settings.get("ears.language") or "auto").strip().lower()
 
@@ -131,7 +111,7 @@ def ranked(found, target):
 
 def installed(text=""):
     """EVERY VOICE ON THIS MACHINE, BY NAME, FOR SOMETHING DRAWING A LIST."""
-    return [path.stem for path in ranked(voices(), detected(text))]
+    return [path.stem for path in ranked(voices(), tongue.language(text))]
 
 
 def find(text=""):
@@ -141,11 +121,14 @@ def find(text=""):
     if not found:
         raise VoiceError(GET_THEM)
 
-    target = detected(text)
+    # A MIXED SENTENCE IS READ BY WHICHEVER LANGUAGE MOST OF IT IS IN. NO VOICE SPEAKS TWO.
+    target = tongue.language(text)
     preferred = ranked(found, target)
 
     if preferred and language(preferred[0]) == target:
         return preferred[0]
+
+    collect(target)
 
     chosen = settings.get("voice.name")
 
@@ -158,10 +141,46 @@ def find(text=""):
     return found[0]  # A NAME THAT IS NO LONGER INSTALLED FALLS BACK, IT DOES NOT FAIL.
 
 
+def wherein(name):
+    """THEY ARE KEPT AT hi/hi_IN/pratham/medium/hi_IN-pratham-medium, SPELT OUT OF THE NAME."""
+    parts = name.split("-")
+    region, quality = parts[0], parts[-1]
+    speaker = "-".join(parts[1:-1])
+
+    return f"{region.split('_')[0]}/{region}/{speaker}/{quality}/{name}"
+
+
 def fetch(language=None):
-    from piper.download_voices import download_voice
+    """PIPER'S OWN DOWNLOADER GOES OUT THROUGH urllib, WHICH HAS NO CERTIFICATES ON MACOS."""
+    import shutil
+
+    from huggingface_hub import hf_hub_download
 
     chosen = VOICES_BY_LANGUAGE.get((language or "").strip().lower(), DEFAULT)
-    download_voice(chosen, MODELS)
+    where = wherein(chosen)
+    MODELS.mkdir(parents=True, exist_ok=True)
+
+    for suffix in ("onnx", "onnx.json"):
+        got = hf_hub_download(REPO, f"{where}.{suffix}")
+        shutil.copyfile(got, MODELS / f"{chosen}.{suffix}")
 
     return MODELS
+
+
+def collect(wanted):
+    """GET A MISSING VOICE BEHIND THE CONVERSATION, SO THIS REPLY IS NOT HELD UP BY IT."""
+    if wanted in getting or wanted not in VOICES_BY_LANGUAGE:
+        return
+
+    getting.add(wanted)
+    show.note(f"Getting the {wanted} voice. This reply is spoken in the one already here.")
+
+    threading.Thread(target=bring, args=(wanted,), daemon=True).start()
+
+
+def bring(wanted):
+    try:
+        fetch(wanted)
+        show.note(f"The {wanted} voice is ready.")
+    except Exception as error:
+        show.trouble(f"Could not get the {wanted} voice ({error})")

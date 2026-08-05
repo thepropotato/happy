@@ -10,16 +10,17 @@ from face import silence
 silence.configure()
 
 import ears
+from ears import engines
 from ears.microphone import RECORDINGS
-from ears.transcribing import GET_IT, MODELS, fetch, whole
 
+# WHICHEVER ENGINE IS SET, NOT WHICHEVER ONE THIS FILE WAS FIRST WRITTEN AGAINST.
 if "--get" in sys.argv:
-    print(f"Getting the speech model into {MODELS}")
-    print(f"Got it: {fetch()}")
+    print(f"Getting the {engines.chosen()} speech model")
+    print(f"Got it: {engines.fetch()}")
     raise SystemExit
 
-if not whole():
-    raise SystemExit(GET_IT)
+if not engines.whole():
+    raise SystemExit(f"No {engines.chosen()} speech model yet. Get it with:\n  python -m ears --get")
 
 takes = [Path(each) for each in sys.argv[1:]] or sorted(RECORDINGS.glob("*.wav"))
 

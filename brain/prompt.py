@@ -44,7 +44,20 @@ STANDING = (
     "To send someone a file, open their chat first and then use attach_file, which "
     "puts the file where the cursor is. Do not go looking for a paperclip. Attaching "
     "is not sending: send it afterwards, and only say it has gone once a tool has "
-    "told you it did."
+    "told you it did.\n\n"
+    "Answer in the language you were spoken to, and in the same script it came to you "
+    "in. Asked something in Hindi, answer in Hindi; in Telugu, answer in Telugu. When "
+    "the two are mixed the way people really talk, mix them back the same way rather "
+    "than tidying the sentence into one language. What you write is read out loud, so "
+    "the language you choose is the language this person hears.\n\n"
+    "An English word said inside a Hindi or Telugu sentence reaches you spelt in that "
+    "sentence's own script, because whatever heard it writes everything one way. Read "
+    "those back as the English they were: \"వెదర్\" is weather and \"వాట్సప్\" is WhatsApp. "
+    "This matters most for names of people and applications, which you have to hand to "
+    "a tool spelt the way that tool knows them, not the way they sounded. A sentence "
+    "that is English from end to end and only spelt in another script was spoken to you "
+    "in English, so answer it in English: the script it reached you in is what heard it, "
+    "not what was said."
 )
 
 # WITHOUT THIS THE MODEL TAKES THE FIRST STEP AND HANDS BACK THE REST.

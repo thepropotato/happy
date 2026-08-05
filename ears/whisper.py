@@ -4,41 +4,14 @@ GET THE WEIGHTS:
     python -m ears --get
 """
 
-import os
-from pathlib import Path
-
 import numpy as np
-import requests
 
+import tongue
 from ears.engines import EarsError
+from ears.languages import LANGUAGES, collect, complete, download, picked, spoken
+from ears.nonsense import clean, looping
 from face import show
 from memory import settings
-
-MODELS = Path(__file__).resolve().parent.parent / "models" / "whisper"
-
-# PARTIAL DOWNLOADS DO NOT COUNT AS READY.
-PARTS = (
-    "config.json",
-    "vocab.json",
-    "added_tokens.json",
-    "onnx/encoder_model_quantized.onnx",
-    "onnx/decoder_model_merged_quantized.onnx",
-)
-
-LOCAL_PARTS = (
-    "config.json",
-    "vocab.json",
-    "added_tokens.json",
-    "encoder_model.onnx",
-    "decoder_model_merged.onnx",
-)
-
-LANGUAGES = {
-    "hi": {"repo": "onnx-community/whisper-hindi-small-ONNX", "quantization": "quantized"},
-    "te": {"repo": "Susipriya/whisper-telugu-small-onnx", "parts": LOCAL_PARTS},
-}
-
-DEFAULT = {"repo": "onnx-community/whisper-small", "quantization": "quantized"}
 
 RATE = 16000
 
@@ -55,51 +28,6 @@ cached = {}
 
 def wanted():
     return settings.get("ears.device")
-def spoken():
-    return (settings.get("ears.language") or "auto").strip().lower()
-
-
-def detect_language(audio_file):
-    key = os.environ.get("LLM_API_KEY")
-    if not key:
-        return None
-
-    try:
-        with open(audio_file, "rb") as file:
-            response = requests.post(
-                "https://api.openai.com/v1/audio/transcriptions",
-                headers={"Authorization": f"Bearer {key}"},
-                data={"model": "whisper-1", "response_format": "verbose_json"},
-                files={"file": (Path(audio_file).name, file)},
-                timeout=15,
-            )
-
-        response.raise_for_status()
-        heard = (response.json().get("language") or "").strip().lower()
-        code = {"hindi": "hi", "telugu": "te"}.get(heard)
-
-        return code if code in LANGUAGES else None
-    except Exception:
-        return None
-
-
-def picked(language=None):
-    language = (spoken() if language is None else language).strip().lower()
-    entry = LANGUAGES.get(language, DEFAULT)
-
-    repo = entry.get("repo") or DEFAULT["repo"]
-    path = MODELS.parent / repo.rsplit("/", 1)[-1]
-
-    return {
-        "name": repo,
-        "path": path,
-        "quantization": entry.get("quantization"),
-        "parts": entry.get("parts") or PARTS,
-    }
-
-
-def complete(choice):
-    return choice["path"].is_dir() and all((choice["path"] / part).exists() for part in choice["parts"])
 
 
 def whole():
@@ -155,34 +83,85 @@ def transcribe(audio_file):
     source = str(audio_file)
 
     if language != "auto":
-        heard = load_model(language).recognize(source, language=language).strip()
-        return "" if looping(heard) else heard
-    found = detect_language(source)
+        return clean(load_model(language).recognize(source, language=language))
 
-    if found in LANGUAGES:
-        heard = load_model(found).recognize(source, language=found).strip()
-        return "" if looping(heard) else heard
+    if refused(source):
+        return second(source, audio_file)
 
-    # WHISPER AUTO-DETECTS LANGUAGE WHEN NONE IS FORCED.
-    heard = load_model("auto").recognize(source).strip()
-    return "" if looping(heard) else heard
+    # FORCING NO LANGUAGE MAKES WHISPER PICK ONE ITSELF, HERE, WITH NOTHING OVER THE NETWORK.
+    # WHICH ONE IT PICKED IS WRITTEN IN THE SCRIPT OF THE WORDS, AND STILL IS WHERE THOSE
+    # WORDS CAME BACK A LOOP, SO THE LANGUAGE IS READ BEFORE ANY OF THEM ARE THROWN AWAY.
+    raw = (load_model("auto").recognize(source) or "").strip()
+    heard = "" if looping(raw) else raw
+
+    # NOTHING AT ALL IS NOT ONLY WHAT SILENCE SOUNDS LIKE. IT IS ALSO WHAT A LANGUAGE THIS
+    # MODEL CANNOT HEAR SOUNDS LIKE, SO THE SOUND ITSELF IS ASKED BEFORE GIVING UP ON IT.
+    if not heard:
+        return second(source, audio_file)
+
+    found = tongue.language(raw)
+
+    # A MODEL TRAINED ON ONE LANGUAGE CANNOT WRITE THE OTHER HALF OF A MIXED SENTENCE.
+    if found not in LANGUAGES or tongue.mixed(raw):
+        return heard
+
+    return sharper(source, settled(audio_file, found)) or heard
 
 
-def looping(text, most=5):
-    run = 1
-    last = None
+def settled(audio_file, found):
+    """AN INDIAN SCRIPT ON THE PAGE ALREADY SAYS THIS WAS NOT ENGLISH, AND THAT IS THE ONE
+    PLACE THE SOUND JUDGES BETTER THAN THE WRITING: ASKED FOR TELUGU WITHOUT BEING TOLD,
+    WHISPER WILL HEAR IT AND WRITE THE WHOLE THING DOWN IN DEVANAGARI."""
+    listened = tongue.aloud(audio_file)
 
-    for character in text:
-        if character == last:
-            run += 1
+    return listened if listened in LANGUAGES else found
 
-            if run > most:
-                return True
-        else:
-            last = character
-            run = 1
 
-    return False
+REFUSAL = "<|nocaptions|>"
+
+
+def refused(source):
+    """WHISPER'S OWN FIRST ANSWER, IN THREE TOKENS. nocaptions MEANS IT WILL NOT WRITE THIS.
+
+    ASKING COSTS THE ENCODER AND NOTHING ELSE. LETTING recognize() FIND OUT INSTEAD COSTS
+    SIX SECONDS, BECAUSE IT PUTS nocaptions BACK IN WHERE THE LANGUAGE GOES AND THEN DECODES
+    THE WHOLE WAY TO THE TOKEN LIMIT. GUARDED, SINCE NONE OF THIS IS PROMISED TO US: WHERE
+    IT STOPS WORKING THE TAKE IS MERELY HEARD THE SLOW WAY.
+    """
+    try:
+        from onnx_asr.utils import read_wav_files
+
+        model = load_model("auto")
+        inner = model.asr
+        waveforms, lengths = model.resampler(*read_wav_files(source))[:2]
+
+        seed = np.repeat(inner._detect_lang_input, len(waveforms), axis=0)
+        first = inner._decoding(inner._encode(waveforms, lengths), seed, 3)[:, 1]
+
+        return inner._vocab[int(first[0])] == REFUSAL
+    except Exception:
+        return False
+
+
+def second(source, audio_file):
+    """ONLY EVER REACHED WHERE IT IS ALREADY KNOWN NOT TO BE ENGLISH, WHICH IS THE ONE
+    PLACE THIS DETECTOR IS TRUSTWORTHY: IT HEARS AN ACCENT AS READILY AS A LANGUAGE."""
+    listened = tongue.aloud(audio_file)
+
+    return sharper(source, listened) or "" if listened in LANGUAGES else ""
+
+
+def sharper(source, language):
+    """THE MODEL TRAINED ON THIS ONE LANGUAGE, IF IT IS ON THIS MACHINE."""
+    if not complete(picked(language)):
+        collect(language)
+        return None
+
+    try:
+        return clean(load_model(language).recognize(source, language=language))
+    except Exception as error:
+        show.trouble(f"The {language} model would not hear this one, keeping what it had ({error})")
+        return None
 
 
 def warm():
@@ -191,10 +170,5 @@ def warm():
 
 
 def fetch():
-    """THE WEIGHTS, INTO models/whisper. ONLY EVER RUN BY HAND."""
-    choice = picked()
-    from huggingface_hub import snapshot_download
-
-    snapshot_download(choice["name"], local_dir=choice["path"], allow_patterns=list(choice["parts"]))
-
-    return choice["path"]
+    """THE WEIGHTS FOR WHATEVER IS SET NOW. ONLY EVER RUN BY HAND, OR ONCE AT STARTUP."""
+    return download()

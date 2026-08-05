@@ -46,5 +46,9 @@ def fetch(engine=None):
     return part(engine).fetch()
 
 
+def whole(engine=None):
+    return part(engine).whole()
+
+
 def names():
     return ", ".join(ENGINES)

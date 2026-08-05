@@ -1,4 +1,8 @@
-"""HEAR IT WITHOUT THE REST OF HAPPY: python -m voice [--engine name] "say this" """
+"""HEAR IT WITHOUT THE REST OF HAPPY: python -m voice [--engine name] "say this"
+
+GET A VOICE:
+    python -m voice --get [hi | te]
+"""
 
 import sys
 
@@ -20,6 +24,12 @@ if "--engine" in argv:
 
 if "--voices" in argv:
     print("\n".join(voice.installed(engine)) or "No voices installed.")
+    raise SystemExit
+
+if "--get" in argv:
+    at = argv.index("--get")
+    wanted = argv[at + 1] if at + 1 < len(argv) else None
+    print(f"Got it: {engines.part(engine).fetch(wanted)}")
     raise SystemExit
 
 words = " ".join(argv) or (

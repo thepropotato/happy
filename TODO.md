@@ -7,16 +7,39 @@ delete the line when it stops being interesting.
 
 models/ is gitignored, so these download automatically the first time
 they're needed (Ears engine must be set to "Whisper" — Parakeet doesn't
-support these).
+support these). The speech model and the Piper voice both arrive on their
+own, in the background, the first time a language is actually heard or
+spoken. That take is served by whatever is already on disk, so nobody
+waits mid sentence for a download.
 
-Telugu TTS voice (Piper) still needs a one-time manual download since it's
-not part of the auto-download flow yet:
-      python -m piper.download_voices te_IN-venkatesh-medium --download-dir models/piper
+Language detection is local and needs no key. Whisper is asked first: on
+English it answers in under a second and `tongue` reads the language off
+the script of the words. Where it comes back with nothing, or writes in an
+Indian script, the sound itself is handed to `tongue.aloud` — VoxLingua107,
+97 MB, twenty milliseconds — and a fine-tune takes over from there. Set one
+language in Settings → Ears → Language to skip all of it.
 
-Optional: automatic language detection (so you don't have to manually pick
-a language) needs your own OpenAI API key set as LLM_API_KEY. Without it,
-language switching still works fine, just manually via
-Settings → Ears → Language.
+The order matters and is not free to change. VoxLingua hears an accent as
+readily as a language: it calls Indian-accented English Kannada, Kazakh or
+Sindhi. It is only ever asked once Whisper has already shown this was not
+English, which is the one place it is worth trusting.
+
+- [ ] **Code-mixed speech is heard, then flattened.** "Hi Happy, ఈ రోజు weather
+      ఎలా ఉంది" comes back wholly in Telugu script, English words and all, because
+      the model that ends up hearing it only writes one language. Every word
+      survives; `weather` is just spelt `వెదర్`. The standing prompt tells the model
+      to read those back as English, which handles common words and is shakier on
+      names it has to hand to a tool. Whisper cannot do better: it commits to one
+      language per thirty second window, and large-v3-turbo was measured and is
+      worse at this than the small fine-tune. Sarvam's `codemix` mode is the only
+      thing tried that keeps each language in its own script, and it costs a key,
+      a network round trip and ₹30 an hour of audio. It belongs beside Parakeet
+      and Whisper as a third engine, not as the default.
+- [ ] **`refused()` reads onnx-asr's private parts.** `_decoding`, `_encode`,
+      `_detect_lang_input` and `_vocab`. It buys a great deal — six seconds a take
+      down to one — because `recognize()` feeds `nocaptions` back in where the
+      language goes and then decodes to the token limit. `onnx-asr` is pinned and
+      the call is wrapped, so the worst it can do is go slow again.
 
 ## Next
 
