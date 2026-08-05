@@ -222,7 +222,10 @@ function buttons() {
   node('back').onclick = () => visiting(false)
   node('amissfix').onclick = () => fixing()
 
+  // THE TWO HALVES OF ONE TOGGLE. WITHOUT THE SECOND, THE BIG ORB IS A ONE WAY TRIP:
+  // ONLY SOMETHING NEW BEING SAID WOULD EVER PUT IT BACK IN THE CORNER.
   node('puck').onclick = () => node('glass').classList.remove('talking')
+  node('orb').onclick = () => node('glass').classList.add('talking')
 
   addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return
