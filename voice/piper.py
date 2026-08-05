@@ -16,10 +16,18 @@ from voice.engines import VoiceError
 
 MODELS = Path(__file__).resolve().parent.parent / "models" / "piper"
 SUFFIX = "*.onnx"
+DEFAULT = "en_US-hfc_male-medium"
+VOICES_BY_LANGUAGE = {
+    "hi": "hi_IN-pratham-medium",
+    "te": "te_IN-venkatesh-medium",
+}
+TELUGU = "te"
+HINDI = "hi"
+FALLBACK = "en"
 
 GET_THEM = (
     f"No voice in {MODELS}. Get one with:\n"
-    "  python -m piper.download_voices en_US-hfc_male-medium --download-dir models/piper"
+    f"  python -m piper.download_voices {DEFAULT} --download-dir models/piper"
 )
 
 
@@ -46,15 +54,15 @@ class Voice:
         # BELOW ONE IS FASTER SPEECH.
         self.how = SynthesisConfig(length_scale=self.pace)
 
-    def refit(self):
+    def refit(self, text=""):
         """PICK UP A CHANGED VOICE OR PACE. RELOADING COSTS A FEW MILLISECONDS."""
-        wanted = self.pinned or find()
+        wanted = self.pinned or find(text)
 
         if Path(wanted) != self.path or settings.get("voice.pace") != self.pace:
             self.load(Path(wanted))
 
     def say(self, text):
-        self.refit()
+        self.refit(text)
 
         parts = [chunk.audio_float_array for chunk in self.voice.synthesize(text, self.how)]
 
@@ -70,16 +78,75 @@ def whole(path):
     return path.exists() and path.with_suffix(".onnx.json").exists()
 
 
-def installed():
-    """EVERY VOICE ON THIS MACHINE, BY NAME, FOR SOMETHING DRAWING A LIST."""
+def language(path):
+    """THE LANGUAGE PREFIX FROM A VOICE FILE NAME."""
+    name = Path(path).stem
+    prefix = name.split("-", 1)[0].lower()
+
+    return prefix.split("_", 1)[0]
+
+
+def detected(text):
+    telugu = 0
+    hindi = 0
+
+    for character in (text or ""):
+        point = ord(character)
+
+        if 0x0C00 <= point <= 0x0C7F:
+            telugu += 1
+        elif 0x0900 <= point <= 0x097F:
+            hindi += 1
+
+    if telugu > hindi and telugu > 0:
+        return TELUGU
+
+    if hindi > telugu and hindi > 0:
+        return HINDI
+
+    return FALLBACK
+
+
+def target_language():
+    return (settings.get("ears.language") or "auto").strip().lower()
+
+
+def voices():
     if not MODELS.is_dir():
         return []
 
-    return [path.stem for path in sorted(MODELS.glob(SUFFIX)) if whole(path)]
+    return [path for path in sorted(MODELS.glob(SUFFIX)) if whole(path)]
 
 
-def find():
+def has_language(wanted):
+    return any(language(path) == wanted for path in voices())
+
+
+def ranked(found, target):
+    matching = [path for path in found if language(path) == target]
+    rest = [path for path in found if language(path) != target]
+
+    return matching + rest
+
+
+def installed(text=""):
+    """EVERY VOICE ON THIS MACHINE, BY NAME, FOR SOMETHING DRAWING A LIST."""
+    return [path.stem for path in ranked(voices(), detected(text))]
+
+
+def find(text=""):
     """THE VOICE FILE, OR A COMPLAINT SAYING HOW TO GET ONE."""
+    found = voices()
+
+    if not found:
+        raise VoiceError(GET_THEM)
+
+    target = detected(text)
+    preferred = ranked(found, target)
+
+    if preferred and language(preferred[0]) == target:
+        return preferred[0]
+
     chosen = settings.get("voice.name")
 
     if chosen:
@@ -88,9 +155,13 @@ def find():
         if whole(wanted):
             return wanted
 
-    found = [path for path in sorted(MODELS.glob(SUFFIX)) if whole(path)] if MODELS.is_dir() else []
-
-    if not found:
-        raise VoiceError(GET_THEM)
-
     return found[0]  # A NAME THAT IS NO LONGER INSTALLED FALLS BACK, IT DOES NOT FAIL.
+
+
+def fetch(language=None):
+    from piper.download_voices import download_voice
+
+    chosen = VOICES_BY_LANGUAGE.get((language or "").strip().lower(), DEFAULT)
+    download_voice(chosen, MODELS)
+
+    return MODELS

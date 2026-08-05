@@ -3,6 +3,21 @@
 Pending work, newest thinking at the top of each section. Tick a box when it is done and
 delete the line when it stops being interesting.
 
+## Hindi/Telugu voice models (not in git)
+
+models/ is gitignored, so these download automatically the first time
+they're needed (Ears engine must be set to "Whisper" — Parakeet doesn't
+support these).
+
+Telugu TTS voice (Piper) still needs a one-time manual download since it's
+not part of the auto-download flow yet:
+      python -m piper.download_voices te_IN-venkatesh-medium --download-dir models/piper
+
+Optional: automatic language detection (so you don't have to manually pick
+a language) needs your own OpenAI API key set as LLM_API_KEY. Without it,
+language switching still works fine, just manually via
+Settings → Ears → Language.
+
 ## Next
 
 - [ ] **Windows, at all.** The accessibility tree, the pointer and every act are written for

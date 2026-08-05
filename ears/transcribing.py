@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
+from ears.engines import EarsError
 from face import show
 from memory import settings
 
@@ -34,10 +35,6 @@ GET_IT = f"No speech model in {MODELS}. Get it with:\n  python -m ears --get"
 
 model = None
 built = None
-
-
-class EarsError(Exception):
-    pass
 
 
 def wanted():

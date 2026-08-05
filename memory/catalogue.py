@@ -10,6 +10,15 @@ EFFORTS = [("off", "Off"), ("low", "Low"), ("medium", "Medium"), ("high", "High"
 
 DEVICES = [("cpu", "CPU"), ("auto", "Anything faster")]
 
+EARS_ENGINES = [("parakeet", "Parakeet"), ("whisper", "Whisper")]
+
+EARS_LANGUAGES = [
+    ("auto", "Auto detect"),
+    ("en", "English (en)"),
+    ("hi", "Hindi (hi)"),
+    ("te", "Telugu (te)"),
+]
+
 PROVIDERS = [("ollama", "Ollama"), ("openai", "OpenAI shape")]
 
 # EVERY ONE OF THESE IS A MODIFIER, SO HOLDING IT NEVER TYPES ANYTHING.
@@ -53,6 +62,11 @@ BRAIN = [
 EARS = [
     choice("ears.key", "Hold to talk", TALK_KEYS, "alt_r", "Held from any window, not just this."),
     choice("ears.device", "Runs on", DEVICES, "cpu", "CPU is the sure one."),
+    choice("ears.engine", "Engine", EARS_ENGINES, "whisper",
+        "Parakeet is English only and fast. Whisper is multilingual and slower."),
+    choice("ears.language", "Language", EARS_LANGUAGES, "auto",
+            "Set one code like hi to skip detection when your language never changes.",
+            rare=True),
     number("ears.hold", "Shortest take", 0.05, 2, 0.05, 0.25, "Briefer was a brush.", "sec",
            rare=True),
     number("ears.preroll", "Lead in", 0, 1.5, 0.05, 0.3, "Kept from before the key.", "sec",

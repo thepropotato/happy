@@ -91,9 +91,28 @@ def start():
 
     try:
         ears.load_model()
-        ears.warm()
-    except ears.EarsError as error:
-        raise SystemExit(error)
+    except ears.EarsError:
+        show.note("Downloading speech model, this may take a few minutes...")
+        ears.fetch()
+        show.note("Done.")
+        ears.load_model()
+
+    ears.warm()
+
+    speech = voice.engines.part()
+    spoken = speech.target_language()
+
+    if spoken != "auto" and not speech.has_language(spoken):
+        show.note("Downloading voice model, this may take a few minutes...")
+        speech.fetch(spoken)
+        show.note("Done.")
+
+    try:
+        speech.find()
+    except voice.VoiceError:
+        show.note("Downloading voice model, this may take a few minutes...")
+        speech.fetch(spoken)
+        show.note("Done.")
 
     speaker, mute = voice.create()
 
