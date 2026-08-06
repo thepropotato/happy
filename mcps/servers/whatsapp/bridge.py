@@ -87,6 +87,19 @@ PORT = int(os.environ.get("WHATSAPP_BRIDGE_PORT") or 3001)
 # DEFAULT. SET ONE AND BOTH HALVES START INSISTING ON IT.
 BRIDGE_SECRET = os.environ.get("INTERNAL_API_SECRET", "")
 
+# WHAT A RESTART OPENS WITH, IN THE USER'S OWN FOLDER SO UNLINKING TAKES IT TOO.
+CACHE = "cache.json"
+
+# raw_messages IS NOT IN HERE AND CANNOT BE: THEY ARE LIVE PROTOBUFS. THE ONE
+# THING THEY ARE FOR IS FETCHING MEDIA, WHICH ALREADY FALLS BACK ON WHAT IS ON
+# DISK AND THEN ON THE CDN.
+KEPT = (
+    "phone", "name",
+    "contacts", "chats", "groups", "messages", "media",
+    "latest_received_message", "latest_sent_message",
+    "downloaded_media", "lid_name_map", "lid_to_pn",
+)
+
 
 def fix_surrogates(text: str) -> str:
     """Convert valid surrogate pairs to proper Unicode (preserves emojis), strip lone surrogates."""
@@ -306,6 +319,10 @@ class Session:
         self.stop_event = threading.Event()
         self.deleted = False
         self.upload_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"upload-{username}")
+
+        # BEFORE ANYTHING CONNECTS. THE PANEL AND THE TOOLS BOTH ASK THE MOMENT
+        # THE BRIDGE ANSWERS, WHICH IS SOONER THAN A SESSION COMES UP.
+        remembered(self)
 
     def build_jid_to_name(self):
         jid_to_name = {c["id"]: c.get("name", c["id"].split("@")[0]) for c in self.chats}
@@ -1374,15 +1391,77 @@ def do_sync(session):
 
 
 def persist(session):
-    """NOTHING, AND DELIBERATELY.
+    """THE STORE ON DISK, BESIDE THE SESSION IT BELONGS TO.
 
-    THIS WROTE A SNAPSHOT OF THE CHATS TO CLOUD STORAGE SO A FRESH CONTAINER
-    COULD COME UP WARM. ON ONE MACHINE THERE IS NOTHING TO COME UP FROM: THE
-    CACHE WAS ALREADY REBUILT BY A SYNC ON EVERY LOCAL START, BECAUSE THE WRITE
-    AND THE READ WERE BOTH SKIPPED WHENEVER NO BUCKET WAS CONFIGURED. THE TIMERS
-    THAT CALL THIS ARE LEFT ALONE RATHER THAN UNPICKED FROM THE EVENT HANDLERS.
+    WHATSAPP HANDS THE HISTORY OVER ONCE, IN THE BUNDLE THAT FOLLOWS A SCAN, AND
+    NEVER AGAIN ON A RECONNECT — AND neonize HAS NO WAY TO ASK FOR IT. HOLDING
+    THAT BUNDLE IN MEMORY ALONE MEANT EVERY RESTART CAME UP LINKED AND EMPTY:
+    THE CHATS WERE THE GROUP LIST do_sync REBUILDS AND NOTHING ELSE, EVERY ONE
+    OF THEM STAMPED ZERO, AND EVERY TOOL ANSWERED THAT THERE WERE NO MESSAGES.
+    THIS WROTE TO CLOUD STORAGE AND WAS EMPTIED OUT WITH IT; ON ONE MACHINE A
+    FILE NEXT TO THE PAIRING IS THE SAME THING.
+
+    WRITTEN WHOLE AND MOVED INTO PLACE. IT IS WRITTEN OFF TIMERS WHILE MESSAGES
+    ARE STILL LANDING, AND HALF A FILE READS BACK AS NO HISTORY AT ALL.
     """
-    return
+    if session.deleted:
+        return
+
+    with session.lock:
+        state = {name: getattr(session, name) for name in KEPT}
+        state["failed_downloads"] = list(session.failed_downloads)
+
+        try:
+            written = json.dumps(state, ensure_ascii=False, default=str)
+        except Exception as e:
+            logger.warning(f"[persist] user={session.username} could not be written: {e}")
+            return
+
+    here = Path(session.db_path).parent
+    part = here / (CACHE + ".part")
+
+    try:
+        here.mkdir(parents=True, exist_ok=True)
+        part.write_text(written, encoding="utf-8")
+        os.replace(str(part), str(here / CACHE))
+    except Exception as e:
+        logger.warning(f"[persist] user={session.username} could not be saved: {e}")
+
+
+def remembered(session):
+    """THE LAST SNAPSHOT BACK INTO A SESSION THAT HAS ONLY JUST BEEN MADE.
+
+    A CACHE FOR AN ACCOUNT NOBODY IS LINKED TO ANY MORE IS NOT A PROBLEM HERE:
+    LINKING A DIFFERENT PHONE CLEARS THE LOT ON CONNECT, WHICH IS WHY THE NUMBER
+    IS IN THE FILE.
+    """
+    where = Path(session.db_path).parent / CACHE
+
+    try:
+        state = json.loads(where.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return
+    except Exception as e:
+        logger.warning(f"[persist] user={session.username} cache unreadable: {e}")
+        return
+
+    for name in KEPT:
+        if state.get(name) is not None:
+            setattr(session, name, state[name])
+
+    session.failed_downloads = set(state.get("failed_downloads") or [])
+
+    # A CACHE WRITTEN BEFORE previewed() EXISTED HAS A BLANK BESIDE EVERY NAME,
+    # AND THE HISTORY THAT WOULD FILL THEM IN ONLY COMES AGAIN ON A RELINK.
+    for chat in session.chats:
+        previewed(session, chat, chat.get("id", ""))
+
+    kept = sum(len(v) for v in session.messages.values())
+    kept += sum(len(v) for v in session.media.values())
+    logger.info(
+        f"[persist] user={session.username} restored {len(session.chats)} chats, "
+        f"{kept} messages, {len(session.contacts)} contacts"
+    )
 
 
 def start_session(session):
