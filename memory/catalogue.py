@@ -51,9 +51,11 @@ BRAIN = [
            rare=True),
     number("brain.history", "History carried", 2, 64, 2, 24, "Messages of backchat.", "msgs",
            whole=True, rare=True),
-    # OPENING AN APP, FINDING A CHAT, TYPING AND SENDING IS SIX ROUNDS WITH
-    # NOTHING GOING WRONG, AND THE GLANCE TO SEE WHERE IT LANDED MAKES SEVEN.
-    number("brain.calls", "Tool rounds", 1, 20, 1, 14, "Before it has to answer.", "max",
+    # A BACKSTOP NOW, NOT THE BRAKE. GETTING NOWHERE IS CAUGHT BY THREE NOS IN A
+    # ROW, WHICH IS THE SHAPE THAT ACTUALLY WENT WRONG; THIS ONLY CATCHES A LOOP
+    # WHERE EVERY CALL WORKS AND NONE OF THEM HELP. FOURTEEN WAS SIZED FOR AN
+    # ERRAND GOING PERFECTLY AND CUT OFF EVERY ONE THAT NEEDED A SECOND GO.
+    number("brain.calls", "Tool rounds", 1, 60, 1, 40, "Before it has to answer.", "max",
            whole=True, rare=True),
     number("brain.timeout", "Timeout", 30, 900, 10, 300, "A cold load is not a dead server.",
            "sec", whole=True, rare=True),

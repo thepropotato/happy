@@ -87,8 +87,13 @@ def progress(said):
     told.set(said)
 
 
-def used(name, args, result, seconds=None, why=None, row=None):
-    """ONE TOOL CALL, ONTO THE END OF ITS EXCHANGE'S LIST."""
+def used(name, args, result, seconds=None, why=None, row=None, failed=False):
+    """ONE TOOL CALL, ONTO THE END OF ITS EXCHANGE'S LIST.
+
+    failed IS WHETHER IT CAME BACK WITH NOTHING, WHICH IS NOT THE SAME AS HAVING
+    THROWN. A ROW OF CALLS THAT ALL "WORKED" AND ALL FOUND NOTHING IS EXACTLY
+    WHAT GOING ROUND IN CIRCLES LOOKS LIKE, AND IT USED TO BE UNREADABLE HERE.
+    """
     row = here.get() if row is None else row
 
     if row is None:
@@ -99,6 +104,7 @@ def used(name, args, result, seconds=None, why=None, row=None):
         "why": why,
         "args": args,
         "result": brief(result),
+        "failed": bool(failed),
         "seconds": round(seconds, 3) if seconds is not None else None,
         "after": told.get(),
     }

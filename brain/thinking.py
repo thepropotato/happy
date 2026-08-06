@@ -19,7 +19,7 @@ import memory
 from brain import model as brain
 from brain.model import LLMError
 from brain.prompt import system_prompt
-from brain.watching import MODEL, keep_recent, keep_record, tell, watches
+from brain.watching import MODEL, Stuck, fresh, keep_recent, keep_record, tell, watches
 from memory import settings
 
 MODEL_NODE = "model"
@@ -28,6 +28,15 @@ MODEL_NODE = "model"
 GROUPS = ("brain", "mcps")
 
 THREAD = "happy"
+
+# HOW THE CALL LIMIT SAYS SO, IN ITS OWN WORDS: "Model call limits exceeded: run
+# limit (14/14)". EVERY WORD HERE IS READ OUT LOUD, AND THAT IS A COUNTER.
+LIMIT = "Model call limits exceeded"
+
+RAN_OUT = (
+    "I ran out of steps before I got that finished. Ask me again and I will carry "
+    "on from where I got to."
+)
 
 
 def stamp():
@@ -85,14 +94,19 @@ class Happy:
 
         # BEFORE THE GRAPH RUNS: THE TOOLS IT CALLS ARE WRITTEN ONTO THIS ROW.
         memory.begin(speech, **about)
+        fresh()
         started = time.perf_counter()
 
         try:
             done = self.graph.invoke(self.turn(speech), self.config())
+        except Stuck as stuck:
+            memory.close(str(stuck), time.perf_counter() - started)
+
+            return str(stuck)
         except Exception as error:
             raise LLMError(brain.reason(error))
 
-        reply = done["messages"][-1].text.strip()
+        reply = worded(done["messages"][-1].text.strip())
         memory.close(reply, time.perf_counter() - started)
 
         return reply
@@ -101,6 +115,7 @@ class Happy:
         """THE REPLY IN PIECES, FOR HANDING SENTENCES TO THE VOICE AS THEY LAND."""
         self.refit()
         memory.begin(speech, **about)
+        fresh()
         reply = ""
         started = time.perf_counter()
 
@@ -118,6 +133,21 @@ class Happy:
                     memory.progress(len(reply))
 
                     yield piece
+
+            # NOT ONE WORD CAME OUT, SO WHATEVER ENDED THE RUN ENDED IT SOMEWHERE
+            # THE STREAM CANNOT SEE. SAY WHAT IT LEFT BEHIND RATHER THAN GO QUIET.
+            if not reply.strip():
+                last = self.ending()
+
+                if last:
+                    reply += last
+
+                    yield last
+        except Stuck as stuck:
+            # NOT A FAILURE OF HAPPY'S, SO IT IS SAID RATHER THAN SHOWN AS TROUBLE.
+            reply += str(stuck)
+
+            yield str(stuck)
         except Exception as error:
             raise LLMError(brain.reason(error))
         finally:
@@ -125,6 +155,29 @@ class Happy:
             tell(MODEL, None, taken)
 
             memory.close(reply.strip() or None, taken)
+
+    def ending(self):
+        """THE RUN'S LAST WORD WHEN THE STREAM CARRIED NONE, OR "" IF THERE IS NONE.
+
+        A RUN THAT STOPS ANYWHERE BUT THE MODEL LEAVES ITS LAST MESSAGE AS A STATE
+        UPDATE, AND stream_mode "messages" ONLY CARRIES WHAT AN LLM ACTUALLY
+        GENERATED. SO IT WAS DROPPED WHOLE: NOTHING SPOKEN, NOTHING SHOWN, AND A
+        NULL REPLY WRITTEN DOWN. RUNNING OUT OF ROUNDS IS THE ONE THAT HAPPENS,
+        AND FROM WHERE A PERSON SITS IT LOOKED LIKE HAPPY DYING MID SENTENCE.
+        """
+        try:
+            kept = self.graph.get_state(self.config()).values.get("messages") or []
+        except Exception:
+            return ""
+
+        last = kept[-1] if kept else None
+
+        # A TOOL'S OWN OUTPUT IS NOT AN ANSWER, AND READING ONE OUT WOULD BE WORSE
+        # THAN THE SILENCE THIS IS HERE TO FIX.
+        if getattr(last, "type", "") != "ai":
+            return ""
+
+        return worded((last.text or "").strip())
 
     def forget(self):
         """A CLEAN SLATE. A NEW THREAD IS CHEAPER THAN EMPTYING THE OLD ONE."""
@@ -135,6 +188,11 @@ class Happy:
 
     def config(self):
         return {"configurable": {"thread_id": self.thread}}
+
+
+def worded(said):
+    """A RUN THAT RAN OUT OF ROUNDS, IN HAPPY'S WORDS INSTEAD OF THE COUNTER'S."""
+    return RAN_OUT if said.startswith(LIMIT) else said
 
 
 def spoken(chunk, note):

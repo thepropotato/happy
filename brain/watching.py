@@ -21,7 +21,32 @@ STARTED = "tool.started"
 
 MODEL = "model"
 
+# THREE IN A ROW GETTING NOWHERE. TWO IS A RETRY, WHICH IS OFTEN THE RIGHT MOVE
+# AND IS ASKED FOR BY NAME IN THE STANDING PROMPT: THE OTHER SPELLING, THE OTHER
+# WORDING, WAIT AND GO AGAIN. THREE IS THE SAME LOCKED DOOR A THIRD TIME.
+ENOUGH = 3
+
+NOWHERE = (
+    "That is not getting anywhere — three goes in a row came back with nothing. "
+    "Tell me a bit more about what you are after and I will try it another way."
+)
+
 report = None
+
+# HOW MANY TOOLS IN A ROW HAVE SAID NO. ONE TURN RUNS AT A TIME, HELD BY THE LOCK
+# IN main.py, SO THIS IS PER ERRAND WITHOUT HAVING TO BE THREADED THROUGH ONE.
+missed = 0
+
+
+class Stuck(Exception):
+    """ENOUGH TOOLS IN A ROW SAID NO THAT THE NEXT ONE WOULD TOO."""
+
+
+def fresh():
+    """A NEW TURN. THE STREAK IS ABOUT THIS ERRAND, NOT THE LAST ONE."""
+    global missed
+
+    missed = 0
 
 
 def watches(handler):
@@ -62,13 +87,15 @@ def keep_record(request, handler):
 
     started = time.perf_counter()
 
+    global missed
+
     try:
         result = handler(request)
     except Exception as error:
         taken = time.perf_counter() - started
         gone = {"id": which, "why": why, "args": args, "result": str(error), "failed": True}
 
-        memory.used(name, args, str(error), taken, why)
+        memory.used(name, args, str(error), taken, why, failed=True)
         tell(TOOL, name, taken, gone)
 
         raise
@@ -76,13 +103,43 @@ def keep_record(request, handler):
     taken = time.perf_counter() - started
 
     why = why or reason(request)
-    said = text(result)
 
-    memory.used(name, args, said, taken, why)
+    # THE MARK COMES OFF HERE AND NOWHERE ELSE, SO THE MODEL READS THE SENTENCE
+    # THE TOOL MEANT TO SAY AND NEVER THE BOOKKEEPING IN FRONT OF IT.
+    said, nope = asking.went(text(result))
 
-    tell(TOOL, name, taken, {"id": which, "why": why, "args": args, "result": memory.brief(said)})
+    missed = missed + 1 if nope else 0
 
-    return result
+    memory.used(name, args, said, taken, why, failed=nope)
+
+    tell(
+        TOOL,
+        name,
+        taken,
+        {"id": which, "why": why, "args": args, "result": memory.brief(said), "failed": nope},
+    )
+
+    if missed >= ENOUGH:
+        raise Stuck(NOWHERE)
+
+    return plainly(result, said, nope)
+
+
+def plainly(result, said, nope):
+    """THE ANSWER WITH THE MARK OFF IT, AND THE ORDINARY status FIELD ON INSTEAD.
+
+    status IS WHERE A TOOL RESULT IS SUPPOSED TO SAY IT WENT WRONG, SO ANYTHING
+    READING THE CONVERSATION AFTERWARDS GETS IT WITHOUT KNOWING ABOUT ANY OF THIS.
+    """
+    if not hasattr(result, "model_copy"):
+        return said
+
+    changed = {"content": said}
+
+    if nope:
+        changed["status"] = "error"
+
+    return result.model_copy(update=changed)
 
 
 def reason(request):
