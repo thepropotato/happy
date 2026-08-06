@@ -6,6 +6,7 @@ from pathlib import Path
 from langchain_core.tools import tool
 
 import conscience
+from hands import asking
 from hands.shell.guard import danger, report, shell
 
 TIMEOUT_SECONDS = 30
@@ -35,7 +36,7 @@ def run_command(command: str, directory: str = "") -> str:
     where = str(Path(directory).expanduser()) if directory else HOME
 
     if not Path(where).is_dir():
-        return f"There is no folder at {where}."
+        return asking.no(f"There is no folder at {where}.")
 
     try:
         done = subprocess.run(
@@ -46,9 +47,9 @@ def run_command(command: str, directory: str = "") -> str:
             timeout=TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired:
-        return f"It was still running after {TIMEOUT_SECONDS} seconds, so it was stopped."
+        return asking.no(f"It was still running after {TIMEOUT_SECONDS} seconds, so it was stopped.")
     except OSError as error:
-        return f"Could not run it: {error}"
+        return asking.no(f"Could not run it: {error}")
 
     return report(done)
 

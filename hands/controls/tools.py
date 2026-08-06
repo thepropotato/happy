@@ -7,6 +7,7 @@ FROM A SHORT LIST AND THE ACTION IT WANTS IS SPELLED OUT IN THE DESCRIPTION.
 from langchain_core.tools import tool
 
 import conscience
+from hands import asking
 from hands.controls import clipboard, media, network, power, screen, sound
 
 STEP = 10  # HOW MUCH "A BIT LOUDER" IS WORTH.
@@ -41,7 +42,7 @@ def sound_control(action: str, level: int = -1) -> str:
     if wanted in ("mute", "unmute"):
         return sound.mute(wanted == "mute")
 
-    return f"I can set, step, mute or report the volume, not {action}."
+    return asking.no(f"I can set, step, mute or report the volume, not {action}.")
 
 
 @tool
@@ -68,7 +69,7 @@ def brightness_control(action: str, level: int = -1) -> str:
     if wanted == DOWN:
         return screen.change(-step)
 
-    return f"I can set, step or report the brightness, not {action}."
+    return asking.no(f"I can set, step or report the brightness, not {action}.")
 
 
 @tool
@@ -94,7 +95,7 @@ def display_control(action: str) -> str:
     if wanted in ("dark", "light"):
         return screen.dark_mode(wanted == "dark")
 
-    return f"I can turn the screen off or switch dark mode, not {action}."
+    return asking.no(f"I can turn the screen off or switch dark mode, not {action}.")
 
 
 @tool
@@ -120,7 +121,7 @@ def power_control(action: str) -> str:
     }.get(wanted)
 
     if asked is None:
-        return f"I can report the battery, lock, sleep, restart or shut down, not {action}."
+        return asking.no(f"I can report the battery, lock, sleep, restart or shut down, not {action}.")
 
     act, why = asked
 
@@ -144,7 +145,7 @@ def network_control(action: str) -> str:
     if wanted in ("on", "off"):
         return network.switch(wanted == "on")
 
-    return f"I can report or switch the Wi-Fi, not {action}."
+    return asking.no(f"I can report or switch the Wi-Fi, not {action}.")
 
 
 @tool
@@ -162,7 +163,7 @@ def clipboard_control(action: str, text: str = "") -> str:
     if wanted == "write":
         return clipboard.write(text)
 
-    return f"I can read the clipboard or write to it, not {action}."
+    return asking.no(f"I can read the clipboard or write to it, not {action}.")
 
 
 TOOLS = [

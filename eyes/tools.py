@@ -3,6 +3,7 @@
 from langchain_core.tools import tool
 
 from eyes.describing import QUESTION, asked, smaller
+from hands import asking
 from eyes.parts import VisionError
 from eyes.reading import look
 from eyes.screen import grab
@@ -25,18 +26,18 @@ def read_image(path: str) -> str:
     where, note = files.locate(path)
 
     if where is None:
-        return note
+        return asking.no(note)
 
     if where.is_dir():
-        return f"{where} is a folder, not a picture."
+        return asking.no(f"{where} is a folder, not a picture.")
 
     try:
         seen = look(where)
     except VisionError as problem:
-        return str(problem)
+        return asking.no(str(problem))
 
     if not seen.text:
-        return f"{where.name} is a picture, but there are no words in it."
+        return asking.no(f"{where.name} is a picture, but there are no words in it.")
 
     header = f"{note}\n" if note else ""
 
@@ -57,9 +58,9 @@ def read_screen() -> str:
     try:
         seen = look(grab().image)
     except VisionError as problem:
-        return str(problem)
+        return asking.no(str(problem))
 
-    return seen.text[:MAX_CHARS] if seen.text else "There is no text on the screen."
+    return seen.text[:MAX_CHARS] if seen.text else asking.no("There is no text on the screen.")
 
 
 @tool
@@ -78,7 +79,7 @@ def look_at_screen(question: str) -> str:
 
         return asked(smaller(shot.image)[0], about)
     except VisionError as problem:
-        return str(problem)
+        return asking.no(str(problem))
 
 
 TOOLS = [read_image, read_screen, look_at_screen]

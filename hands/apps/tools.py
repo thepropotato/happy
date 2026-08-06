@@ -4,6 +4,7 @@ from pathlib import Path
 
 from langchain_core.tools import tool
 
+from hands import asking
 from hands.apps import installed, machine, opening
 from hands.apps.running import launch
 
@@ -15,7 +16,7 @@ def list_installed_apps() -> str:
     what it is called. If an app is not in this list, it is not installed."""
     apps = installed.apps()
 
-    return ", ".join(apps) if apps else "No applications found."
+    return ", ".join(apps) if apps else asking.no("No applications found.")
 
 
 @tool
@@ -41,7 +42,7 @@ def open_app(name: str) -> str:
     match, sure = installed.resolve(name)
 
     if match is None:
-        return f"There is no app called {name} on this computer."
+        return asking.no(f"There is no app called {name} on this computer.")
 
     if not sure:
         return (
@@ -53,12 +54,12 @@ def open_app(name: str) -> str:
     how = opening.app_opener()
 
     if how is None:
-        return "Opening apps is not supported on this platform."
+        return asking.no("Opening apps is not supported on this platform.")
 
     complaint = launch(how + [match])
 
     if complaint:
-        return complaint
+        return asking.no(complaint)
 
     # EVERY TOOL AFTER THIS ONE READS WHATEVER IS IN FRONT, SO IF IT IS NOT THIS
     # APP THE MODEL HAS TO BE TOLD RATHER THAN LEFT CLICKING IN SOMEBODY ELSE'S.
@@ -80,12 +81,12 @@ def open_path(path: str) -> str:
     target = Path(path).expanduser()
 
     if not target.exists():
-        return f"There is nothing at {target}."
+        return asking.no(f"There is nothing at {target}.")
 
     how = opening.opener()
 
     if how is None:
-        return "Opening paths is not supported on this platform."
+        return asking.no("Opening paths is not supported on this platform.")
 
     return launch(how + [str(target)]) or f"Opened {target}."
 

@@ -3,6 +3,7 @@
 from langchain_core.tools import tool
 import memory.storage as storage
 
+from hands import asking
 from hands.coder import job
 from hands.coder.registry import available
 
@@ -25,7 +26,7 @@ def build(task: str) -> str:
     names = available()
 
     if not names:
-        return MISSING
+        return asking.no(MISSING)
 
     with job.lock:
         if job.busy():
@@ -64,7 +65,7 @@ def build_answer(response: str) -> str:
         )
 
         if not rows:
-            return NO_CONTINUE
+            return asking.no(NO_CONTINUE)
 
         latest = rows[0]
 
@@ -81,10 +82,10 @@ def build_answer(response: str) -> str:
         return STARTED
 
     if not job.current.session_id:
-        return NO_CONTINUE
+        return asking.no(NO_CONTINUE)
 
     if job.current.coder_name != "Claude Code":
-        return NO_FOLLOWUPS
+        return asking.no(NO_FOLLOWUPS)
 
     with job.lock:
         if job.busy():

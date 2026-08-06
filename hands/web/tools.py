@@ -2,6 +2,7 @@
 
 from langchain_core.tools import tool
 
+from hands import asking
 from hands.web import wording
 from hands.web.reading import page
 from hands.web.searching import search
@@ -30,7 +31,7 @@ def search_web(query: str) -> str:
     try:
         found = search(query)
     except Exception as error:
-        return f"The search did not go through. {error}"
+        return asking.no(f"The search did not go through. {error}")
 
     return wording.written(query, found)
 
@@ -51,7 +52,7 @@ def read_page(url: str, start: int = 0) -> str:
     try:
         return page(url, start)
     except Exception as error:
-        return f"{error}"
+        return asking.no(f"{error}")
 
 
 TOOLS = [search_web, read_page]

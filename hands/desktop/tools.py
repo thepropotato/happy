@@ -9,7 +9,18 @@ WRONG ONE, AND THAT IS NOT A WRONG ANSWER, IT IS A THING THAT HAPPENED.
 from langchain_core.tools import tool
 
 import eyes
+from hands import asking
 from hands.desktop import acting, attaching
+
+
+def went(done):
+    """WHAT HAPPENED, MARKED AS A NO WHEN IT DID NOT HAPPEN.
+
+    Done HAS CARRIED worked SINCE IT WAS WRITTEN, AND NOTHING OUTSIDE THIS FOLDER
+    HAS EVER BEEN ABLE TO SEE IT: A CLICK THAT FOUND NOTHING CAME BACK LOOKING
+    EXACTLY LIKE A CLICK THAT LANDED.
+    """
+    return done.said if done.worked else asking.no(done.said)
 
 
 @tool
@@ -47,7 +58,7 @@ def click_on(target: str, double: bool = False, right: bool = False) -> str:
     brightness or Wi-Fi use the controls, all of which are faster and safer than
     clicking around. Anything whose label suggests it deletes, sends, buys or
     installs is shown to the user for approval first."""
-    return acting.clicked(target, times=2 if double else 1, button="right" if right else "left").said
+    return went(acting.clicked(target, times=2 if double else 1, button="right" if right else "left"))
 
 
 @tool
@@ -60,7 +71,7 @@ def type_text(text: str, into: str = "") -> str:
     you are told if it did not. Use this for filling in a form, writing a
     message or searching inside an application. To press a shortcut or a single
     key like Enter, use press_keys instead."""
-    return acting.typed(text, into).said
+    return went(acting.typed(text, into))
 
 
 @tool
@@ -72,7 +83,7 @@ def press_keys(keys: str) -> str:
     around with the arrow keys. On macOS the command key is "cmd" and on Windows
     use "ctrl". Shortcuts that quit an application or delete something are shown
     to the user for approval first."""
-    return acting.pressed(keys).said
+    return went(acting.pressed(keys))
 
 
 @tool
@@ -92,7 +103,7 @@ def attach_file(path: str, into: str = "") -> str:
     if it did not arrive. This attaches only. Nothing is sent until you press
     Enter or click Send, which you should do once you are told the file is
     there."""
-    return attaching.attached(path, into).said
+    return went(attaching.attached(path, into))
 
 
 @tool
@@ -103,7 +114,7 @@ def scroll(direction: str, amount: int = 1) -> str:
     Use this to bring something into view that is not on the screen yet. If you
     are looking for something in particular, scroll a step and then use
     list_controls or read_screen to see whether it has appeared."""
-    return acting.scrolled(direction, amount).said
+    return went(acting.scrolled(direction, amount))
 
 
 TOOLS = [list_controls, click_on, type_text, attach_file, press_keys, scroll]

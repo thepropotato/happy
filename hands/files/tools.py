@@ -4,6 +4,7 @@ from pathlib import Path
 
 from langchain_core.tools import tool
 
+from hands import asking
 from hands.files.finding import describe, hunt, locate
 from hands.files.readers import UNREADABLE, extract
 
@@ -28,23 +29,25 @@ def read_file(path: str, start: int = 0) -> str:
     found, note = locate(path)
 
     if found is None:
-        return note
+        return asking.no(note)
 
     if found.is_dir():
-        return f"{found} is a folder, not a file. Use list_folder to see inside it."
+        return asking.no(f"{found} is a folder, not a file. Use list_folder to see inside it.")
 
     kind = UNREADABLE.get(found.suffix.lower())
 
     if kind:
-        return f"{found.name} is {kind}. I can tell you it is there, but I cannot read it."
+        return asking.no(
+            f"{found.name} is {kind}. I can tell you it is there, but I cannot read it."
+        )
 
     try:
         text = extract(found)
     except Exception as error:
-        return f"Could not read {found.name}: {error}"
+        return asking.no(f"Could not read {found.name}: {error}")
 
     if not text.strip():
-        return f"{found.name} opened, but there is no text in it."
+        return asking.no(f"{found.name} opened, but there is no text in it.")
 
     window = text[start : start + MAX_CHARS]
     more = CUT if len(text) > start + MAX_CHARS else ""
@@ -62,7 +65,7 @@ def find_files(name: str) -> str:
     hits = hunt(name)
 
     if not hits:
-        return f"Nothing found matching {name}."
+        return asking.no(f"Nothing found matching {name}.")
 
     return "\n".join(describe(path) for path in hits)
 
@@ -75,13 +78,13 @@ def list_folder(path: str = "~") -> str:
     folder = Path(path).expanduser()
 
     if not folder.is_dir():
-        return f"{folder} is not a folder."
+        return asking.no(f"{folder} is not a folder.")
 
     entries = sorted(folder.iterdir(), key=lambda p: p.name.lower())
     shown = [p for p in entries if not p.name.startswith(".")]
 
     if not shown:
-        return f"{folder} is empty."
+        return asking.no(f"{folder} is empty.")
 
     return "\n".join(f"{p.name}/" if p.is_dir() else describe(p) for p in shown[:MAX_ENTRIES])
 

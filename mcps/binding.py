@@ -14,6 +14,7 @@ import re
 
 from langchain_core.tools import StructuredTool
 
+from hands import asking
 from mcps import loop, speaking, writing
 from mcps.session import Unreachable
 
@@ -74,18 +75,20 @@ def calling(service, session, tool):
     def call(**arguments):
         annotations = getattr(tool, "annotations", None)
 
+        # SAID NO TO BY A PERSON, NOT BY THE SERVICE. IT IS NOT A DEAD END TO COUNT
+        # AGAINST HAPPY, AND THE ANSWER ALREADY TELLS HIM NOT TO GO ROUND IT.
         if not writing.permitted(service, tool.name, arguments, annotations):
             return REFUSED
 
         try:
             result = loop.run(session.call(tool.name, arguments), session.timeout)
         except Unreachable:
-            return ASLEEP.format(service=service)
+            return asking.no(ASLEEP.format(service=service))
         except TimeoutError:
-            return f"{service} took too long to answer."
+            return asking.no(f"{service} took too long to answer.")
         except Exception:
-            return BROKE.format(service=service)
+            return asking.no(BROKE.format(service=service))
 
-        return speaking.said(result)
+        return asking.no(speaking.said(result)) if result.isError else speaking.said(result)
 
     return call
