@@ -939,6 +939,44 @@ def auto_download(session, message, entry):
 
 
 
+# WHAT A CHAT WHOSE LAST WORD WAS A PICTURE SAYS INSTEAD OF NOTHING.
+SHOWN = {
+    "image": "[photo]", "video": "[video]", "audio": "[voice message]",
+    "ptt": "[voice message]", "sticker": "[sticker]", "document": "[document]",
+    "viewonce": "[view once]",
+}
+
+
+def previewed(session, chat, chat_id):
+    """THE CHAT'S LAST LINE, TAKEN FROM THE NEWEST MESSAGE ACTUALLY STORED.
+
+    IT USED TO BE SET INSIDE THE LOOP BY ANY MESSAGE THAT CAME IN NEWER THAN THE
+    CHAT'S OWN STAMP. BUT THAT STAMP HAD ALREADY BEEN TAKEN FROM THE
+    CONVERSATION'S METADATA, WHICH IS THE TIME OF THAT SAME NEWEST MESSAGE, SO
+    NOTHING WAS EVER NEWER AND EVERY PREVIEW STAYED EMPTY — 522 CHATS OUT OF 523
+    OF THEM. THE LIST CAME BACK FULL OF NAMES WITH NOTHING BESIDE THEM, WHICH IS
+    WHY "what was the last message i received" COULD NOT BE ANSWERED OFF IT.
+
+    A REACTION IS NOT A CHAT'S LAST WORD. WHATSAPP DOES NOT SHOW ONE EITHER.
+    """
+    newest = None
+
+    for message in session.messages.get(chat_id, []) + session.media.get(chat_id, []):
+        if message.get("type") == "reaction":
+            continue
+
+        if newest is None or message.get("timestamp", 0) >= newest.get("timestamp", 0):
+            newest = message
+
+    if newest is None:
+        return
+
+    chat["lastMessage"] = newest.get("body") or SHOWN.get(newest.get("mediaType") or newest.get("type"), "")
+
+    if newest.get("timestamp", 0) > chat.get("timestamp", 0):
+        chat["timestamp"] = newest["timestamp"]
+
+
 def handle_history_sync(session, evt):
     data = evt.Data
     sync_type = getattr(data, 'syncType', -1)
@@ -1132,9 +1170,6 @@ def handle_history_sync(session, evt):
                         store[eidx] = entry
                     else:
                         store.append(entry)
-                    if ts and ts > session.chats[cidx].get("timestamp", 0):
-                        session.chats[cidx]["lastMessage"] = clean(body)
-                        session.chats[cidx]["timestamp"] = ts
                     if msg_type != "reaction" and ts and not any(x in chat_id for x in ("@newsletter", "@broadcast")):
                         chat_name = session.chats[cidx].get("name", chat_id.split("@")[0])
                         if from_me:
@@ -1149,6 +1184,7 @@ def handle_history_sync(session, evt):
                     continue
             session.messages[chat_id].sort(key=lambda m: m.get("timestamp", 0))
             session.media[chat_id].sort(key=lambda m: m.get("timestamp", 0))
+            previewed(session, session.chats[cidx], chat_id)
 
         session.sync_status["contacts"] = len(session.contacts)
         session.sync_status["chats"] = len(session.chats)
@@ -1698,6 +1734,15 @@ def chats(username):
             if resolved:
                 chat = {**chat, "name": resolved}
         result.append(chat)
+
+    # NEWEST FIRST, EVERY TIME IT IS ASKED. THE ORDER USED TO BE WHATEVER THE
+    # HISTORY SYNC BUILT, WHICH WAS NEWEST FIRST ONCE AND THEN NEVER AGAIN: A
+    # LIVE MESSAGE RESTAMPS ITS CHAT WHERE IT SITS AND NOTHING MOVES IT UP. THE
+    # LIST STAYED SORTED-LOOKING AT THE TOP WHILE THE CHAT SOMEBODY HAD JUST
+    # WRITTEN IN SAT FIFTEENTH, SO READING THE FIRST ONE AS THE LATEST — WHICH
+    # IS THE ONLY REASONABLE WAY TO READ A CHAT LIST — GAVE AN OLDER ANSWER.
+    result.sort(key=lambda chat: chat.get("timestamp", 0), reverse=True)
+
     return jsonify(clean(result))
 
 
