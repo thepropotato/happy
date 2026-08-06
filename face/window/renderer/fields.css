@@ -26,6 +26,12 @@
   transition: color 180ms, background 180ms;
 }
 
+/* THE SEGMENTS SIT SHOULDER TO SHOULDER INSIDE THREE PIXELS OF PADDING: A RING
+   DRAWN AROUND ONE WOULD LEAN ON ITS NEIGHBOUR AND ON THE TRAY'S OWN EDGE. */
+.segments button:focus-visible {
+  outline-offset: -2px;
+}
+
 .segments button.on {
   color: var(--ink);
   background: rgba(124, 92, 245, 0.28);
@@ -63,6 +69,16 @@
 
 .slider input:active::-webkit-slider-thumb {
   transform: scale(1.25);
+}
+
+/* A RING AROUND A FOUR PIXEL TRACK IS A BOX AROUND A HAIRLINE. THE THUMB IS THE
+   THING THE ARROW KEYS MOVE, SO THE THUMB IS WHAT LIGHTS UP. */
+.slider input:focus-visible {
+  outline: none;
+}
+
+.slider input:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(124, 92, 245, 0.3), 0 0 12px var(--glow-soft);
 }
 
 .switch {

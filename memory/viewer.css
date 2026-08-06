@@ -33,6 +33,17 @@
   box-sizing: border-box;
 }
 
+/* THE SAME RING THE PANEL USES, FOR THE SAME REASON: THE BROWSER'S IS A WHITE
+   HAIRLINE NOBODY DREW, AND ONLY THE TAB KEY SHOULD EVER RAISE ONE. */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 1px solid var(--glow);
+  outline-offset: 2px;
+}
+
 body {
   background: var(--back);
   color: var(--ink);

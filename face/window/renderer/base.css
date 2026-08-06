@@ -62,6 +62,19 @@ body {
   color: var(--ink);
 }
 
+/* WHERE THE TAB KEY HAS LANDED, DRAWN IN THE SAME LIGHT AS EVERYTHING ELSE HERE.
+   THE BROWSER'S OWN RING IS A WHITE HAIRLINE NOBODY CHOSE, LAID SQUARE OVER
+   ROUNDED ROWS. A MOUSE NEVER SEES THIS ONE: A RING LEFT SITTING ON THE BUTTON
+   SOMEBODY JUST CLICKED READS AS STUCK RATHER THAN AS WHERE THEY ARE. */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 1px solid var(--glow);
+  outline-offset: 2px;
+}
+
 .glass {
   position: relative;
   display: flex;

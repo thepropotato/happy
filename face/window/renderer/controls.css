@@ -199,7 +199,6 @@
   text-align: left;
   padding: 7px 26px 7px 10px;
   cursor: pointer;
-  outline: none;
   transition: border-color 180ms, background 180ms;
 }
 
@@ -250,6 +249,12 @@
 .options .option.on {
   color: var(--ink);
   background: rgba(124, 92, 245, 0.22);
+}
+
+/* THE LIST CLIPS WHAT LEAVES IT, SO THE RING FOR THE OPTION TAB IS SITTING ON
+   GOES INSIDE THE ROW INSTEAD OF AROUND IT, WHERE IT WOULD BE CUT IN HALF. */
+.options .option:focus-visible {
+  outline-offset: -2px;
 }
 
 /* A BUTTON THAT DOES SOMETHING RATHER THAN HOLDING A VALUE. IT READS AS THE
