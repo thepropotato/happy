@@ -25,6 +25,7 @@ import ears
 import mcps
 import memory
 import voice
+from mcps.servers.whatsapp import chatting
 from face import console, orders, panel, show
 
 SERVE = "--serve"
@@ -47,6 +48,8 @@ def main():
     ptt = ears.PushToTalk(on_press=speaker.stop)
 
     brain.watches(show.step)
+
+    chatting.listen(lambda text: distant(happy, text))
 
     thrown = memory.prune(recorder.recordings)  # ONLY IF A SETTING SAYS TO.
 
@@ -194,6 +197,40 @@ def typed(happy, speaker, text):
         show.said(text)
         respond(happy, speaker, text)
         show.end()
+
+
+def distant(happy, text):
+    """A TURN THAT ARRIVED IN A MESSAGE. NOTHING IS SPOKEN INTO THE ROOM FOR IT.
+
+    NOBODY IS AT THE MACHINE TO ANSWER conscience, SO IT IS TOLD NO FOR THE LENGTH
+    OF THE TURN. HAPPY LOOKS AND ANSWERS FROM AFAR; HE DOES NOT DO THE UNDOABLE.
+    """
+    with taking:
+        show.begin()
+        show.said(text)
+
+        was = conscience.handler
+        conscience.asks(lambda what, why: False)
+
+        try:
+            said = "".join(piece for piece in stream(happy, text))
+        finally:
+            conscience.asks(was)
+            show.end()
+
+        return said
+
+
+def stream(happy, text):
+    try:
+        for piece in happy.say_streaming(text):
+            show.piece(piece)
+
+            yield piece
+    except brain.LLMError as error:
+        show.trouble(error)
+
+        yield str(error)
 
 
 def respond(happy, speaker, speech, audio=None):
