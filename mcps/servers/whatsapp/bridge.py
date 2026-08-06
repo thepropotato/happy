@@ -515,11 +515,19 @@ def format_message(session, message):
     elif msg.HasField('pollCreationMessage'):
         body = msg.pollCreationMessage.name or "[Poll]"
         msg_type = "poll"
-    elif getattr(msg, 'viewOnceMessage', None) and msg.viewOnceMessage.message:
+    # HasField, NOT getattr. AN UNSET PROTOBUF SUBMESSAGE IS STILL AN OBJECT AND
+    # STILL TRUTHY, SO getattr(msg, 'viewOnceMessage') AND ITS .message WERE BOTH
+    # TRUE OF EVERY MESSAGE EVER PARSED. THIS WAS THE LAST BRANCH THAT COULD
+    # MATCH, WHICH MADE IT A CATCH-ALL: ANYTHING THE BRANCHES ABOVE DID NOT
+    # RECOGNISE CAME OUT AS A VIEW ONCE WITH NO TEXT AND MEDIA THAT DOES NOT
+    # EXIST, WENT INTO THE MEDIA STORE RATHER THAN THE TEXT ONE, AND LEFT THE
+    # CHAT'S LAST LINE BLANK. IT ALSO MARKED THEM UNDOWNLOADABLE, SO NOTHING
+    # COULD GET AT WHAT THEY REALLY WERE EITHER.
+    elif msg.HasField('viewOnceMessage') and msg.viewOnceMessage.HasField('message'):
         body = ""
         msg_type = "viewonce"
         has_media = True
-    elif getattr(msg, 'viewOnceMessageV2', None) and msg.viewOnceMessageV2.message:
+    elif msg.HasField('viewOnceMessageV2') and msg.viewOnceMessageV2.HasField('message'):
         body = ""
         msg_type = "viewonce"
         has_media = True
@@ -568,6 +576,13 @@ def format_message(session, message):
         elif edited.HasField('imageMessage'):
             body = edited.imageMessage.caption or ""
         msg_type = "chat"
+
+    # A MESSAGE THE CHAIN ABOVE HAD NO BRANCH FOR IS STORED EMPTY AND READS AS
+    # NOTHING HAPPENING. SAY WHAT IT WAS MADE OF, ONCE, SO THE NEXT KIND WHATSAPP
+    # INVENTS IS A LINE IN THE LOG RATHER THAN A CHAT THAT GOES QUIET.
+    if not body and not has_media and msg_type == "chat":
+        carried = ", ".join(sorted(field.name for field, _ in msg.ListFields())) or "nothing"
+        logger.info(f"[message] user={session.username} nothing readable in: {carried}")
 
     display_phone = session.phone if from_me else (phone_number if phone_number and len(phone_number) <= 15 else None)
 
@@ -931,7 +946,8 @@ def handle_history_sync(session, evt):
     conversations = list(getattr(data, 'conversations', []))
     pushnames = list(getattr(data, 'pushnames', []))
 
-    pass
+    # TALLIED RATHER THAN LOGGED ONE BY ONE: A BUNDLE CARRIES THOUSANDS.
+    unread = {}
 
     with session.lock:
         session.last_history_sync_at = time.time()
@@ -1074,6 +1090,11 @@ def handle_history_sync(session, evt):
                         elif actual_msg.HasField('protocolMessage'):
                             continue
 
+                    # THE SAME BLIND SPOT AS THE LIVE PARSE, NAMED THE SAME WAY.
+                    if actual_msg and not body and not has_media and msg_type == "chat":
+                        carried = ", ".join(sorted(f.name for f, _ in actual_msg.ListFields())) or "nothing"
+                        unread[carried] = unread.get(carried, 0) + 1
+
                     push_name_hist = str(getattr(web_msg, 'pushName', "") or "")
                     sender_name = "unknown"
                     if from_me:
@@ -1132,6 +1153,10 @@ def handle_history_sync(session, evt):
         session.sync_status["contacts"] = len(session.contacts)
         session.sync_status["chats"] = len(session.chats)
         session.sync_status["groups"] = len(session.groups)
+
+    for carried, many in sorted(unread.items(), key=lambda pair: -pair[1]):
+        logger.info(f"[history] user={session.username} {many} with nothing readable in: {carried}")
+
     persist(session)
 
 
