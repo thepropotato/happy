@@ -142,6 +142,10 @@ async def get_chats(days: Optional[int] = None) -> str:
 async def get_messages(contact: list[str], limit: int = 10, order_newest: bool = True,  received_only: bool = False) -> str:
     """Get messages from one or more contacts or groups. Pass a list - use a one-item list for a single contact, e.g. ["john"]. Returns a list for single contact, or a dict keyed by name for multiple. All returned timestamps are in UTC (ISO 8601 "time" field and Unix "timestamp" field). Convert to the user's timezone before displaying.
 
+    A message with a photo, video or voice note on it comes back with "localPath": that file is
+    already on this computer, at that exact path. To show it, open that path. Never go looking
+    for it on the disk and never guess where WhatsApp keeps its files.
+
     Args:
         contact: List of contact names, phone numbers, or group names. For a single contact pass a one-item list: ["john"]
         limit: Number of messages to return per contact (default: 10).
@@ -167,6 +171,23 @@ async def get_messages(contact: list[str], limit: int = 10, order_newest: bool =
     data = {c: msgs for c, msgs in results}
     return _json(data[contacts[0]] if len(contacts) == 1 else data)
 
+
+
+@mcp.tool()
+async def download_media(message_id: str, chat: CoercedStr = "") -> str:
+    """Fetch the photo, video, voice note or document attached to a message onto this computer, and say where it landed.
+
+    Usually you do not need this. Media arrives already downloaded, and any message
+    holding some comes back with a "localPath" saying exactly where that file is -
+    open or read that path directly. Only call this for a message whose
+    "downloadable" is true and which has no "localPath" yet.
+
+    Args:
+        message_id: The "id" field of the message the media is attached to.
+        chat: Contact or group name that message is in. Helps find it when the file is not on disk yet.
+    """
+    wa = get_client()
+    return _json(await wa.download_media_from_message(message_id, chat=chat))
 
 
 @mcp.tool()
@@ -236,6 +257,10 @@ async def query_messages(
     Only use contact= when you explicitly need your own sent messages (from_me=true) or all messages in a DM.
 
     IMPORTANT: parameter values must be SHORT NAMES ONLY (1-3 words). NEVER put sentences or reasoning.
+
+    A message with a photo, video or voice note on it comes back with "localPath": that file is
+    already on this computer, at that exact path. To show it, open that path. Never go looking
+    for it on the disk and never guess where WhatsApp keeps its files.
 
     Examples:
     - "last message from Ram in Just Mumbai group"          -> group="just mumbai", sender="ram", limit=1

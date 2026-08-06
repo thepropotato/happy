@@ -1883,6 +1883,43 @@ def groups(username):
     return jsonify(clean(result))
 
 
+# HOW LONG WHATSAPP'S OWN SERVERS KEEP MEDIA FETCHABLE AFTER IT WAS SENT.
+CDN_SECONDS = 14 * 86400
+
+
+def with_media(s, entry):
+    """A MESSAGE WITH localPath ON IT WHEN ITS MEDIA IS ALREADY ON THIS DISK.
+
+    THE PATH WAS BEING WORKED OUT HERE AND THEN THROWN AWAY, LEAVING ONLY A
+    downloadable BOOLEAN. ASKED TO SHOW A PHOTO THAT HAD BEEN SITTING IN OUR OWN
+    downloads/ FOR TWO MINUTES, HAPPY WENT HUNTING THROUGH ~/Library FOR
+    WHATSAPP'S STORAGE AND RAN OUT OF TURNS BEFORE HE FOUND ANYTHING. A MESSAGE
+    THAT SAYS WHERE ITS PICTURE IS TURNS THAT SEARCH INTO ONE open_path.
+    """
+    if not entry.get("hasMedia"):
+        return entry
+
+    mid = entry.get("id", "")
+    name = entry.get("filename", "")
+    cached = (s.downloaded_media.get(mid) or {}).get("local_path") or ""
+    beside = os.path.join(s.dl_dir, name) if name else ""
+
+    local = next((p for p in (cached, beside) if p and os.path.exists(p)), "")
+
+    kept = dict(entry)
+
+    if local:
+        kept["localPath"] = local
+
+    cached_only = mid in s.downloaded_media
+    fresh = entry.get("timestamp", 0) > time.time() - CDN_SECONDS and mid not in s.failed_downloads
+    viewonce = entry.get("type") == "viewonce"
+
+    kept["downloadable"] = not viewonce and (bool(local) or cached_only or fresh)
+
+    return kept
+
+
 @app.get("/<username>/messages/<path:jid>")
 def messages(username, jid):
     s = get_session(username)
@@ -1901,20 +1938,7 @@ def messages(username, jid):
     if received_only:
         msgs = [m for m in msgs if not m.get("fromMe")]
     sliced = msgs[:limit] if order == "oldest" else msgs[-limit:]
-    cdn_cutoff = time.time() - 14 * 86400
-    result = []
-    for m in sliced:
-        entry = dict(m)
-        if entry.get("hasMedia"):
-            mid = entry.get("id", "")
-            fname = entry.get("filename", "")
-            on_disk = fname and os.path.exists(os.path.join(s.dl_dir, fname))
-            in_cache = mid in s.downloaded_media
-            cdn_valid = entry.get("timestamp", 0) > cdn_cutoff and mid not in s.failed_downloads
-            is_viewonce = entry.get("type") == "viewonce"
-            entry["downloadable"] = bool(not is_viewonce and (on_disk or in_cache or cdn_valid))
-        result.append(entry)
-    return jsonify(clean(result))
+    return jsonify(clean([with_media(s, m) for m in sliced]))
 
 
 @app.get("/<username>/resolve-contact")
@@ -2183,7 +2207,7 @@ def latest_received_message(username):
         msg = s.latest_received_message
         chat_jid = msg.get("chatJid", msg.get("fromJid", ""))
         if include_groups or "@g.us" not in chat_jid:
-            return jsonify(clean(msg))
+            return jsonify(clean(with_media(s, msg)))
 
     # NOTHING LIVE YET, SO FALL BACK ON THE HISTORY SYNC TIMESTAMPS.
     with s.lock:
@@ -2440,7 +2464,7 @@ def query_messages(username):
 
     if not results:
         return jsonify({"error": "No matching messages found"}), 404
-    return jsonify(clean(results))
+    return jsonify(clean([with_media(s, m) for m in results]))
 
 
 
