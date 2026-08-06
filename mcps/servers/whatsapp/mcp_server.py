@@ -230,6 +230,36 @@ async def get_unread_messages(include_archived: bool = True) -> str:
 
 
 @mcp.tool()
+async def get_latest_received_message(include_groups: bool = False) -> str:
+    """Get the single most recent message SOMEONE ELSE sent you on WhatsApp, with who sent it and when.
+    Use this for: "what was the last message I received?", "who messaged me last?", "what's the latest message?",
+    "read me the last message". This is the COMPLETE answer - do not follow it with get_chats or get_messages.
+
+    Messages you sent yourself are never returned, including the ones in your own "Message yourself" chat.
+    The timestamp is UTC - convert to the user's timezone before saying it.
+
+    A message with a photo, video or voice note on it comes back with "localPath": that file is
+    already on this computer, at that exact path. To show it, open that path. Never go looking
+    for it on the disk and never guess where WhatsApp keeps its files.
+
+    Args:
+        include_groups: If True, a group message can be the answer. Defaults to False, direct chats only.
+    """
+    wa = get_client()
+    result = await wa.get_latest_received_message(include_groups=include_groups)
+
+    if isinstance(result, dict) and result.get("error"):
+        sync_status = await check_sync_status(wa)
+        if sync_status:
+            return _json({
+                "sync_in_progress": True,
+                "user_message": f"WhatsApp sync in progress ({sync_status.get('message', 'syncing')}). Please wait 30-60 seconds and try again.",
+            })
+
+    return _json(result)
+
+
+@mcp.tool()
 async def query_messages(
     group: CoercedStr = "",
     contact: CoercedStr = "",
