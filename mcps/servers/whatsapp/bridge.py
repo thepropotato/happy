@@ -87,6 +87,15 @@ PORT = int(os.environ.get("WHATSAPP_BRIDGE_PORT") or 3001)
 # DEFAULT. SET ONE AND BOTH HALVES START INSISTING ON IT.
 BRIDGE_SECRET = os.environ.get("INTERNAL_API_SECRET", "")
 
+# HOW LONG A QR CODE IS WORTH SHOWING. WHATSAPP GIVES THE FIRST OF A RUN A
+# MINUTE AND EVERY ONE AFTER IT TWENTY SECONDS, AND WHILE A RUN IS ALIVE THE
+# REPLACEMENT ALWAYS ARRIVES BEFORE THE DEADLINE — SO ONLY A RUN THAT HAS ENDED
+# EVER GOES PAST ONE. THE SLACK IS THE HOP FROM THEIR SERVER TO THIS PROCESS,
+# AND IT LEAVES A PAIRING, WHICH LANDS IN A SECOND OR TWO, ALL THE ROOM IT NEEDS.
+QR_FIRST = 60
+QR_LATER = 20
+QR_SLACK = 10
+
 # WHAT A RESTART OPENS WITH, IN THE USER'S OWN FOLDER SO UNLINKING TAKES IT TOO.
 CACHE = "cache.json"
 
@@ -284,6 +293,8 @@ class Session:
         self.phone = None
         self.name = None
         self.qr_data = None
+        self.qr_at = 0
+        self.qr_life = QR_FIRST
 
         self.contacts = []
         self.chats = []
@@ -625,10 +636,14 @@ def register_events(session):
             qr.save(buf, kind="png", scale=8, border=2)
             b64 = base64.b64encode(buf.getvalue()).decode()
             session.qr_data = f"data:image/png;base64,{b64}"
+            # WHEN, NOT JUST WHAT: THE PAGE HAS NO OTHER WAY TO TELL THAT THE
+            # CODE IT IS SHOWING HAS DIED. THE FIRST OF A RUN OUTLIVES THE REST.
+            session.qr_life = QR_LATER if session.qr_at else QR_FIRST
+            session.qr_at = time.time()
             session.authenticated = False
-            pass
+            logger.info(f"[qr] user={session.username} new code")
         except Exception as e:
-            pass
+            logger.warning(f"[qr] user={session.username} code could not be drawn: {e}")
 
     @client.event(ConnectedEv)
     def on_connected(c, evt):
@@ -1473,6 +1488,9 @@ def start_session(session):
     if session.client and session.connect_thread and session.connect_thread.is_alive():
         logger.info(f"[start_session] user={user} already running, skipping")
         return
+    # A NEW RUN, SO THE CODE IT OPENS WITH IS A FIRST ONE AND GETS THE MINUTE.
+    session.qr_at = 0
+    session.qr_life = QR_FIRST
     if not os.path.exists(session.db_path):
         logger.info(f"[start_session] user={user} db missing, downloading from S3...")
         t0 = time.monotonic()
@@ -1679,6 +1697,37 @@ LINKED_BODY = """<h2>WhatsApp is linked</h2>
 <p>You can close this tab and go back to Happy.</p>"""
 
 
+def stale(session):
+    """TRUE WHEN THE CODE ON SCREEN IS ONE NOBODY CAN SCAN ANY MORE."""
+    return bool(session.qr_data) and time.time() - session.qr_at > session.qr_life + QR_SLACK
+
+
+def renew(session):
+    """A QR SEQUENCE THAT HAS RUN OUT, BEGUN AGAIN.
+
+    WHATSAPP HANDS OVER A FIXED RUN OF CODES AND THEN GIVES UP — "Login event:
+    timeout" IN THE LOG, THE WEBSOCKET SHUT ABOUT TWO MINUTES AFTER THE BRIDGE
+    STARTED. NOTHING NOTICED. THE CONNECT THREAD IS INSIDE A GO CALL THAT ONLY
+    RETURNS WHEN THE CONTEXT IS CANCELLED, SO IT STAYED ALIVE AND THE PAGE WENT
+    ON SERVING THE LAST DEAD CODE UNDER A LINE PROMISING IT REFRESHES ITSELF.
+    EVERY SCAN AFTER THAT WAS "check your connection and try again" ON A PHONE
+    THAT HAD NOTHING WRONG WITH ITS CONNECTION.
+
+    A NEW CLIENT ON THE SAME SESSION FILE IS ISSUED A NEW RUN WITHIN A SECOND,
+    SO THE PAGE CAN BE LEFT OPEN AS LONG AS SOMEBODY NEEDS TO FIND THEIR PHONE.
+    """
+    with session.lock:
+        # ANOTHER TAB MAY HAVE DONE IT IN THE TWO SECONDS SINCE WE LOOKED.
+        if not stale(session):
+            return
+
+        logger.info(f"[qr] user={session.username} codes ran out, asking for more")
+        session.qr_data = None
+
+        stop_session(session)
+        start_session(session)
+
+
 @app.get("/<username>/scan")
 def scan(username):
     """THE QR AS A PAGE, FOR A BROWSER RATHER THAN FOR THE PANEL.
@@ -1691,7 +1740,9 @@ def scan(username):
     if s.authenticated or s.connected:
         return SCAN_PAGE.format(refresh="", body=LINKED_BODY)
 
-    if not (s.client and s.connect_thread and s.connect_thread.is_alive()):
+    if stale(s):
+        renew(s)
+    elif not (s.client and s.connect_thread and s.connect_thread.is_alive()):
         start_session(s)
 
     body = WAITING_BODY.format(qr=s.qr_data) if s.qr_data else STARTING_BODY
