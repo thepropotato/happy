@@ -28,7 +28,7 @@ FOREVER = "0 keeps everything."
 # DAY, AND A SENTENCE IS SOMETHING NOBODY WILL SAY THE SAME WAY TWICE.
 WAKE = "Two or three words. Happy answers anything said after them."
 
-LOGS = "Every turn in a browser, with what each tool was given and what came back."
+LOGS = "Everything Happy did, as he did it, the way it would have gone past in a terminal."
 
 # WHAT IS SET ONCE AND NEVER AGAIN IS MARKED rare AND SITS BEHIND ONE MORE TAP.
 BRAIN = [

@@ -1,5 +1,6 @@
-/* THE LOG PAGE. HAPPY'S OWN SURFACES, WIDENED: THE PANEL IS THE WIDTH OF A
-   PHONE AND THIS IS READ ON A WHOLE SCREEN. */
+/* THE LOG PAGE. IT IS data/happy.log AND NOTHING ELSE: THE SAME LINES IN THE
+   SAME ORDER, ONLY WITH THE KIND COLUMN COLOURED AND SOMEWHERE TO SEARCH THEM.
+   NOTHING FOLDS AND NOTHING IS HIDDEN — THAT IS THE WHOLE IDEA OF A LOG. */
 
 :root {
   --ink: #f2f3f8;
@@ -12,19 +13,20 @@
 
   --back: #0d0e14;
   --block: #13141d;
-  --block-open: #191a26;
 
   --glow: #7c5cf5;
   --good: #4ad6a0;
   --wait: #f5a524;
   --bad: #ff8080;
 
-  --pad: 11px;
-  --r-lg: 13px;
   --r-md: 10px;
   --r-sm: 7px;
 
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* THE STAMP AND THE KIND ARE COLUMNS, SO EVERY LINE'S WORDS START TOGETHER. */
+  --at: 92px;
+  --kind: 52px;
 }
 
 * {
@@ -53,7 +55,7 @@ body {
 }
 
 .sheet {
-  max-width: 860px;
+  max-width: 1100px;
   margin: 0 auto;
 }
 
@@ -116,6 +118,7 @@ button {
   cursor: pointer;
   font: inherit;
   padding: 9px 14px;
+  white-space: nowrap;
 }
 
 button:hover {
@@ -123,129 +126,103 @@ button:hover {
   color: var(--ink);
 }
 
-/* ── ONE EXCHANGE ── */
-
-.turn {
-  border-top: 1px solid var(--line);
-  padding: 20px 0;
+button.on {
+  border-color: var(--edge);
+  color: var(--ink);
 }
 
-.when {
+/* ── THE LOG ── */
+
+.log {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: var(--at) var(--kind) 1fr;
+  gap: 10px;
+  padding: 1px 8px 1px 0;
+  border-radius: var(--r-sm);
+}
+
+.line:hover {
+  background: var(--raise);
+}
+
+.at {
   color: var(--faint);
-  display: flex;
-  font-size: 11px;
-  gap: 9px;
   font-variant-numeric: tabular-nums;
 }
 
-.flag {
-  color: var(--wait);
+/* A STAMP THAT REPEATS DOWN THE PAGE IS NOISE. IT IS STILL THERE TO BE COPIED,
+   ONLY FAINT ENOUGH THAT THE EYE READS THE ONE THAT CHANGED. */
+.line.same .at {
+  opacity: 0.35;
 }
 
-.said {
-  margin-top: 7px;
-}
-
-.said.you {
-  font-size: 16px;
-  font-weight: 550;
-  letter-spacing: -0.01em;
-}
-
-.said.happy {
-  color: var(--dim);
-  border-left: 2px solid var(--line);
-  padding-left: 11px;
-  white-space: pre-wrap;
-}
-
-.none {
+.kind {
   color: var(--faint);
-  font-style: italic;
 }
 
-/* ── THE CALLS: NAME AND WHY SHUT, ARGUMENTS AND OUTPUT OPEN ── */
-
-.calls {
-  margin: 11px 0;
+.words {
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-width: 0;
+  color: var(--dim);
 }
 
-.call {
-  background: var(--block);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  margin-bottom: 6px;
-  overflow: hidden;
+/* ── WHAT EACH KIND OF LINE IS ── */
+
+.line.run {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 7px;
 }
 
-.call.open {
-  background: var(--block-open);
+/* THE FIRST LINE OF THE PAGE HAS NOTHING TO BE RULED OFF FROM. */
+.line.run:first-child {
+  border-top: none;
+  margin-top: 0;
 }
 
-.face {
-  align-items: baseline;
-  cursor: pointer;
-  display: flex;
-  gap: 9px;
-  padding: 9px var(--pad);
-}
-
-.face:hover .name {
+.line.run .kind,
+.line.run .words {
   color: var(--glow);
 }
 
-.name {
-  font-family: var(--mono);
-  font-size: 12.5px;
+.line.error .kind,
+.line.error .words {
+  color: var(--bad);
 }
 
-.why {
-  color: var(--dim);
-  flex: 1;
-  font-size: 12.5px;
+.line.you .kind {
+  color: var(--good);
 }
 
-.took {
-  color: var(--faint);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
+.line.you .words {
+  color: var(--ink);
+  font-weight: 550;
 }
 
-.drawer {
-  border-top: 1px solid var(--line);
-  padding: var(--pad);
+.line.happy .words {
+  color: var(--ink);
 }
 
-.drawer h2 {
-  color: var(--faint);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.09em;
-  margin-bottom: 5px;
-  text-transform: uppercase;
-}
-
-.drawer h2:not(:first-child) {
-  margin-top: 13px;
-}
-
-pre {
-  background: rgba(0, 0, 0, 0.28);
-  border-radius: var(--r-sm);
-  font-family: var(--mono);
-  font-size: 12px;
-  line-height: 1.5;
-  max-height: 340px;
-  overflow: auto;
-  padding: 9px 11px;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.clipped {
+.line.tool .kind {
   color: var(--wait);
-  font-size: 11px;
-  margin-top: 5px;
+}
+
+/* A CALL THAT WORKED AND FOUND NOTHING. THE KIND IS MARKED AND THE WORDS ARE
+   NOT, WHICH IS THE DIFFERENCE FROM AN error: NOTHING HERE ACTUALLY BROKE. */
+.line.no .kind {
+  color: var(--bad);
+}
+
+.line.spent .words,
+.line.note .words {
+  color: var(--faint);
 }
 
 .empty {

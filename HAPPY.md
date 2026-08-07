@@ -112,9 +112,12 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `memory/knobs.py` | What a setting *is*: a kind, a default, and enough for a control to draw itself. |
 | `memory/settings.py` | What every knob is set to now. Held in memory, written through to the file. |
 | `memory/pruning.py` | Throwing the old away, if a setting says how long to keep it. |
+| `memory/exporting.py` | `data/happy.log` as a page a browser can open, which is all it is. |
 | `face/show.py` | Every face at once. The rest of Happy reports here, never to a particular one. |
 | `face/console.py` | What the terminal shows: one block per turn, and where the time went. |
 | `face/panel.py` | What the window is told, as one JSON object per line on stdout. |
+| `face/log.py` | The face nobody watches: every event, stamped, into `data/happy.log`. |
+| `face/handing.py` | Pictures that go back with the answer, for somebody who is not in the room. |
 | `face/orders.py` | What the window asks for, read off stdin on its own thread. |
 | `face/sources.py` | The catalogue finished off with the lists only a running machine knows. |
 | `face/window/` | The Electron app: the icon in the menu bar and the panel that drops out of it. |
@@ -711,14 +714,27 @@ tells you the truth.
 
 ## The faces
 
-Happy has two, and neither of them knows about the other. Everything he does is reported to
-`face/show.py`, which hands it to whichever faces are attached — a terminal, a window, both,
-or none. A face that has no opinion on something simply does not define the method, and
+Happy has three, and none of them knows about the others. Everything he does is reported to
+`face/show.py`, which hands it to whichever faces are attached — a terminal, a window, the log,
+any of them, none. A face that has no opinion on something simply does not define the method, and
 `show` skips it. That is why the microphone can report its loudness ten times a second without
 `face/console.py` growing a single line about it.
 
-`main.py` attaches one face at startup and that is the whole of the difference between the two
-ways of running Happy.
+`main.py` attaches the terminal or the window at startup, and that is the whole of the difference
+between the two ways of running Happy. The log is attached either way.
+
+**The log is a face and not a logging library.** `face/log.py` writes one stamped line per event
+into `data/happy.log` — the same account the terminal gives, kept, and the only account at all
+when Happy is running behind the window. Nothing anywhere has to remember to log, because it
+hears exactly what the other two hear. What it leaves out is the live part: how loud the room is
+and which mood the orb is in are not events, and both arrive ten times a second.
+
+Every line is one line — a reply with newlines in it is flattened on the way in, because a log
+where one event can span six lines is a log nothing can grep. The kind column is the thing to
+grep for: `run`, `note`, `you`, `tool`, `no` for a call that worked and found nothing, `happy`,
+`spent`, `error`. **Full logs** in the Memory controls writes `memory/viewer.html` out around it
+and opens that, which is the same lines with the kinds coloured and somewhere to search them.
+The file itself is the real thing, and anybody who would rather `tail -f` it should.
 
 ## The terminal
 

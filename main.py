@@ -25,7 +25,7 @@ import mcps
 import memory
 import voice
 from mcps.servers.whatsapp import chatting
-from face import console, handing, orders, panel, show
+from face import console, handing, log, orders, panel, show
 
 SERVE = "--serve"
 
@@ -36,7 +36,10 @@ taking = threading.Lock()
 def main():
     windowed = SERVE in sys.argv
 
+    log.opened("with the window" if windowed else "in a terminal")
+
     show.attach(panel if windowed else console)
+    show.attach(log)  # THE ONE FACE THAT IS STILL THERE TOMORROW.
     show.state(panel.LOADING)
 
     happy, speaker = start()
@@ -266,6 +269,7 @@ def shut(speaker, recorder, waking):
     waking.stop()  # BEFORE THE RECORDER, WHOSE BLOCKS IT IS STILL BEING HANDED.
     speaker.close()
     recorder.close()
+    log.closed()  # LAST, SO ANYTHING THE REST OF THIS SAID IS IN THERE.
 
 
 def leave(speaker, recorder, waking):

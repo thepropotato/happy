@@ -3,43 +3,48 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Happy — logs</title>
+    <title>Happy — log</title>
     <style>
       __STYLE__
     </style>
   </head>
   <body>
-    <!-- THE DATA SITS IN THE PAGE AND NOT BESIDE IT: A file:// PAGE IS NOT
-         ALLOWED TO FETCH ITS OWN SIBLING. logs.json IS THE SAME THING, WRITTEN
-         OUT AGAIN FOR ANYTHING THAT IS NOT A BROWSER. -->
+    <!-- THE LOG SITS IN THE PAGE AND NOT BESIDE IT: A file:// PAGE IS NOT ALLOWED
+         TO FETCH ITS OWN SIBLING. data/happy.log IS THE SAME THING AND IS THE ONE
+         TO READ FROM A TERMINAL. -->
     <script id="logs" type="application/json">
       __LOGS__
     </script>
 
     <div class="sheet">
       <header>
-        <h1>Happy <span>logs</span></h1>
+        <h1>Happy <span>log</span></h1>
         <p class="about" id="about"></p>
         <div class="tools">
-          <input id="find" type="search" placeholder="Search what was said, tool names, arguments, output…" />
-          <button id="all">Open all</button>
+          <input id="find" type="search" placeholder="Search the log…" />
+          <button id="quiet">Only what went wrong</button>
+          <button id="foot">Latest</button>
         </div>
       </header>
-      <div id="turns"></div>
+      <div class="log" id="log"></div>
     </div>
 
     <script>
       const LOGS = JSON.parse(document.getElementById('logs').textContent)
-      const TURNS = LOGS.turns || []
 
       const node = (id) => document.getElementById(id)
 
-      let wanted = ''
-      let everything = false
+      // 12:04:51.882  tool  read_screen 412ms — checking what is on the screen
+      const LINE = /^(\d\d:\d\d:\d\d\.\d\d\d)\s+(\S+)\s*(.*)$/
 
-      // WHICH CALLS ARE OPEN, BY TURN AND POSITION. IT OUTLIVES A REDRAW, SO
-      // TYPING IN THE SEARCH BOX DOES NOT SHUT WHAT SOMEBODY IS READING.
-      const opened = new Set()
+      // WHAT IS WORTH SEEING WHEN SOMEBODY IS ONLY LOOKING FOR THE FAULT. THE RUN
+      // LINES STAY IN: WHICH RUN IT WENT WRONG IN IS HALF OF WHAT IS BEING ASKED.
+      const WRONG = new Set(['error', 'no', 'run'])
+
+      const KINDS = ['run', 'note', 'error', 'you', 'happy', 'tool', 'no', 'spent']
+
+      let wanted = ''
+      let quiet = false
 
       function make(tag, look, words) {
         const made = document.createElement(tag)
@@ -50,133 +55,63 @@
         return made
       }
 
-      function clock(turn) {
-        const stamp = new Date(turn.at)
+      // A LINE THE LOG WROTE, PULLED BACK APART. ANYTHING THAT DOES NOT PARSE IS
+      // STILL SHOWN — SOMETHING ELSE WROTE IT, AND THAT IS WORTH SEEING TOO.
+      function parsed(text) {
+        const found = LINE.exec(text)
 
-        return isNaN(stamp) ? '?' : stamp.toLocaleString([], { dateStyle: 'medium', timeStyle: 'medium' })
+        if (!found) return { at: '', kind: '', words: text, raw: text }
+
+        return { at: found[1], kind: found[2], words: found[3], raw: text }
       }
 
-      function spell(value) {
-        if (typeof value === 'string') return value
-
-        return JSON.stringify(value, null, 2)
-      }
-
-      // EVERYTHING ONE TURN HOLDS, FLATTENED, SO A SEARCH REACHES INSIDE A CALL
-      // AND NOT ONLY INTO WHAT WAS SAID OUT LOUD.
-      function haystack(turn) {
-        const calls = turn.tools || []
-
-        return [
-          turn.message,
-          turn.reply,
-          ...calls.map((each) => [each.name, each.why, spell(each.args), each.result].join(' ')),
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-      }
+      const LINES = (LOGS.lines || []).map(parsed)
 
       function matching() {
-        if (!wanted) return TURNS
+        const kept = quiet ? LINES.filter((line) => WRONG.has(line.kind)) : LINES
 
-        return TURNS.filter((turn) => haystack(turn).includes(wanted))
+        if (!wanted) return kept
+
+        return kept.filter((line) => line.raw.toLowerCase().includes(wanted))
       }
 
-      // ── ONE CALL ──
+      function drawn(line, before) {
+        const known = KINDS.includes(line.kind) ? line.kind : 'other'
+        const same = before && before.at === line.at
+        const row = make('div', `line ${known}${same ? ' same' : ''}`)
 
-      function drawer(call) {
-        const box = make('div', 'drawer')
-
-        box.append(make('h2', '', 'Given'), make('pre', '', spell(call.args ?? {})))
-        box.append(make('h2', '', 'Came back'), make('pre', '', call.result ?? '—'))
-
-        // THE ROW WAS WRITTEN CLIPPED AND NOTHING HERE CAN GET THE REST BACK.
-        if (typeof call.result === 'string' && call.result.endsWith('...')) {
-          box.append(make('p', 'clipped', 'Cut short when it was recorded.'))
-        }
-
-        return box
-      }
-
-      function calling(call, which) {
-        const open = everything || opened.has(which)
-        const row = make('div', open ? 'call open' : 'call')
-        const face = make('div', 'face')
-
-        face.append(make('span', 'name', call.name || '?'))
-        face.append(make('span', 'why', call.why || ''))
-
-        if (call.seconds != null) face.append(make('span', 'took', `${call.seconds}s`))
-
-        face.onclick = () => {
-          if (opened.has(which)) opened.delete(which)
-          else opened.add(which)
-
-          everything = false
-          paint()
-        }
-
-        row.append(face)
-
-        if (open) row.append(drawer(call))
+        row.append(make('span', 'at', line.at))
+        row.append(make('span', 'kind', line.kind))
+        row.append(make('span', 'words', line.words))
 
         return row
       }
 
-      // ── ONE EXCHANGE ──
-
-      function drawn(turn) {
-        const box = make('div', 'turn')
-        const when = make('div', 'when')
-
-        when.append(make('span', '', clock(turn)))
-        when.append(make('span', '', `#${turn.id}`))
-
-        if (turn.seconds != null) when.append(make('span', '', `${turn.seconds}s`))
-        if (turn.unprompted) when.append(make('span', 'flag', 'unprompted'))
-
-        box.append(when)
-
-        if (turn.message) box.append(make('div', 'said you', turn.message))
-
-        const calls = turn.tools || []
-
-        if (calls.length) {
-          const holder = make('div', 'calls')
-
-          calls.forEach((call, index) => holder.append(calling(call, `${turn.id}.${index}`)))
-          box.append(holder)
-        }
-
-        box.append(
-          turn.reply
-            ? make('div', 'said happy', turn.reply)
-            : make('div', 'said none', 'Nothing was said back.'),
-        )
-
-        return box
-      }
-
       function paint() {
         const found = matching()
-        const holder = node('turns')
+        const holder = node('log')
 
         holder.replaceChildren()
 
         if (!found.length) {
-          holder.append(make('p', 'empty', 'Nothing here matches that.'))
+          holder.append(make('p', 'empty', LINES.length ? 'Nothing here matches that.' : 'The log is empty. Run Happy and it fills up.'))
         } else {
-          for (const turn of found) holder.append(drawn(turn))
+          let before = null
+
+          for (const line of found) {
+            holder.append(drawn(line, before))
+            before = line
+          }
         }
 
-        const calls = found.reduce((sum, turn) => sum + (turn.tools || []).length, 0)
-        const shown = wanted ? `${found.length} of ${TURNS.length}` : `${TURNS.length}`
+        node('about').textContent = about(found)
+        node('quiet').classList.toggle('on', quiet)
+      }
 
-        node('about').textContent =
-          `${shown} exchanges · ${calls} tool calls · written ${LOGS.written} · ${LOGS.database}`
+      function about(found) {
+        const shown = found.length === LINES.length ? `${LINES.length} lines` : `${found.length} of ${LINES.length} lines`
 
-        node('all').textContent = everything ? 'Close all' : 'Open all'
+        return `${shown} · written ${LOGS.written} · ${LOGS.file}`
       }
 
       node('find').oninput = (event) => {
@@ -184,11 +119,14 @@
         paint()
       }
 
-      node('all').onclick = () => {
-        everything = !everything
-        opened.clear()
+      node('quiet').onclick = () => {
+        quiet = !quiet
         paint()
       }
+
+      // A LOG IS READ FROM THE BOTTOM. IT IS A BUTTON AND NOT WHERE THE PAGE OPENS,
+      // BECAUSE A PAGE THAT JUMPS ON ITS OWN LOSES WHOEVER WAS ALREADY READING.
+      node('foot').onclick = () => scrollTo({ top: document.body.scrollHeight })
 
       paint()
     </script>
