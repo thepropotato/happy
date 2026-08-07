@@ -3,11 +3,17 @@
 import base64
 import re
 from email.message import EmailMessage
+from email.utils import getaddresses
 
+from pydantic import BaseModel
+
+from mcp.server.fastmcp import Context
 from servers.google import account, mcp
+from servers.shared.matching import resolve as match
 from servers.shared.answering import ok, some
 
 WANTED = ["From", "To", "Subject", "Date"]
+ADDRESS_HEADERS = ("From", "To", "Cc")
 
 TAGS = re.compile(r"<[^>]+>")
 
@@ -54,12 +60,17 @@ def read_email(message_id: str) -> str:
 
 
 @mcp.tool()
-def send_email(to: str, subject: str, body: str, cc: str = "") -> str:
+async def send_email(to: str, subject: str, body: str, cc: str = "", context: Context = None) -> str:
     """Send an email. to and cc are addresses separated by commas.
 
     This one actually leaves the machine, so say what is being sent and to whom
     before calling it.
     """
+    known = known_addresses()
+
+    await checked_addresses(to, known, "send_email", context)
+    await checked_addresses(cc, known, "send_email", context)
+
     sent = (
         account.mail()
         .users()
@@ -72,11 +83,16 @@ def send_email(to: str, subject: str, body: str, cc: str = "") -> str:
 
 
 @mcp.tool()
-def draft_email(to: str, subject: str, body: str, cc: str = "") -> str:
+async def draft_email(to: str, subject: str, body: str, cc: str = "", context: Context = None) -> str:
     """Write an email and leave it in Drafts without sending it.
 
     Use this when somebody wants to look it over first.
     """
+    known = known_addresses()
+
+    await checked_addresses(to, known, "draft_email", context)
+    await checked_addresses(cc, known, "draft_email", context)
+
     made = (
         account.mail()
         .users()
@@ -116,11 +132,82 @@ def outlined(service, message_id):
     }
 
 
+def known_addresses(limit=200):
+    service = account.mail()
+    found = (
+        service.users()
+        .messages()
+        .list(userId="me", maxResults=max(1, min(int(limit), 200)))
+        .execute()
+    )
+    seen = set()
+
+    for each in found.get("messages", []):
+        about = (
+            service.users()
+            .messages()
+            .get(userId="me", id=each["id"], format="metadata", metadataHeaders=list(ADDRESS_HEADERS))
+            .execute()
+        )
+        headers = named(about)
+
+        for address in addresses(headers.get(name, "") for name in ADDRESS_HEADERS):
+            seen.add(address)
+
+    return sorted(seen)
+
+
+class AddressChoice(BaseModel):
+    confirm: bool
+
+
+async def checked_addresses(given, known, action, context):
+    if not given:
+        return
+
+    close = []
+
+    for address in addresses([given]):
+        if address in known:
+            continue
+
+        found, sure = match(address, known)
+
+        if sure and found and found != address:
+            close.append(f"{address} -> {found}")
+
+    if close:
+        if context is None:
+            raise ValueError(
+                f"Before {action}, confirm these addresses with the user: {'; '.join(close)}."
+            )
+
+        asked = await context.elicit(
+            f"Before {action}, these addresses are close to recent contacts but do not exactly match: {'; '.join(close)}. Continue exactly as entered?",
+            AddressChoice,
+        )
+
+        if asked.action != "accept" or not asked.data.confirm:
+            raise ValueError("Cancelled, the user did not confirm the email address.")
+
+
 def named(found):
     return {
         each["name"]: each["value"]
         for each in ((found.get("payload") or {}).get("headers") or [])
     }
+
+
+def addresses(values):
+    found = []
+
+    for pair in getaddresses(list(values)):
+        address = pair[1].strip().lower()
+
+        if address:
+            found.append(address)
+
+    return found
 
 
 def readable(payload):

@@ -196,6 +196,7 @@ function visiting(on) {
 function composer() {
   const form = node('composer')
   const box = node('typed')
+  const pause = node('pause')
 
   form.onsubmit = (event) => {
     event.preventDefault()
@@ -205,6 +206,10 @@ function composer() {
 
     ask({ do: 'say', text: words })
     box.value = ''
+  }
+
+  pause.onclick = () => {
+    ask({ do: 'stop' })
   }
 }
 
