@@ -21,20 +21,12 @@ EARS_LANGUAGES = [
 
 PROVIDERS = [("ollama", "Ollama"), ("openai", "OpenAI shape")]
 
-# EVERY ONE OF THESE IS A MODIFIER, SO HOLDING IT NEVER TYPES ANYTHING.
-TALK_KEYS = [
-    ("alt_r", "Right Option / Alt"),
-    ("alt_l", "Left Option / Alt"),
-    ("cmd_r", "Right Command / Win"),
-    ("cmd_l", "Left Command / Win"),
-    ("ctrl_r", "Right Control"),
-    ("ctrl_l", "Left Control"),
-    ("shift_r", "Right Shift"),
-    ("caps_lock", "Caps Lock"),
-    ("f13", "F13"),
-]
-
 FOREVER = "0 keeps everything."
+
+# WHAT WAKES HIM IS READ BY THE SAME SPEECH MODEL THAT READS EVERYTHING ELSE, SO
+# IT CAN BE ANY WORDS AT ALL. TWO OR THREE OF THEM: ONE IS SAID BY ACCIDENT ALL
+# DAY, AND A SENTENCE IS SOMETHING NOBODY WILL SAY THE SAME WAY TWICE.
+WAKE = "Two or three words. Happy answers anything said after them."
 
 LOGS = "Every turn in a browser, with what each tool was given and what came back."
 
@@ -62,18 +54,24 @@ BRAIN = [
 ]
 
 EARS = [
-    choice("ears.key", "Hold to talk", TALK_KEYS, "alt_r", "Held from any window, not just this."),
+    text("ears.wake", "Wakes to", "hey happy", WAKE, "hey happy"),
     choice("ears.device", "Runs on", DEVICES, "cpu", "CPU is the sure one."),
     choice("ears.engine", "Engine", EARS_ENGINES, "whisper",
         "Parakeet is English only and fast. Whisper is multilingual and slower."),
     choice("ears.language", "Language", EARS_LANGUAGES, "auto",
             "Set one code like hi to skip detection when your language never changes.",
             rare=True),
-    number("ears.hold", "Shortest take", 0.05, 2, 0.05, 0.25, "Briefer was a brush.", "sec",
+    number("ears.after", "Waits for you", 2, 20, 1, 6, "After his name on its own.", "sec",
+           whole=True),
+    number("ears.level", "Hears you over", 0.002, 0.08, 0.002, 0.015,
+           "Quieter than this is the room, not somebody talking.", rare=True),
+    number("ears.gap", "Ends a take", 0.2, 3, 0.1, 0.7, "Silence that means you have finished.",
+           "sec", rare=True),
+    number("ears.hold", "Shortest take", 0.05, 2, 0.05, 0.25, "Briefer was a noise.", "sec",
            rare=True),
-    number("ears.preroll", "Lead in", 0, 1.5, 0.05, 0.3, "Kept from before the key.", "sec",
-           rare=True),
-    number("ears.tail", "Lead out", 0, 1.5, 0.05, 0.2, "Kept after you let go.", "sec", rare=True),
+    number("ears.preroll", "Lead in", 0, 1.5, 0.05, 0.3, "Kept from before you were noticed.",
+           "sec", rare=True),
+    number("ears.tail", "Lead out", 0, 1.5, 0.05, 0.2, "Kept after you stop.", "sec", rare=True),
 ]
 
 VOICE = [
@@ -108,7 +106,7 @@ REMEMBERING = [
 
 GROUPS = [
     group("brain", "Brain", "What does the thinking.", BRAIN, ["brain.model", "brain.effort"]),
-    group("ears", "Ears", "Hearing you, and when.", EARS, ["ears.key"]),
+    group("ears", "Ears", "Hearing you, and when.", EARS, ["ears.wake"]),
     group("voice", "Voice", "How Happy sounds.", VOICE, ["voice.name", "voice.muted"]),
     group("eyes", "Eyes", "Looking at the screen.", EYES, ["eyes.model"]),
     group("mcps", "Connections", "Services that are not this computer.", CONNECTIONS),
@@ -130,12 +128,3 @@ def default(key):
 
 def keys():
     return list(EVERY)
-
-
-def naming(key, value):
-    """WHAT ONE CHOICE IS CALLED WHERE A PERSON CAN SEE IT."""
-    for each in (EVERY.get(key) or {}).get("options", []):
-        if each["value"] == value:
-            return each["label"]
-
-    return str(value)

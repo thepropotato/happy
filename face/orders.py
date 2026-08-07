@@ -79,9 +79,11 @@ def carry(order):
             sources.clear(governed)
 
         describe()
+        call("ready")  # A KNOB CAN CHANGE WHAT THE PANEL SAYS ABOUT ITSELF.
     elif asked == "reset":
         settings.clear(order.get("key"))
         describe()
+        call("ready")
     elif asked in REACHING:
         # A SIGN IN IS MINUTES. HOLDING THIS THREAD WOULD MUTE THE WINDOW.
         threading.Thread(target=reaching, args=(asked, order.get("name")), daemon=True).start()

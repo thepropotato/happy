@@ -1,17 +1,6 @@
 const node = (id) => document.getElementById(id)
 
-const MAC = navigator.userAgent.includes('Mac')
-
-// A MAC SYMBOL ON WINDOWS IS JUST A BOX.
-const CAPS = MAC
-  ? { alt_r: '⌥ R', alt_l: '⌥ L', cmd_r: '⌘ R', cmd_l: '⌘ L', ctrl_r: '⌃ R', ctrl_l: '⌃ L',
-      shift_r: '⇧ R', caps_lock: '⇪', f13: 'F13' }
-  : { alt_r: 'Alt R', alt_l: 'Alt L', cmd_r: 'Win R', cmd_l: 'Win L', ctrl_r: 'Ctrl R',
-      ctrl_l: 'Ctrl L', shift_r: 'Shift R', caps_lock: 'Caps', f13: 'F13' }
-
-const HELD = 'Hold <b>{key}</b> to talk'
-
-const DEAF = 'Happy only hears <b>{key}</b> while this window is in front.'
+const WAKE = 'Say <b>{wake}</b> to talk'
 
 // SOUND OUTLIVES THE WORDS, SO GOING QUIET WAITS FOR THE LAST CLIP.
 const TAIL_MS = 120
@@ -38,8 +27,6 @@ function feel(name) {
 
   Aurora.mood(name)
   Orb.mood(name)
-
-  node('keycap').classList.toggle('down', name === 'listening')
 
   node('glass').classList.toggle('busy', name !== 'idle' && name !== 'gone')
 
@@ -133,14 +120,11 @@ function hear(word) {
 }
 
 function ready(word) {
-  const said = word.key || ''
-  const cap = CAPS[word.code] || said.split(' / ')[0] || 'the key'
+  const wake = word.wake || 'his name'
 
-  node('keyname').textContent = cap
-  node('keycap').hidden = !said
-  node('hint').innerHTML = HELD.replace('{key}', said.split(' / ')[0])
+  node('hint').innerHTML = WAKE.replace('{wake}', wake)
 
-  amiss(Boolean(word.deaf), cap)
+  amiss(word.amiss || '')
 }
 
 function stopped(word) {
@@ -148,21 +132,20 @@ function stopped(word) {
   node('hint').textContent = word.reason || 'Happy is not running'
 }
 
-// MACOS HANDS AN UNTRUSTED LISTENER ONLY THE KEYS MEANT FOR THIS WINDOW, WHICH
-// LOOKS EXACTLY LIKE PUSH TO TALK WORKING UNTIL YOU CLICK ON SOMETHING ELSE.
-function amiss(on, cap) {
-  node('amiss').hidden = !on
-  node('keycap').classList.toggle('deaf', on)
+// THE ONE PERMISSION HAPPY IS STILL WAITING ON, IN HIS OWN WORDS. HEARING NEEDS
+// NONE NOW; READING A WINDOW AND CLICKING IN IT BOTH STILL DO.
+function amiss(words) {
+  node('amiss').hidden = !words
 
-  if (!on) return
+  if (!words) return
 
-  node('amisswords').innerHTML = DEAF.replace('{key}', cap)
+  node('amisswords').textContent = words
   node('amissfix').textContent = allowed ? 'Restart' : 'Allow'
 }
 
 function fixing() {
   if (allowed) {
-    window.happy.restart() // A LISTENER BUILT WITHOUT THE PERMISSION STAYS DEAF.
+    window.happy.restart() // WHAT WAS BUILT WITHOUT THE PERMISSION NEVER GETS IT.
     return
   }
 
@@ -248,7 +231,7 @@ function boot() {
   Talk.start(node('stream'))
   Knobs.start(node('rows'), ask)
 
-  Talk.quiet('Nothing yet. Hold the key and talk, or type below.')
+  Talk.quiet('Nothing yet. Say his name and talk, or type below.')
 
   composer()
   buttons()

@@ -1,8 +1,12 @@
-"""MICROPHONE CAPTURE. START ON PUSH, STOP ON RELEASE, ONE WAV PER TAKE.
+"""MICROPHONE CAPTURE. ONE WAV PER TAKE, BETWEEN start() AND stop().
 
 THE STREAM STAYS OPEN FOR THE LIFE OF THE PROCESS AND start()/stop() ONLY GATE
 WHETHER THE CALLBACK KEEPS WHAT IT HEARS. OPENING A DEVICE COSTS ABOUT A TENTH
 OF A SECOND, ENOUGH TO SWALLOW THE FIRST WORD.
+
+WHAT DECIDES WHERE A TAKE BEGINS AND ENDS IS NOT HERE. ears/waking.py LISTENS TO
+THE SOUND THROUGH overhear() AND DRIVES THIS, WHICH IS WHY THE STREAM IS HANDED
+OUT WHOLE RATHER THAN ONLY WHILE SOMETHING IS BEING KEPT.
 """
 
 import collections
@@ -40,6 +44,7 @@ class Recorder:
         self.started_at = 0.0
         self.lock = threading.Lock()
         self.recent = collections.deque(maxlen=blocks(MOST_PREROLL_SECONDS))
+        self.listener = None
 
         # RAW int16: A SAMPLE PAST ±1.0 IN float32 WOULD WRAP TO THE OPPOSITE SIGN.
         self.stream = sd.RawInputStream(
@@ -53,6 +58,14 @@ class Recorder:
 
     def is_recording(self):
         return self.capturing
+
+    def overhear(self, listener):
+        """WHO ELSE GETS EVERY BLOCK, KEPT OR NOT. None TAKES THE EAR AWAY AGAIN.
+
+        IT IS HANDED THE BLOCK ON THE DEVICE'S OWN THREAD, WHICH PORTAUDIO WILL
+        NOT WAIT FOR: WHATEVER LISTENS HAD BETTER ONLY PUT IT SOMEWHERE.
+        """
+        self.listener = listener
 
     def start(self):
         wanted = blocks(settings.get("ears.preroll"))
@@ -96,6 +109,7 @@ class Recorder:
 
     def on_audio(self, indata, frames, moment, status):
         block = bytes(indata)
+        listener = self.listener
 
         with self.lock:
             self.recent.append(block)
@@ -108,6 +122,9 @@ class Recorder:
 
         if keeping:
             show.level(loudness(block))
+
+        if listener:
+            listener(block)
 
     def save(self, pcm):
         self.recordings.mkdir(parents=True, exist_ok=True)

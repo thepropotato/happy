@@ -51,6 +51,11 @@ def listening():
     print(f"{DIM}{'':<{LABEL}}listening{OFF}", end="\r", flush=True)
 
 
+def idle():
+    """THE ROOM WAS TALKING TO SOMEBODY ELSE. TAKE THE LINE BACK OFF THE TERMINAL."""
+    wipe()
+
+
 def said(text, seconds=None):
     if turn:
         turn.heard = seconds

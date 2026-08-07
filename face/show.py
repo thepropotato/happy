@@ -43,6 +43,11 @@ def listening():
     tell("listening")
 
 
+def idle():
+    """WHAT WAS BEING LISTENED TO WAS NOT MEANT FOR HAPPY. PUT THE FACE BACK."""
+    tell("idle")
+
+
 def said(text, seconds=None):
     tell("said", text, seconds)
 

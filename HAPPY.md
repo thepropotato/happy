@@ -23,7 +23,7 @@ When a design choice is genuinely close, pick the one Happy would make.
 
 ## What this is
 
-A voice assistant that operates this computer. Hold a key, say what you want, it happens.
+A voice assistant that operates this computer. Say his name, say what you want, it happens.
 It runs entirely on your machine — the speech recognition, the model, the tools. Nothing
 leaves the box.
 
@@ -33,20 +33,22 @@ not finished.
 ## How one turn works
 
 ```
-  hold key ─► record ─► transcribe ─► think ─► speak
-    ears        ears        ears       brain    voice
-                                         │
-                                         ▼
-                                  hands/ and eyes/
-                                  (tools it calls)
+  say his name ─► record ─► transcribe ─► think ─► speak
+      ears          ears        ears       brain    voice
+                                             │
+                                             ▼
+                                      hands/ and eyes/
+                                      (tools it calls)
 ```
 
-1. `ears/trigger.py` watches globally for the push-to-talk key. Global, so the terminal does
-   not have to be the focused window — on macOS that needs Accessibility permission.
+1. `ears/waking.py` listens to the room the whole time. Loudness decides where an utterance
+   starts and stops; the speech model that is already loaded reads it and decides whose it
+   was. Everything not addressed to Happy by name is transcribed, thrown away and deleted.
+   Nothing is listened to while Happy is talking — the microphone hears the speakers.
 2. `ears/microphone.py` keeps the microphone stream open for the life of the process and only
    gates whether it *keeps* what it hears. Opening a device costs about a tenth of a second,
    which is enough to swallow your first word. Each take is padded at both ends because
-   nobody presses a key exactly on the first syllable.
+   loudness only notices a voice once it is already under way.
 3. `ears/transcribing.py` runs Parakeet locally through `onnx-asr`. The model is loaded and
    warmed at startup so the first take isn't the one that pays for it.
 4. `brain/thinking.py` runs the transcribed speech through the graph. The model may call
@@ -67,13 +69,13 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 
 | Folder | What it owns |
 | --- | --- |
-| `main.py` | The loop. Hold, speak, release, hear an answer. Nothing else. |
+| `main.py` | The loop. His name, what was asked, an answer. Nothing else. |
 | `brain/thinking.py` | The graph. Speech in, spoken answer out, tools called along the way. |
 | `brain/watching.py` | What wraps every call: what goes in, what is kept, how long it took. |
 | `brain/model.py` | Which model, at which URL, with which settings. |
 | `brain/prompt.py` | What the model is told before it hears anything. |
 | `brain/providers.py` | The backends. One entry each, and the only file that knows a server's habits. |
-| `ears/trigger.py` | Push to talk. |
+| `ears/waking.py` | The room, listened to, and the part of it that said his name. |
 | `ears/microphone.py` | Microphone capture, one WAV per take. |
 | `ears/transcribing.py` | Speech to text. |
 | `voice/engines.py` | Which engine speaks, and loading only that one. |
@@ -388,6 +390,26 @@ trimmed away. That orphan is an API error, not a degradation.
 
 ## The ears
 
+**He wakes to his name, and there is no second model for it.** A wake word engine would be one
+more thing to download and one more thing to be wrong about a language, and the speech model is
+loaded and warm anyway. So loudness decides where an utterance starts and stops and the speech
+model decides whose it was: `ears/waking.py` captures every run of sound in the room, transcribes
+it, and deletes the recording again unless the name was in it. `ears.level` is the line between
+the room and somebody talking, `ears.gap` is the silence that ends a take, and a take is capped
+at twenty seconds so a television left on is not an utterance.
+
+**The name is matched word by word, and the last word strictest of all.** Whisper writes "Hey,
+Happy." and returns "hay happy" as readily as "hey happy", so nothing is compared letter for
+letter. The front of the phrase is a greeting and is allowed to be well out; the end of it is the
+name, and it is the only part that says the phrase was meant for him — "make me happy" scores
+well against "hey happy" added up, and nobody in it said his name. Say the name with nothing
+after it and he waits `ears.after` seconds for the question rather than answering the greeting.
+
+**Nothing is listened to while Happy is talking.** The microphone hears the speakers, and with no
+echo cancelling the alternative is Happy waking himself on his own answer and transcribing it
+back. That is the whole cost of the wake word: cutting him off by voice is gone, and stop is the
+button in the window.
+
 **Parakeet TDT 0.6B v2**, int8, through `onnx-asr`. Measured on this machine over the fifty takes
 in `recordings/`: **232.8 s of speech in 4.5 s — 51.8x realtime**, against WhisperX medium's 2.9x.
 The model loads and warms in 0.77 s where WhisperX took 2.89 s. 631 MB in `models/parakeet/`.
@@ -430,7 +452,7 @@ against 56x, which in use is the difference between an assistant and a demo. **m
 asked to write a WAV so the speaker keeps barge-in, is 330 ms warmed and flat at that whatever
 the sentence. Its fast path, `AVSpeechSynthesizer` at 12 ms, cannot be used: the callback only
 fires on the main thread's runloop, while sentences are synthesised on a daemon thread and the
-main thread sits blocked on the push-to-talk key. Windows SAPI was never measured, since the
+main thread sits blocked waiting to be spoken to. Windows SAPI was never measured, since the
 macOS half already failed.
 
 Phonemes come from an espeak-ng that ships inside the package, so there is nothing to install
@@ -456,11 +478,11 @@ live in `voice/speaker.py`.
 - **Abbreviations are not sentence ends.** That short first-sentence floor makes "Mr. Stark
   is on the phone" likely to break in half, so `SHORTENED` and the single-initial rule catch
   it. Decimals are already safe — the split needs whitespace after the full stop.
-- **Barge-in is `Speaker.stop()`**, wired to the push-to-talk key going down via the
-  `on_press` callback in `ears/trigger.py`. It fires from the listener's own thread, because the
-  main loop is usually busy exactly when someone decides to interrupt. Everything queued is
-  dropped and playback is cut — someone who has started talking has stopped listening, and
-  the microphone must not hear Happy either.
+- **Barge-in is `Speaker.stop()`**, and with a wake word there is no longer a way to reach it
+  by voice. `ears/waking.py` ignores the room while Happy is talking, because without echo
+  cancelling the microphone hears the speakers and he would wake himself on his own answer.
+  Stop is the button in the window and the next thing said once he has finished. Everything
+  queued is dropped and playback is cut.
 - **In-flight work is cancelled by an era counter**, not by trying to kill a thread. `stop()`
   bumps it; work stamped with an older era is thrown away when it surfaces.
 
@@ -778,9 +800,9 @@ so the panel goes quiet when the last clip ends and not when the last word arriv
 the moment there is, which is 250 pixels won back for the conversation. What it was saying
 carries on beside his name. Tapping the small one brings the big one back.
 
-**The key is always on screen** and lights while it is held. Holding it from another window is
-the whole point of push to talk, and without the cap the only proof it worked is Happy
-answering — a long way to find out he had not heard you.
+**The name he wakes to is under the orb**, in the hint, and the orb itself moves with the room
+whenever a take is running. There is nothing to press any more, so the only proof he is
+listening at all is that he visibly reacts to being talked near.
 
 **The controls are the whole panel**, not a drawer over part of one, and they are six sections
 that fold open where they sit rather than six tabs over fifty knobs. A shut section still says
@@ -790,7 +812,7 @@ set once and never again is marked `rare` in the catalogue and sits behind one m
 ### He comes up when he is spoken to
 
 A panel that hides when it loses focus is a panel that is never on the screen at the moment it
-matters: you hold the key in another application, say something, and nothing anywhere moves. So
+matters: you say his name with another application in front, and nothing anywhere moves. So
 a turn nobody opened the window for brings the window up on its own — `showInactive()`, never
 `show()`, because taking the focus would pull the caret out of whatever sentence somebody is in
 the middle of typing. It goes away again five seconds after the turn ends, unless it was pinned,
@@ -812,7 +834,7 @@ and `voice.pace` is a number between 0.6 and 1.6. **Adding a setting is a line i
 and nothing at all in the JavaScript.**
 
 Changing one takes effect on the next turn, not the next restart. Every part that was *built*
-out of a setting — the graph, the speech model, the voice, the push-to-talk key — checks a
+out of a setting — the graph, the speech model, the voice — checks a
 counter that only goes up, and puts itself back together when its own group has moved. The
 counter is per group, so nudging the voice pace does not rebuild the brain. The conversation
 survives a rebuild because the checkpointer outlives the graph.
@@ -934,7 +956,7 @@ read.
 ### Asking the application
 
 `AXUIElement` on macOS, UI Automation on Windows. On macOS this needs no new dependency and
-`AXIsProcessTrusted()` is already true, because push-to-talk needed that permission anyway.
+`AXIsProcessTrusted()` is the one permission the panel asks for out loud, so it is usually true.
 
 Measured on this machine: a Finder window is **160 elements in 124 ms**, and every one of them
 arrives knowing its own box, its kind, whether it is enabled and whether it is ticked. The same
@@ -1147,7 +1169,7 @@ a person, not to read one. What it cannot do: macOS will not say whether an even
 so the window is the whole mechanism, and verification is what actually catches the rest.
 
 The pointer and the keyboard needed nothing new — pynput, screeninfo and Pillow were already
-here for push-to-talk and the recorder. On macOS the accessibility tree needs nothing new either.
+here for the eyes and the recorder. On macOS the accessibility tree needs nothing new either.
 **Windows needs `comtypes`**, and says so plainly when it is missing instead of failing oddly.
 
 **What is verified and what is not.** Clicking, typing, shortcuts and scrolling are proven end to
@@ -1282,7 +1304,7 @@ cd face/window && npm install         # once, for the window
 cd face/window && npm start           # the real thing: an icon in the menu bar
 cd face/window && npm start -- --open # the same, with the panel already down
 
-.venv/bin/python main.py              # no window: hold RIGHT OPTION to talk in a terminal
+.venv/bin/python main.py              # no window: say "hey happy" at a terminal
 .venv/bin/python -m brain             # the same brain, typed at instead of spoken to
 .venv/bin/python -m voice "say this out loud"        # just the voice
 .venv/bin/python -m eyes shot.png [--thorough]       # read a picture, or compare recipes
@@ -1304,21 +1326,19 @@ carries its own certificates, which is why it works when nothing else does.
 `python -m brain` is the one to use while developing. It skips the microphone and the ears
 entirely and exercises the graph, the tools and the guard — everything except audio.
 
-**Two permissions, both granted to whatever runs Happy, not to Happy.** Accessibility, which
-push-to-talk already needed and which the pointer and keyboard also use; and Screen Recording,
-which capture needs. macOS refuses the second silently — you get a black picture, not an error
-— so if Happy says he cannot see the screen, that is the one to check. Both live in System
-Settings, Privacy & Security, and both need the app restarting after they are given. Run the
-window and it is **Electron** that has to be given them, not Python.
+**Three permissions, all granted to whatever runs Happy, not to Happy.** The Microphone, which
+hearing has always needed and now needs the whole time; Accessibility, which reading a window's
+controls and moving the pointer both use; and Screen Recording, which capture needs. macOS
+refuses the last two silently — you get a black picture, not an error, and an empty tree rather
+than a refusal — so if Happy says he cannot see the screen, those are the ones to check. All
+three live in System Settings, Privacy & Security, and all three need the app restarting after
+they are given. Run the window and it is **Electron** that has to be given them, not Python.
 
-Accessibility is refused as quietly as capture is. An untrusted event tap is still created and
-still delivers — but only the keys meant for this process, which looks exactly like push to talk
-working right up until you click on another window. `ears.trigger.deaf()` asks
-`AXIsProcessTrusted()` once per listener and the answer rides out in `ready`, so the panel says
-so in as many words and offers the button. The asking itself is `systemPreferences
+`eyes.attention.allowed()` asks `AXIsProcessTrusted()` and the answer rides out in `ready`, so
+the panel says so in as many words and offers the button. The asking itself is `systemPreferences
 .isTrustedAccessibilityClient(true)` in the Electron main process, because that is the process
-macOS holds responsible for the Python it started. A tap built without the permission stays deaf
-after it is granted, so the button turns into **Restart**.
+macOS holds responsible for the Python it started. What was built without the permission never
+gets it, so the button turns into **Restart**.
 
 A terminal that lives inside an Electron app — VS Code's — exports `ELECTRON_RUN_AS_NODE=1` to
 everything it starts. Inherit it and Electron comes up as plain Node, where there is no window

@@ -61,6 +61,10 @@ def listening():
     state(LISTENING)
 
 
+def idle():
+    state(IDLE)
+
+
 def said(text, seconds=None):
     if turn:
         turn.heard = seconds

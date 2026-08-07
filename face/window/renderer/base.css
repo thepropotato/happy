@@ -144,43 +144,6 @@ body {
   flex: 1;
 }
 
-/* ALWAYS ON SCREEN, AND LIT THE INSTANT THE KEY GOES DOWN — WHICH IS ALSO HOW A
-   GLOBAL LISTENER PROVES IT IS ALIVE FROM A WINDOW THAT IS NOT IN FRONT. */
-.key {
-  -webkit-app-region: no-drag;
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  background: var(--raise);
-  color: var(--dim);
-  font-size: 10.5px;
-  letter-spacing: 0.03em;
-  padding: 3px 8px;
-  transition: color var(--pane), border-color var(--pane), background var(--pane),
-    box-shadow var(--pane);
-}
-
-.key[hidden] {
-  display: none;
-}
-
-.key b {
-  font-weight: 600;
-}
-
-.key.down {
-  color: #fff;
-  border-color: rgba(245, 165, 36, 0.55);
-  background: rgba(245, 165, 36, 0.18);
-  box-shadow: 0 0 14px rgba(245, 165, 36, 0.35);
-}
-
-.key.deaf {
-  color: var(--wait);
-  border-color: rgba(245, 165, 36, 0.35);
-}
-
 .icons {
   display: flex;
   gap: 3px;

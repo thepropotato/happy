@@ -1,10 +1,10 @@
 """COMPLETELY LOCAL VOICE ASSISTANT.
 
-    hold key ─► record ─► transcribe ─► think ─► speak
-      ears        ears        ears       brain    voice
-                                           │
-                                           ▼
-                                     hands and eyes
+    say his name ─► record ─► transcribe ─► think ─► speak
+        ears         ears        ears       brain    voice
+                                              │
+                                              ▼
+                                        hands and eyes
 
 PLAIN FOR A TERMINAL. WITH --serve IT TALKS JSON TO A WINDOW, WHICH IS HOW
 face/window RUNS IT.
@@ -17,7 +17,6 @@ silence.configure()  # MUST RUN BEFORE THE IMPORTS BELOW OPEN AN ONNX SESSION.
 import os
 import sys
 import threading
-import time
 
 import brain
 import conscience
@@ -44,8 +43,8 @@ def main():
 
     recorder = ears.Recorder()
 
-    # SOMEBODY WHO HAS STARTED TALKING HAS STOPPED LISTENING.
-    ptt = ears.PushToTalk(on_press=speaker.stop)
+    # NOTHING IS LISTENED TO WHILE HAPPY IS THE LOUDEST THING IN THE ROOM.
+    waking = ears.Waking(recorder, busy=speaker.talking)
 
     brain.watches(show.step)
 
@@ -57,34 +56,52 @@ def main():
         show.note(f"Threw away {thrown}")
 
     if windowed:
-        attend(happy, speaker, recorder, ptt)
+        attend(happy, speaker, recorder, waking)
     else:
-        show.note(f"Hold {ptt.key_name} to talk. Ctrl+C to quit.")
-
-        if ptt.deaf:
-            show.note(ears.DEAF)
+        show.note(f'Say "{waking.phrase()}" to talk. Ctrl+C to quit.')
 
     try:
-        listen(recorder, ptt, happy, speaker)
+        listen(waking, happy, speaker)
     except KeyboardInterrupt:
         show.note("\nBye")
     finally:
-        shut(speaker, recorder, ptt)
+        shut(speaker, recorder, waking)
 
 
-def attend(happy, speaker, recorder, ptt):
+def attend(happy, speaker, recorder, waking):
     """HAND THE WINDOW THE FEW THINGS ONLY THIS FILE CAN DO."""
     conscience.asks(panel.confirm)
+
+    # SENT AGAIN WHENEVER A KNOB MOVES: THE NAME HAPPY WAKES TO IS ONE OF THEM,
+    # AND A HINT STILL NAMING THE OLD ONE IS A HINT THAT IS WRONG.
+    def ready():
+        panel.ready(wake=waking.phrase(), amiss=blocked())
 
     orders.serve(
         forget=happy.forget,
         say=lambda text: typed(happy, speaker, text),
         stop=lambda: stop_turn(happy, speaker),
-        quit=lambda: leave(speaker, recorder, ptt),
+        ready=ready,
+        quit=lambda: leave(speaker, recorder, waking),
     )
 
-    panel.ready(key=ptt.key_said, code=ptt.chosen, deaf=ptt.deaf)
+    ready()
     show.state(panel.IDLE)
+
+
+def blocked():
+    """THE ONE THING WORTH A BANNER: A PERMISSION HAPPY IS STILL WAITING ON.
+
+    HEARING NO LONGER NEEDS ONE — HIS NAME IS SAID INTO A MICROPHONE AND NOT
+    TYPED — BUT READING A WINDOW AND CLICKING IN IT BOTH STILL DO, AND THE
+    BUTTON THAT FIXES IT IS THE SAME BUTTON IT ALWAYS WAS.
+    """
+    from eyes import attention
+
+    if not (attention.on_mac() or attention.on_windows()):
+        return ""
+
+    return attention.allowed() or ""
 
 
 def start():
@@ -143,49 +160,30 @@ def start():
     return happy, speaker
 
 
-def listen(recorder, ptt, happy, speaker):
-    """ONE TURN PER LAP: HOLD, SPEAK, RELEASE, HEAR AN ANSWER."""
-    while True:
-        audio = capture(recorder, ptt)
+def listen(waking, happy, speaker):
+    """ONE TURN PER LAP: HIS NAME, WHAT WAS ASKED, AN ANSWER.
 
-        if audio is None:
+    THE HEARING IS ALL DONE BY THE TIME ANYTHING GETS HERE. WHAT ARRIVES IS A
+    QUESTION SOMEBODY PUT TO HAPPY BY NAME, AND EVERY OTHER SOUND IN THE ROOM
+    HAS ALREADY BEEN LISTENED TO AND FORGOTTEN.
+    """
+    while True:
+        heard = waking.next()
+
+        if heard is None:  # NOBODY SAID ANYTHING. GO ROUND, SO CTRL+C LANDS.
             continue
 
         stop_turn(happy, speaker)
 
         with taking:
             happy.start_turn()
-            spoken(happy, speaker, audio)
+            spoken(happy, speaker, heard)
 
 
-def capture(recorder, ptt):
-    """THE WAV, OR None IF THE KEY WAS ONLY BRUSHED."""
-    ptt.refit()  # A DIFFERENT KEY WAS PICKED WHILE THE LAST TAKE WAS RUNNING.
-    ptt.reset()  # IGNORE THE KEYBOARD FROM WHILE THAT TAKE WAS TRANSCRIBING.
-    ptt.wait_press()
-
-    show.listening()
-    recorder.start()
-
-    ptt.wait_release()
-
-    return recorder.stop()
-
-
-def spoken(happy, speaker, audio):
+def spoken(happy, speaker, heard):
     show.begin()
-
-    started = time.perf_counter()
-    speech = ears.transcribe(audio)
-    heard = time.perf_counter() - started
-
-    if not speech:
-        show.trouble("nothing heard")
-        show.end()
-        return
-
-    show.said(speech, heard)
-    respond(happy, speaker, speech, audio)
+    show.said(heard.text, heard.seconds)
+    respond(happy, speaker, heard.text, heard.audio)
     show.end()
 
 
@@ -263,16 +261,16 @@ def respond(happy, speaker, speech, audio=None):
         show.trouble(error)
 
 
-def shut(speaker, recorder, ptt):
+def shut(speaker, recorder, waking):
     mcps.stop()  # BEFORE THE REST: IT IS THE ONLY PART THAT OWNS OTHER PROCESSES.
+    waking.stop()  # BEFORE THE RECORDER, WHOSE BLOCKS IT IS STILL BEING HANDED.
     speaker.close()
     recorder.close()
-    ptt.stop()
 
 
-def leave(speaker, recorder, ptt):
-    """THE WINDOW ASKED US TO GO, AND THE MAIN THREAD IS SAT ON A KEY PRESS."""
-    shut(speaker, recorder, ptt)
+def leave(speaker, recorder, waking):
+    """THE WINDOW ASKED US TO GO, AND THE MAIN THREAD IS SAT WAITING TO BE SPOKEN TO."""
+    shut(speaker, recorder, waking)
     os._exit(0)
 
 

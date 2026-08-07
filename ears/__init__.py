@@ -1,7 +1,16 @@
-"""WHERE HEARING HAPPENS: THE KEY, THE MICROPHONE, THE WORDS."""
+"""WHERE HEARING HAPPENS: THE ROOM, THE NAME, THE WORDS."""
 
 from ears.engines import EarsError, fetch, load_model, transcribe, warm
 from ears.microphone import Recorder
-from ears.trigger import DEAF, PushToTalk
+from ears.waking import Heard, Waking
 
-__all__ = ["DEAF", "EarsError", "PushToTalk", "Recorder", "fetch", "load_model", "transcribe", "warm"]
+__all__ = [
+    "EarsError",
+    "Heard",
+    "Recorder",
+    "Waking",
+    "fetch",
+    "load_model",
+    "transcribe",
+    "warm",
+]
