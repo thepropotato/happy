@@ -9,7 +9,7 @@ import os
 import sys
 from pathlib import Path
 
-from mcps.servers.shared.matching import resolve as match
+from tongue.matching import resolve as match
 
 MACOS = "darwin"
 WINDOWS = "win32"  # ALSO ON 64 BIT. THE NAME NEVER CHANGED.

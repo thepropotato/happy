@@ -1,6 +1,7 @@
 """GMAIL: FINDING MAIL, READING ONE, AND WRITING ONE."""
 
 import base64
+import difflib
 import re
 from email.message import EmailMessage
 from email.utils import getaddresses
@@ -9,7 +10,6 @@ from pydantic import BaseModel
 
 from mcp.server.fastmcp import Context
 from servers.google import account, mcp
-from servers.shared.matching import resolve as match
 from servers.shared.answering import ok, some
 
 WANTED = ["From", "To", "Subject", "Date"]
@@ -161,6 +161,25 @@ class AddressChoice(BaseModel):
     confirm: bool
 
 
+# AN ADDRESS OFF BY ONE CHARACTER IS SOMEBODY ELSE'S INBOX, AND THE MAIL IS GONE
+# BEFORE ANYBODY NOTICES. NOTHING HERE ARRIVED BY EAR — ADDRESSES ARE TYPED OR
+# READ OFF A HEADER — SO THIS IS PLAIN CLOSENESS, WITHOUT tongue's RULES ABOUT
+# NAMES SAID HALF.
+NEAR = 0.6
+SURE = 0.85
+
+
+def nearest(address, known):
+    """THE ADDRESS ALREADY WRITTEN TO THAT THIS ONE IS CLOSE ENOUGH TO BE A SLIP
+    OF. None WHEN NOTHING IS NEAR ENOUGH TO BE WORTH STOPPING SOMEBODY OVER."""
+    close = difflib.get_close_matches(address, known, n=1, cutoff=NEAR)
+
+    if not close:
+        return None
+
+    return close[0] if difflib.SequenceMatcher(None, address, close[0]).ratio() >= SURE else None
+
+
 async def checked_addresses(given, known, action, context):
     if not given:
         return
@@ -171,9 +190,9 @@ async def checked_addresses(given, known, action, context):
         if address in known:
             continue
 
-        found, sure = match(address, known)
+        found = nearest(address, known)
 
-        if sure and found and found != address:
+        if found and found != address:
             close.append(f"{address} -> {found}")
 
     if close:
