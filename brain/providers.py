@@ -50,7 +50,7 @@ class ProviderError(Exception):
     pass
 
 
-def ollama(model, url, key, temperature, context, effort, timeout):
+def ollama(model, url, key, temperature, context, effort, timeout, resident):
     """OLLAMA'S OWN /api/chat. IT TAKES num_ctx PER REQUEST, WHICH IS THE WHOLE
     REASON IT IS THE DEFAULT. key IS UNUSED, THE SIGNATURE IS SHARED."""
     chat = client("langchain_ollama", "ChatOllama", OLLAMA)
@@ -61,14 +61,16 @@ def ollama(model, url, key, temperature, context, effort, timeout):
         temperature=temperature,
         num_ctx=context,
         reasoning=effort,  # SENT AS think.
+        keep_alive=resident,
         client_kwargs={"timeout": timeout},
     )
 
 
-def openai(model, url, key, temperature, context, effort, timeout):
+def openai(model, url, key, temperature, context, effort, timeout, resident):
     """THE OPENAI REQUEST SHAPE, WHICH IS ALSO LM STUDIO'S AND VLLM'S.
 
-    context IS ACCEPTED AND CANNOT BE SENT. SEE SETS_CONTEXT ABOVE.
+    context AND resident ARE ACCEPTED AND CANNOT BE SENT. SEE SETS_CONTEXT ABOVE:
+    A SERVER BEHIND THIS SHAPE DECIDES FOR ITSELF WHAT IT HOLDS AND FOR HOW LONG.
     """
     chat = client("langchain_openai", "ChatOpenAI", OPENAI)
 
@@ -95,12 +97,15 @@ def client(package, name, provider):
     return getattr(module, name)
 
 
-def build(name, model, url=None, key=None, temperature=None, context=None, effort=None, timeout=None):
+def build(name, model, url=None, key=None, temperature=None, context=None, effort=None,
+          timeout=None, resident=None):
     """THE MODEL FROM WHICHEVER BACKEND WAS ASKED FOR, READY TO BE HANDED TOOLS."""
     if name not in PROVIDERS:
         raise ProviderError(UNKNOWN.format(name=name, known=", ".join(names())))
 
-    return PROVIDERS[name](model, address(name, url), key, temperature, context, effort, timeout)
+    return PROVIDERS[name](
+        model, address(name, url), key, temperature, context, effort, timeout, resident
+    )
 
 
 def address(name, url=None):

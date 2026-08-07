@@ -23,6 +23,8 @@ PROVIDERS = [("ollama", "Ollama"), ("openai", "OpenAI shape")]
 
 FOREVER = "0 keeps everything."
 
+RESIDENT = "0 keeps it loaded. Answers come back faster while it is."
+
 # WHAT WAKES HIM IS READ BY THE SAME SPEECH MODEL THAT READS EVERYTHING ELSE, SO
 # IT CAN BE ANY WORDS AT ALL. TWO OR THREE OF THEM: ONE IS SAID BY ACCIDENT ALL
 # DAY, AND A SENTENCE IS SOMETHING NOBODY WILL SAY THE SAME WAY TWICE.
@@ -51,6 +53,11 @@ BRAIN = [
            whole=True, rare=True),
     number("brain.timeout", "Timeout", 30, 900, 10, 300, "A cold load is not a dead server.",
            "sec", whole=True, rare=True),
+    # WHAT THE BACKEND WORKED OUT ABOUT THE STANDING PROMPT AND THE TOOLS IS
+    # THROWN OUT WITH THE MODEL, AND THAT IS THE FRONT OF EVERY REQUEST. OLLAMA
+    # LETS GO AFTER FIVE QUIET MINUTES, WHICH IS SHORTER THAN A CUP OF TEA.
+    number("brain.resident", "Stays loaded", 0, 240, 5, 0, RESIDENT, "min", whole=True,
+           rare=True),
 ]
 
 EARS = [

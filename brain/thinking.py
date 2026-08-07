@@ -88,7 +88,7 @@ class Happy:
             self.assemble()
 
     def warm(self):
-        brain.warm(self.model)
+        brain.warm(self.model, self.prompt, self.tools)
 
     def say(self, speech, **about):
         """THE WHOLE REPLY AS ONE STRING."""

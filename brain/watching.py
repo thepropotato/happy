@@ -163,9 +163,41 @@ def text(result):
 
 
 def recent(messages):
-    """ONLY THE LAST STRETCH. COUNTED, NOT WEIGHED: A TOKEN COUNT WOULD MEAN A
-    TOKENISER PER MODEL."""
-    kept = trim_messages(
+    """THE BACKCHAT BEHIND THIS TURN, CUT DOWN, AND THIS TURN WHOLE.
+
+    THE CUT IS ONLY EVER MADE BEHIND THE TURN IN PROGRESS, AND THAT IS THE POINT.
+    A WINDOW THAT SLID WITH EVERY TOOL ROUND MOVED THE FIRST TOKEN AFTER THE
+    STANDING PROMPT EACH TIME, SO A SERVER THAT HAD ALREADY READ THE PROMPT AND
+    THE TOOL LIST — TENS OF THOUSANDS OF TOKENS, THE SAME ONES EVERY REQUEST —
+    HAD TO READ THEM ALL AGAIN FOR EVERY ROUND. HELD STILL, THE ROUNDS AFTER THE
+    FIRST PAY ONLY FOR THE TOOL RESULT THAT JUST CAME BACK.
+
+    IT ALSO CANNOT CUT A TOOL REPLY AWAY FROM THE CALL THAT ASKED FOR IT, WHICH
+    IS WHAT USED TO HAPPEN TO ANY ERRAND LONGER THAN THE WINDOW: NOTHING LEFT IN
+    IT WAS A HUMAN MESSAGE, SO THE TRIM CAME BACK EMPTY AND THE MODEL WAS HANDED
+    ONE LONE TOOL RESULT WITH NO IDEA WHAT IT HAD BEEN ASKED FOR.
+    """
+    began = opened(messages)
+
+    return settled(messages[:began]) + messages[began:]
+
+
+def opened(messages):
+    """WHERE THE TURN IN PROGRESS STARTS: THE LAST THING A PERSON SAID."""
+    for index in range(len(messages) - 1, -1, -1):
+        if getattr(messages[index], "type", "") == "human":
+            return index
+
+    return 0
+
+
+def settled(messages):
+    """THE TURNS ALREADY FINISHED, DOWN TO THE LAST STRETCH. COUNTED, NOT
+    WEIGHED: A TOKEN COUNT WOULD MEAN A TOKENISER PER MODEL."""
+    if not messages:
+        return []
+
+    return trim_messages(
         messages,
         token_counter=len,
         max_tokens=settings.get("brain.history"),
@@ -174,5 +206,3 @@ def recent(messages):
         include_system=False,
         allow_partial=False,
     )
-
-    return kept or messages[-1:]

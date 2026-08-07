@@ -6,6 +6,8 @@ SETTINGS TABLE, SO CHANGING PROVIDER IS CHANGING A CONTROL AND NOT A LINE.
 
 import os
 
+from langchain_core.messages import HumanMessage, SystemMessage
+
 from brain import providers
 from memory import settings
 
@@ -13,6 +15,14 @@ API_KEY_ENV = "LLM_API_KEY"
 NO_KEY = "local"
 
 VISION_TEMPERATURE = 0
+
+# WHAT OLLAMA CALLS "DO NOT UNLOAD THIS", AND WHAT 0 MINUTES MEANS HERE.
+FOREVER = -1
+
+# WHAT THE EYES ASK FOR INSTEAD: WHATEVER THE BACKEND DOES ON ITS OWN. THE
+# SETTING IS ABOUT THE MODEL WHOSE PROMPT IS READ ON EVERY SINGLE REQUEST, AND
+# HOLDING A SECOND BIG ONE BESIDE IT FOR GOOD IS HOW A MACHINE RUNS OUT OF MEMORY.
+BACKEND = "backend"
 
 # OFF, NOT LOW: A MODEL THAT THINKS ITS WHOLE WINDOW RETURNS AN EMPTY STRING.
 OFF = "off"
@@ -26,7 +36,8 @@ class LLMError(Exception):
     pass
 
 
-def create(model=None, provider=None, url=None, key=None, temperature=None, context=None, effort=None):
+def create(model=None, provider=None, url=None, key=None, temperature=None, context=None,
+           effort=None, resident=None):
     """THE MODEL, READY TO BE HANDED TOOLS."""
     try:
         return providers.build(
@@ -38,6 +49,7 @@ def create(model=None, provider=None, url=None, key=None, temperature=None, cont
             context=pick(context, "brain.context"),
             effort=effort if effort is not None else thinking("brain.effort"),
             timeout=settings.get("brain.timeout"),
+            resident=None if resident == BACKEND else residency(),
         )
     except providers.ProviderError as error:
         raise LLMError(str(error))
@@ -50,6 +62,7 @@ def sight(model=None):
         temperature=VISION_TEMPERATURE,
         context=settings.get("eyes.context"),
         effort=thinking("eyes.effort"),
+        resident=BACKEND,
     )
 
 
@@ -62,6 +75,19 @@ def thinking(key):
     chosen = settings.get(key)
 
     return False if chosen in (OFF, "", None) else chosen
+
+
+def residency():
+    """HOW LONG THE BACKEND SHOULD HOLD THE MODEL AFTER AN ANSWER, IN ITS TERMS.
+
+    THE WEIGHTS ARE THE HALF OF THIS THAT SHOWS. THE OTHER HALF IS WHAT THE SERVER
+    WORKED OUT ABOUT THE STANDING PROMPT AND THE TOOL LIST, WHICH GOES WHEN THE
+    MODEL DOES — SO A DEFAULT THAT LETS GO AFTER FIVE QUIET MINUTES MAKES EVERY
+    QUESTION ASKED AFTER A COFFEE PAY FOR ALL OF IT AGAIN.
+    """
+    minutes = settings.get("brain.resident")
+
+    return FOREVER if not minutes else f"{minutes:g}m"
 
 
 def name():
@@ -105,12 +131,35 @@ def offered():
     return providers.offered(backend(), wanted())
 
 
-def warm(model):
-    """LOAD THE WEIGHTS NOW SO THE FIRST REAL QUESTION DOES NOT PAY FOR IT."""
+def warm(model, prompt=None, tools=None):
+    """LOAD THE WEIGHTS NOW SO THE FIRST REAL QUESTION DOES NOT PAY FOR IT.
+
+    AND THE STANDING PROMPT AND THE TOOL LIST WITH THEM, WHICH IS THE LARGER HALF
+    OF THE WAIT. THEY ARE THE SAME TENS OF THOUSANDS OF TOKENS AT THE FRONT OF
+    EVERY SINGLE REQUEST, SO A SERVER THAT READS THEM ONCE HERE HAS THEM READY
+    FOR EVERY QUESTION AFTER — AND IT READS THEM WHILE HAPPY IS STARTING UP
+    RATHER THAN WHILE SOMEBODY IS STOOD THERE WAITING FOR AN ANSWER.
+
+    THE REPLY IS THROWN AWAY. IT IS THE READING THAT WAS WANTED, NOT THE ANSWER.
+    """
     try:
-        model.invoke(WARM_UP)
+        ready(model, tools).invoke(opening(prompt))
     except Exception as error:
         raise LLMError(complaint(error))
+
+
+def ready(model, tools):
+    """THE MODEL AS THE GRAPH WILL ACTUALLY CALL IT. THE TOOLS ARE MOST OF WHAT
+    IS BEING WARMED, SO WARMING WITHOUT THEM WARMS THE WRONG PROMPT."""
+    return model.bind_tools(tools) if tools else model
+
+
+def opening(prompt):
+    """THE SHORTEST REAL REQUEST: THE STANDING PROMPT, THEN A HELLO."""
+    if not prompt:
+        return WARM_UP
+
+    return [SystemMessage(prompt), HumanMessage(WARM_UP)]
 
 
 def complaint(error):
