@@ -139,6 +139,8 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `mcps/servers/notion/` | Searching a workspace, reading a page, and writing one. |
 | `mcps/servers/github/` | Repositories, the files in them, their issues and their commits. |
 | `mcps/servers/slack/` | Channels, what was said in them, and saying something. |
+| `mcps/servers/weather/` | The forecast anywhere, from the one that wants no account. |
+| `mcps/servers/instagram/` | This account's own posts, their comments, and replying to one. |
 | `mcps/whatsapp.py` | The bridge from Happy's side: starting it, asking it, putting it down. |
 | `mcps/servers/whatsapp/` | Reads your chats over a local bridge, and asks before sending. |
 | `conscience/` | Asking before something that cannot be undone. |

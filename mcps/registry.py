@@ -65,6 +65,25 @@ KNOWN = [
         "client is what gets numbers banned.",
     },
     {
+        "name": "weather",
+        "label": "Weather",
+        "folder": "weather",
+        # NOTHING TO SIGN INTO. OPEN-METEO IS THE ONLY FORECAST WORTH HAVING THAT
+        # DOES NOT MAKE SOMEBODY GO AND MAKE AN ACCOUNT BEFORE HAPPY CAN ANSWER.
+        "kind": NONE,
+        "hint": "Forecasts from Open-Meteo, which wants no account and no key. Connect it and "
+        "it works. Ask about anywhere by name; nothing here knows where you are.",
+    },
+    {
+        "name": "instagram",
+        "label": "Instagram",
+        "folder": "instagram",
+        "kind": TOKEN,
+        "hint": "Needs an Instagram access token from a Meta app of your own, at "
+        "developers.facebook.com. Instagram only ever hands over the account's own posts and "
+        "the comments under them, so this reads those and can reply to one, asking first.",
+    },
+    {
         "name": "notion",
         "label": "Notion",
         "folder": "notion",
