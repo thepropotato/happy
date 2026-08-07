@@ -12,8 +12,6 @@ from typing import Any
 
 import httpx
 
-from servers.shared.matching import resolve as match
-
 
 def fix_surrogates(text: str) -> str:
     out = []
@@ -158,19 +156,9 @@ class WhatsAppClient:
                 if q in c.get("name", "").lower() or q in c.get("number", "")
             ]
 
-        if found:
-            return found
-
-        contacts = await self.get_contacts()
-        names = [contact.get("name", "") for contact in contacts if contact.get("name")]
-        found_name, sure = match(query, names, sure=0.7)
-
-        if sure and found_name:
-            for contact in contacts:
-                if contact.get("name") == found_name:
-                    return [contact]
-
-        return []
+        # THE ENDPOINT ANSWERS WITH NOTHING RATHER THAN AN EMPTY LIST WHEN IT HAS
+        # NOTHING, AND EVERY CALLER HERE ITERATES WHAT COMES BACK.
+        return found or []
 
     async def get_chats(self) -> list[dict[str, Any]]:
         try:
@@ -205,18 +193,7 @@ class WhatsAppClient:
             if q in g.get("name", "").lower() or q in g.get("description", "").lower()
         ]
 
-        if found:
-            return found
-
-        names = [group.get("name", "") for group in groups if group.get("name")]
-        found_name, sure = match(query, names, sure=0.7)
-
-        if sure and found_name:
-            for group in groups:
-                if group.get("name") == found_name:
-                    return [group]
-
-        return []
+        return found
 
     async def resolve_group(self, query: str) -> str:
         asked = (query or "").strip()

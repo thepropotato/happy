@@ -103,7 +103,15 @@ FINISHING = (
     "and try it again instead of hearing a no. Given nothing back, try the other "
     "spelling or the other wording before you decide the thing is not there. Only once "
     "you have tried, say plainly what worked, what did not and where things have been "
-    "left. Never say something is done because you asked for it to be."
+    "left. Never say something is done because you asked for it to be.\n\n"
+    "A name that reached you by ear is not always the name a tool knows it by. When you "
+    "look something up by name and nothing comes back, do not guess at a shorter "
+    "spelling. Ask the tool that lists them — the chats, the channels, the pages, the "
+    "files — read the real names, and go again with the one that is plainly the same "
+    "thing said differently. Zookie is Zookie bhai, and Rasool is Rasool Khan. Do that "
+    "once: one look at the list tells you everything a second look would. If nothing on "
+    "it could be what was meant, say what you did find and ask, rather than opening or "
+    "sending to the nearest thing that is not it."
 )
 
 # WITHOUT THIS THE MODEL INVENTS APPS, OR DENIES ONES SITTING RIGHT THERE.

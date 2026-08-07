@@ -271,9 +271,9 @@ async def query_messages(
 ) -> str:
     """Search WhatsApp messages with filters. Use for: "what did X send me?", "messages from Y in Z group", "last message in group", "recent messages". All filtering happens in-memory - single call, instant results.
 
-    ALWAYS call this tool ONCE with best-guess partial names. Do NOT search groups or contacts first.
-    Fuzzy matching is built-in: "zookie" matches "Zookie bhai", "rasool" matches "Rasool Khan".
-    Only retry if you get a 404 error, and only with a shorter/simpler name.
+    Call this tool ONCE with best-guess partial names. Do NOT search groups or contacts first:
+    a partial name matches on its own, so "zookie" finds "Zookie bhai" and "rasool" finds "Rasool Khan".
+    Only when nothing comes back, read the real names with get_chats and call again with the right one.
 
     Use ONLY the relevant parameter - group OR contact, not both:
     - Group chat message     -> fill "group", leave "contact" and "sender" empty
