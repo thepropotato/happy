@@ -55,7 +55,11 @@ ours = set()
 
 
 def listen(turn):
-    """START WATCHING. turn TAKES WHAT WAS ASKED AND GIVES BACK WHAT TO SAY."""
+    """START WATCHING.
+
+    turn TAKES WHAT WAS ASKED AND GIVES BACK WHAT TO SAY, PLUS ANY PICTURES THAT
+    GO WITH IT. A CHAT IS THE ONE PLACE HAPPY CAN BE ASKED TO *SHOW* SOMETHING.
+    """
     threading.Thread(target=watching, args=(turn,), daemon=True, name="messages").start()
 
 
@@ -111,7 +115,11 @@ def answer(turn, chat, entry):
     if not asked:
         return
 
-    said = turn(asked)
+    said, pictures = turn(asked)
+
+    # AHEAD OF THE WORDS, SO THE ANSWER READS AS A CAPTION UNDER WHAT IT IS ABOUT.
+    for where in pictures:
+        kept(shown(chat, where))
 
     if not said:
         return
@@ -229,6 +237,19 @@ def say(chat, text):
 def note(chat, path):
     """A .wav IS AUDIO TO THE BRIDGE, SO WHAT LANDS IS A VOICE NOTE."""
     return (asked(client().send_media_message(chat, str(path))) or {}).get("messageId")
+
+
+def shown(chat, where):
+    """A PICTURE INTO THE CHAT, AND OFF THIS DISK AFTERWARDS.
+
+    THE BRIDGE GOES BY THE SUFFIX, SO A .png LANDS AS A PHOTO AND NOT AS A FILE.
+    THROWN AWAY EITHER WAY: A SHOT NOBODY COULD BE SENT IS STILL A SHOT OF THEIR
+    SCREEN SAT IN A FOLDER.
+    """
+    try:
+        return note(chat, where)
+    finally:
+        Path(where).unlink(missing_ok=True)
 
 
 def client():

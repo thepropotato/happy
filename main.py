@@ -26,7 +26,7 @@ import mcps
 import memory
 import voice
 from mcps.servers.whatsapp import chatting
-from face import console, orders, panel, show
+from face import console, handing, orders, panel, show
 
 SERVE = "--serve"
 
@@ -211,6 +211,9 @@ def distant(happy, text):
 
     NOBODY IS AT THE MACHINE TO ANSWER conscience, SO IT IS TOLD NO FOR THE LENGTH
     OF THE TURN. HAPPY LOOKS AND ANSWERS FROM AFAR; HE DOES NOT DO THE UNDOABLE.
+
+    GIVES BACK WHAT TO SAY AND ANY PICTURES TO SEND WITH IT. THIS IS THE ONLY KIND
+    OF TURN THAT CAN CARRY ONE: WHOEVER ASKED IS NOT LOOKING AT THE SCREEN.
     """
     with taking:
         show.begin()
@@ -218,14 +221,16 @@ def distant(happy, text):
 
         was = conscience.handler
         conscience.asks(lambda what, why: False)
+        handing.opened()
 
         try:
             said = "".join(piece for piece in stream(happy, text))
         finally:
             conscience.asks(was)
             show.end()
+            pictures = handing.closed()  # IN HERE, OR A THROW LEAVES THE TURN OPEN FOREVER.
 
-        return said
+        return said, pictures
 
 
 def stream(happy, text):

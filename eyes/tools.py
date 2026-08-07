@@ -1,14 +1,26 @@
 """THE TOOLS. EVERY DOCSTRING HERE IS READ BY THE MODEL, NOT BY US."""
 
+from datetime import datetime
+from pathlib import Path
+
 from langchain_core.tools import tool
 
 from eyes.describing import QUESTION, asked, smaller
+from face import handing
 from hands import asking
 from eyes.parts import VisionError
 from eyes.reading import look
 from eyes.screen import grab
 
 MAX_CHARS = 20000
+
+SHOTS = Path(__file__).resolve().parents[1] / "data" / "shots"
+
+# WHOEVER IS ASKING IS LOOKING AT IT. THERE IS NOTHING TO SEND THEM.
+HERE = (
+    "Whoever is asking is sat in front of this screen, so there is nowhere to send a "
+    "picture of it. Tell them it is right there, or use read_screen and say what is on it."
+)
 
 
 @tool
@@ -54,7 +66,8 @@ def read_screen() -> str:
 
     If what you actually want is what can be clicked, use list_controls instead.
     It asks the application directly, which is several times faster than this
-    and also tells you what is greyed out or ticked."""
+    and also tells you what is greyed out or ticked. If you are asked to show or
+    send the screen rather than to say what is on it, use show_screen."""
     try:
         seen = look(grab().image)
     except VisionError as problem:
@@ -82,4 +95,37 @@ def look_at_screen(question: str) -> str:
         return asking.no(str(problem))
 
 
-TOOLS = [read_image, read_screen, look_at_screen]
+@tool
+def show_screen() -> str:
+    """Send a picture of the screen to whoever is asking, so they can look at it
+    themselves. Use this when you are asked to show, send, share or screenshot
+    the screen, or asked what it looks like by somebody who cannot see it.
+
+    This only works for somebody messaging Happy from somewhere else. Anybody
+    sat at this machine is already looking at the screen, and this will say so
+    rather than send anything.
+
+    The picture goes with your answer, so say what they are about to see rather
+    than describing every corner of it. read_screen is still the way to answer a
+    question about what the screen says."""
+    if not handing.wanted():
+        return asking.no(HERE)
+
+    try:
+        shot = grab()
+    except VisionError as problem:
+        return asking.no(str(problem))
+
+    SHOTS.mkdir(parents=True, exist_ok=True)
+    where = SHOTS / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
+    shot.image.save(where)
+
+    if not handing.offer(where):
+        where.unlink(missing_ok=True)
+
+        return asking.no("They have already been sent a picture of the screen this turn.")
+
+    return f"A picture of the whole screen, {shot.image.width} by {shot.image.height}, is on its way."
+
+
+TOOLS = [read_image, read_screen, look_at_screen, show_screen]
