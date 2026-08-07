@@ -79,6 +79,7 @@ def attend(happy, speaker, recorder, ptt):
     orders.serve(
         forget=happy.forget,
         say=lambda text: typed(happy, speaker, text),
+        stop=lambda: stop_turn(happy, speaker),
         quit=lambda: leave(speaker, recorder, ptt),
     )
 
@@ -150,7 +151,10 @@ def listen(recorder, ptt, happy, speaker):
         if audio is None:
             continue
 
+        stop_turn(happy, speaker)
+
         with taking:
+            happy.start_turn()
             spoken(happy, speaker, audio)
 
 
@@ -192,7 +196,10 @@ def typed(happy, speaker, text):
     if not text:
         return
 
+    stop_turn(happy, speaker)
+
     with taking:
+        happy.start_turn()
         show.begin()
         show.said(text)
         respond(happy, speaker, text)
@@ -231,6 +238,11 @@ def stream(happy, text):
         show.trouble(error)
 
         yield str(error)
+
+
+def stop_turn(happy, speaker):
+    happy.stop()
+    speaker.stop()
 
 
 def respond(happy, speaker, speech, audio=None):

@@ -3,8 +3,10 @@
 import io
 
 from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
+from mcp.server.fastmcp import Context
 
 from servers.google import account, mcp
+from servers.google.mail import checked_addresses, known_addresses
 from servers.shared.answering import ok, some
 
 FIELDS = "files(id, name, mimeType, modifiedTime, size, webViewLink)"
@@ -98,12 +100,14 @@ def create_file(name: str, content: str, folder_id: str = "") -> str:
 
 
 @mcp.tool()
-def share_file(file_id: str, email: str, role: str = "reader") -> str:
+async def share_file(file_id: str, email: str, role: str = "reader", context: Context = None) -> str:
     """Give somebody access to a file. role is reader, commenter or writer.
 
     This hands a real person real access, so say whose file and whose address
     before calling it.
     """
+    await checked_addresses(email, known_addresses(), "share_file", context)
+
     account.drive().permissions().create(
         fileId=file_id,
         body={"type": "user", "role": role or "reader", "emailAddress": email},

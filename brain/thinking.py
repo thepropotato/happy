@@ -8,6 +8,7 @@ HISTORY LIVES IN THE CHECKPOINTER UNDER ONE THREAD, TRIMMED ON THE WAY IN.
 """
 
 import time
+import threading
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import ModelCallLimitMiddleware
@@ -49,6 +50,7 @@ class Happy:
 
     def __init__(self, model=None, tools=None, prompt=None):
         self.given = model
+        self.stopping = threading.Event()
 
         # HELD, NOT RESOLVED: WHAT IS ON OFFER CHANGES WHILE HAPPY IS RUNNING.
         self.handed = tools
@@ -123,6 +125,9 @@ class Happy:
             for chunk, note in self.graph.stream(
                 self.turn(speech), self.config(), stream_mode="messages"
             ):
+                if self.stopping.is_set():
+                    break
+
                 piece = spoken(chunk, note)
 
                 if piece:
@@ -134,9 +139,13 @@ class Happy:
 
                     yield piece
 
+                if self.stopping.is_set():
+                    break
+
             # NOT ONE WORD CAME OUT, SO WHATEVER ENDED THE RUN ENDED IT SOMEWHERE
             # THE STREAM CANNOT SEE. SAY WHAT IT LEFT BEHIND RATHER THAN GO QUIET.
-            if not reply.strip():
+            # BUT NOT WHEN THE PERSON STOPPED IT THEMSELVES — THAT SILENCE IS THE POINT.
+            if not reply.strip() and not self.stopping.is_set():
                 last = self.ending()
 
                 if last:
@@ -178,6 +187,12 @@ class Happy:
             return ""
 
         return worded((last.text or "").strip())
+
+    def stop(self):
+        self.stopping.set()
+
+    def start_turn(self):
+        self.stopping.clear()
 
     def forget(self):
         """A CLEAN SLATE. A NEW THREAD IS CHEAPER THAN EMPTYING THE OLD ONE."""
