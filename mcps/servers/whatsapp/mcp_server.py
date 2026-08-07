@@ -109,7 +109,12 @@ async def search_contacts(query: str) -> str:
 
 @mcp.tool()
 async def get_chats(days: Optional[int] = None) -> str:
-    """Get WhatsApp chats list with last-message previews. Use ONLY when the user explicitly asks to SEE or LIST their chats (e.g. "show my chats", "list all conversations"). All returned timestamps are in UTC.
+    """Get WhatsApp chats list with last-message previews. All returned timestamps are in UTC.
+
+    Use this when the user explicitly asks to SEE or LIST their chats (e.g. "show my chats",
+    "list all conversations"), and to read the real names when a lookup by name came back empty:
+    a misheard name is not in the list, so find the one that is plainly the same person or group
+    said differently, and call the tool that failed again with that name.
 
     NEVER use this for: "unread messages", "new messages", "any messages?", "did someone message me?" - use get_unread_messages instead.
     NEVER call this after get_latest_received_message or get_unread_messages - those tools already give the complete answer.
