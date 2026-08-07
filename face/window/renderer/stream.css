@@ -183,12 +183,31 @@
   overflow: visible;
 }
 
+/* WHAT THE ROUND THAT ASKED FOR THIS CALL READ. IT TAKES THE auto MARGIN SO IT
+   AND THE STOPWATCH SIT TOGETHER AT THE RIGHT EDGE, IN THAT ORDER; WITH NO COUNT
+   TO SHOW, THE STOPWATCH TAKES IT BACK AND THE ROW LOOKS AS IT ALWAYS DID.
+   DIMMER THAN THE CLOCK: IT IS THE SECOND THING YOU LOOK AT, NOT THE FIRST. */
+.call > .face .tokens {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--faint);
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
 .call > .face .took {
   flex: 0 0 auto;
   margin-left: auto;
   font-size: 10px;
   color: var(--faint);
   font-variant-numeric: tabular-nums;
+}
+
+/* THE COUNT ALREADY TOOK THE SLACK, SO THE CLOCK MUST NOT TAKE IT AGAIN OR THE
+   TWO END UP AT OPPOSITE ENDS OF THE ROW. */
+.call > .face .tokens + .took {
+  margin-left: 0;
 }
 
 .call > .face .go {

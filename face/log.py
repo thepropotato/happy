@@ -17,7 +17,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-from face.turn import MODEL, STARTED, Turn, stats
+from face.turn import MODEL, SPENT, STARTED, Turn, count, stats
 
 FILE = Path(__file__).resolve().parents[1] / "data" / "happy.log"
 
@@ -133,6 +133,11 @@ def step(kind, name, seconds, about=None):
     if turn is None or kind == STARTED:
         return
 
+    if kind == SPENT:
+        turn.paid(about)
+
+        return
+
     if kind == MODEL:
         turn.thought = seconds
 
@@ -147,7 +152,12 @@ def step(kind, name, seconds, about=None):
     # CIRCLES LOOKS LIKE — WHICH IS ONLY VISIBLE IF THEY LOOK DIFFERENT.
     kind = "no" if (about or {}).get("failed") else "tool"
 
-    line(kind, f"{name} {clock(seconds)}" + (f" — {why}" if why else ""))
+    # WHAT THE ROUND THAT ASKED FOR THIS CALL READ, WHICH IS THE STANDING PROMPT
+    # AND EVERY TOOL SCHEMA OVER AGAIN. THE ONE NUMBER WORTH SEEING PER STEP.
+    read = ((about or {}).get("spent") or {}).get("read")
+    cost = f" {count(read)}" if read else ""
+
+    line(kind, f"{name} {clock(seconds)}{cost}" + (f" — {why}" if why else ""))
 
 
 def unprompted(text):

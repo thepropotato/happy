@@ -11,7 +11,7 @@ import json
 import sys
 import threading
 
-from face.turn import MODEL, STARTED, Turn
+from face.turn import MODEL, SPENT, STARTED, Turn
 
 LOADING = "loading"
 IDLE = "idle"
@@ -98,6 +98,11 @@ def step(kind, name, seconds, about=None):
     # THE ID TIES THE STARTED AND FINISHED LINES TO THE ONE ROW.
     if kind == STARTED:
         send("began", name=name, **(about or {}))
+    elif kind == SPENT:
+        # ADDED UP AND SENT NOWHERE YET. THE ROUND'S OWN COST TRAVELS ON THE CALL
+        # IT ASKED FOR; THE TOTAL GOES OUT WITH THE STATS AT THE END, WHICH IS THE
+        # ONLY POINT THE LAST ROUND OF ALL — THE ONE THAT ANSWERS — IS IN IT.
+        turn.paid(about)
     elif kind == MODEL:
         turn.thought = seconds
     else:
@@ -150,6 +155,8 @@ def spent(this):
         "tools": [{"name": name, "seconds": taken} for name, taken in this.tools],
         "first": this.first,
         "total": this.seconds(),
+        "read": this.read,
+        "wrote": this.wrote,
     }
 
 

@@ -21,6 +21,10 @@ STARTED = "tool.started"
 
 MODEL = "model"
 
+# WHAT ONE ROUND COST, SAID AS SOON AS THE MODEL COMES BACK AND BEFORE ANY TOOL
+# IT ASKED FOR HAS RUN.
+SPENT = "spent"
+
 # THREE IN A ROW GETTING NOWHERE. TWO IS A RETRY, WHICH IS OFTEN THE RIGHT MOVE
 # AND IS ASKED FOR BY NAME IN THE STANDING PROMPT: THE OTHER SPELLING, THE OTHER
 # WORDING, WAIT AND GO AGAIN. THREE IS THE SAME LOCKED DOOR A THIRD TIME.
@@ -37,6 +41,10 @@ report = None
 # IN main.py, SO THIS IS PER ERRAND WITHOUT HAVING TO BE THREADED THROUGH ONE.
 missed = 0
 
+# WHAT THE ROUND JUST FINISHED COST, WAITING FOR THE TOOL IT ASKED FOR TO CLAIM
+# IT. HELD THE SAME WAY AND FOR THE SAME REASON AS missed ABOVE.
+spend = None
+
 
 class Stuck(Exception):
     """ENOUGH TOOLS IN A ROW SAID NO THAT THE NEXT ONE WOULD TOO."""
@@ -44,9 +52,10 @@ class Stuck(Exception):
 
 def fresh():
     """A NEW TURN. THE STREAK IS ABOUT THIS ERRAND, NOT THE LAST ONE."""
-    global missed
+    global missed, spend
 
     missed = 0
+    spend = None
 
 
 def watches(handler):
@@ -71,6 +80,55 @@ def keep_recent(request, handler):
     return handler(request.override(messages=recent(request.messages)))
 
 
+@wrap_model_call
+def keep_count(request, handler):
+    """WHAT EACH ROUND COST, COUNTED WHERE THE MODEL ACTUALLY ANSWERS.
+
+    A TURN IS NOT ONE REQUEST. IT IS A ROUND PER TOOL AND ONE MORE TO ANSWER, AND
+    EVERY ONE OF THEM SENDS THE STANDING PROMPT AND ALL FIFTY-ODD TOOL SCHEMAS
+    AGAIN — WHICH IS THE WHOLE REASON THIS IS WORTH PUTTING ON SCREEN. SO IT IS
+    COUNTED PER ROUND AND ADDED UP BY WHOEVER IS SHOWING IT, NOT COUNTED ONCE.
+    """
+    global spend
+
+    answered = handler(request)
+    spend = counted(answered)
+
+    if spend:
+        tell(SPENT, None, None, dict(spend))
+
+    return answered
+
+
+def counted(answered):
+    """WHAT ONE ROUND READ AND WROTE, OR None IF THE BACKEND WILL NOT SAY.
+
+    NOT EVERY SERVER BEHIND THE OPENAI SHAPE REPORTS USAGE, AND A COUNT NOBODY
+    SENT IS SHOWN AS NOTHING RATHER THAN AS A ZERO.
+    """
+    said = getattr(answered, "result", None) or answered
+
+    if isinstance(said, list):
+        said = said[-1] if said else None
+
+    usage = getattr(said, "usage_metadata", None) or {}
+
+    if not usage.get("input_tokens") and not usage.get("output_tokens"):
+        return None
+
+    return {"read": usage.get("input_tokens", 0), "wrote": usage.get("output_tokens", 0)}
+
+
+def claim():
+    """THE ROUND'S COST, ONCE. TWO TOOLS ASKED FOR TOGETHER SHARE ONE ROUND, AND
+    CHARGING BOTH OF THEM FOR IT WOULD COUNT THAT ROUND TWICE."""
+    global spend
+
+    taken, spend = spend, None
+
+    return taken
+
+
 @wrap_tool_call
 def keep_record(request, handler):
     """EVERY TOOL CALL GOES ON ITS EXCHANGE, WITH ITS REASON, ARGUMENTS AND TIME."""
@@ -83,6 +141,10 @@ def keep_record(request, handler):
     # THE ID TIES THE STARTED AND FINISHED REPORTS TO THE ONE ROW.
     which = call.get("id") or f"{name}-{id(call)}"
 
+    # THE ROUND THAT ASKED FOR THIS CALL, AND WHAT READING THE WHOLE PROMPT AGAIN
+    # TO ASK FOR IT COST. TAKEN ON THE WAY IN SO THE FIRST TOOL OF A ROUND GETS IT.
+    cost = claim()
+
     tell(STARTED, name, None, {"id": which, "args": args})
 
     started = time.perf_counter()
@@ -93,9 +155,10 @@ def keep_record(request, handler):
         result = handler(request)
     except Exception as error:
         taken = time.perf_counter() - started
-        gone = {"id": which, "why": why, "args": args, "result": str(error), "failed": True}
+        gone = {"id": which, "why": why, "args": args, "result": str(error),
+                "failed": True, "spent": cost}
 
-        memory.used(name, args, str(error), taken, why, failed=True)
+        memory.used(name, args, str(error), taken, why, failed=True, spent=cost)
         tell(TOOL, name, taken, gone)
 
         raise
@@ -110,13 +173,14 @@ def keep_record(request, handler):
 
     missed = missed + 1 if nope else 0
 
-    memory.used(name, args, said, taken, why, failed=nope)
+    memory.used(name, args, said, taken, why, failed=nope, spent=cost)
 
     tell(
         TOOL,
         name,
         taken,
-        {"id": which, "why": why, "args": args, "result": memory.brief(said), "failed": nope},
+        {"id": which, "why": why, "args": args, "result": memory.brief(said),
+         "failed": nope, "spent": cost},
     )
 
     if missed >= ENOUGH:

@@ -7,7 +7,7 @@ TOOL ADDED LATER APPEARS HERE WITHOUT ANYONE WIRING IT UP.
 import shutil
 from datetime import datetime
 
-from face.turn import MODEL, STARTED, Turn, stats
+from face.turn import MODEL, SPENT, STARTED, Turn, stats
 
 WIDTH = 78
 RULE = "─"
@@ -91,7 +91,9 @@ def step(kind, name, seconds, about=None):
     if kind == STARTED:
         return
 
-    if kind == MODEL:
+    if kind == SPENT:
+        turn.paid(about)
+    elif kind == MODEL:
         turn.thought = seconds
     else:
         turn.add(name, seconds)

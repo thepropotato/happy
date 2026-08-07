@@ -25,6 +25,13 @@ const Talk = (() => {
     return seconds < 1 ? `${Math.round(seconds * 1000)}ms` : `${seconds.toFixed(2)}s`
   }
 
+  // A TOKEN COUNT SHORT ENOUGH TO SIT BESIDE A CLOCK. 12664 IS 12.7k.
+  function count(tokens) {
+    if (!tokens) return null
+
+    return tokens < 1000 ? String(tokens) : `${(tokens / 1000).toFixed(1)}k`
+  }
+
   function pinned() {
     return stream.scrollHeight - stream.scrollTop - stream.clientHeight < 60
   }
@@ -203,6 +210,12 @@ const Talk = (() => {
     const summary = each.why || gist(each.args)
 
     if (summary) face.append(element('span', 'why', summary))
+
+    // WHAT THE ROUND THAT ASKED FOR THIS COST. IT ARRIVES WITH THE FINISHED CALL,
+    // THE SAME AS THE REASON DOES, SO A RUNNING ROW SHOWS ONLY ITS CLOCK.
+    const read = live ? null : count((each.spent || {}).read)
+
+    if (read) face.append(element('span', 'tokens', read))
 
     face.append(element('span', 'took', live ? '' : clock(each.seconds) || ''))
 
@@ -407,6 +420,12 @@ const Talk = (() => {
       if (word.thought != null) parts.push(`thought <b>${clock(word.thought)}</b>`)
       if (word.first != null) parts.push(`first word <b>${clock(word.first)}</b>`)
       parts.push(`total <b>${clock(word.total)}</b>`)
+
+      // EVERY ROUND ADDED UP, WHICH IS THE ONLY PLACE THE ROUND THAT ANSWERED —
+      // THE ONE THAT ASKED FOR NO TOOL AND SO HAS NO ROW — IS COUNTED AT ALL.
+      if (word.read || word.wrote) {
+        parts.push(`read <b>${count(word.read)}</b> · wrote <b>${count(word.wrote)}</b>`)
+      }
 
       const tools = word.tools.map((each) => `${each.name} ${clock(each.seconds)}`).join(' · ')
       const line = element('div', 'spent')

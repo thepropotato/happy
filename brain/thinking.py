@@ -20,7 +20,7 @@ import memory
 from brain import model as brain
 from brain.model import LLMError
 from brain.prompt import system_prompt
-from brain.watching import MODEL, Stuck, fresh, keep_recent, keep_record, tell, watches
+from brain.watching import MODEL, Stuck, fresh, keep_count, keep_recent, keep_record, tell, watches
 from memory import settings
 
 MODEL_NODE = "model"
@@ -75,6 +75,7 @@ class Happy:
             system_prompt=self.prompt,
             middleware=[
                 keep_recent,
+                keep_count,
                 keep_record,
                 ModelCallLimitMiddleware(run_limit=settings.get("brain.calls")),
             ],

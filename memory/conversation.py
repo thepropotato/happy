@@ -87,7 +87,7 @@ def progress(said):
     told.set(said)
 
 
-def used(name, args, result, seconds=None, why=None, row=None, failed=False):
+def used(name, args, result, seconds=None, why=None, row=None, failed=False, spent=None):
     """ONE TOOL CALL, ONTO THE END OF ITS EXCHANGE'S LIST.
 
     failed IS WHETHER IT CAME BACK WITH NOTHING, WHICH IS NOT THE SAME AS HAVING
@@ -106,6 +106,9 @@ def used(name, args, result, seconds=None, why=None, row=None, failed=False):
         "result": brief(result),
         "failed": bool(failed),
         "seconds": round(seconds, 3) if seconds is not None else None,
+        # WHAT THE ROUND THAT ASKED FOR THIS CALL COST, SO READING A TURN BACK
+        # NEXT WEEK STILL SHOWS IT. None ON ANY BACKEND THAT WILL NOT SAY.
+        "spent": spent,
         "after": told.get(),
     }
 
