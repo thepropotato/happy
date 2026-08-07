@@ -97,11 +97,47 @@ class WhatsAppClient:
             return {"error": str(e)}
 
     async def resolve_contact(self, query: str) -> str:
+        asked = (query or "").strip()
+
         try:
             result = await self.get(f"/resolve-contact?q={query}")
-            return result.get("jid", query)
+            jid = (result or {}).get("jid") if isinstance(result, dict) else None
+
+            if self.real_jid(jid):
+                return jid
         except Exception:
-            return query
+            pass
+
+        found = await self.search_contacts(asked)
+
+        if found:
+            jid = self.contact_jid(found[0])
+
+            if jid:
+                return jid
+
+        return query
+
+    def real_jid(self, value: str | None) -> bool:
+        if not value or not isinstance(value, str):
+            return False
+
+        left, sep, right = value.partition("@")
+
+        return bool(sep and left and right)
+
+    def contact_jid(self, contact: dict[str, Any]) -> str | None:
+        jid = contact.get("jid") or contact.get("id")
+
+        if isinstance(jid, str) and jid:
+            return jid
+
+        number = str(contact.get("number") or "").strip()
+
+        if not number:
+            return None
+
+        return number if "@" in number else f"{number}@s.whatsapp.net"
 
     async def get_contacts(self) -> list[dict[str, str]]:
         try:
@@ -111,14 +147,28 @@ class WhatsAppClient:
 
     async def search_contacts(self, query: str) -> list[dict[str, str]]:
         try:
-            return await self.get(f"/search-contacts?q={query}")
+            found = await self.get(f"/search-contacts?q={query}")
         except Exception:
             contacts = await self.get_contacts()
             q = query.lower()
-            return [
+            found = [
                 c for c in contacts
                 if q in c.get("name", "").lower() or q in c.get("number", "")
             ]
+
+        if found:
+            return found
+
+        contacts = await self.get_contacts()
+        names = [contact.get("name", "") for contact in contacts if contact.get("name")]
+        found_name, sure = match(query, names, sure=0.7)
+
+        if sure and found_name:
+            for contact in contacts:
+                if contact.get("name") == found_name:
+                    return [contact]
+
+        return []
 
     async def get_chats(self) -> list[dict[str, Any]]:
         try:
@@ -148,10 +198,36 @@ class WhatsAppClient:
     async def search_groups(self, query: str) -> list[dict[str, Any]]:
         groups = await self.get_groups()
         q = query.lower()
-        return [
+        found = [
             g for g in groups
             if q in g.get("name", "").lower() or q in g.get("description", "").lower()
         ]
+
+        if found:
+            return found
+
+        names = [group.get("name", "") for group in groups if group.get("name")]
+        found_name, sure = match(query, names, sure=0.7)
+
+        if sure and found_name:
+            for group in groups:
+                if group.get("name") == found_name:
+                    return [group]
+
+        return []
+
+    async def resolve_group(self, query: str) -> str:
+        asked = (query or "").strip()
+        found = await self.search_groups(asked)
+
+        if found:
+            group = found[0]
+            gid = group.get("id") or group.get("jid")
+
+            if isinstance(gid, str) and gid:
+                return gid
+
+        return query
 
     async def get_group_by_id(self, group_id: str) -> dict[str, Any]:
         groups = await self.get_groups()
@@ -260,30 +336,33 @@ class WhatsAppClient:
 
     async def send_message(self, recipient: str, message: str) -> dict[str, str]:
         try:
-            result = await self.post("/send", {"to": recipient, "message": message})
+            to = await self.resolve_contact(recipient)
+            result = await self.post("/send", {"to": to, "message": message})
             if isinstance(result, dict) and "websocket not connected" in result.get("error", ""):
                 await self.post("/stop", {}, timeout=5.0)
                 await self.post("/start", {}, timeout=5.0)
                 await asyncio.sleep(8)
-                result = await self.post("/send", {"to": recipient, "message": message})
+                result = await self.post("/send", {"to": to, "message": message})
             return result
         except Exception as e:
             return {"error": str(e)}
 
     async def send_group_message(self, group: str, message: str) -> dict[str, str]:
         try:
-            result = await self.post("/send", {"to": group, "message": message})
+            to = await self.resolve_group(group)
+            result = await self.post("/send", {"to": to, "message": message})
             if isinstance(result, dict) and "websocket not connected" in result.get("error", ""):
                 await self.post("/stop", {}, timeout=5.0)
                 await self.post("/start", {}, timeout=5.0)
                 await asyncio.sleep(8)
-                result = await self.post("/send", {"to": group, "message": message})
+                result = await self.post("/send", {"to": to, "message": message})
             return result
         except Exception as e:
             return {"error": str(e)}
 
     async def send_media_message(self, recipient: str, source: str, caption: str = "") -> dict[str, Any]:
         try:
+            to = await self.resolve_contact(recipient)
             url = source.replace("file://", "") if source.startswith("file://") else source
 
             if not url.startswith("http"):
@@ -293,7 +372,7 @@ class WhatsAppClient:
 
             filename = Path(url).name if not url.startswith("http") else Path(url.split("?")[0]).name
             return await self.post("/send-media", {
-                "to": recipient,
+                "to": to,
                 "url": url,
                 "caption": caption,
                 "filename": filename,
