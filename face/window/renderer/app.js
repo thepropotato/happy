@@ -140,7 +140,6 @@ function setActionMode(next) {
   const icon = node('action-icon')
 
   actionMode = next
-  node('hint').textContent = 'MODE: ' + next
 
   action.classList.remove('disabled', 'send', 'pause')
   action.classList.add(next)
@@ -249,8 +248,7 @@ function beg(word) {
   node('what').textContent = word.what
   asking.hidden = false
 
-    const answer = (yes) => {
-      console.log('CLICKED', yes, word.id)
+  const answer = (yes) => {
     ask({ do: 'answer', id: word.id, yes })
     asking.hidden = true
   }
