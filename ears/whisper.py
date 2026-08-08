@@ -18,6 +18,10 @@ RATE = 16000
 # CPU IS THE SAFE BASELINE EVERYWHERE.
 PROVIDERS = {"cpu": ["CPUExecutionProvider"]}
 
+# NOT A FINE-TUNE AND NOT IN LANGUAGES: IT IS THE GENERAL MODEL'S OWN BEST
+# LANGUAGE, ALREADY LOADED, WITH NOTHING TO DOWNLOAD AND NOTHING TO WAIT FOR.
+ENGLISH = "en"
+
 
 def missing(path):
     return f"No speech model in {path}. Get it with:\n  python -m ears --get"
@@ -87,13 +91,19 @@ def transcribe(audio_file):
 
     guess = firstly(source)
 
-    if guess == REFUSAL:
-        return second(source, audio_file)
-
     # IT HAS NAMED ONE WE KEEP A MODEL FOR. GOING STRAIGHT THERE SKIPS A FULL DECODE THAT
     # WOULD ONLY LOOP, SINCE NOT BEING ABLE TO WRITE THESE IS WHY THE FINE-TUNES ARE HERE.
     if guess in LANGUAGES:
-        return sharper(source, settled(audio_file, guess)) or ""
+        return sharper(source, settled(audio_file, guess)) or english(source)
+
+    # ENGLISH, OR IT WOULD NOT SAY. BOTH ARE READ AS ENGLISH, AND SAYING SO OUT LOUD IS
+    # THE WHOLE POINT: LEFT TO PICK FOR ITSELF THE MODEL HEARS AN INDIAN ACCENT AS AN
+    # INDIAN LANGUAGE AND WRITES AN ORDINARY ENGLISH QUESTION IN A SCRIPT NOBODY SAID IT
+    # IN, WHICH IS A TAKE LOST — HIS NAME CANNOT BE FOUND IN A SENTENCE THAT WAS NEVER
+    # WRITTEN DOWN. nocaptions IS NOT "NOT ENGLISH" EITHER. IT IS MOSTLY A TAKE TOO SHORT
+    # TO JUDGE, AND TOO SHORT TO JUDGE IS EXACTLY WHAT SAYING ONLY HIS NAME SOUNDS LIKE.
+    if guess in (ENGLISH, REFUSAL):
+        return english(source) or second(source, audio_file)
 
     # FORCING NO LANGUAGE MAKES WHISPER PICK ONE ITSELF, HERE, WITH NOTHING OVER THE NETWORK.
     # WHICH ONE IT PICKED IS WRITTEN IN THE SCRIPT OF THE WORDS, AND STILL IS WHERE THOSE
@@ -110,8 +120,10 @@ def transcribe(audio_file):
 
     # NOTHING AT ALL IS NOT ONLY WHAT SILENCE SOUNDS LIKE. IT IS ALSO WHAT A LANGUAGE THIS
     # MODEL CANNOT HEAR SOUNDS LIKE, SO THE SOUND ITSELF IS ASKED BEFORE GIVING UP ON IT.
+    # AND WHERE THAT HAS NO ANSWER EITHER, ENGLISH: A GUESS NOBODY BACKED IS WORSE THAN
+    # THE LANGUAGE EVERYTHING HERE IS ACTUALLY SPOKEN IN.
     if not heard:
-        return second(source, audio_file)
+        return second(source, audio_file) or english(source)
 
     return heard
 
@@ -154,11 +166,25 @@ def firstly(source):
 
 
 def second(source, audio_file):
-    """ONLY EVER REACHED WHERE IT IS ALREADY KNOWN NOT TO BE ENGLISH, WHICH IS THE ONE
-    PLACE THIS DETECTOR IS TRUSTWORTHY: IT HEARS AN ACCENT AS READILY AS A LANGUAGE."""
+    """ONLY EVER REACHED WHERE ENGLISH CAME BACK WITH NOTHING IN IT, WHICH IS THE ONE
+    PLACE THIS DETECTOR IS WORTH ASKING: IT HEARS AN ACCENT AS READILY AS A LANGUAGE,
+    AND ON A TAKE THAT DID HAVE ENGLISH WORDS IN IT, IT IS CONFIDENTLY WRONG."""
     listened = tongue.aloud(audio_file)
 
     return sharper(source, listened) or "" if listened in LANGUAGES else ""
+
+
+def english(source):
+    """THE GENERAL MODEL, TOLD WHAT IT IS LISTENING TO.
+
+    HALF A SECOND, AGAINST SEVEN FOR THE SAME MODEL LEFT TO WORK THE LANGUAGE OUT ON ITS
+    OWN AND THEN DECODE TO THE TOKEN LIMIT IN WHICHEVER ONE IT LANDED ON.
+    """
+    try:
+        return clean(load_model(ENGLISH).recognize(source, language=ENGLISH))
+    except Exception as error:
+        show.trouble(f"English would not hear this one ({error})")
+        return ""
 
 
 def sharper(source, language):
