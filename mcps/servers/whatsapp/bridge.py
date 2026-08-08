@@ -310,6 +310,7 @@ class Session:
         self.lid_name_map = {}
         self.jid_cache = {}
         self.lid_to_pn = {}
+        self.pn_to_lid = {}  # THE OTHER WAY ROUND, WHICH IS THE ONE SENDING NEEDS.
         self.active_conversations = {}  # { chat_jid: {"id", "ts", "thread_id"} }
 
         self.sync_status = {
@@ -1617,6 +1618,61 @@ def make_jid(jid_str_val):
     return build_jid(parts[0], parts[1] if len(parts) > 1 else "s.whatsapp.net")
 
 
+def sending_jid(session, jid_val):
+    """WHERE TO ACTUALLY SEND SOMETHING ADDRESSED TO A PHONE NUMBER.
+
+    A NUMBER IS HOW A PERSON IS WRITTEN DOWN IN AN ADDRESS BOOK. IT IS NO LONGER
+    WHERE THEIR PHONE IS: WHATSAPP MOVED THESE ACCOUNTS ONTO LIDS, AND EVERY
+    ENCRYPTION SESSION THIS MACHINE HAS IS KEYED BY ONE. A MESSAGE ADDRESSED TO
+    THE NUMBER IS TAKEN BY THE SERVER, GIVEN AN ID, AND HANDED TO NOBODY.
+
+    THE NUMBER IS STILL WHAT COMES BACK TO THE CALLER, BECAUSE THAT IS WHO THEY
+    ASKED FOR. ONLY THE ENVELOPE CHANGES.
+    """
+    if "@s.whatsapp.net" not in (jid_val or ""):
+        return jid_val
+
+    if jid_val in session.pn_to_lid:
+        return session.pn_to_lid[jid_val]
+
+    if not session.client:
+        return jid_val
+
+    try:
+        found = jid_str(session.client.get_lid_from_pn(make_jid(jid_val)))
+    except Exception:
+        return jid_val
+
+    # NO LID MEANS AN ACCOUNT THAT HAS NOT MOVED, AND THE NUMBER IS STILL RIGHT.
+    if "@lid" not in (found or ""):
+        return jid_val
+
+    session.pn_to_lid[jid_val] = found
+
+    return found
+
+
+def posted(result, jid_val, target, **extra):
+    """WHAT CAME BACK FROM A SEND, ANSWERED HONESTLY.
+
+    THE ID IS MINTED HERE BEFORE ANYTHING LEAVES THE MACHINE, SO AN ID IS NOT
+    DELIVERY AND NEVER WAS — TWO MESSAGES WENT OUT WITH ONE AND NEITHER EXISTS.
+    THE TIMESTAMP IS THE SERVER'S OWN, PUT ON THE ACK, SO IT IS THE FIRST MOMENT
+    ANYBODY BUT US KNOWS THE MESSAGE IS REAL.
+    """
+    stamp = int(getattr(result, "Timestamp", 0) or 0)
+    ident = getattr(result, "ID", "") or ""
+
+    if not ident or not stamp:
+        return jsonify({
+            "error": "WhatsApp did not acknowledge the message, so it was not delivered. Nothing was sent.",
+            "messageId": ident, "jid": jid_val, "sentTo": target, **extra,
+        }), 502
+
+    return jsonify({"success": True, "messageId": ident, "jid": jid_val, "sentTo": target,
+                    "timestamp": stamp, **extra})
+
+
 # ─── Flask routes ────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -1970,8 +2026,9 @@ def send(username):
         return jsonify({"error": "Not connected"}), 503
     try:
         jid_val = resolve_recipient(s, to)
-        result = s.client.send_message(make_jid(jid_val), message)
-        return jsonify({"success": True, "messageId": result.ID, "jid": jid_val})
+        target = sending_jid(s, jid_val)
+        result = s.client.send_message(make_jid(target), message)
+        return posted(result, jid_val, target)
     except ValueError as e:
         return jsonify({"error": str(e), "contact_not_found": True}), 404
     except Exception as e:
@@ -1989,7 +2046,7 @@ def send_group(username):
         jid_val = resolve_recipient(s, group_id)
         parts = jid_val.split("@")
         result = s.client.send_message(build_jid(parts[0], parts[1] if len(parts) > 1 else "g.us"), message)
-        return jsonify({"success": True, "messageId": result.ID, "jid": jid_val})
+        return posted(result, jid_val, jid_val)
     except ValueError as e:
         return jsonify({"error": str(e), "contact_not_found": True}), 404
     except Exception as e:
@@ -2006,7 +2063,8 @@ def send_media(username):
         return jsonify({"error": "Not connected"}), 503
     try:
         jid_val = resolve_recipient(s, to)
-        jid = make_jid(jid_val)
+        target = sending_jid(s, jid_val)
+        jid = make_jid(target)
         mt = media_type_of(filename or url)
         if mt == "image":
             result = s.client.send_image(jid, file=url, caption=caption)
@@ -2016,7 +2074,7 @@ def send_media(username):
             result = s.client.send_audio(jid, file=url)
         else:
             result = s.client.send_document(jid, file=url, caption=caption, filename=filename or Path(url).name)
-        return jsonify({"success": True, "messageId": result.ID, "jid": jid_val, "mediaType": mt})
+        return posted(result, jid_val, target, mediaType=mt)
     except ValueError as e:
         return jsonify({"error": str(e), "contact_not_found": True}), 404
     except Exception as e:
