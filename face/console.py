@@ -22,6 +22,7 @@ OFF = "\033[0m"
 LABEL = 6  # "happy " AND "you   " LINE UP.
 
 turn = None
+waiting = False  # THE "listening" LINE IS SITTING ON THE TERMINAL RIGHT NOW.
 
 
 def width():
@@ -39,20 +40,37 @@ def rule():
 
 
 def begin():
-    global turn
+    global turn, waiting
 
     turn = Turn()
+    waiting = False
 
     wipe()
     rule()
 
 
 def listening():
+    """HIS NAME LANDED ON ITS OWN AND THE QUESTION HAS NOT COME YET."""
+    global waiting
+
+    waiting = True
+
     print(f"{DIM}{'':<{LABEL}}listening{OFF}", end="\r", flush=True)
 
 
 def idle():
-    """THE ROOM WAS TALKING TO SOMEBODY ELSE. TAKE THE LINE BACK OFF THE TERMINAL."""
+    """HE WAITED AND NOBODY SAID THE REST. TAKE THE LINE BACK OFF THE TERMINAL.
+
+    ONLY THE LINE listening() PUT THERE: BY NOW A TURN MAY HAVE STARTED AND BE
+    HALFWAY THROUGH A SENTENCE OF ITS OWN, AND THAT ONE IS NOT OURS TO WIPE.
+    """
+    global waiting
+
+    if not waiting:
+        return
+
+    waiting = False
+
     wipe()
 
 

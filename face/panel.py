@@ -24,6 +24,7 @@ WAIT_SECONDS = 300  # NOBODY ANSWERING IS A NO, EVENTUALLY.
 
 turn = None
 reply = ""
+showing = LOADING  # THE LAST STATE THE WINDOW WAS PUT IN.
 
 writing = threading.Lock()
 asked = {}
@@ -45,6 +46,10 @@ def ready(**about):
 
 
 def state(name):
+    global showing
+
+    showing = name
+
     send("state", state=name)
 
 
@@ -58,11 +63,22 @@ def begin():
 
 
 def listening():
+    """HIS NAME LANDED ON ITS OWN. THE ONE THING THE EARS SAY OUT LOUD.
+
+    NOT EVERY TIME THE MICROPHONE HEARS SOMETHING: THAT IS THE ROOM, AND THE
+    WINDOW IS NOT A LEVEL METER.
+    """
     state(LISTENING)
 
 
 def idle():
-    state(IDLE)
+    """HE WAITED AND NOBODY SAID THE REST.
+
+    ONLY UNDOES listening. A TURN MAY HAVE STARTED IN THE MEANTIME — TYPED INTO
+    THE BOX, OR SAID — AND THINKING IS NOT A STATE THE EARS GET TO END.
+    """
+    if showing == LISTENING:
+        state(IDLE)
 
 
 def said(text, seconds=None):

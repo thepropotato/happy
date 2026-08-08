@@ -126,17 +126,22 @@ class Waking:
     def round(self):
         """ONE UTTERANCE: WAIT FOR IT, KEEP IT, READ IT, DECIDE WHOSE IT WAS."""
         self.drain()
+        self.lapsed()
 
         if not self.begun():
             return
 
+        # WHEN SOMEBODY STARTED TALKING, WHICH IS NOT WHEN WE FIND OUT WHAT THEY
+        # SAID. READING A TAKE TAKES AS LONG AS IT TAKES, AND EVERY DEADLINE HERE
+        # IS ABOUT THE PERSON: THEY EITHER ANSWERED IN TIME OR THEY DID NOT.
+        began = time.monotonic()
+
         where = self.taken()
 
         if where is None:  # A DOOR, A COUGH, ANYTHING BRIEFER THAN A WORD.
-            show.idle()
             return
 
-        self.considered(where)
+        self.considered(where, began)
 
     def begun(self):
         """WAIT UNTIL SOMEBODY IS TALKING. FALSE MEANS ONLY THAT IT IS TIME TO LOOK
@@ -159,9 +164,13 @@ class Waking:
         return False
 
     def taken(self):
-        """CAPTURE UNTIL THE TALKING STOPS. THE SAVED WAV, OR None IF IT WAS NOTHING."""
-        show.listening()
+        """CAPTURE UNTIL THE TALKING STOPS. THE SAVED WAV, OR None IF IT WAS NOTHING.
 
+        NOTHING IS SHOWN FOR THIS. LOUDNESS IS PLUMBING: IT OPENS A TAKE FOR EVERY
+        DOOR, COUGH AND PASSING CONVERSATION IN THE ROOM, AND A FACE THAT LIT UP
+        FOR EACH OF THEM WAS ANNOUNCING THAT THE MICROPHONE WORKS, NOT THAT HAPPY
+        WAS LISTENING. HE SAYS SO ONLY ONCE HIS NAME IS ACTUALLY IN THE TAKE.
+        """
         self.recorder.start()
 
         began = time.monotonic()
@@ -185,17 +194,16 @@ class Waking:
 
         return self.recorder.stop()
 
-    def considered(self, where):
+    def considered(self, where, began):
         """READ THE TAKE AND EITHER HAND IT ON OR FORGET IT EVER HAPPENED."""
         started = time.perf_counter()
         text = engines.transcribe(where)
         seconds = time.perf_counter() - started
 
-        wanted = self.meant(text)
+        wanted = self.meant(text, began)
 
-        if wanted is None:
+        if wanted is None:  # SOMEBODY ELSE'S SENTENCE. HE WAS NEVER IN IT.
             where.unlink(missing_ok=True)
-            show.idle()
             return
 
         if not wanted:  # HIS NAME AND NOTHING ELSE. THE QUESTION IS STILL COMING.
@@ -207,7 +215,20 @@ class Waking:
         self.open_until = 0.0
         self.remember(Heard(text=wanted, audio=where, seconds=seconds))
 
-    def meant(self, text):
+    def lapsed(self):
+        """THE WAIT FOR THE REST OF A SENTENCE RAN OUT. PUT THE FACE BACK.
+
+        THE ONLY WAY OUT OF listening THERE IS. IT USED TO BE THE NEXT NOISE IN
+        THE ROOM THAT TOOK THE FACE BACK, WHICH IS NOT SOMETHING TO RELY ON.
+        """
+        if not self.open_until or time.monotonic() < self.open_until:
+            return
+
+        self.open_until = 0.0
+
+        show.idle()
+
+    def meant(self, text, began):
         """WHAT WAS ASKED OF HAPPY IN THIS TAKE.
 
         None IS NOT HIS. "" IS HIS NAME WITH NOTHING AFTER IT, WHICH IS SOMEBODY
@@ -220,7 +241,11 @@ class Waking:
 
         # ALREADY WOKEN. HIS NAME IS WELCOME AGAIN BUT IS NO LONGER ASKED FOR, SO
         # A TAKE WITHOUT IT IS THE REST OF WHAT SOMEBODY WAS ALREADY SAYING.
-        if found is None and time.monotonic() < self.open_until:
+        #
+        # AGAINST WHEN THEY OPENED THEIR MOUTH, NOT WHEN THIS LINE RUNS. THE TAKE
+        # ITSELF AND THE READING OF IT BOTH SIT IN BETWEEN, AND CHARGING SOMEBODY
+        # FOR THOSE MEANT THE ANSWER TO "yes?" WAS ALWAYS TOO LATE TO COUNT.
+        if found is None and began < self.open_until:
             return text.strip()
 
         return found
