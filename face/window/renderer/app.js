@@ -10,10 +10,14 @@ let resting = 'idle'
 let sounding = null
 let allowed = false // ASKED FOR ALREADY; ONLY A RESTART TAKES IT.
 let actionMode = 'disabled'
-let turnActive = false
-let finishing = false
-let finishingTimer = null
+let easing = null
 
+// WHAT THERE IS TO STOP: HAPPY WORKING ON A TURN, OR A CLIP STILL PLAYING. NOT
+// listening — HE IS WAITING ON YOU THERE, AND THERE IS NOTHING TO INTERRUPT.
+const WORKING = { hearing: true, thinking: true, speaking: true }
+
+// THE LAST CLIP OF A REPLY LANDS A MOMENT AFTER THE REPLY ITSELF ENDS, SO THE
+// BUTTON WAITS THAT LONG BEFORE GIVING PAUSE UP RATHER THAN BLINKING TWICE.
 const FINISH_GRACE_MS = 400
 
 const SEND_ICON = '<path d="m5 12 14 0 m-6 -6 6 6 -6 6" />'
@@ -64,17 +68,15 @@ function settle(name) {
 
 function riding(seconds) {
   clearTimeout(sounding)
-  active()
 
   feel('speaking')
-  setActionMode(modeFromContext())
+  refresh()
 
   sounding = setTimeout(() => {
     sounding = null
     feel(resting)
-    finishSoon()
 
-    setActionMode(modeFromContext())
+    refresh()
   }, seconds * 1000 + TAIL_MS)
 }
 
@@ -82,57 +84,42 @@ function quiet() {
   clearTimeout(sounding)
 
   sounding = null
-  stopActive()
 
   Orb.hush()
   feel(resting)
-  setActionMode(modeFromContext())
+  refresh()
 }
 
 function showing() {
   node('glass').classList.add('talking')
 }
 
-function modeFromTyped() {
-  return node('typed').value.trim() ? 'send' : 'disabled'
-}
-
-function active() {
-  turnActive = true
-  finishing = false
-
-  clearTimeout(finishingTimer)
-  finishingTimer = null
-}
-
-function stopActive() {
-  turnActive = false
-  finishing = false
-
-  clearTimeout(finishingTimer)
-  finishingTimer = null
-}
-
-function finishSoon() {
-  if (!turnActive || !finishing) return
-
-  clearTimeout(finishingTimer)
-  finishingTimer = setTimeout(() => {
-    finishingTimer = null
-
-    if (!turnActive || !finishing) return
-    if (sounding) return
-    if (resting !== 'idle') return
-
-    stopActive()
-    setActionMode(modeFromContext())
-  }, FINISH_GRACE_MS)
-}
-
 function modeFromContext() {
   if (node('typed').value.trim()) return 'send'
 
-  return turnActive || Boolean(sounding) ? 'pause' : 'disabled'
+  // ASKED OF THE STATE HAPPY IS ACTUALLY IN, NEVER OF A FLAG SET ALONGSIDE IT: A
+  // TURN THAT ENDED IN A WAY NOBODY THOUGHT OF LEFT THE FLAG ON, AND THE BUTTON
+  // SAT ON pause FOR THE REST OF THE EVENING WITH NOTHING LEFT TO PAUSE.
+  return WORKING[resting] || sounding ? 'pause' : 'disabled'
+}
+
+function refresh() {
+  const next = modeFromContext()
+
+  clearTimeout(easing)
+  easing = null
+
+  // ANYTHING BUT LETTING GO OF pause HAPPENS AT ONCE. TYPING IS ANSWERED ON THE
+  // KEYSTROKE, AND A TURN STARTING SHOWS UP THE MOMENT IT STARTS.
+  if (next !== 'disabled' || actionMode !== 'pause') {
+    setActionMode(next)
+    return
+  }
+
+  easing = setTimeout(() => {
+    easing = null
+    setActionMode(modeFromContext())
+  }, FINISH_GRACE_MS)
 }
 
 function setActionMode(next) {
@@ -153,12 +140,7 @@ function hear(word) {
   const doing = {
     state: () => {
       settle(word.state)
-
-      if (word.state === 'hearing' || word.state === 'thinking' || word.state === 'speaking') active()
-      if (word.state === 'idle') finishSoon()
-      if (word.state === 'gone' || word.state === 'loading') stopActive()
-
-      setActionMode(modeFromContext())
+      refresh()
     },
     level: () => Orb.level(word.level),
     envelope: () => {
@@ -171,10 +153,9 @@ function hear(word) {
       showing()
     },
     piece: () => {
-      active()
       Talk.piece(word.text)
       showing()
-      setActionMode(modeFromContext())
+      refresh()
     },
     began: () => {
       Talk.began(word)
@@ -185,10 +166,8 @@ function hear(word) {
       showing()
     },
     done: () => {
-      finishing = true
-      finishSoon()
       Talk.done()
-      setActionMode(modeFromContext())
+      refresh()
     },
     stats: () => Talk.spent(word),
     note: () => Talk.aside(word.text),
@@ -215,7 +194,9 @@ function ready(word) {
 }
 
 function stopped(word) {
-  feel('gone')
+  settle('gone') // NOT feel: NOTHING IS COMING, SO THE STATE UNDERNEATH IS GONE TOO.
+  refresh()
+
   node('hint').textContent = word.reason || 'Happy is not running'
 }
 
@@ -267,10 +248,10 @@ function composer() {
   const box = node('typed')
   const action = node('action')
 
-  setActionMode(modeFromContext())
+  refresh()
 
   box.addEventListener('input', () => {
-    setActionMode(modeFromContext())
+    refresh()
   })
 
   action.onclick = (event) => {
@@ -278,8 +259,9 @@ function composer() {
 
     event.preventDefault()
     ask({ do: 'stop' })
-    stopActive()
-    setActionMode(modeFromContext())
+
+    // THE TURN ENDING IS WHAT PUTS THE BUTTON BACK, AND ASKING FOR IT IS NOT THE
+    // SAME AS IT HAVING HAPPENED. hush AND THE END OF THE TURN BOTH COME BACK.
   }
 
   form.onsubmit = (event) => {
@@ -292,8 +274,7 @@ function composer() {
 
     ask({ do: 'say', text: words })
     box.value = ''
-    active()
-    setActionMode(modeFromContext())
+    refresh()
   }
 }
 
