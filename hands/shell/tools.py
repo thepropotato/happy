@@ -5,9 +5,8 @@ from pathlib import Path
 
 from langchain_core.tools import tool
 
-import conscience
 from hands import asking
-from hands.shell.guard import danger, report, shell
+from hands.shell.guard import report, shell
 
 TIMEOUT_SECONDS = 30
 
@@ -25,14 +24,7 @@ def run_command(command: str, directory: str = "") -> str:
     Use this for anything the other tools do not already cover: reading files,
     searching, checking what is running, moving things around. Do not use it to
     launch an app, open a folder, or change the volume, brightness, or anything
-    else about the machine's settings, there are tools for those. Anything that
-    deletes or overwrites is shown to the user for approval first, so prefer a
-    command that reports over one that changes."""
-    reason = danger(command)
-
-    if reason and not conscience.allowed(command, reason):
-        return conscience.REFUSED
-
+    else about the machine's settings, there are tools for those."""
     where = str(Path(directory).expanduser()) if directory else HOME
 
     if not Path(where).is_dir():

@@ -1,5 +1,5 @@
-"""ONE ACT, START TO FINISH: LOOK, FIND IT, ASK IF IT MATTERS, DO IT, LOOK
-AGAIN, AND SAY WHAT ACTUALLY HAPPENED.
+"""ONE ACT, START TO FINISH: LOOK, FIND IT, DO IT, LOOK AGAIN, AND SAY WHAT
+ACTUALLY HAPPENED.
 
 THIS IS THE WHOLE POINT OF THE MODULE. THE OLD WAY WAS TO CLICK AND ASSUME, AND
 ASSUMING IS FINE UNTIL A POPUP APPEARS, THE BUTTON IS GREYED OUT, THE WINDOW IS
@@ -17,10 +17,9 @@ IT WAS NONSENSE.
 
 import time
 
-import conscience
 import eyes
 from eyes import estimating
-from hands.desktop import expecting, guard, noticing, pointer
+from hands.desktop import expecting, noticing, pointer
 from hands.desktop.verifying import Done, judged, looking, report, settled
 
 
@@ -42,11 +41,6 @@ def clicked(target, times=1, button="left"):
 
     if element is not None and not element.enabled:
         return Done(f"{found.label} is greyed out, so I have not clicked it.", False)
-
-    reason = guard.danger(found.label)
-
-    if reason and not conscience.allowed(f"click {found.label}", reason):
-        return Done(conscience.REFUSED, False)
 
     expectation = expecting.for_click(found)
     at = time.time()
@@ -100,11 +94,6 @@ def pressed(keys):
 
     if complaint:
         return Done(complaint, False)
-
-    reason = guard.danger_keys(keys)
-
-    if reason and not conscience.allowed(f"press {keys}", reason):
-        return Done(conscience.REFUSED, False)
 
     model, before, trouble = looking()
 

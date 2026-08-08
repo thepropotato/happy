@@ -20,20 +20,15 @@ HEARING = "hearing"
 THINKING = "thinking"
 SPEAKING = "speaking"
 
-WAIT_SECONDS = 300  # NOBODY ANSWERING IS A NO, EVENTUALLY.
-
 turn = None
 reply = ""
 showing = LOADING  # THE LAST STATE THE WINDOW WAS PUT IN.
 
 writing = threading.Lock()
-asked = {}
-counter = 0
 
 
 def send(what, /, **fields):
-    """POSITIONAL ONLY, SO A LINE MAY CARRY A FIELD OF ITS OWN CALLED "what".
-    THE CONFIRM LINE DOES, AND EVERY REQUEST FOR APPROVAL DIED ON THE CLASH."""
+    """POSITIONAL ONLY, SO A LINE MAY CARRY A FIELD OF ITS OWN CALLED "what"."""
     line = json.dumps({"is": what, **fields}, default=str)
 
     with writing:
@@ -174,29 +169,3 @@ def spent(this):
         "read": this.read,
         "wrote": this.wrote,
     }
-
-
-def confirm(what, reason):
-    """ASK THE WINDOW, AND WAIT. THIS RUNS ON WHICHEVER THREAD CALLED A TOOL."""
-    global counter
-
-    with writing:
-        counter += 1
-        which = counter
-
-    waiting = threading.Event()
-    asked[which] = [waiting, False]
-
-    send("confirm", id=which, what=what, reason=reason)
-    waiting.wait(WAIT_SECONDS)
-
-    return asked.pop(which, [None, False])[1]
-
-
-def answered(which, yes):
-    """THE WINDOW SAID YES OR NO. WAKE WHOEVER IS SITTING ON IT."""
-    found = asked.get(which)
-
-    if found:
-        found[1] = bool(yes)
-        found[0].set()

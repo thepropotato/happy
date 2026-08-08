@@ -17,8 +17,8 @@
 
 - Every module is a folder with an `__init__.py`, never a bare file at the top level.
 - The folders are named after a person: `brain` thinks, `ears` hear, `voice` speaks, `eyes`
-  see, `hands` do, `memory` remembers, `face` shows, `conscience` asks before something
-  cannot be undone. A new capability gets the name of the part of a person that would do it.
+  see, `hands` do, `memory` remembers, `face` shows. A new capability gets the name of the
+  part of a person that would do it.
 - `mcps` is the one deliberate exception, and it stays one. It holds connections to MCP
   servers that are not on this machine, and a body part would hide what they actually are.
   It cannot be `mcp`, which would shadow the installed SDK, nor `tools`, which collides with

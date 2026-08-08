@@ -177,7 +177,6 @@ function hear(word) {
       Talk.history(word.messages)
       if (word.messages.some((each) => each.message || each.reply)) showing()
     },
-    confirm: () => beg(word),
     ready: () => ready(word),
     gone: () => stopped(word),
   }
@@ -220,22 +219,6 @@ function fixing() {
   allowed = true
   window.happy.allow()
   node('amissfix').textContent = 'Restart'
-}
-
-function beg(word) {
-  const asking = node('asking')
-
-  node('why').textContent = word.reason
-  node('what').textContent = word.what
-  asking.hidden = false
-
-  const answer = (yes) => {
-    ask({ do: 'answer', id: word.id, yes })
-    asking.hidden = true
-  }
-
-  node('yes').onclick = () => answer(true)
-  node('no').onclick = () => answer(false)
 }
 
 function visiting(on) {
@@ -299,8 +282,6 @@ function buttons() {
 
   addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return
-
-    if (!node('asking').hidden) return
 
     if (node('screen').classList.contains('on')) visiting(false)
     else window.happy.hide()

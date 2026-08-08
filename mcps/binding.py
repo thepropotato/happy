@@ -15,7 +15,7 @@ import re
 from langchain_core.tools import StructuredTool
 
 from hands import asking
-from mcps import loop, speaking, writing
+from mcps import loop, speaking
 from mcps.session import Unreachable
 
 UNTIDY = re.compile(r"[^a-z0-9_]+")
@@ -23,8 +23,6 @@ UNTIDY = re.compile(r"[^a-z0-9_]+")
 LONGEST = 64
 
 ANYTHING = {"type": "object", "properties": {}}
-
-REFUSED = "Cancelled, the user said no. Do not try to do it another way."
 
 ASLEEP = "{service} is not connected right now."
 
@@ -73,13 +71,6 @@ def calling(service, session, tool):
     """THE ORDINARY FUNCTION THE GRAPH CALLS, AND EVERYTHING THAT CAN GO WRONG IN IT."""
 
     def call(**arguments):
-        annotations = getattr(tool, "annotations", None)
-
-        # SAID NO TO BY A PERSON, NOT BY THE SERVICE. IT IS NOT A DEAD END TO COUNT
-        # AGAINST HAPPY, AND THE ANSWER ALREADY TELLS HIM NOT TO GO ROUND IT.
-        if not writing.permitted(service, tool.name, arguments, annotations):
-            return REFUSED
-
         try:
             result = loop.run(session.call(tool.name, arguments), session.timeout)
         except Unreachable:

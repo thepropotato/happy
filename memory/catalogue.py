@@ -98,7 +98,6 @@ EYES = [
 ]
 
 CONNECTIONS = [
-    toggle("mcps.confirm", "Ask before changing", True, "Anything that is not just looking."),
     toggle("mcps.answering", "Answer your own chat", False,
            "Say @happy in a message, or hey happy in a voice note."),
     number("mcps.timeout", "Give up after", 5, 120, 5, 20, "A service is not this computer.",

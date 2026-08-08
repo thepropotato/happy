@@ -14,8 +14,8 @@ project falls out of it:
   does not describe the folder, offer three ways to open it, or read the path out loud.
 - **He is brief.** Happy is *heard*, not read. Two spoken sentences is a long answer. No
   markdown, no bullet points, no code blocks, no emoji — none of that survives a speaker.
-- **He asks before he breaks something.** Happy will drive you anywhere. He will not drive
-  the car into a wall because he thought that's what you said.
+- **He acts on his own.** Happy will drive you anywhere, and he does not stop halfway to ask
+  whether you meant it. Nothing he does waits on a yes.
 - **He does not stall.** A pause that would be invisible in a chat window is unbearable out
   loud. Latency is a correctness property here, not a nice-to-have.
 
@@ -61,9 +61,8 @@ not finished.
 
 Every module is a folder, and the folder is named for the part of a person that does the job:
 **brain** thinks, **ears** hear, **voice** speaks, **eyes** see, **hands** do, **memory**
-remembers, **face** is what you see of him, and **conscience** is what asks before something
-that cannot be undone. A new capability gets the name of the part of a person that would do
-it. No file is longer than 200 lines; when one grows past that it splits by job.
+remembers, and **face** is what you see of him. A new capability gets the name of the part of
+a person that would do it. No file is longer than 200 lines; when one grows past that it splits by job.
 
 ## Layout
 
@@ -145,8 +144,7 @@ it. No file is longer than 200 lines; when one grows past that it splits by job.
 | `mcps/servers/weather/` | The forecast anywhere, from the one that wants no account. |
 | `mcps/servers/instagram/` | This account's own posts, their comments, and replying to one. |
 | `mcps/whatsapp.py` | The bridge from Happy's side: starting it, asking it, putting it down. |
-| `mcps/servers/whatsapp/` | Reads your chats over a local bridge, and asks before sending. |
-| `conscience/` | Asking before something that cannot be undone. |
+| `mcps/servers/whatsapp/` | Reads your chats over a local bridge, and sends on them. |
 | `AGENTS.md` | How to write code in this repo. Read it before you write any. |
 | `TODO.md` | What is still pending. |
 
@@ -224,10 +222,8 @@ one thing driving the app on screen cannot do at any speed, and it is why the br
 place. It sends too — text, media, and to groups — but sending is the half that gets numbers
 banned, because volume and spam reports are the signals WhatsApp acts on.
 
-So the line is drawn at **who asked**. Every send goes through `mcps/writing.py`, which is the
-cautious way round: not "gate the ones that write" but "anything not known to only look, asks".
-`send_message` does not start with a reading word, so it stops and asks, every time. That gating
-is the whole safety property — turn `mcps.confirm` off and it is gone.
+So the line is drawn at **who asked**. Nothing is gated: a send happens because somebody asked
+Happy for it in that turn, and that is the whole of it.
 
 **There is no auto reply, and there will not be one.** Sending somebody just said yes to and
 sending nobody was asked about are different things: the second arrives while nobody is
@@ -346,9 +342,9 @@ Split a server across files only when it earns it. Google is four — `mail.py`,
 tools would run past 200 lines. The others are one file each.
 
 Two rules the servers live by. **Every tool you write is a tool the model gets** — there is no
-allowlist to also remember. And **name tools so a reader can tell what they touch**:
-`mcps/writing.py` gates anything not starting with a plainly reading word (`search`, `list`,
-`get`, `read`, `find`…), so `send_email` stops and asks and `search_emails` does not.
+allowlist to also remember, and nothing gates a call once it is bound. And **name tools so a
+reader can tell what they touch**: `search_emails` reads, `send_email` sends, and the name is
+the only warning anybody gets.
 
 ## Things that are easy to get wrong here
 
@@ -761,7 +757,7 @@ so when it feels slow there is no way to tell *which part* was slow. Now there i
 
 Tools report themselves from the middleware in `brain/thinking.py`, so a tool added later
 appears here with nobody wiring it up. `brain.watches()` takes the callback — the brain does
-not know a terminal exists, the same way `conscience.asks()` works.
+not know a terminal exists.
 
 **What it immediately showed:** tools are noise (7 ms for `system_info`) and the voice is noise
 (15 ms). The model is essentially the entire turn. A question needing a tool costs two model
@@ -807,9 +803,6 @@ What the panel shows:
 - **A box to type in**, because not every question is worth saying out loud. A typed line takes
   the same turn a spoken one does, on the same lock, so the two can never overlap.
 - **Every control**, which is the next section.
-- **The asking**, when a tool wants permission. `conscience.asks()` is pointed at the panel, so
-  a shell command that cannot be undone stops the window rather than a terminal nobody is
-  looking at.
 
 Sound outlives the words. Happy is still a sentence behind himself when the model has finished,
 so the panel goes quiet when the last clip ends and not when the last word arrives.
@@ -1162,10 +1155,9 @@ an unknown button a second time is how one failure becomes two. What it does ins
 half a second and look once more, because a slow window is the commonest reason a good click
 looks like a bad one.
 
-The guard is the same shape as the shell's, applied to what is written on the thing being
-clicked: delete, send, spend, install, grant permission, quit — and to shortcuts that end
-something, like `cmd+q`. It goes through `conscience/`, the one place that asks, so it becomes
-a spoken question for free.
+**Nothing a click could do stops it.** Delete, send, spend, install, quit — the label is read to
+find the thing, never to decide whether pressing it is allowed. Happy presses it and reports what
+happened.
 
 **The looking model is not in this loop, and that is a measurement, not a preference.** Grounding
 escalates through four steps (see above), but an act stops after step 2. Asked to click something
@@ -1195,21 +1187,16 @@ end on real UI — Finder and System Settings — including the greyed-out refus
 target, and the honest failure report above. The thin-tree fallback is proven against VS Code.
 **Every Windows path is written and unrun.**
 
-## The shell tool and safety
+## The shell tool
 
 `run_command` is the widest thing Happy has and the one holding the knife. A misheard word is
-a different command.
+a different command, and it runs anyway: **nothing asks.**
 
-`hands/shell/guard.py` matches the command against a list of shapes — deletes, disk writes,
-`sudo`, piping the internet into a shell, kills, schedulers — and anything that matches goes
-past a person first. This catches a **careless** model, not a **hostile** one; it is a
-guardrail, not a sandbox. Do not add a capability that assumes it is more than that.
-
-**Asking lives in one place: `conscience/`.** `conscience.asks(handler)` takes a
-`handler(what, reason) -> bool` and `conscience.allowed(what, reason)` is what a tool calls.
-The default reads from the console. When a spoken confirmation lands it is wired once and
-covers every knife at once — the shell, the desktop, and shutting the machine down. The reason
-strings are already written to be said out loud.
+`hands/shell/guard.py` is only the plumbing now — which shell the command is handed to, and
+how what it printed comes back. There is no list of dangerous shapes and no gate. Deletes,
+`sudo`, piping the internet into a shell: all of it runs the moment the model asks for it.
+Happy is autonomous by design, and that is the trade the design makes. Do not add a capability
+that assumes something downstream is checking.
 
 ## The machine's own settings
 
@@ -1237,8 +1224,8 @@ and, once installed, wrong. The helper and then the brightness keys cover the Ma
 framework, and a level that can only be stepped is stepped rather than refused. **A control that
 cannot do something says which, and how to fix it — but it tries everything it has first.**
 
-Anything that loses unsaved work — sleep, restart, shut down — goes through `conscience/`
-first. The battery and the lock do not, because neither costs you anything.
+Anything that loses unsaved work — sleep, restart, shut down — happens as soon as it is asked
+for. The docstring tells Happy to say what is about to happen, which is the only warning there is.
 
 ## What is not built
 
@@ -1342,7 +1329,7 @@ with ``SSL_CERT_FILE=`.venv/bin/python -c "import certifi;print(certifi.where())
 carries its own certificates, which is why it works when nothing else does.
 
 `python -m brain` is the one to use while developing. It skips the microphone and the ears
-entirely and exercises the graph, the tools and the guard — everything except audio.
+entirely and exercises the graph and the tools — everything except audio.
 
 **Three permissions, all granted to whatever runs Happy, not to Happy.** The Microphone, which
 hearing has always needed and now needs the whole time; Accessibility, which reading a window's

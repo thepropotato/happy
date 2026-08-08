@@ -1,11 +1,5 @@
-"""WHAT A COMMAND WOULD DO, AND WHAT COMES BACK WHEN IT RUNS.
+"""HOW A COMMAND IS HANDED TO A SHELL, AND WHAT COMES BACK WHEN IT RUNS."""
 
-THE SHELL IS THE WIDEST TOOL HAPPY HAS. A MISHEARD WORD IS A DIFFERENT COMMAND,
-SO ANYTHING THAT COULD NOT BE UNDONE GOES PAST A PERSON FIRST. THE CHECK IS A
-LIST OF SHAPES, NOT A SANDBOX: IT CATCHES CARELESS, NOT HOSTILE.
-"""
-
-import re
 import sys
 from pathlib import Path
 
@@ -13,24 +7,6 @@ WINDOWS = "win32"
 
 MAX_OUTPUT_CHARS = 4000
 MIDDLE = "\n... [cut] ...\n"
-
-RISKY = [
-    (r"\b(rm|rmdir|del|erase|remove-item)\b", "deletes files"),
-    (r"\b(mkfs\w*|diskutil\s+erase\w*)\b|\bformat\s+[a-z]:", "erases a disk"),
-    (r"\bdd\b[^|;&]*\bof=", "writes straight to a disk"),
-    (r">\s*/dev/(sd|disk|nvme)", "writes straight to a disk"),
-    (r"\b(sudo|doas|runas)\b", "runs as administrator"),
-    (r"\|\s*(sh|bash|zsh|python\d?|iex|invoke-expression)\b", "runs code off the internet"),
-    (r"\b(shutdown|reboot|halt|restart-computer|stop-computer)\b", "shuts the computer down"),
-    (r"\b(kill|killall|pkill|taskkill|stop-process)\b", "kills running programs"),
-    (r"\bchmod\b[^|;&]*\b777\b", "makes files writable by anyone"),
-    (r"\breg\s+(delete|add)\b", "edits the registry"),
-    (r"\b(crontab|schtasks|launchctl)\b", "schedules something to run later"),
-    (r"\bgit\b[^|;&]*\bpush\b[^|;&]*\s(-f|--force)\b", "force pushes and can lose commits"),
-    (r":\s*\(\s*\)\s*\{.*\}\s*;?\s*:", "is a fork bomb"),
-]
-
-CHECKS = [(re.compile(pattern, re.IGNORECASE), reason) for pattern, reason in RISKY]
 
 
 def shell(command):
@@ -41,15 +17,6 @@ def shell(command):
     runner = "/bin/bash" if Path("/bin/bash").exists() else "/bin/sh"
 
     return [runner, "-c", command]
-
-
-def danger(command):
-    """WHY THIS NEEDS ASKING ABOUT, OR None WHEN IT DOES NOT."""
-    for check, reason in CHECKS:
-        if check.search(command):
-            return reason
-
-    return None
 
 
 def clip(text):

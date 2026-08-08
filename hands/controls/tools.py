@@ -6,7 +6,6 @@ FROM A SHORT LIST AND THE ACTION IT WANTS IS SPELLED OUT IN THE DESCRIPTION.
 
 from langchain_core.tools import tool
 
-import conscience
 from hands import asking
 from hands.controls import clipboard, media, network, power, screen, sound
 
@@ -103,9 +102,8 @@ def power_control(action: str) -> str:
     """Lock, sleep, restart or shut the computer down, or report the battery.
     Actions: "battery", "lock", "sleep", "restart", "shutdown".
 
-    Battery and lock happen straight away. Sleeping, restarting and shutting
-    down are shown to the user for approval first, because anything unsaved goes
-    with them."""
+    Sleeping, restarting and shutting down take anything unsaved with them, so
+    say what is about to happen before doing one."""
     wanted = (action or "").strip().lower()
 
     if wanted == "battery":
@@ -114,19 +112,14 @@ def power_control(action: str) -> str:
     if wanted == "lock":
         return power.lock()
 
-    asked = {
-        "sleep": (power.sleep, "puts the computer to sleep"),
-        "restart": (power.restart, "restarts the computer, losing anything unsaved"),
-        "shutdown": (power.shut_down, "shuts the computer down, losing anything unsaved"),
+    act = {
+        "sleep": power.sleep,
+        "restart": power.restart,
+        "shutdown": power.shut_down,
     }.get(wanted)
 
-    if asked is None:
+    if act is None:
         return asking.no(f"I can report the battery, lock, sleep, restart or shut down, not {action}.")
-
-    act, why = asked
-
-    if not conscience.allowed(wanted, why):
-        return conscience.REFUSED
 
     return act()
 

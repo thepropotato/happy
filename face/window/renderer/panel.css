@@ -1,4 +1,4 @@
-/* THE TALKING, THE CONTROLS OVER THE TOP OF IT, AND THE ASKING OVER BOTH. */
+/* THE TALKING, AND THE CONTROLS OVER THE TOP OF IT. */
 
 .panes {
   position: relative;
@@ -75,82 +75,4 @@
 .screen .rows::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
-}
-
-/* display ON THE ELEMENT ITSELF BEATS THE hidden ATTRIBUTE, SO SAY SO OUT LOUD. */
-.asking[hidden] {
-  display: none;
-}
-
-.asking {
-  position: absolute;
-  inset: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: rgba(6, 7, 12, 0.72);
-  backdrop-filter: blur(10px);
-  animation: fade 200ms ease both;
-}
-
-@keyframes fade {
-  from {
-    opacity: 0;
-  }
-}
-
-.asking .card {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(18, 19, 28, 0.96);
-  padding: 16px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
-  animation: rise 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-
-.asking .why {
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--wait);
-  margin-bottom: 8px;
-}
-
-.asking .what {
-  line-height: 1.5;
-  color: var(--ink);
-  user-select: text;
-  word-break: break-word;
-}
-
-.asking .buttons {
-  display: flex;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.asking button {
-  flex: 1;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--dim);
-  font: inherit;
-  font-weight: 500;
-  padding: 8px;
-  cursor: pointer;
-  transition: background 160ms, color 160ms, transform 160ms;
-}
-
-.asking button:active {
-  transform: scale(0.97);
-}
-
-.asking .yes {
-  background: rgba(124, 92, 245, 0.24);
-  border-color: var(--glow-soft);
-  color: var(--ink);
 }

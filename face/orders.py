@@ -91,8 +91,6 @@ def carry(order):
         recall(order.get("limit", RECENT_MESSAGES))
     elif asked == "logs":
         logs()
-    elif asked == "answer":
-        panel.answered(order.get("id"), order.get("yes"))
     elif asked == "say":
         call("say", order.get("text", ""))
     else:
