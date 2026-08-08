@@ -82,7 +82,7 @@ def attend(happy, speaker, recorder, waking):
 
     orders.serve(
         forget=happy.forget,
-        say=lambda text: typed(happy, speaker, text),
+        say=lambda text: typed_soon(happy, speaker, text),
         stop=lambda: stop_turn(happy, speaker),
         ready=ready,
         quit=lambda: leave(speaker, recorder, waking),
@@ -205,6 +205,10 @@ def typed(happy, speaker, text):
         show.said(text)
         respond(happy, speaker, text)
         show.end()
+
+
+def typed_soon(happy, speaker, text):
+    threading.Thread(target=typed, args=(happy, speaker, text), daemon=True).start()
 
 
 def distant(happy, text):

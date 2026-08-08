@@ -383,22 +383,3 @@
   box-shadow: 0 0 0 3px rgba(124, 92, 245, 0.12);
 }
 
-.send {
-  width: 36px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--dim);
-  font-size: 14px;
-  cursor: pointer;
-  transition: color 160ms, background 160ms, transform 160ms;
-}
-
-.send:hover {
-  color: var(--ink);
-  background: rgba(124, 92, 245, 0.2);
-}
-
-.send:active {
-  transform: scale(0.92);
-}

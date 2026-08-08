@@ -9,6 +9,15 @@ let mood = 'loading'
 let resting = 'idle'
 let sounding = null
 let allowed = false // ASKED FOR ALREADY; ONLY A RESTART TAKES IT.
+let actionMode = 'disabled'
+let turnActive = false
+let finishing = false
+let finishingTimer = null
+
+const FINISH_GRACE_MS = 400
+
+const SEND_ICON = '<path d="m5 12 14 0 m-6 -6 6 6 -6 6" />'
+const PAUSE_ICON = '<rect x="7" y="7" width="10" height="10" rx="1.5" />'
 
 function ask(order) {
   window.happy.ask(order)
@@ -55,12 +64,17 @@ function settle(name) {
 
 function riding(seconds) {
   clearTimeout(sounding)
+  active()
 
   feel('speaking')
+  setActionMode(modeFromContext())
 
   sounding = setTimeout(() => {
     sounding = null
     feel(resting)
+    finishSoon()
+
+    setActionMode(modeFromContext())
   }, seconds * 1000 + TAIL_MS)
 }
 
@@ -68,18 +82,85 @@ function quiet() {
   clearTimeout(sounding)
 
   sounding = null
+  stopActive()
 
   Orb.hush()
   feel(resting)
+  setActionMode(modeFromContext())
 }
 
 function showing() {
   node('glass').classList.add('talking')
 }
 
+function modeFromTyped() {
+  return node('typed').value.trim() ? 'send' : 'disabled'
+}
+
+function active() {
+  turnActive = true
+  finishing = false
+
+  clearTimeout(finishingTimer)
+  finishingTimer = null
+}
+
+function stopActive() {
+  turnActive = false
+  finishing = false
+
+  clearTimeout(finishingTimer)
+  finishingTimer = null
+}
+
+function finishSoon() {
+  if (!turnActive || !finishing) return
+
+  clearTimeout(finishingTimer)
+  finishingTimer = setTimeout(() => {
+    finishingTimer = null
+
+    if (!turnActive || !finishing) return
+    if (sounding) return
+    if (resting !== 'idle') return
+
+    stopActive()
+    setActionMode(modeFromContext())
+  }, FINISH_GRACE_MS)
+}
+
+function modeFromContext() {
+  if (node('typed').value.trim()) return 'send'
+
+  return turnActive || Boolean(sounding) ? 'pause' : 'disabled'
+}
+
+function setActionMode(next) {
+  const action = node('action')
+  const icon = node('action-icon')
+
+  actionMode = next
+  node('hint').textContent = 'MODE: ' + next
+
+  action.classList.remove('disabled', 'send', 'pause')
+  action.classList.add(next)
+
+  action.disabled = next === 'disabled'
+  action.setAttribute('aria-label', next === 'pause' ? 'Pause' : 'Send')
+  icon.innerHTML = next === 'pause' ? PAUSE_ICON : SEND_ICON
+}
+
 function hear(word) {
   const doing = {
-    state: () => settle(word.state),
+    state: () => {
+      settle(word.state)
+
+      if (word.state === 'hearing' || word.state === 'thinking' || word.state === 'speaking') active()
+      if (word.state === 'idle') finishSoon()
+      if (word.state === 'gone' || word.state === 'loading') stopActive()
+
+      setActionMode(modeFromContext())
+    },
     level: () => Orb.level(word.level),
     envelope: () => {
       Orb.envelope(word.values, word.seconds)
@@ -91,8 +172,10 @@ function hear(word) {
       showing()
     },
     piece: () => {
+      active()
       Talk.piece(word.text)
       showing()
+      setActionMode(modeFromContext())
     },
     began: () => {
       Talk.began(word)
@@ -102,7 +185,12 @@ function hear(word) {
       Talk.step(word)
       showing()
     },
-    done: () => Talk.done(),
+    done: () => {
+      finishing = true
+      finishSoon()
+      Talk.done()
+      setActionMode(modeFromContext())
+    },
     stats: () => Talk.spent(word),
     note: () => Talk.aside(word.text),
     trouble: () => Talk.aside(word.text, 'trouble'),
@@ -179,20 +267,35 @@ function visiting(on) {
 function composer() {
   const form = node('composer')
   const box = node('typed')
-  const pause = node('pause')
+  const action = node('action')
+
+  setActionMode(modeFromContext())
+
+  box.addEventListener('input', () => {
+    setActionMode(modeFromContext())
+  })
+
+  action.onclick = (event) => {
+    if (actionMode !== 'pause') return
+
+    event.preventDefault()
+    ask({ do: 'stop' })
+    stopActive()
+    setActionMode(modeFromContext())
+  }
 
   form.onsubmit = (event) => {
     event.preventDefault()
+
+    if (actionMode !== 'send') return
 
     const words = box.value.trim()
     if (!words) return
 
     ask({ do: 'say', text: words })
     box.value = ''
-  }
-
-  pause.onclick = () => {
-    ask({ do: 'stop' })
+    active()
+    setActionMode(modeFromContext())
   }
 }
 
