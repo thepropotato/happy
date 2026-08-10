@@ -2,7 +2,17 @@
 
 import base64
 import re
+import sys
 from email.message import EmailMessage
+from email.utils import getaddresses
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from memory import knowledge
+from tongue import names as matching
 
 from servers.google import account, mcp
 from servers.shared.answering import ok, some
@@ -60,6 +70,10 @@ def send_email(to: str, subject: str, body: str, cc: str = "") -> str:
     This one actually leaves the machine, and an address off by one character is
     somebody else's inbox, so say what is being sent and to whom before calling it.
     """
+    known = known_addresses()
+    to = resolved_addresses(to, known)
+    cc = resolved_addresses(cc, known)
+
     sent = (
         account.mail()
         .users()
@@ -77,6 +91,10 @@ def draft_email(to: str, subject: str, body: str, cc: str = "") -> str:
 
     Use this when somebody wants to look it over first.
     """
+    known = known_addresses()
+    to = resolved_addresses(to, known)
+    cc = resolved_addresses(cc, known)
+
     made = (
         account.mail()
         .users()
@@ -94,6 +112,88 @@ def list_labels() -> str:
     found = account.mail().users().labels().list(userId="me").execute()
 
     return ok([each["name"] for each in found.get("labels", [])])
+
+
+@mcp.tool()
+async def remember_email(said: str, means: str) -> str:
+    """Remember that when the person says 'said' as a recipient
+    name, they mean the email address 'means'. Only call this once,
+    right after the person has directly confirmed 'means' is
+    correct."""
+    knowledge.remember_fact(said, "gmail", means)
+    return ok({"remembered": True, "said": said, "means": means})
+
+
+def known_addresses(limit=200):
+    service = account.mail()
+    found = {}
+    listed = (
+        service.users().messages().list(userId="me", maxResults=max(1, min(int(limit), 200))).execute()
+    )
+
+    for each in listed.get("messages", []):
+        one = (
+            service.users()
+            .messages()
+            .get(userId="me", id=each["id"], format="metadata", metadataHeaders=["From", "To", "Cc"])
+            .execute()
+        )
+        headers = named(one)
+        for label in ("From", "To", "Cc"):
+            for shown, address in getaddresses([headers.get(label, "")]):
+                remembered(found, shown, address)
+
+    return found
+
+
+def remembered(found, shown, address):
+    where = str(address or "").strip().lower()
+
+    if not where or "@" not in where:
+        return
+
+    who = str(shown or "").strip()
+    local = where.split("@", 1)[0]
+
+    found.setdefault(where, where)
+
+    if local:
+        found.setdefault(local, where)
+
+    if who:
+        found.setdefault(who, where)
+
+
+def resolved_addresses(value, known):
+    parts = [each.strip() for each in str(value or "").split(",") if each.strip()]
+
+    if not parts:
+        return ""
+
+    resolved = []
+
+    for each in parts:
+        if "@" in each:
+            resolved.append(each)
+            continue
+
+        held = knowledge.recall(each, "gmail")
+
+        if held:
+            resolved.append(held)
+            continue
+
+        match = matching.resolve(each, list(known))[0]
+        candidate = known.get(match) if match else None
+        chosen = knowledge.resolve_or_confirm(each, "gmail", candidate)
+
+        if chosen:
+            resolved.append(chosen)
+            continue
+
+        raise LookupError(f"I couldn't find an email address matching '{each}'.")
+
+    return ", ".join(resolved)
 
 
 def outlined(service, message_id):
