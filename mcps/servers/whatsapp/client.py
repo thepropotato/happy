@@ -7,8 +7,15 @@ CONTAINER PATH, NEITHER OF WHICH EXISTS HERE.
 import asyncio
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Any
+
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from memory import knowledge
 
 import httpx
 
@@ -51,6 +58,7 @@ class WhatsAppClient:
 
     def __init__(self, username: str = "default"):
         self.username = username
+        self.pending_corrections: dict[str, str] = {}
 
     async def get(self, path: str, timeout: float = 5.0) -> Any:
         async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
@@ -96,15 +104,34 @@ class WhatsAppClient:
         except Exception as e:
             return {"error": str(e)}
 
-    async def resolve_contact(self, query: str) -> str:
+    async def resolve_contact(self, query: str) -> str | None:
+        resolved = await self.resolve_contact_with_source(query)
+
+        return resolved.get("jid")
+
+    async def resolve_contact_with_source(self, query: str) -> dict[str, str | None]:
         asked = (query or "").strip()
+        known = knowledge.recall(asked, "whatsapp")
+        looked = known or asked
+        original = None if known else self.pending_original(asked)
 
         try:
-            result = await self.get(f"/resolve-contact?q={query}")
+            result = await self.get(f"/resolve-contact?q={looked}")
             jid = (result or {}).get("jid") if isinstance(result, dict) else None
 
             if self.real_jid(jid):
-                return jid
+                source = "known" if known else "exact"
+
+                if original:
+                    source = "fresh_confirmation"
+                    self.clear_pending(asked)
+
+                return {
+                    "jid": jid,
+                    "source": source,
+                    "said": original or asked,
+                    "resolved": asked,
+                }
         except Exception:
             pass
 
@@ -114,9 +141,49 @@ class WhatsAppClient:
             jid = self.contact_jid(found[0])
 
             if jid:
-                return jid
+                source = "known" if known else "exact"
 
-        return query
+                if original:
+                    source = "fresh_confirmation"
+                    self.clear_pending(asked)
+
+                return {
+                    "jid": jid,
+                    "source": source,
+                    "said": original or asked,
+                    "resolved": asked,
+                }
+
+        return {"jid": None, "source": "none", "said": asked, "resolved": None}
+
+    def pending_original(self, said: str) -> str | None:
+        return self.pending_corrections.get(str(said or "").strip().lower())
+
+    def clear_pending(self, said: str) -> None:
+        self.pending_corrections.pop(str(said or "").strip().lower(), None)
+
+    def queue_pending(self, said: str, candidate: str) -> None:
+        spoken = str(said or "").strip()
+        guessed = str(candidate or "").strip()
+
+        if spoken and guessed:
+            self.pending_corrections[guessed.lower()] = spoken
+
+    def remember_note(self, resolved: dict[str, str | None]) -> str | None:
+        if resolved.get("source") != "fresh_confirmation":
+            return None
+
+        said = str(resolved.get("said") or "").strip()
+        means = str(resolved.get("resolved") or "").strip()
+
+        if not said or not means:
+            return None
+
+        return (
+            "This was a new correction, not previously known. You MUST call "
+            f"remember_contact(said='{said}', means='{means}') right now, before "
+            "responding to the person, so this doesn't need asking again next time."
+        )
 
     def real_jid(self, value: str | None) -> bool:
         if not value or not isinstance(value, str):
@@ -146,11 +213,37 @@ class WhatsAppClient:
             return []
 
     async def search_contacts(self, query: str) -> list[dict[str, str]]:
+        asked = (query or "").strip()
+        known = knowledge.recall(asked, "whatsapp")
+        looked = known or asked
+
+        found = await self.raw_contacts(looked)
+
+        if not found:
+            return []
+
+        if known:
+            return found
+
+        exact = await self.exact_contact(asked)
+
+        if exact:
+            return [exact]
+
+        guess = self.contact_name(found[0])
+        self.queue_pending(asked, guess)
+        knowledge.resolve_or_confirm(asked, "whatsapp", guess)
+
+        return []
+
+    async def raw_contacts(self, query: str) -> list[dict[str, str]]:
+        looked = (query or "").strip()
+
         try:
-            found = await self.get(f"/search-contacts?q={query}")
+            found = await self.get(f"/search-contacts?q={looked}")
         except Exception:
             contacts = await self.get_contacts()
-            q = query.lower()
+            q = looked.lower()
             found = [
                 c for c in contacts
                 if q in c.get("name", "").lower() or q in c.get("number", "")
@@ -160,6 +253,25 @@ class WhatsAppClient:
         # NOTHING, AND EVERY CALLER HERE ITERATES WHAT COMES BACK.
         return found or []
 
+    async def exact_contact(self, query: str) -> dict[str, str] | None:
+        asked = (query or "").strip().lower()
+
+        if not asked:
+            return None
+
+        for contact in await self.get_contacts():
+            name = str(contact.get("name") or "").strip().lower()
+            number = str(contact.get("number") or "").strip().lower()
+            jid = str(contact.get("jid") or contact.get("id") or "").strip().lower()
+
+            if asked in (name, number, jid):
+                return contact
+
+        return None
+
+    def contact_name(self, contact: dict[str, Any]) -> str:
+        return str(contact.get("name") or contact.get("number") or contact.get("id") or "that contact").strip()
+
     async def get_chats(self) -> list[dict[str, Any]]:
         try:
             return await self.get("/chats")
@@ -168,6 +280,10 @@ class WhatsAppClient:
 
     async def get_messages(self, contact: str, limit: int = 20, media_only: bool = False, order: str = "newest", received_only: bool = False) -> list[dict[str, Any]]:
         jid = await self.resolve_contact(contact)
+
+        if not jid:
+            return []
+
         if "@" not in jid:
             jid = f"{jid}@s.whatsapp.net"
         try:
@@ -199,14 +315,34 @@ class WhatsAppClient:
         asked = (query or "").strip()
         found = await self.search_groups(asked)
 
-        if found:
-            group = found[0]
-            gid = group.get("id") or group.get("jid")
+        exact = [
+            group
+            for group in found
+            if asked.lower()
+            in {
+                str(group.get("name") or "").strip().lower(),
+                str(group.get("id") or "").strip().lower(),
+                str(group.get("jid") or "").strip().lower(),
+            }
+        ]
+
+        if exact:
+            gid = exact[0].get("id") or exact[0].get("jid")
 
             if isinstance(gid, str) and gid:
                 return gid
 
-        return query
+        if found:
+            guess = str(found[0].get("name") or found[0].get("id") or "that group").strip()
+            raise LookupError(
+                f"'{asked}' isn't an exact match — the closest group I found is '{guess}'. "
+                "Confirm with the person directly whether this is correct before using it."
+            )
+
+        raise LookupError(
+            f"I couldn't find a group matching '{asked}'. Ask the person for the exact group "
+            "name they see in WhatsApp."
+        )
 
     async def get_group_by_id(self, group_id: str) -> dict[str, Any]:
         groups = await self.get_groups()
@@ -230,6 +366,10 @@ class WhatsAppClient:
 
     async def get_group_messages(self, group: str, limit: int = 20, order: str = "newest") -> list[dict[str, Any]]:
         jid = await self.resolve_contact(group)
+
+        if not jid:
+            return []
+
         try:
             order_param = f"&order={order}" if order != "newest" else ""
             return await self.get(f"/messages/{jid}?limit={limit}{order_param}", timeout=10.0)
@@ -315,33 +455,64 @@ class WhatsAppClient:
 
     async def send_message(self, recipient: str, message: str) -> dict[str, str]:
         try:
-            to = await self.resolve_contact(recipient)
+            resolved = await self.resolve_contact_with_source(recipient)
+            to = resolved.get("jid")
+
+            if not to:
+                return {"error": f"Contact '{recipient}' not found."}
+
             result = await self.post("/send", {"to": to, "message": message})
             if isinstance(result, dict) and "websocket not connected" in result.get("error", ""):
                 await self.post("/stop", {}, timeout=5.0)
                 await self.post("/start", {}, timeout=5.0)
                 await asyncio.sleep(8)
                 result = await self.post("/send", {"to": to, "message": message})
+
+            note = self.remember_note(resolved)
+            if note and isinstance(result, dict) and "error" not in result:
+                result["note"] = note
+
             return result
         except Exception as e:
             return {"error": str(e)}
 
     async def send_group_message(self, group: str, message: str) -> dict[str, str]:
         try:
-            to = await self.resolve_group(group)
+            resolved = await self.resolve_contact_with_source(group)
+            to = resolved.get("jid")
+
+            if not to:
+                to = await self.resolve_group(group)
+                resolved = {
+                    "jid": to,
+                    "source": "exact",
+                    "said": (group or "").strip(),
+                    "resolved": (group or "").strip(),
+                }
+
             result = await self.post("/send", {"to": to, "message": message})
             if isinstance(result, dict) and "websocket not connected" in result.get("error", ""):
                 await self.post("/stop", {}, timeout=5.0)
                 await self.post("/start", {}, timeout=5.0)
                 await asyncio.sleep(8)
                 result = await self.post("/send", {"to": to, "message": message})
+
+            note = self.remember_note(resolved)
+            if note and isinstance(result, dict) and "error" not in result:
+                result["note"] = note
+
             return result
         except Exception as e:
             return {"error": str(e)}
 
     async def send_media_message(self, recipient: str, source: str, caption: str = "") -> dict[str, Any]:
         try:
-            to = await self.resolve_contact(recipient)
+            resolved = await self.resolve_contact_with_source(recipient)
+            to = resolved.get("jid")
+
+            if not to:
+                return {"error": f"Contact '{recipient}' not found."}
+
             url = source.replace("file://", "") if source.startswith("file://") else source
 
             if not url.startswith("http"):
@@ -350,12 +521,18 @@ class WhatsAppClient:
                     url = str(here.resolve())
 
             filename = Path(url).name if not url.startswith("http") else Path(url.split("?")[0]).name
-            return await self.post("/send-media", {
+            result = await self.post("/send-media", {
                 "to": to,
                 "url": url,
                 "caption": caption,
                 "filename": filename,
             })
+
+            note = self.remember_note(resolved)
+            if note and isinstance(result, dict) and "error" not in result:
+                result["note"] = note
+
+            return result
         except Exception as e:
             return {"error": str(e)}
 

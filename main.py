@@ -110,6 +110,9 @@ def start():
 
     mcps.start()  # IN THE BACKGROUND. THE TOOLS ARE BOUND ALREADY, FROM LAST TIME.
 
+    from memory import embedding
+    embedding.warm()
+
     try:
         ears.load_model()
     except ears.EarsError:

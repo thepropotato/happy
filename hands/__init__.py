@@ -9,11 +9,11 @@ TO ADD A CAPABILITY: WRITE THE FOLDER, GIVE IT A TOOLS LIST, ADD IT TO MODULES.
 
 import eyes
 import mcps
-from hands import apps, asking, browser, coder, controls, desktop, files, shell, web
+from hands import apps, asking, browser, coder, controls, desktop, files, memory, shell, web
 
 # THE ORDER THE MODEL SEES THEM IN: NARROW AND SAFE FIRST, SO THEY READ AS THE
 # OBVIOUS CHOICE BEFORE THE SHELL AND THE SCREEN DO.
-MODULES = [apps, controls, files, mcps, web, eyes, desktop, browser, coder, shell]
+MODULES = [apps, controls, files, memory, mcps, web, eyes, desktop, browser, coder, shell]
 
 
 def tools():
