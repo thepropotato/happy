@@ -6,16 +6,23 @@ BODY, SO THE SHARED CLIENT NEVER SEES ONE AND checked() HAS TO LOOK ITSELF.
 
 import sys
 from pathlib import Path
+from re import fullmatch
 
 # THE SERVER'S OWN FOLDER COMES OFF THE PATH SO A FILE BESIDE THIS ONE CAN NEVER
 # BE WHAT SOME LIBRARY'S import FINDS FIRST.
 sys.path[0] = str(Path(__file__).resolve().parents[2])
 
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from mcp.server.fastmcp import FastMCP  # noqa: E402
 
+from memory import knowledge  # noqa: E402
 from servers.shared import credentials  # noqa: E402
 from servers.shared.answering import ok, some  # noqa: E402
 from servers.shared.reaching import Service  # noqa: E402
+from tongue import names  # noqa: E402
 
 mcp = FastMCP("slack", log_level="ERROR")
 
@@ -56,6 +63,7 @@ def read_channel(channel: str, limit: int = 20) -> str:
     A message with replies gives back a count and its `at`, which is what
     read_thread wants.
     """
+    channel = resolved_target(channel)
     found = asked("conversations.history", {"channel": channel, "limit": counted(limit)})
 
     return ok([message(each, people()) for each in found.get("messages", [])])
@@ -110,9 +118,20 @@ def send_message(channel: str, text: str) -> str:
     channel is an id from list_channels. Say which channel and what it says
     before calling this.
     """
+    channel = resolved_target(channel)
     sent = told("chat.postMessage", {"channel": channel, "text": text})
 
     return ok({"sent": True, "channel": sent.get("channel"), "at": sent.get("ts")})
+
+
+@mcp.tool()
+async def remember_slack(said: str, means: str) -> str:
+    """Remember that when the person says 'said', they mean the
+    Slack channel or person 'means' (the id, not the display name).
+    Only call this once, right after the person has directly
+    confirmed 'means' is correct."""
+    knowledge.remember_fact(said, "slack", means)
+    return ok({"remembered": True, "said": said, "means": means})
 
 
 def slack():
@@ -122,6 +141,72 @@ def slack():
         raise PermissionError(MISSING)
 
     return Service(BASE, {"Authorization": f"Bearer {token}"}, "Slack")
+
+
+def resolved_target(given):
+    asked_name = str(given or "").strip()
+
+    if not asked_name:
+        raise LookupError("Channel or person name is required.")
+
+    known_id = knowledge.recall(asked_name, "slack")
+
+    if known_id:
+        return usable_target(known_id)
+
+    if is_slack_id(asked_name):
+        return usable_target(asked_name)
+
+    candidate = candidate_target(asked_name)
+    chosen = knowledge.resolve_or_confirm(asked_name, "slack", candidate)
+
+    if not chosen:
+        raise LookupError(f"I couldn't find a Slack channel or person matching '{asked_name}'.")
+
+    return usable_target(chosen)
+
+
+def candidate_target(spoken):
+    options = {}
+
+    channels = asked("conversations.list", {"types": KINDS, "limit": 200}).get("channels", [])
+    for each in channels:
+        if each.get("is_member"):
+            name = str(each.get("name") or "").strip()
+            if name:
+                options[name] = each.get("id")
+
+    members = asked("users.list", {"limit": 200}).get("members", [])
+    for each in members:
+        if each.get("is_bot") or each.get("deleted"):
+            continue
+        name = str(each.get("real_name") or each.get("name") or "").strip()
+        if name:
+            options[name] = each.get("id")
+
+    matched, sure = names.resolve(spoken, list(options))
+
+    if not matched:
+        return None
+
+    return options.get(matched) if sure else options.get(matched)
+
+
+def usable_target(slack_id):
+    target = str(slack_id or "").strip()
+
+    if not target:
+        return ""
+
+    if target.startswith("U") or target.startswith("W"):
+        opened = told("conversations.open", {"users": target})
+        return ((opened.get("channel") or {}).get("id") or target)
+
+    return target
+
+
+def is_slack_id(value):
+    return bool(fullmatch(r"[A-Z][A-Z0-9]{8,}", str(value or "").strip()))
 
 
 def asked(method, params=None):

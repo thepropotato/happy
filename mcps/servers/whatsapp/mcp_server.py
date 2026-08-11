@@ -22,6 +22,7 @@ from mcp.server.fastmcp import FastMCP
 from pydantic import BeforeValidator, Field
 
 from memory import knowledge
+from servers.shared.answering import ok
 from servers.whatsapp.client import WhatsAppClient
 
 
@@ -119,6 +120,16 @@ async def search_contacts(query: str) -> str:
         return _json({"remembered": True, "contacts": [{"name": result}]})
 
     return _json(result)
+
+
+@mcp.tool()
+async def remember_contact(said: str, means: str) -> str:
+    """Remember that when the person says 'said', they mean the
+    WhatsApp contact 'means'. Only call this once, right after a
+    contact search failed for 'said' and the person then directly
+    confirmed 'means' as correct, which worked."""
+    knowledge.remember_fact(said, "whatsapp", means)
+    return ok({"remembered": True, "said": said, "means": means})
 
 @mcp.tool()
 async def get_chats(days: Optional[int] = None) -> str:
