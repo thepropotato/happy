@@ -11,7 +11,7 @@ import json
 import sys
 import threading
 
-from face.turn import MODEL, SPENT, STARTED, Turn
+from face.turn import MODEL, PROFILE, SPENT, STARTED, Turn
 
 LOADING = "loading"
 IDLE = "idle"
@@ -116,6 +116,9 @@ def step(kind, name, seconds, about=None):
         turn.paid(about)
     elif kind == MODEL:
         turn.thought = seconds
+    elif kind == PROFILE:
+        turn.prompt_chars = (about or {}).get("prompt_chars", 0)
+        turn.tool_count = (about or {}).get("tools", 0)
     else:
         turn.add(name, seconds)
         send("step", kind=kind, name=name, seconds=seconds, **(about or {}))
@@ -168,4 +171,6 @@ def spent(this):
         "total": this.seconds(),
         "read": this.read,
         "wrote": this.wrote,
+        "prompt_chars": this.prompt_chars,
+        "tool_count": this.tool_count,
     }

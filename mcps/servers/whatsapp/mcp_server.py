@@ -14,9 +14,14 @@ if sys.stderr and hasattr(sys.stderr, "reconfigure"):
 # BE WHAT SOME LIBRARY'S import FINDS FIRST.
 sys.path[0] = str(Path(__file__).resolve().parents[2])
 
+ROOT = Path(__file__).resolve().parents[3]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from mcp.server.fastmcp import FastMCP
 from pydantic import BeforeValidator, Field
 
+from memory import knowledge
 from servers.whatsapp.client import WhatsAppClient
 
 
@@ -99,13 +104,21 @@ async def search_contacts(query: str) -> str:
     Args:
         query: Search string to match against contact names or numbers.
     """
-    
     if isinstance(query, dict):
         query = query.get("query", query.get("q", str(query)))
-    
+
     query = str(query).strip()
     wa = get_client()
-    return _json(await wa.search_contacts(query))
+
+    # knowledge.resolved() awaits wa.search_contacts (an async method) via inspect.isawaitable,
+    # SO THE COROUTINE IS NEVER RETURNED UN-AWAITED.
+    result, remembered = await knowledge.resolved(query, "whatsapp", wa.search_contacts)
+
+    if remembered:
+        # SIGNAL TO THE MODEL THIS CONTACT WAS ALREADY CONFIRMED — NO NEED TO RE-ASK.
+        return _json({"remembered": True, "contacts": [{"name": result}]})
+
+    return _json(result)
 
 @mcp.tool()
 async def get_chats(days: Optional[int] = None) -> str:
@@ -417,11 +430,12 @@ async def send_message(recipients: list[str], message: str) -> str:
     results = {}
 
     for recipient in recipients:
-        result = await wa.send_message(recipient, message)
+        resolved = knowledge.recall(recipient, "whatsapp") or recipient
+        result = await wa.send_message(resolved, message)
 
         if await should_sync_on_error(result):
             await wa.sync()
-            result = await wa.send_message(recipient, message)
+            result = await wa.send_message(resolved, message)
 
         results[recipient] = result
 
@@ -443,12 +457,13 @@ async def send_group_message(groups: list[str], message: str) -> str:
     synced = False
 
     for group in groups:
-        result = await wa.send_group_message(group, message)
+        resolved = knowledge.recall(group, "whatsapp") or group
+        result = await wa.send_group_message(resolved, message)
 
         if await should_sync_on_error(result) and not synced:
             await wa.sync()
             synced = True
-            result = await wa.send_group_message(group, message)
+            result = await wa.send_group_message(resolved, message)
 
         results[group] = result
 
@@ -470,11 +485,12 @@ async def send_media_message(recipients: list[str], source: str, caption: str = 
     results = {}
 
     for recipient in recipients:
-        result = await wa.send_media_message(recipient, source, caption)
+        resolved = knowledge.recall(recipient, "whatsapp") or recipient
+        result = await wa.send_media_message(resolved, source, caption)
 
         if await should_sync_on_error(result):
             await wa.sync()
-            result = await wa.send_media_message(recipient, source, caption)
+            result = await wa.send_media_message(resolved, source, caption)
 
             if await should_sync_on_error(result):
                 return _json({

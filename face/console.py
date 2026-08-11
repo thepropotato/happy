@@ -7,7 +7,7 @@ TOOL ADDED LATER APPEARS HERE WITHOUT ANYONE WIRING IT UP.
 import shutil
 from datetime import datetime
 
-from face.turn import MODEL, SPENT, STARTED, Turn, stats
+from face.turn import MODEL, PROFILE, SPENT, STARTED, Turn, stats
 
 WIDTH = 78
 RULE = "─"
@@ -113,6 +113,9 @@ def step(kind, name, seconds, about=None):
         turn.paid(about)
     elif kind == MODEL:
         turn.thought = seconds
+    elif kind == PROFILE:
+        turn.prompt_chars = (about or {}).get("prompt_chars", 0)
+        turn.tool_count = (about or {}).get("tools", 0)
     else:
         turn.add(name, seconds)
 
