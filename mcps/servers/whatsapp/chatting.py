@@ -11,7 +11,8 @@ HIMSELF NAMES HIM. ANYBODY CAN TYPE @happy, AND NONE OF THEM IS WHO HE ANSWERS T
 WHERE WE GOT TO IS HELD FOR AS LONG AS HAPPY IS UP AND NO LONGER: A QUESTION
 ASKED WHILE HE WAS OFF IS NOT ANSWERED SIX HOURS LATE.
 
-talking.py IS EVERYTHING THIS ASKS OF THE BRIDGE, replying.py EVERYTHING IT SAYS.
+talking.py IS EVERYTHING THIS ASKS OF THE BRIDGE, placing.py WHAT HE IS TOLD
+ABOUT WHERE HE IS STANDING, replying.py EVERYTHING HE SAYS BACK.
 """
 
 import re
@@ -20,7 +21,7 @@ import time
 
 from ears import engines
 from face import show
-from mcps.servers.whatsapp import grouping, replying, talking
+from mcps.servers.whatsapp import grouping, placing, replying, talking
 from memory import settings
 
 # HIS NAME, WRITTEN AND SAID. A CHAT NEEDS THE @ TO LOOK ADDRESSED; A VOICE NOTE
@@ -133,9 +134,12 @@ def answer(turn, chat, entry, named):
     if not asked or replying.again(asked):
         return
 
-    said, pictures = turn(asked)
+    # NAMED IS ALSO WHERE HE IS: HIS NAME ONLY HAS TO BE SAID SOMEWHERE THAT IS
+    # NOT HIS OWN GROUP, AND ONLY THERE IS THERE SOMEBODY ELSE READING.
+    since = time.time()
+    said, pictures = turn(asked, placing.about(chat, entry, not named))
 
-    replying.back(chat, entry, said, pictures, spoken)
+    replying.back(chat, entry, said, pictures, spoken, since)
 
 
 def heard(chat, entry, named):

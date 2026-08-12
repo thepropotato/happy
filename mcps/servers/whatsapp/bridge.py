@@ -102,6 +102,9 @@ CACHE = "cache.json"
 # MORE THAN ANYBODY TYPES BETWEEN TWO LOOKS, AND IT IS NOT A HISTORY.
 RECENT_SENT = 50
 
+# AND HOW MANY OF OUR OWN SENDS. ONLY THIS TURN'S ARE EVER ASKED FOR.
+PUSHED = 50
+
 # raw_messages IS NOT IN HERE AND CANNOT BE: THEY ARE LIVE PROTOBUFS. THE ONE
 # THING THEY ARE FOR IS FETCHING MEDIA, WHICH ALREADY FALLS BACK ON WHAT IS ON
 # DISK AND THEN ON THE CDN.
@@ -307,6 +310,7 @@ class Session:
         self.latest_received_message = None
         self.latest_sent_message = None
         self.recent_sent = []  # THE OWNER'S OWN, ANY CHAT, OLDEST FIRST. THIS RUN ONLY.
+        self.pushed = []  # WHAT THIS DEVICE SENT ITSELF, WHICH NO CHAT EVER SHOWS BACK.
         self.downloaded_media = {}
         self.raw_messages = {}
         self.failed_downloads = set()
@@ -1661,13 +1665,17 @@ def sending_jid(session, jid_val):
     return found
 
 
-def posted(result, jid_val, target, **extra):
+def posted(session, result, jid_val, target, **extra):
     """WHAT CAME BACK FROM A SEND, ANSWERED HONESTLY.
 
     THE ID IS MINTED HERE BEFORE ANYTHING LEAVES THE MACHINE, SO AN ID IS NOT
     DELIVERY AND NEVER WAS — TWO MESSAGES WENT OUT WITH ONE AND NEITHER EXISTS.
     THE TIMESTAMP IS THE SERVER'S OWN, PUT ON THE ACK, SO IT IS THE FIRST MOMENT
     ANYBODY BUT US KNOWS THE MESSAGE IS REAL.
+
+    EVERY ACKNOWLEDGED SEND IS ALSO NOTED HERE, BECAUSE A MESSAGE THIS DEVICE
+    SENDS ITSELF NEVER COMES BACK AS AN EVENT AND SO APPEARS IN NO CHAT WE READ.
+    WHOEVER IS ANSWERING IN A CHAT NEEDS TO KNOW WHAT HAS ALREADY GONE INTO IT.
     """
     stamp = int(getattr(result, "Timestamp", 0) or 0)
     ident = getattr(result, "ID", "") or ""
@@ -1677,6 +1685,10 @@ def posted(result, jid_val, target, **extra):
             "error": "WhatsApp did not acknowledge the message, so it was not delivered. Nothing was sent.",
             "messageId": ident, "jid": jid_val, "sentTo": target, **extra,
         }), 502
+
+    with session.lock:
+        session.pushed.append({"chatJid": jid_val, "id": ident, "at": time.time()})
+        del session.pushed[:-PUSHED]
 
     return jsonify({"success": True, "messageId": ident, "jid": jid_val, "sentTo": target,
                     "timestamp": stamp, **extra})
@@ -2037,7 +2049,7 @@ def send(username):
         jid_val = resolve_recipient(s, to)
         target = sending_jid(s, jid_val)
         result = s.client.send_message(make_jid(target), message)
-        return posted(result, jid_val, target)
+        return posted(s, result, jid_val, target)
     except ValueError as e:
         return jsonify({"error": str(e), "contact_not_found": True}), 404
     except Exception as e:
@@ -2055,7 +2067,7 @@ def send_group(username):
         jid_val = resolve_recipient(s, group_id)
         parts = jid_val.split("@")
         result = s.client.send_message(build_jid(parts[0], parts[1] if len(parts) > 1 else "g.us"), message)
-        return posted(result, jid_val, jid_val)
+        return posted(s, result, jid_val, jid_val)
     except ValueError as e:
         return jsonify({"error": str(e), "contact_not_found": True}), 404
     except Exception as e:
@@ -2083,7 +2095,7 @@ def send_media(username):
             result = s.client.send_audio(jid, file=url)
         else:
             result = s.client.send_document(jid, file=url, caption=caption, filename=filename or Path(url).name)
-        return posted(result, jid_val, target, mediaType=mt)
+        return posted(s, result, jid_val, target, mediaType=mt)
     except ValueError as e:
         return jsonify({"error": str(e), "contact_not_found": True}), 404
     except Exception as e:
@@ -2338,6 +2350,21 @@ def create_group(username):
     persist(s)
 
     return jsonify({"id": gid, "name": clean(name)})
+
+
+@app.get("/<username>/pushed")
+def pushed(username):
+    """The chats this device has sent something into since a given moment.
+
+    A message sent from here is never echoed back to here, so it is in no chat
+    this bridge can read. Anything answering inside a chat has to ask."""
+    s = get_session(username)
+    since = float(request.args.get("since", 0))
+
+    with s.lock:
+        found = [m for m in s.pushed if m["at"] >= since]
+
+    return jsonify(found)
 
 
 @app.get("/<username>/recent-sent")

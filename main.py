@@ -50,7 +50,7 @@ def main():
 
     brain.watches(show.step)
 
-    chatting.listen(lambda text: distant(happy, text))
+    chatting.listen(lambda text, context=None: distant(happy, text, context))
 
     thrown = memory.prune(recorder.recordings)  # ONLY IF A SETTING SAYS TO.
 
@@ -211,11 +211,14 @@ def typed_soon(happy, speaker, text):
     threading.Thread(target=typed, args=(happy, speaker, text), daemon=True).start()
 
 
-def distant(happy, text):
+def distant(happy, text, context=None):
     """A TURN THAT ARRIVED IN A MESSAGE. NOTHING IS SPOKEN INTO THE ROOM FOR IT.
 
     GIVES BACK WHAT TO SAY AND ANY PICTURES TO SEND WITH IT. THIS IS THE ONLY KIND
     OF TURN THAT CAN CARRY ONE: WHOEVER ASKED IS NOT LOOKING AT THE SCREEN.
+
+    context IS WHOSE CHAT IT CAME FROM, WHICH ONLY THE MODEL NEEDS. WHAT IS SHOWN
+    IS WHAT THE PERSON ACTUALLY WROTE.
     """
     with taking:
         show.begin()
@@ -224,7 +227,7 @@ def distant(happy, text):
         handing.opened()
 
         try:
-            said = "".join(piece for piece in stream(happy, text))
+            said = "".join(piece for piece in stream(happy, text, context))
         finally:
             show.end()
             pictures = handing.closed()  # IN HERE, OR A THROW LEAVES THE TURN OPEN FOREVER.
@@ -232,9 +235,9 @@ def distant(happy, text):
         return said, pictures
 
 
-def stream(happy, text):
+def stream(happy, text, context=None):
     try:
-        for piece in happy.say_streaming(text):
+        for piece in happy.say_streaming(text, context):
             show.piece(piece)
 
             yield piece

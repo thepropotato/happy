@@ -25,6 +25,20 @@ def settled():
     return not (asked(client().get("/sync-status")) or {}).get("syncing")
 
 
+def pushed(chat, since):
+    """WHETHER THIS DEVICE HAS PUT ANYTHING INTO THAT CHAT SINCE THEN, BY TOOL.
+
+    A SEND OF OUR OWN IS NEVER ECHOED BACK TO US, SO IT IS IN NO CHAT WE READ.
+    THE BRIDGE NOTES EVERY ONE IT ACKNOWLEDGED AND THIS IS THE ONLY WAY TO ASK.
+    """
+    found = asked(client().get_pushed(since))
+
+    if not isinstance(found, list):
+        return False
+
+    return any(each.get("chatJid") == chat for each in found)
+
+
 def look(chat, limit):
     """THE TAIL OF ONE CHAT, OLDEST FIRST."""
     found = asked(client().get_messages(chat, limit=limit))

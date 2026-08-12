@@ -241,6 +241,18 @@ and none of them is who Happy answers to. `mcps/servers/whatsapp/chatting.py` is
 `grouping.py` the one chat that is his, `replying.py` what goes back — and the guards that stop
 an answer of his, which reads exactly like a question in there, from being answered again.
 
+**Tagged in somebody's chat, he is told whose chat it is** (`placing.py`), because "tell her I
+love her" is only a sentence if he knows who her is, and the chat it arrived from is the whole
+answer. He is told the other half too: what he says next is not read out to whoever asked, it
+is sent into that chat, so the message *is* the answer. That contradicts the standing rule
+about never reading a message out, which is named and lifted for that one turn. Wording alone
+does not hold it — a fifth of the time he still reaches for a send tool, and then the errand is
+done and his "told her" lands underneath it, in front of the person it was about. So the bridge
+notes every send it acknowledged (a message this device sends is never echoed back to it, so it
+is in no chat we can read), and Happy never says anything into a chat he has already written
+into by tool that turn. The prompt makes the good answer likely; that makes the bad one
+impossible.
+
 No cloud storage, no telemetry, no backend callbacks. This runs on one machine for one person.
 
 **Happy starts the bridge itself**, rather than leaving it a second terminal somebody has to

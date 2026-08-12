@@ -129,7 +129,7 @@ class Happy:
     def warm(self):
         brain.warm(self.model, self.prompt, self.tools)
 
-    def say(self, speech, **about):
+    def say(self, speech, context=None, **about):
         """THE WHOLE REPLY AS ONE STRING."""
         profile = intent.classify(speech)
         graph, prompt, bound = self.graph_for(profile)
@@ -147,7 +147,7 @@ class Happy:
             pass
 
         try:
-            done = graph.invoke(self.turn(speech), self.config())
+            done = graph.invoke(self.turn(speech, context), self.config())
         except Stuck as stuck:
             memory.close(str(stuck), time.perf_counter() - started)
 
@@ -165,7 +165,7 @@ class Happy:
             fresh()
 
             try:
-                done = graph.invoke(self.turn(speech), self.config())
+                done = graph.invoke(self.turn(speech, context), self.config())
             except Exception as retry_error:
                 raise LLMError(brain.reason(retry_error))
 
@@ -174,7 +174,7 @@ class Happy:
 
         return reply
 
-    def say_streaming(self, speech, **about):
+    def say_streaming(self, speech, context=None, **about):
         """THE REPLY IN PIECES, FOR HANDING SENTENCES TO THE VOICE AS THEY LAND."""
         profile = intent.classify(speech)
         graph, prompt, bound = self.graph_for(profile)
@@ -194,7 +194,7 @@ class Happy:
 
         try:
             for chunk, note in graph.stream(
-                self.turn(speech), self.config(), stream_mode="messages"
+                self.turn(speech, context), self.config(), stream_mode="messages"
             ):
                 if self.stopping.is_set():
                     break
@@ -228,7 +228,7 @@ class Happy:
                 fresh()
 
                 # ACCUMULATE INTO reply HERE SO THE FINALLY BLOCK RECORDS THE FULL TEXT.
-                for piece in self._stream_graph(graph, speech, ""):
+                for piece in self._stream_graph(graph, speech, "", context):
                     reply += piece
                     yield piece
 
@@ -255,10 +255,10 @@ class Happy:
 
             memory.close(reply.strip() or None, taken)
 
-    def _stream_graph(self, graph, speech, prior_reply):
+    def _stream_graph(self, graph, speech, prior_reply, context=None):
         """STREAM FROM graph, APPENDING TO prior_reply. USED FOR THE RETRY PATH."""
         for chunk, note in graph.stream(
-            self.turn(speech), self.config(), stream_mode="messages"
+            self.turn(speech, context), self.config(), stream_mode="messages"
         ):
             if self.stopping.is_set():
                 return
@@ -304,8 +304,14 @@ class Happy:
         """A CLEAN SLATE. A NEW THREAD IS CHEAPER THAN EMPTYING THE OLD ONE."""
         self.thread = f"{THREAD}-{id(object())}"
 
-    def turn(self, speech):
-        return {"messages": [HumanMessage(speech)]}
+    def turn(self, speech, context=None):
+        """WHAT WAS SAID, WITH WHERE IT WAS SAID IN FRONT OF IT WHEN THAT IS KNOWN.
+
+        ONE MESSAGE AND NOT TWO, SO NOTHING DOWNSTREAM HAS TO KNOW THIS HAPPENED.
+        THE BARE WORDS ARE STILL WHAT GETS CLASSIFIED, SHOWN AND REMEMBERED: A
+        TURN IS NOT A DIFFERENT TURN FOR HAVING ARRIVED SOMEWHERE.
+        """
+        return {"messages": [HumanMessage(f"{context}\n\n{speech}" if context else speech)]}
 
     def config(self):
         return {"configurable": {"thread_id": self.thread}}

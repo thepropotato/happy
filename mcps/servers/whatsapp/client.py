@@ -424,6 +424,12 @@ class WhatsAppClient:
         except Exception as e:
             return {"error": str(e)}
 
+    async def get_pushed(self, since: float) -> list[dict[str, Any]]:
+        try:
+            return await self.get(f"/pushed?since={since}")
+        except Exception:
+            return []
+
     async def create_group(self, name: str) -> dict[str, Any]:
         try:
             return await self.post("/create-group", {"name": name}, timeout=30.0)
