@@ -827,6 +827,13 @@ What the panel shows:
   the same turn a spoken one does, on the same lock, so the two can never overlap.
 - **Every control**, which is the next section.
 
+**None of his own plumbing.** "Loading models", `Answering in "Happy"`, a model being fetched:
+the terminal prints those and the log keeps every one of them, and the panel simply has no
+`note` method, so `show` skips it. The stream is what the two of you said to each other, and it
+was already saying "loading" twice over — the orb, the mood and the hint are the whole face of
+the panel while he wakes up, and a line of text under them repeating it is the second copy.
+Something going *wrong* still lands there, because that is about what you asked for.
+
 Sound outlives the words. Happy is still a sentence behind himself when the model has finished,
 so the panel goes quiet when the last clip ends and not when the last word arrives.
 

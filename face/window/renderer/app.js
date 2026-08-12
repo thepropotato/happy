@@ -170,7 +170,6 @@ function hear(word) {
       refresh()
     },
     stats: () => Talk.spent(word),
-    note: () => Talk.aside(word.text),
     trouble: () => Talk.aside(word.text, 'trouble'),
     settings: () => Knobs.show(word),
     history: () => {

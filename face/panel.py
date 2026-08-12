@@ -128,10 +128,6 @@ def trouble(text):
     send("trouble", text=str(text))
 
 
-def note(text):
-    send("note", text=str(text))
-
-
 def unprompted(text):
     send("message", who="happy", text=text, unprompted=True)
 
