@@ -84,9 +84,11 @@ def current_activity() -> str:
 
     Use this whenever you are asked what they are doing, what they are up to,
     what they are working on, whether they are busy, or asked to tell somebody
-    else any of that. Never answer those out of your own head. There is no way
-    to know what somebody is doing without looking, and "on the computer" tells
-    whoever asked nothing they had not already guessed.
+    else any of that. "What am I doing" is that question. "What are you doing"
+    is not: that one is about you, and nothing on their screen answers it.
+    Never answer out of your own head. There is no way to know what somebody is
+    doing without looking, and "on the computer" tells whoever asked nothing
+    they had not already guessed.
 
     The window title is usually the specific thing: the file being edited, the
     page being read, the video playing, the person being written to. Say what it

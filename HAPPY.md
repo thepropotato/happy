@@ -993,10 +993,17 @@ looks. `look_at_screen(question)`.
 front and the title of its window, which is nearly always the specific thing — the file, the
 page, the episode. `current_activity`. Asked to tell somebody what he was up to, Happy used to
 answer "I'm on my computer", which is what whoever asked had already assumed, and when pushed
-would invent a photo gallery he had never seen and send that to them. A tool alone did not fix
-it: told to look, he looked about one time in three. So a message turn is *handed* what is in
-front before it starts (`placing.py`) and has nothing left to guess with, and the tool remains
-for turns asked out loud at the machine.
+would invent a photo gallery he had never seen and send that to them.
+
+**It is a tool call and nothing else.** For a day it was not: a message turn was *handed* what
+was in front before the model started, because told to look he looked about one time in three,
+and 40 ms beats an extra round trip to the model every time. It worked and it was still wrong.
+An answer about somebody's screen turned up with no row on the exchange, nothing in the log and
+no tool on the turn in the database — from the outside, a look and a guess are the same thing,
+which is exactly the failure this was meant to end. So the injection is gone and the standing
+rules carry it instead: the third-person phrasing a chat actually uses ("what is he doing",
+"what is she up to") is named there beside "what am I doing", because that is the one wording a
+model reads as somebody else's business.
 
 The other half was that he looked and saw himself. His panel comes up over everything the second
 his name is said and stays the active application while anybody types into it, so the system's
@@ -1004,6 +1011,10 @@ honest answer to *what is in front* was "Electron" — and that is what he told 
 skipped now: `attention.pile()` walks the windows front to back, past his own process and its
 parent, past the menu bar and every other floating thing, and the first ordinary window left is
 what somebody is actually doing.
+
+**"What am I doing" is that person; "what are you doing" is Happy.** One is answered by looking
+at their screen and the other has nothing to do with it, and both the standing rules and the
+tool say so, because a model that blurs the two answers a question nobody asked.
 
 The order is the whole design. Asking beats looking by roughly ten to one on time and does not
 lose the argument on quality either — a picture cannot tell you that the Share button is greyed
