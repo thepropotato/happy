@@ -2306,6 +2306,40 @@ def latest_sent_message(username):
     return jsonify(clean(s.latest_sent_message))
 
 
+@app.post("/<username>/create-group")
+def create_group(username):
+    """Start a new group with nobody else in it yet, and hand back its id.
+
+    It is put into this session's own lists as well, because the group list is
+    rebuilt on a sync and asking for one that was made a second ago would
+    otherwise answer that it does not exist."""
+    name = (request.json or {}).get("name", "").strip()
+    s = get_session(username)
+
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+
+    if not s.client or not s.connected:
+        return jsonify({"error": "Not connected"}), 503
+
+    try:
+        made = s.client.create_group(name)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    gid = jid_str(made.JID)
+
+    with s.lock:
+        if not any(g["id"] == gid for g in s.groups):
+            s.groups.append({"id": gid, "name": clean(name), "description": "", "participants": [], "participantCount": 0, "createdAt": None})
+        if not any(c["id"] == gid for c in s.chats):
+            s.chats.append({"id": gid, "name": clean(name), "isGroup": True, "unreadCount": 0, "lastMessage": "", "timestamp": 0, "archived": False})
+
+    persist(s)
+
+    return jsonify({"id": gid, "name": clean(name)})
+
+
 @app.get("/<username>/recent-sent")
 def recent_sent(username):
     """The owner's own last few messages across every chat, oldest first, each one

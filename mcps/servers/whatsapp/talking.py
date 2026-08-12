@@ -6,44 +6,11 @@ THREAD, SO EVERY ANSWER IS WAITED FOR HERE AND HANDED BACK AS A PLAIN VALUE.
 """
 
 import asyncio
-import re
 from pathlib import Path
 
 from mcps.servers.whatsapp.client import WhatsAppClient
 
-MINE = "happy"
-
-# WHAT A NAME IS ONCE THE EMOJI AND THE PUNCTUATION ARE OFF IT.
-WORDS = re.compile(r"[^\W_]+", re.UNICODE)
-
 reaching = None
-
-
-def home():
-    """THE GROUP THAT IS THE CHAT WITH HAPPY, OR None UNTIL SOMEBODY MAKES ONE.
-
-    A GROUP CALLED AFTER HIM IS THE WHOLE SETUP: NOTHING TO PASTE, NOTHING TO
-    PICK IN A SETTING, AND IT IS PLAIN FROM THE PHONE WHICH CHAT HE IS IN.
-
-    HIS NAME AND NOTHING ELSE, BECAUSE EVERYTHING SAID IN HERE IS ANSWERED. A
-    GROUP THAT MERELY MENTIONS HIM IS SOMEBODY'S HAPPY BIRTHDAY THREAD, AND
-    GUESSING WRONG WOULD HAVE HIM TALKING OVER SEVEN OF THEIR FRIENDS.
-    """
-    found = asked(client().get_groups())
-
-    if not isinstance(found, list):
-        return None, None
-
-    for group in found:
-        if group.get("id") and called(group.get("name")):
-            return group["id"], str(group.get("name") or MINE).strip()
-
-    return None, None
-
-
-def called(name):
-    """WHETHER THAT NAME IS HIS. EMOJI AND PUNCTUATION ARE DECORATION, NOT WORDS."""
-    return " ".join(WORDS.findall(str(name or "").lower())) == MINE
 
 
 def settled():

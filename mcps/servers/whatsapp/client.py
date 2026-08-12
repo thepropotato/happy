@@ -424,6 +424,12 @@ class WhatsAppClient:
         except Exception as e:
             return {"error": str(e)}
 
+    async def create_group(self, name: str) -> dict[str, Any]:
+        try:
+            return await self.post("/create-group", {"name": name}, timeout=30.0)
+        except Exception as e:
+            return {"error": str(e)}
+
     async def get_recent_sent(self, limit: int = 25) -> list[dict[str, Any]]:
         try:
             return await self.get(f"/recent-sent?limit={limit}")

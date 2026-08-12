@@ -231,6 +231,16 @@ watching, which is exactly the shape that looks like a bot from the outside. Ten
 read, three send, none of them unattended. There is no allowlist trimming that list either: a
 server whose tools are chosen twice is a server that will one day disagree with itself.
 
+**The chat with Happy is a group called Happy**, which he makes himself the moment the account
+comes on rather than leaving somebody a setup step. Nothing in there was meant for anybody
+else, so everything said in it is said to him and nothing has to be tagged; he is the only
+other member. That is not the auto reply above, and neither is `@happy` in any other chat:
+both are somebody asking him something in that turn, which is the same line the tools draw.
+The tag is read only off the owner's own messages, because anybody in any group can type it
+and none of them is who Happy answers to. `mcps/servers/whatsapp/chatting.py` is the loop,
+`grouping.py` the one chat that is his, `replying.py` what goes back — and the guards that stop
+an answer of his, which reads exactly like a question in there, from being answered again.
+
 No cloud storage, no telemetry, no backend callbacks. This runs on one machine for one person.
 
 **Happy starts the bridge itself**, rather than leaving it a second terminal somebody has to

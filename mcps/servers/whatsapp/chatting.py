@@ -3,15 +3,13 @@
 THE BRIDGE ALREADY HEARS EVERY MESSAGE THE MOMENT IT LANDS AND TELLS NOBODY, SO
 THIS ASKS IT. ONE CHAT IS HIS AND EVERY OTHER ONE IS NOT.
 
-A GROUP WITH HIS NAME ON IT IS THE CHAT WITH HAPPY. NOTHING IN THERE WAS MEANT
-FOR ANYBODY ELSE, SO EVERYTHING SAID IN IT IS SAID TO HIM AND NOTHING HAS TO BE
-TAGGED. ANYWHERE ELSE A CHAT IS NOT A MICROPHONE: A MESSAGE IS ONLY A TURN WHEN
-THE OWNER HIMSELF SAYS HAPPY'S NAME IN IT. ANYBODY IN ANY GROUP CAN TYPE @happy,
-AND NONE OF THEM IS WHO HAPPY ANSWERS TO.
+THE GROUP CALLED AFTER HIM IS THE CHAT WITH HAPPY, AND NOTHING IN IT WAS MEANT
+FOR ANYBODY ELSE, SO EVERYTHING SAID THERE IS SAID TO HIM AND NEEDS NO TAG.
+ANYWHERE ELSE A CHAT IS NOT A MICROPHONE: IT IS ONLY A TURN WHEN THE OWNER
+HIMSELF NAMES HIM. ANYBODY CAN TYPE @happy, AND NONE OF THEM IS WHO HE ANSWERS TO.
 
-WHERE WE GOT TO IS HELD FOR AS LONG AS HAPPY IS UP AND NO LONGER. A QUESTION
-ASKED WHILE HE WAS OFF IS NOT ANSWERED SIX HOURS LATE; THE FIRST LOOK OF A RUN
-ONLY MARKS WHERE WE CAME IN.
+WHERE WE GOT TO IS HELD FOR AS LONG AS HAPPY IS UP AND NO LONGER: A QUESTION
+ASKED WHILE HE WAS OFF IS NOT ANSWERED SIX HOURS LATE.
 
 talking.py IS EVERYTHING THIS ASKS OF THE BRIDGE, replying.py EVERYTHING IT SAYS.
 """
@@ -22,7 +20,7 @@ import time
 
 from ears import engines
 from face import show
-from mcps.servers.whatsapp import replying, talking
+from mcps.servers.whatsapp import grouping, replying, talking
 from memory import settings
 
 # HIS NAME, WRITTEN AND SAID. A CHAT NEEDS THE @ TO LOOK ADDRESSED; A VOICE NOTE
@@ -58,14 +56,22 @@ def watching(turn):
     while True:
         time.sleep(EVERY_SECONDS)
 
-        if not settings.get(SETTING):
+        answering = settings.get(SETTING)
+
+        # THE GROUP IS MADE AS SOON AS THE ACCOUNT IS ON, WHETHER OR NOT ANYBODY
+        # HAS TURNED ANSWERING ON YET. IT IS WHERE THE ANSWERING WOULD HAPPEN, SO
+        # IT SHOULD BE SITTING ON THE PHONE BEFORE IT IS WANTED, NOT AFTER.
+        if home and not answering:
             continue
 
         try:
             if not talking.settled():
                 continue
 
-            home = home or found()
+            home = home or grouping.his()
+
+            if not answering:
+                continue
 
             if home:
                 seen = sweep(turn, home, seen)
@@ -80,22 +86,12 @@ def watching(turn):
                 show.trouble(f"Messages: {moaned}")
 
 
-def found():
-    """HIS GROUP, SAID ONCE WHEN IT TURNS UP SO NOBODY WONDERS WHICH ONE IT IS."""
-    where, name = talking.home()
-
-    if where:
-        show.note(f'Answering in "{name}"')
-
-    return where
-
-
 def sweep(turn, chat, seen):
     """EVERY MESSAGE IN HIS GROUP SINCE THE LAST ONE. GIVES BACK THE NEW MARK."""
     listed = talking.look(chat, WINDOW)
 
     if seen is None:
-        return mark(listed[-1]) if listed else None
+        return mark(listed[-1]) if listed else blank()
 
     for entry in behind(listed, seen):
         # MARKED BEFORE IT IS ANSWERED. ONE MESSAGE THAT THROWS MUST NOT BE
@@ -118,7 +114,7 @@ def elsewhere(turn, home, noted):
     listed = talking.own(WINDOW)
 
     if noted is None:
-        return mark(listed[-1]) if listed else None
+        return mark(listed[-1]) if listed else blank()
 
     for entry in behind(listed, noted):
         noted = mark(entry)
@@ -174,6 +170,18 @@ def wanted(text, name, named):
 
 def mark(entry):
     return {"id": entry.get("id", ""), "at": entry.get("timestamp", 0)}
+
+
+def blank():
+    """WHERE WE CAME IN WHEN THERE WAS NOTHING THERE TO COME IN AFTER.
+
+    A NEW GROUP IS EMPTY, AND THE OWNER'S OWN MESSAGES ARE ONLY HELD FROM THE
+    MOMENT THE BRIDGE COMES UP, SO BOTH LISTS START WITH NOTHING IN THEM. LEAVING
+    THE MARK UNSET WOULD MEAN THE FIRST LOOK THAT FINALLY SEES A MESSAGE IS ALSO
+    THE FIRST LOOK OF THE RUN, AND THE FIRST THING ANYBODY ASKED WOULD ONLY BE
+    MARKED. WITH NO LAST MESSAGE TO POINT AT, NOW IS ALL THERE IS TO POINT AT.
+    """
+    return {"id": "", "at": int(time.time())}
 
 
 def behind(listed, seen):
