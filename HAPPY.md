@@ -998,6 +998,13 @@ it: told to look, he looked about one time in three. So a message turn is *hande
 front before it starts (`placing.py`) and has nothing left to guess with, and the tool remains
 for turns asked out loud at the machine.
 
+The other half was that he looked and saw himself. His panel comes up over everything the second
+his name is said and stays the active application while anybody types into it, so the system's
+honest answer to *what is in front* was "Electron" — and that is what he told somebody. He is
+skipped now: `attention.pile()` walks the windows front to back, past his own process and its
+parent, past the menu bar and every other floating thing, and the first ordinary window left is
+what somebody is actually doing.
+
 The order is the whole design. Asking beats looking by roughly ten to one on time and does not
 lose the argument on quality either — a picture cannot tell you that the Share button is greyed
 out, that a box is ticked, or where the keyboard is. Pixels are for what has no structure to

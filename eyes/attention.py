@@ -5,10 +5,15 @@ HAPPY NOTICES THAT SOMEONE ELSE HAS TOUCHED THE COMPUTER: A DIFFERENT
 APPLICATION IN FRONT, OR A POINTER THAT IS NOT WHERE IT WAS LEFT.
 """
 
+import os
 import sys
 
 MACOS = "darwin"
 WINDOWS = "win32"
+
+LEAST = 100  # PIXELS EITHER WAY. SMALLER THAN THIS IS FURNITURE, NOT A WINDOW.
+
+GW_HWNDNEXT = 2  # THE NEXT WINDOW DOWN THE PILE.
 
 DENIED = (
     "I cannot read this window's controls. Accessibility has to be allowed for "
@@ -100,30 +105,113 @@ def front():
 
 
 def doing():
-    """WHAT IS IN FRONT AND WHAT IT IS CALLED, IN ONE LINE, OR "".
+    """WHAT THE PERSON IS IN AND WHAT IT IS CALLED, IN ONE LINE, OR "".
 
     THE CHEAPEST ANSWER THERE IS TO "WHAT IS THIS PERSON DOING": FORTY
     MILLISECONDS, NO PICTURE AND NO MODEL. THE TITLE IS THE PART THAT MEANS
     ANYTHING — THE FILE, THE PAGE, THE EPISODE — SO A WINDOW WITH NO TITLE IS
     ONLY WORTH THE NAME OF THE APPLICATION.
     """
+    for name, handle, title in pile():
+        if not title:
+            try:
+                title = window(handle)
+            except Exception:
+                title = ""
+
+        if not title or title == name:
+            return f"{name} is in front"
+
+        return f'{name} is in front, and the window is "{title}"'
+
+    return ""
+
+
+def pile():
+    """EVERY ORDINARY WINDOW, FRONT TO BACK, AS (NAME, HANDLE, TITLE), SKIPPING
+    HAPPY'S OWN. THE HANDLE IS WHAT window() WANTS BACK.
+
+    NOT front(): HIS PANEL COMES UP OVER EVERYTHING THE SECOND HIS NAME IS SAID
+    AND STAYS ACTIVE WHILE ANYBODY TYPES INTO IT, SO THE SYSTEM'S OWN ANSWER TO
+    WHAT IS IN FRONT IS HIMSELF. A MENU BAR AND A STATUS DOT ARE IN FRONT TOO.
+    WHAT SOMEBODY IS DOING IS THE FIRST WINDOW THAT IS NONE OF THAT.
+    """
+    ours = {os.getpid(), os.getppid()}  # THE PANEL IS ELECTRON, AND IT STARTED THIS.
+
     try:
-        name, handle = front()
+        if on_mac():
+            return mac_pile(ours)
+
+        if on_windows():
+            return windows_pile(ours)
     except Exception:
-        return ""
+        return []
 
-    if not name:
-        return ""
+    return []
 
-    try:
-        title = window(handle)
-    except Exception:
-        title = ""
 
-    if not title or title == name:
-        return f"{name} is in front"
+def mac_pile(ours):
+    import Quartz
 
-    return f'{name} is in front, and the window is "{title}"'
+    from eyes.naming import wording
+
+    listed = Quartz.CGWindowListCopyWindowInfo(
+        Quartz.kCGWindowListOptionOnScreenOnly | Quartz.kCGWindowListExcludeDesktopElements,
+        Quartz.kCGNullWindowID,
+    )
+
+    found = []
+
+    for each in listed or ():
+        pid = each.get("kCGWindowOwnerPID")
+        name = wording(each.get("kCGWindowOwnerName"))
+        box = each.get("kCGWindowBounds") or {}
+
+        # LAYER 0 IS WHERE AN APPLICATION KEEPS ITS WINDOWS; NO ALPHA IS DRAWN NOWHERE.
+        if each.get("kCGWindowLayer") or not each.get("kCGWindowAlpha") or not name:
+            continue
+
+        if pid in ours or min(box.get("Width") or 0, box.get("Height") or 0) < LEAST:
+            continue
+
+        # THE TITLE COMES BACK EMPTY UNLESS THE SCREEN MAY BE RECORDED.
+        found.append((name, pid, wording(each.get("kCGWindowName"))))
+
+    return found
+
+
+def windows_pile(ours):
+    import ctypes
+
+    import psutil
+
+    user32 = ctypes.windll.user32
+    found = []
+    handle = user32.GetTopWindow(None)
+
+    while handle:
+        length = user32.GetWindowTextLengthW(handle)
+        pid = ctypes.c_ulong()
+
+        user32.GetWindowThreadProcessId(handle, ctypes.byref(pid))
+
+        # NO TITLE IS HOW WINDOWS DRAWS ITS OWN FURNITURE.
+        if length and user32.IsWindowVisible(handle) and pid.value not in ours:
+            hold = ctypes.create_unicode_buffer(length + 1)
+
+            user32.GetWindowTextW(handle, hold, length + 1)
+
+            try:
+                name = psutil.Process(pid.value).name().removesuffix(".exe")
+            except Exception:
+                name = ""
+
+            if name:
+                found.append((name, handle, hold.value))
+
+        handle = user32.GetWindow(handle, GW_HWNDNEXT)
+
+    return found
 
 
 def window(handle=None):
