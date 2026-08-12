@@ -424,6 +424,12 @@ class WhatsAppClient:
         except Exception as e:
             return {"error": str(e)}
 
+    async def get_recent_sent(self, limit: int = 25) -> list[dict[str, Any]]:
+        try:
+            return await self.get(f"/recent-sent?limit={limit}")
+        except Exception:
+            return []
+
     async def get_latest_sent_message(self) -> dict[str, Any]:
         try:
             return await self.get("/latest-sent-message")

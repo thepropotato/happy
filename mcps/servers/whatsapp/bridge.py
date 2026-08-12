@@ -98,6 +98,10 @@ QR_SLACK = 10
 # WHAT A RESTART OPENS WITH, IN THE USER'S OWN FOLDER SO UNLINKING TAKES IT TOO.
 CACHE = "cache.json"
 
+# HOW MANY OF THE OWNER'S OWN MESSAGES ARE HELD BACK FOR WHOEVER IS WATCHING.
+# MORE THAN ANYBODY TYPES BETWEEN TWO LOOKS, AND IT IS NOT A HISTORY.
+RECENT_SENT = 50
+
 # raw_messages IS NOT IN HERE AND CANNOT BE: THEY ARE LIVE PROTOBUFS. THE ONE
 # THING THEY ARE FOR IS FETCHING MEDIA, WHICH ALREADY FALLS BACK ON WHAT IS ON
 # DISK AND THEN ON THE CDN.
@@ -302,6 +306,7 @@ class Session:
         self.media = {}      # { jid: [media] }
         self.latest_received_message = None
         self.latest_sent_message = None
+        self.recent_sent = []  # THE OWNER'S OWN, ANY CHAT, OLDEST FIRST. THIS RUN ONLY.
         self.downloaded_media = {}
         self.raw_messages = {}
         self.failed_downloads = set()
@@ -865,6 +870,11 @@ def handle_message(session, message):
                 cur_ts = session.latest_sent_message.get("timestamp", 0) if session.latest_sent_message else 0
                 if ts and ts > cur_ts:
                     session.latest_sent_message = {**entry, "chatName": chat_name}
+                # ONE SLOT ONLY EVER HOLDS THE LAST. TWO MESSAGES TYPED IN A ROW
+                # ARE TWO THINGS ASKED, AND WHOEVER IS WATCHING WANTS BOTH.
+                session.recent_sent = [m for m in session.recent_sent if m["id"] != entry["id"]]
+                session.recent_sent.append({**entry, "chatName": chat_name, "chatJid": chat_jid})
+                del session.recent_sent[:-RECENT_SENT]
             else:
                 cur_ts = session.latest_received_message.get("timestamp", 0) if session.latest_received_message else 0
                 if ts and ts > cur_ts:
@@ -2294,6 +2304,19 @@ def latest_sent_message(username):
     if s.latest_sent_message is None:
         return jsonify({"error": "No sent messages found"}), 404
     return jsonify(clean(s.latest_sent_message))
+
+
+@app.get("/<username>/recent-sent")
+def recent_sent(username):
+    """The owner's own last few messages across every chat, oldest first, each one
+    carrying the chat it was written in."""
+    s = get_session(username)
+    limit = int(request.args.get("limit", 25))
+
+    with s.lock:
+        found = list(s.recent_sent)[-limit:]
+
+    return jsonify(clean([with_media(s, m) for m in found]))
 
 
 @app.post("/<username>/rebuild-senders")

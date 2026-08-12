@@ -98,8 +98,8 @@ EYES = [
 ]
 
 CONNECTIONS = [
-    toggle("mcps.answering", "Answer your own chat", False,
-           "Say @happy in a message, or hey happy in a voice note."),
+    toggle("mcps.answering", "Answer in chats", False,
+           "Everything in a group named Happy. Anywhere else, say @happy yourself."),
     number("mcps.timeout", "Give up after", 5, 120, 5, 20, "A service is not this computer.",
            "sec", whole=True),
 ]

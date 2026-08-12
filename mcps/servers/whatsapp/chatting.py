@@ -1,31 +1,28 @@
-"""BEING SPOKEN TO IN THE CHAT ON THE LINKED ACCOUNT.
+"""BEING SPOKEN TO IN A CHAT ON THE LINKED ACCOUNT.
 
 THE BRIDGE ALREADY HEARS EVERY MESSAGE THE MOMENT IT LANDS AND TELLS NOBODY, SO
-THIS ASKS IT. A CHAT IS NOT A MICROPHONE: NEARLY EVERYTHING IN ONE WAS NEVER
-MEANT FOR HAPPY, SO A MESSAGE IS ONLY A TURN WHEN IT SAYS HIS NAME.
+THIS ASKS IT. ONE CHAT IS HIS AND EVERY OTHER ONE IS NOT.
 
-A PERSON'S OWN CHAT IS THE ONE PLACE ONLY THEIR OWN DEVICES CAN WRITE INTO,
-WHICH IS THE WHOLE REASON IT IS THE CHAT WE WATCH.
+A GROUP WITH HIS NAME ON IT IS THE CHAT WITH HAPPY. NOTHING IN THERE WAS MEANT
+FOR ANYBODY ELSE, SO EVERYTHING SAID IN IT IS SAID TO HIM AND NOTHING HAS TO BE
+TAGGED. ANYWHERE ELSE A CHAT IS NOT A MICROPHONE: A MESSAGE IS ONLY A TURN WHEN
+THE OWNER HIMSELF SAYS HAPPY'S NAME IN IT. ANYBODY IN ANY GROUP CAN TYPE @happy,
+AND NONE OF THEM IS WHO HAPPY ANSWERS TO.
 
 WHERE WE GOT TO IS HELD FOR AS LONG AS HAPPY IS UP AND NO LONGER. A QUESTION
 ASKED WHILE HE WAS OFF IS NOT ANSWERED SIX HOURS LATE; THE FIRST LOOK OF A RUN
 ONLY MARKS WHERE WE CAME IN.
 
-client.py NEXT DOOR IS THE WHOLE BRIDGE'S API AND IT IS ASYNC, BECAUSE THE MCP
-SERVER THAT USES IT IS. THE BOTTOM OF THIS FILE IS THE HANDFUL OF IT HAPPY
-HIMSELF NEEDS, ASKED FROM A PLAIN THREAD.
+talking.py IS EVERYTHING THIS ASKS OF THE BRIDGE, replying.py EVERYTHING IT SAYS.
 """
 
-import asyncio
 import re
 import threading
 import time
-from pathlib import Path
 
-import voice
 from ears import engines
 from face import show
-from mcps.servers.whatsapp.client import WhatsAppClient
+from mcps.servers.whatsapp import replying, talking
 from memory import settings
 
 # HIS NAME, WRITTEN AND SAID. A CHAT NEEDS THE @ TO LOOK ADDRESSED; A VOICE NOTE
@@ -42,17 +39,6 @@ SETTING = "mcps.answering"
 
 AUDIO = "audio"
 
-DIRECT = "s.whatsapp.net"
-
-REPLIES = Path(__file__).resolve().parents[3] / "data" / "replies"
-
-# HIS OWN ANSWERS GO INTO THE SAME CHAT AND COME BACK LOOKING LIKE ANYBODY'S.
-# ONE THAT QUOTED THE TAG WOULD BE ANSWERED AGAIN, AND AGAIN AFTER THAT.
-REMEMBERED = 50
-
-reaching = None
-ours = set()
-
 
 def listen(turn):
     """START WATCHING.
@@ -64,8 +50,9 @@ def listen(turn):
 
 
 def watching(turn):
-    chat = None
+    home = None
     seen = None
+    noted = None
     moaned = None
 
     while True:
@@ -75,13 +62,15 @@ def watching(turn):
             continue
 
         try:
-            if not settled():
+            if not talking.settled():
                 continue
 
-            chat = chat or mine()
+            home = home or found()
 
-            if chat:
-                seen = sweep(turn, chat, seen)
+            if home:
+                seen = sweep(turn, home, seen)
+
+            noted = elsewhere(turn, home, noted)
 
             moaned = None
         except Exception as error:
@@ -91,176 +80,111 @@ def watching(turn):
                 show.trouble(f"Messages: {moaned}")
 
 
+def found():
+    """HIS GROUP, SAID ONCE WHEN IT TURNS UP SO NOBODY WONDERS WHICH ONE IT IS."""
+    where, name = talking.home()
+
+    if where:
+        show.note(f'Answering in "{name}"')
+
+    return where
+
+
 def sweep(turn, chat, seen):
-    """EVERY MESSAGE SINCE THE LAST ONE, ANSWERED. GIVES BACK THE NEW MARK."""
-    found = look(chat, WINDOW)
+    """EVERY MESSAGE IN HIS GROUP SINCE THE LAST ONE. GIVES BACK THE NEW MARK."""
+    listed = talking.look(chat, WINDOW)
 
     if seen is None:
-        return mark(found[-1]) if found else None
+        return mark(listed[-1]) if listed else None
 
-    for entry in behind(found, seen):
+    for entry in behind(listed, seen):
         # MARKED BEFORE IT IS ANSWERED. ONE MESSAGE THAT THROWS MUST NOT BE
         # PICKED UP AGAIN ON EVERY LOOP FOREVER.
         seen = mark(entry)
 
-        if entry.get("id") not in ours:
-            answer(turn, chat, entry)
+        if not replying.mine(entry.get("id")):
+            answer(turn, chat, entry, False)
 
     return seen
 
 
-def answer(turn, chat, entry):
-    asked, spoken = heard(chat, entry)
+def elsewhere(turn, home, noted):
+    """THE OWNER'S OWN MESSAGES IN EVERY OTHER CHAT, ANSWERED WHERE THEY NAME HIM.
 
-    if not asked:
+    HIS OWN GROUP IS SKIPPED BECAUSE THE SWEEP ABOVE HAS ALREADY HAD IT, TAG OR
+    NO TAG. NOTHING SPECIAL IS LEFT OF THE OWNER'S OWN CHAT EITHER: IT IS ONE
+    MORE CHAT WHERE SAYING HIS NAME REACHES HIM.
+    """
+    listed = talking.own(WINDOW)
+
+    if noted is None:
+        return mark(listed[-1]) if listed else None
+
+    for entry in behind(listed, noted):
+        noted = mark(entry)
+
+        chat = entry.get("chatJid")
+
+        if chat and chat != home and not replying.mine(entry.get("id")):
+            answer(turn, chat, entry, True)
+
+    return noted
+
+
+def answer(turn, chat, entry, named):
+    asked, spoken = heard(chat, entry, named)
+
+    if not asked or replying.again(asked):
         return
 
     said, pictures = turn(asked)
 
-    # AHEAD OF THE WORDS, SO THE ANSWER READS AS A CAPTION UNDER WHAT IT IS ABOUT.
-    for where in pictures:
-        kept(shown(chat, where))
-
-    if not said:
-        return
-
-    # A VOICE NOTE THAT COULD NOT BE MADE OR SENT FALLS BACK TO WRITING.
-    sent = aloud(chat, entry, said) if spoken else None
-
-    kept(sent or say(chat, said))
+    replying.back(chat, entry, said, pictures, spoken)
 
 
-def kept(sent):
-    """AN ANSWER OF OURS, BY ITS ID, SO THE NEXT LOOK KNOWS IT WAS NOT A QUESTION."""
-    if not sent:
-        return
-
-    if len(ours) >= REMEMBERED:
-        ours.clear()
-
-    ours.add(sent)
-
-
-def aloud(chat, entry, said):
-    """A SPOKEN QUESTION ANSWERED THE SAME WAY, IF THERE IS A VOICE TO DO IT."""
-    try:
-        path = voice.wav(said, REPLIES / f"{entry['id']}.wav")
-    except Exception:
-        return False
-
-    if not path:
-        return False
-
-    sent = note(chat, path)
-    path.unlink(missing_ok=True)
-
-    return sent  # THE ID, OR None IF THE BRIDGE WOULD NOT TAKE IT.
-
-
-def heard(chat, entry):
+def heard(chat, entry, named):
     """WHAT WAS ASKED OF HAPPY HERE, AND WHETHER IT WAS SAID RATHER THAN TYPED."""
     if not (entry.get("hasMedia") and entry.get("mediaType") == AUDIO):
-        return addressed((entry.get("body") or "").strip(), WRITTEN), False
+        return wanted((entry.get("body") or "").strip(), WRITTEN, named), False
 
-    where = recording(chat, entry)
+    where = talking.recording(chat, entry)
 
     if not where:
         return None, True
 
-    return addressed(engines.transcribe(where), SPOKEN), True
+    return wanted(engines.transcribe(where), SPOKEN, named), True
 
 
-def addressed(text, name):
-    """WHAT IS LEFT ONCE HIS NAME IS TAKEN OUT, OR None IF IT WAS NEVER THERE."""
-    if not text or not name.search(text):
+def wanted(text, name, named):
+    """WHAT WAS ASKED OF HIM, OR None IF IT WAS NOT ASKED OF HIM.
+
+    HIS NAME COMES OUT EITHER WAY. IN HIS OWN GROUP NOBODY HAS TO WRITE IT AND
+    PLENTY STILL WILL; ANYWHERE ELSE IT IS THE WHOLE REASON WE ARE READING.
+    """
+    text = (text or "").strip()
+
+    if not text:
         return None
 
-    return name.sub(" ", text, count=1).strip(" ,.!?")
+    if not name.search(text):
+        return None if named else text
+
+    return name.sub(" ", text, count=1).strip(" ,.!?") or None
 
 
 def mark(entry):
     return {"id": entry.get("id", ""), "at": entry.get("timestamp", 0)}
 
 
-def behind(found, seen):
+def behind(listed, seen):
     """THE PART OF THE LIST THAT COMES AFTER THE MARK.
 
     THE MARK IS A MESSAGE, NOT A TIME. TWO OF THEM CAN SHARE A SECOND AND ONLY
     ONE WOULD SURVIVE BEING CUT BY THE CLOCK.
     """
-    for spot, each in enumerate(found):
+    for spot, each in enumerate(listed):
         if each.get("id") == seen["id"]:
-            return found[spot + 1:]
+            return listed[spot + 1:]
 
     # THE MARK HAS FALLEN OFF THE END OF THE WINDOW, SO THE CLOCK IS ALL WE HAVE.
-    return [each for each in found if each.get("timestamp", 0) > seen["at"]]
-
-
-def mine():
-    """THE LINKED ACCOUNT'S OWN CHAT, OR None WHEN NOTHING IS LINKED."""
-    phone = (asked(client().get_status()) or {}).get("phone")
-
-    return f"{phone}@{DIRECT}" if phone else None
-
-
-def settled():
-    """UP, LINKED, AND DONE WITH ITS OPENING SYNC.
-
-    EVERY CONNECT PUTS THE BRIDGE BACK INTO ONE, AND WHAT IT KNOWS DURING A SYNC
-    IS WHATEVER IT HAD BEFORE. ASKING THEN WOULD MARK MESSAGES NOBODY HAS SEEN.
-    """
-    if not (asked(client().get_status()) or {}).get("connected"):
-        return False
-
-    return not (asked(client().get("/sync-status")) or {}).get("syncing")
-
-
-def look(chat, limit):
-    """THE TAIL OF THE CHAT, OLDEST FIRST."""
-    found = asked(client().get_messages(chat, limit=limit))
-
-    return found if isinstance(found, list) else []
-
-
-def recording(chat, entry):
-    """A VOICE NOTE PUT ON DISK, OR None IF IT COULD NOT BE FETCHED."""
-    got = asked(client().download_media_from_message(entry["id"], chat=chat))
-
-    return (got or {}).get("local_path")
-
-
-def say(chat, text):
-    """WRITTEN INTO THE CHAT. RETURNS THE ID IT WAS GIVEN, SO WE KNOW IT WAS US."""
-    return (asked(client().send_message(chat, text)) or {}).get("messageId")
-
-
-def note(chat, path):
-    """A .wav IS AUDIO TO THE BRIDGE, SO WHAT LANDS IS A VOICE NOTE."""
-    return (asked(client().send_media_message(chat, str(path))) or {}).get("messageId")
-
-
-def shown(chat, where):
-    """A PICTURE INTO THE CHAT, AND OFF THIS DISK AFTERWARDS.
-
-    THE BRIDGE GOES BY THE SUFFIX, SO A .png LANDS AS A PHOTO AND NOT AS A FILE.
-    THROWN AWAY EITHER WAY: A SHOT NOBODY COULD BE SENT IS STILL A SHOT OF THEIR
-    SCREEN SAT IN A FOLDER.
-    """
-    try:
-        return note(chat, where)
-    finally:
-        Path(where).unlink(missing_ok=True)
-
-
-def client():
-    global reaching
-
-    if reaching is None:
-        reaching = WhatsAppClient()
-
-    return reaching
-
-
-def asked(coro):
-    """THE CLIENT IS ASYNC BECAUSE THE MCP SERVER IS. NOTHING ON THIS SIDE IS."""
-    return asyncio.run(coro)
+    return [each for each in listed if each.get("timestamp", 0) > seen["at"]]
