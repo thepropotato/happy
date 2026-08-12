@@ -224,6 +224,12 @@ def distant(happy, text, context=None):
         show.begin()
         show.said(text)
 
+        # THE WINDOW OPENS EVERY TURN ON "MAKING IT OUT", WHICH IS THE EARS
+        # WORKING OUT WHAT WAS SAID. NOTHING IS BEING MADE OUT HERE — THE WORDS
+        # ARRIVED WRITTEN — AND ONLY A SPOKEN TURN EVER MOVED IT ON, SO A MESSAGE
+        # SAT UNDER THAT WORD FOR THE WHOLE OF THE THINKING AND LOOKED STUCK.
+        show.opening()
+
         handing.opened()
 
         try:
