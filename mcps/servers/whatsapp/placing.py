@@ -11,6 +11,7 @@ HER I LOVE HER" IS ANSWERED BY SAYING IT TO HER, WHICH IS THE WHOLE ERRAND. NOT
 TOLD IT, HE ANSWERS "I'VE LET HER KNOW" AND SHE IS THE ONE WHO READS THAT.
 """
 
+from eyes import attention
 from mcps.servers.whatsapp import talking
 
 TAIL = 8  # MESSAGES OF THE CHAT PUT IN FRONT OF HIM. ENOUGH TO FOLLOW A THREAD.
@@ -23,11 +24,12 @@ whose = None
 
 
 def about(chat, entry, his):
-    """THE FEW LINES THAT SAY WHERE HE IS STANDING, OR None IN HIS OWN GROUP."""
-    if his:
-        return None
-
+    """THE FEW LINES THAT SAY WHERE HE IS STANDING AND WHAT IS GOING ON HERE."""
     owner = named()
+
+    if his:
+        return doing(owner)
+
     with_whom = str(entry.get("chatName") or "").strip() or "this chat"
 
     if GROUPS in chat:
@@ -59,7 +61,30 @@ def about(chat, entry, his):
         f"rule about never reading a message out as your answer is the one thing that does not "
         f"apply here — writing it out is what sends it. Asked to tell them something, answer with "
         f"that thing itself, in {owner}'s own voice and nothing else around it: {like}."
-    ), lines(chat, owner, with_whom))
+    ), doing(owner), lines(chat, owner, with_whom))
+
+
+def doing(owner):
+    """WHAT IS IN FRONT OF THEM THIS SECOND, WHICH NOBODY IN A CHAT CAN SEE.
+
+    ASKED WHAT SOMEBODY IS DOING, HE HAS A TOOL THAT LOOKS — AND MOST OF THE TIME
+    HE DOES NOT REACH FOR IT. HE ANSWERS "ON THE COMPUTER", WHICH IS WHAT THEY
+    ALREADY ASSUMED, OR WORSE INVENTS A PHOTO GALLERY HE HAS NEVER SEEN AND SENDS
+    THAT TO SOMEBODY. IT COSTS FORTY MILLISECONDS TO KNOW, SO HE IS TOLD RATHER
+    THAN TRUSTED TO ASK, AND THERE IS NOTHING LEFT TO GUESS WITH.
+    """
+    seen = attention.doing()
+
+    if not seen:
+        return ""
+
+    return (
+        f"On this computer right now, {seen}. That is what {owner} is doing this second and it "
+        f"is the answer to any question about what they are up to, working on, watching or busy "
+        f"with — the real thing, not \"on the computer\". Say it only if something is asked of "
+        f"it: it is what you can see, not news to bring up on its own. If it is too little to go "
+        f"on, read_screen and say what is really happening."
+    )
 
 
 def join(*parts):

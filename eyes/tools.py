@@ -5,6 +5,7 @@ from pathlib import Path
 
 from langchain_core.tools import tool
 
+from eyes import attention
 from eyes.describing import QUESTION, asked, smaller
 from face import handing
 from hands import asking
@@ -77,6 +78,34 @@ def read_screen() -> str:
 
 
 @tool
+def current_activity() -> str:
+    """What this person is doing on the computer right now: the application they
+    are in front of, and the title of the window they have open in it.
+
+    Use this whenever you are asked what they are doing, what they are up to,
+    what they are working on, whether they are busy, or asked to tell somebody
+    else any of that. Never answer those out of your own head. There is no way
+    to know what somebody is doing without looking, and "on the computer" tells
+    whoever asked nothing they had not already guessed.
+
+    The window title is usually the specific thing: the file being edited, the
+    page being read, the video playing, the person being written to. Say what it
+    actually is, in a way that means something to whoever asked. If the title is
+    too little to go on, read_screen next and say what is really happening."""
+    seen = attention.doing()
+
+    if not seen:
+        return asking.no("Nothing is in front: no application is active on this screen.")
+
+    if "window is" in seen:
+        return f"{seen}."
+
+    # A REFUSED ACCESSIBILITY PROMPT LOOKS EXACTLY LIKE A WINDOW WITH NO NAME, AND
+    # ONE OF THE TWO IS SOMETHING THE PERSON CAN ACTUALLY GO AND FIX.
+    return f"{seen}. {attention.allowed() or 'Its window has no title.'}"
+
+
+@tool
 def look_at_screen(question: str) -> str:
     """Ask about what the screen looks like, rather than what it says: which
     window is in front, where something sits, what an icon or a picture shows,
@@ -128,4 +157,4 @@ def show_screen() -> str:
     return f"A picture of the whole screen, {shot.image.width} by {shot.image.height}, is on its way."
 
 
-TOOLS = [read_image, read_screen, look_at_screen, show_screen]
+TOOLS = [read_image, read_screen, current_activity, look_at_screen, show_screen]

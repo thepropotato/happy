@@ -94,7 +94,8 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `eyes/asking.py` | Asking each system to describe its own screen. macOS and Windows side by side. |
 | `eyes/naming.py` | What each system calls a thing, and what a person calls it. |
 | `eyes/structure.py` | The controls in the window in front, filtered down to the real ones. |
-| `eyes/attention.py` | What is in front, what has the caret, where the pointer is. |
+| `eyes/attention.py` | What is in front, and what the window in front is called. |
+| `eyes/pointing.py` | Where the keyboard and the pointer are. |
 | `eyes/estimating.py` | Every sense fused into one scene, and what changed between two of them. |
 | `eyes/world.py` | What Happy currently believes about the desktop, and how he tells the model. |
 | `eyes/matching.py` | Matching a spoken name against what is written on the screen. |
@@ -980,6 +981,15 @@ second and a half for a full screen. `read_screen`.
 
 **What does it look like** is a vision model: tens of seconds, and needed far less often than it
 looks. `look_at_screen(question)`.
+
+**What is this person doing** comes before all three and costs **40 ms**: the application in
+front and the title of its window, which is nearly always the specific thing — the file, the
+page, the episode. `current_activity`. Asked to tell somebody what he was up to, Happy used to
+answer "I'm on my computer", which is what whoever asked had already assumed, and when pushed
+would invent a photo gallery he had never seen and send that to them. A tool alone did not fix
+it: told to look, he looked about one time in three. So a message turn is *handed* what is in
+front before it starts (`placing.py`) and has nothing left to guess with, and the tool remains
+for turns asked out loud at the machine.
 
 The order is the whole design. Asking beats looking by roughly ten to one on time and does not
 lose the argument on quality either — a picture cannot tell you that the Share button is greyed

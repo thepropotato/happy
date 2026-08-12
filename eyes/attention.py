@@ -99,6 +99,33 @@ def front():
     return "", None
 
 
+def doing():
+    """WHAT IS IN FRONT AND WHAT IT IS CALLED, IN ONE LINE, OR "".
+
+    THE CHEAPEST ANSWER THERE IS TO "WHAT IS THIS PERSON DOING": FORTY
+    MILLISECONDS, NO PICTURE AND NO MODEL. THE TITLE IS THE PART THAT MEANS
+    ANYTHING — THE FILE, THE PAGE, THE EPISODE — SO A WINDOW WITH NO TITLE IS
+    ONLY WORTH THE NAME OF THE APPLICATION.
+    """
+    try:
+        name, handle = front()
+    except Exception:
+        return ""
+
+    if not name:
+        return ""
+
+    try:
+        title = window(handle)
+    except Exception:
+        title = ""
+
+    if not title or title == name:
+        return f"{name} is in front"
+
+    return f'{name} is in front, and the window is "{title}"'
+
+
 def window(handle=None):
     """THE TITLE OF THE WINDOW IN FRONT. handle IS A PROCESS ON MACOS AND A
     WINDOW ON WINDOWS, WHICHEVER front() HANDED BACK."""
@@ -143,58 +170,3 @@ def window(handle=None):
             return ""
 
     return ""
-
-
-def caret():
-    """WHAT HAS THE KEYBOARD, IN WORDS, OR "". TYPING GOES WHEREVER THIS IS."""
-    if on_mac():
-        from eyes.asking import mac_attribute
-        from eyes.naming import wording
-
-        _, pid = front()
-
-        if pid is None:
-            return ""
-
-        from ApplicationServices import AXUIElementCreateApplication
-
-        app = AXUIElementCreateApplication(pid)
-        focused = mac_attribute(app, "AXFocusedUIElement")
-
-        if focused is None:
-            return ""
-
-        return (
-            wording(mac_attribute(focused, "AXTitle"))
-            or wording(mac_attribute(focused, "AXDescription"))
-            or wording(mac_attribute(focused, "AXRole"))
-        )
-
-    if on_windows():
-        try:
-            from comtypes.client import CreateObject, GetModule
-
-            GetModule("UIAutomationCore.dll")
-
-            from comtypes.gen.UIAutomationClient import CUIAutomation, IUIAutomation
-
-            automation = CreateObject(CUIAutomation, interface=IUIAutomation)
-            focused = automation.GetFocusedElement()
-
-            return str(focused.CurrentName or "") if focused else ""
-        except Exception:
-            return ""
-
-    return ""
-
-
-def pointer():
-    """WHERE THE POINTER IS, IN THE COORDINATES IT MOVES IN."""
-    try:
-        from pynput.mouse import Controller
-
-        x, y = Controller().position
-
-        return int(x), int(y)
-    except Exception:
-        return 0, 0

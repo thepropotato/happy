@@ -12,7 +12,7 @@ READING ITS PIXELS INSTEAD COSTS A SECOND AND A HALF.
 
 import time
 
-from eyes import attention, structure
+from eyes import attention, pointing, structure
 from eyes.parts import Scene, VisionError
 
 # THESE RANK THE SENSES, THEY ARE NOT PROBABILITIES. MULTIPLYING THEM TOGETHER
@@ -67,8 +67,8 @@ def observed(words, reading):
         app=name,
         window=attention.window(handle),
         elements=tuple(elements),
-        focus=attention.caret(),
-        pointer=attention.pointer(),
+        focus=pointing.caret(),
+        pointer=pointing.pointer(),
         text=text,
         mark=mark,
         senses=tuple(senses),
