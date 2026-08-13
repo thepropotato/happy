@@ -23,8 +23,6 @@ from brain.prompt import system_prompt
 from brain.watching import MODEL, Stuck, fresh, keep_count, keep_recent, keep_record, tell, watches
 from memory import settings
 
-SHAPE = "shape"
-
 MODEL_NODE = "model"
 
 # mcps IS HERE BECAUSE CONNECTING A SERVICE ADDS TOOLS.
@@ -138,7 +136,6 @@ class Happy:
     def say(self, speech, context=None, **about):
         """THE WHOLE REPLY AS ONE STRING."""
         graph, prompt, bound = self.ready()
-        log_context(prompt, bound)
 
         memory.begin(speech, **about)
         fresh()
@@ -161,7 +158,6 @@ class Happy:
     def say_streaming(self, speech, context=None, **about):
         """THE REPLY IN PIECES, FOR HANDING SENTENCES TO THE VOICE AS THEY LAND."""
         graph, prompt, bound = self.ready()
-        log_context(prompt, bound)
         memory.begin(speech, **about)
         fresh()
         reply = ""
@@ -258,11 +254,6 @@ def shape(prompt, bound):
     """THE PREFIX AS THE SERVER SEES IT. THE TOOL OBJECTS THEMSELVES ARE REMADE
     ON EVERY BUILD, SO COMPARING THEM SAYS EVERYTHING MOVED WHEN NOTHING DID."""
     return prompt, tuple(each.name for each in bound)
-
-
-def log_context(prompt, bound):
-    """EMIT PROMPT LENGTH AND TOOL COUNT SO THE STATS TABLE CAN SHOW SAVINGS."""
-    tell(SHAPE, None, 0, {"prompt_chars": len(prompt), "tools": len(bound)})
 
 
 def missing_tool_error(error):

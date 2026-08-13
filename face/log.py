@@ -17,7 +17,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-from face.turn import MODEL, PROFILE, SPENT, STARTED, Turn, count, stats
+from face.turn import MODEL, SPENT, STARTED, Turn, count, stats
 
 FILE = Path(__file__).resolve().parents[1] / "data" / "happy.log"
 
@@ -140,12 +140,6 @@ def step(kind, name, seconds, about=None):
 
     if kind == MODEL:
         turn.thought = seconds
-
-        return
-
-    if kind == PROFILE:
-        turn.prompt_chars = (about or {}).get("prompt_chars", 0)
-        turn.tool_count = (about or {}).get("tools", 0)
 
         return
 

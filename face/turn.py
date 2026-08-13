@@ -13,9 +13,6 @@ STARTED = "tool.started"
 # ONE ROUND'S TOKENS, REPORTED THE MOMENT THE MODEL COMES BACK.
 SPENT = "spent"
 
-# EMITTED ONCE PER TURN WITH PROMPT LENGTH AND BOUND TOOL COUNT.
-PROFILE = "profile"
-
 THOUSAND = 1000
 
 
@@ -31,10 +28,6 @@ class Turn:
         # ADDED UP OVER EVERY ROUND, BECAUSE A TURN IS NEVER ONE REQUEST.
         self.read = 0
         self.wrote = 0
-
-        # SET ONCE PER TURN FROM THE PROFILE CONTEXT EVENT.
-        self.prompt_chars = 0
-        self.tool_count = 0
 
     def seconds(self):
         return time.perf_counter() - self.started
@@ -73,9 +66,6 @@ def stats(this):
     # LAST, AND ITS OWN PART: IT IS THE ONLY NUMBER HERE THAT IS NOT A CLOCK.
     if this.read or this.wrote:
         parts.append(f"tokens {count(this.read)} read {DOT} {count(this.wrote)} wrote")
-
-    if this.prompt_chars or this.tool_count:
-        parts.append(f"context {count(this.prompt_chars)}ch {DOT} {this.tool_count} tools")
 
     lines = [f" {BAR} ".join(parts)]
 
