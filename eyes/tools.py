@@ -15,6 +15,9 @@ from eyes.screen import grab
 
 MAX_CHARS = 20000
 
+# WINDOWS DEEP ENOUGH TO NAME. PAST THIS IS A LIST NOBODY COULD BE READ OUT LOUD.
+MOST = 12
+
 SHOTS = Path(__file__).resolve().parents[1] / "data" / "shots"
 
 # WHOEVER IS ASKING IS LOOKING AT IT. THERE IS NOTHING TO SEND THEM.
@@ -90,6 +93,16 @@ def current_activity() -> str:
     doing without looking, and "on the computer" tells whoever asked nothing
     they had not already guessed.
 
+    Use it just as much when the question never says the word screen but cannot
+    be answered without it: how much of this is left, what the next one is, how
+    far in they are, which one this is. Those are about what they are in front
+    of right now, so they start here, every time, before you count anything.
+
+    This is the front window only, and what somebody is doing is often behind
+    it. If what came back is not what you were asked about — the wrong
+    application, a call, Happy himself — do not answer from it and do not give
+    up: list_open_windows has everything else they have open.
+
     The window title is usually the specific thing: the file being edited, the
     page being read, the video playing, the person being written to. Say what it
     actually is, in a way that means something to whoever asked. If the title is
@@ -100,11 +113,57 @@ def current_activity() -> str:
         return asking.no("Nothing is in front: no application is active on this screen.")
 
     if "window is" in seen:
-        return f"{seen}."
+        return f"{seen}.{rest()}"
 
     # A REFUSED ACCESSIBILITY PROMPT LOOKS EXACTLY LIKE A WINDOW WITH NO NAME, AND
     # ONE OF THE TWO IS SOMETHING THE PERSON CAN ACTUALLY GO AND FIX.
-    return f"{seen}. {attention.allowed() or 'Its window has no title.'}"
+    return f"{seen}. {attention.allowed() or 'Its window has no title.'}{rest()}"
+
+
+def rest():
+    """WHAT ELSE IS OPEN, NAMED HERE RATHER THAN FETCHED BY A SECOND CALL.
+
+    POINTING AT THE OTHER TOOL WAS TRIED AND FOLLOWED ONE TIME IN FOUR: THE
+    MODEL READS ONE WINDOW TITLE, TAKES IT FOR THE ANSWER, AND STOPS. SO THE
+    QUESTION IS ANSWERED WHOLE IN ONE ROUND TRIP INSTEAD, BECAUSE A CHAIN THAT
+    HAS TO BE FOLLOWED THREE TIMES OUT OF FOUR IS NOT A CHAIN THAT WORKS.
+    """
+    behind = attention.windows()[1:MOST]
+
+    if not behind:
+        return ""
+
+    listed = "; ".join(f'{name} — "{title}"' if title else name for name, title in behind)
+
+    return f" Also open behind it, front to back: {listed}."
+
+
+@tool
+def list_open_windows() -> str:
+    """Every window this person has open right now, front to back, each with the
+    application it is in and its own title.
+
+    What somebody is doing is not only the window on top. A video plays on
+    behind the thing being typed into, a chat sits open two windows back, a
+    download finishes somewhere nobody has looked in an hour. current_activity
+    hands you the front one and nothing else, so come here whenever what you
+    were asked about is not in it, whenever you were asked what else is open or
+    running, and whenever the front window turns out to be Happy or a call.
+
+    The titles are the part that means anything: the file, the page, the
+    episode, the person being written to. Read the whole list before answering,
+    and name the real thing rather than the application it happens to be in."""
+    seen = attention.windows()[:MOST]
+
+    if not seen:
+        return asking.no(
+            f"Nothing is open: no ordinary window is on this screen. "
+            f"{attention.allowed() or ''}".strip()
+        )
+
+    listed = "\n".join(f'{name} — "{title}"' if title else name for name, title in seen)
+
+    return f"Open right now, front to back:\n{listed}"
 
 
 @tool
@@ -159,4 +218,11 @@ def show_screen() -> str:
     return f"A picture of the whole screen, {shot.image.width} by {shot.image.height}, is on its way."
 
 
-TOOLS = [read_image, read_screen, current_activity, look_at_screen, show_screen]
+TOOLS = [
+    read_image,
+    read_screen,
+    current_activity,
+    list_open_windows,
+    look_at_screen,
+    show_screen,
+]

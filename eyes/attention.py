@@ -127,6 +127,85 @@ def doing():
     return ""
 
 
+def windows():
+    """EVERY ORDINARY WINDOW, FRONT TO BACK, AS (NAME, TITLE), DUPLICATES GONE.
+
+    doing() IS THE FRONT ONE AND THIS IS ALL OF THEM, WHICH IS NOT THE SAME
+    QUESTION: WHAT SOMEBODY IS DOING IS OFTEN NOT THE WINDOW ON TOP. A VIDEO
+    PLAYS ON BEHIND THE THING BEING TYPED INTO, AND A CHAT SITS TWO WINDOWS BACK.
+    """
+    found = []
+    seen = set()
+
+    for name, handle, title in everything():
+        pair = (name, "" if title == name else title)
+
+        if pair in seen:
+            continue
+
+        seen.add(pair)
+        found.append(pair)
+
+    return found
+
+
+def everything():
+    """EVERY WINDOW WORTH NAMING, FRONT TO BACK, AS (NAME, HANDLE, TITLE).
+
+    NOT pile(): THAT ONE ASKS MACOS FOR WHAT IS ON SCREEN, AND A CALL OR A VIDEO
+    GONE FULLSCREEN IS A SPACE OF ITS OWN — SO ON-SCREEN-ONLY THEN SWEARS THE
+    OTHER SIX WINDOWS ARE NOT OPEN. WINDOWS HAS NO SPACES AND ITS WALK DOWN THE
+    PILE IS ALREADY EVERY TITLED WINDOW, SO THERE IT IS THE SAME LIST.
+    """
+    ours = {os.getpid(), os.getppid()}
+
+    try:
+        if on_mac():
+            return mac_everything(ours)
+
+        if on_windows():
+            return windows_pile(ours)
+    except Exception:
+        return []
+
+    return []
+
+
+def mac_everything(ours):
+    import Quartz
+
+    from eyes.naming import wording
+
+    listed = Quartz.CGWindowListCopyWindowInfo(
+        Quartz.kCGWindowListOptionAll | Quartz.kCGWindowListExcludeDesktopElements,
+        Quartz.kCGNullWindowID,
+    )
+
+    found = []
+
+    for each in listed or ():
+        pid = each.get("kCGWindowOwnerPID")
+        name = wording(each.get("kCGWindowOwnerName") or "")
+        title = wording(each.get("kCGWindowName") or "")
+        box = each.get("kCGWindowBounds") or {}
+
+        if each.get("kCGWindowLayer") or not each.get("kCGWindowAlpha") or not name:
+            continue
+
+        if pid in ours or min(box.get("Width") or 0, box.get("Height") or 0) < LEAST:
+            continue
+
+        # ONE THAT NAMES ITSELF NOTHING IS FURNITURE: AN AUTOFILL BUBBLE, A LOGIN
+        # PANEL, A HELPER. doing() CAN ASK ACCESSIBILITY FOR THE ONE IN FRONT,
+        # BUT A WHOLE LIST CANNOT WITHOUT A ROUND TRIP PER WINDOW.
+        if not title:
+            continue
+
+        found.append((name, None, title))
+
+    return found
+
+
 def pile():
     """EVERY ORDINARY WINDOW, FRONT TO BACK, AS (NAME, HANDLE, TITLE), SKIPPING
     HAPPY'S OWN. THE HANDLE IS WHAT window() WANTS BACK.
