@@ -20,7 +20,17 @@ import memory
 from brain import model as brain
 from brain.model import LLMError
 from brain.prompt import system_prompt
-from brain.watching import MODEL, Stuck, fresh, keep_count, keep_recent, keep_record, tell, watches
+from brain.watching import (
+    MODEL,
+    Stuck,
+    fresh,
+    keep_count,
+    keep_looking,
+    keep_recent,
+    keep_record,
+    tell,
+    watches,
+)
 from memory import settings
 
 MODEL_NODE = "model"
@@ -85,6 +95,7 @@ class Happy:
             system_prompt=built_prompt,
             middleware=[
                 keep_recent,
+                keep_looking,
                 keep_count,
                 keep_record,
                 ModelCallLimitMiddleware(run_limit=settings.get("brain.calls")),
@@ -243,6 +254,9 @@ class Happy:
         ONE MESSAGE AND NOT TWO, SO NOTHING DOWNSTREAM HAS TO KNOW THIS HAPPENED.
         THE BARE WORDS ARE STILL WHAT GETS CLASSIFIED, SHOWN AND REMEMBERED: A
         TURN IS NOT A DIFFERENT TURN FOR HAVING ARRIVED SOMEWHERE.
+
+        context IS WHOSE CHAT THIS ARRIVED IN AND NOTHING ELSE. NOTHING ABOUT THE
+        MACHINE OR THE MOMENT GOES HERE: THAT IS WHAT THE TOOLS ARE FOR.
         """
         return {"messages": [HumanMessage(f"{context}\n\n{speech}" if context else speech)]}
 
