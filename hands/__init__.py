@@ -11,49 +11,20 @@ import eyes
 import mcps
 from hands import apps, asking, browser, coder, controls, desktop, files, memory, shell, web
 
-# ALWAYS BOUND — THESE ARE CHEAP, BROADLY USED, AND SAFE.
-CORE_MODULES = [apps, controls, files, memory, eyes, desktop]
-
-# BOUND ONLY WHEN THE INTENT PROFILE SAYS SO.
-CONDITIONAL = {
-    "messaging": [mcps],
-    "contacts": [mcps],
-    "browsing": [web, browser],
-    "coding": [coder, shell],
-}
-
-# FULL SET — USED WHEN NO PROFILE IS GIVEN (BACKWARD COMPATIBLE DEFAULT).
+# EVERY MODULE, EVERY TURN. A NARROWER LIST PICKED PER UTTERANCE IS A SECOND
+# SHAPE OF REQUEST, AND THE SERVER PAYS TEN SECONDS RE-READING IT.
 MODULES = [apps, controls, files, memory, mcps, web, eyes, desktop, browser, coder, shell]
 
 
-def tools(profile=None):
+def tools():
     """EVERY TOOL FROM EVERY MODULE, FLAT, READY TO BIND TO A MODEL.
 
-    profile IS A frozenset OF INTENT LABELS. None MEANS ALL TOOLS.
     A MODULE WITH NOTHING IN IT YET REGISTERS NOTHING, WHICH IS HOW A CAPABILITY
     BEING REBUILT STAYS IN THE LIST WITHOUT BREAKING THE START UP.
     """
-    if profile is None:
-        active = MODULES
-    else:
-        seen = set()
-        active = []
-
-        for mod in CORE_MODULES:
-            if id(mod) not in seen:
-                seen.add(id(mod))
-                active.append(mod)
-
-        for label, mods in CONDITIONAL.items():
-            if label in profile:
-                for mod in mods:
-                    if id(mod) not in seen:
-                        seen.add(id(mod))
-                        active.append(mod)
-
     found = []
 
-    for module in active:
+    for module in MODULES:
         found.extend(getattr(module, "TOOLS", []))
 
         # SOME TOOLS ONLY EXIST ONCE SOMETHING IS CONNECTED, SO NEVER CACHE THIS.

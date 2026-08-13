@@ -72,7 +72,8 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `brain/thinking.py` | The graph. Speech in, spoken answer out, tools called along the way. |
 | `brain/watching.py` | What wraps every call: what goes in, what is kept, how long it took. |
 | `brain/model.py` | Which model, at which URL, with which settings. |
-| `brain/prompt.py` | What the model is told before it hears anything. |
+| `brain/prompt.py` | What the model is told before it hears anything, read once from `prompt.md`. |
+| `prompt.md` | The wording itself, one section per block, editable without reading Python. |
 | `brain/providers.py` | The backends. One entry each, and the only file that knows a server's habits. |
 | `ears/waking.py` | The room, listened to, and the part of it that said his name. |
 | `ears/microphone.py` | Microphone capture, one WAV per take. |
