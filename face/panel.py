@@ -8,6 +8,7 @@ NOT THE MEANING: HALF OF ONE OBJECT INSIDE ANOTHER IS THE ONLY REAL HAZARD.
 """
 
 import json
+import os
 import sys
 import threading
 
@@ -26,14 +27,45 @@ showing = LOADING  # THE LAST STATE THE WINDOW WAS PUT IN.
 
 writing = threading.Lock()
 
+# WHERE THE JSON GOES. STDOUT UNTIL only() TAKES THE PIPE SOMEWHERE PRIVATE.
+channel = sys.stdout
+
+
+def only():
+    """TAKE THE PIPE TO THE WINDOW AND LEAVE EVERYONE ELSE POINTING AT STDERR.
+
+    THE RULE ABOVE — STDOUT CARRIES NOTHING BUT JSON — IS NOT SOMETHING PYTHON
+    CAN KEEP ON ITS OWN. HALF OF WHAT IS LOADED HERE IS C, AND C WRITES TO FILE
+    DESCRIPTOR ONE WITHOUT ASKING: PORTAUDIO PRINTS ITS COREAUDIO GRUMBLES THERE
+    ("||PaMacCore (AUHAL)|| Error on line 2796"), WHICH THE WINDOW THEN READS AS
+    A MESSAGE FROM HAPPY AND CANNOT PARSE. WORSE, IT LANDS MID LINE AS EASILY AS
+    BETWEEN TWO, AND A JSON OBJECT WITH A COMPLAINT WEDGED INTO IT IS LOST.
+
+    SO THE PIPE IS DUPLICATED ONTO A DESCRIPTOR NOBODY ELSE KNOWS ABOUT, AND
+    DESCRIPTOR ONE IS POINTED AT STDERR. EVERY printf IN EVERY LIBRARY NOW GOES
+    WHERE THE REST OF THE NOISE ALREADY GOES — THE LOG — AND SO DOES ANY STRAY
+    print() FROM THIS SIDE, BECAUSE sys.stdout STILL MEANS DESCRIPTOR ONE.
+    """
+    global channel
+
+    if channel is not sys.stdout:
+        return
+
+    kept = os.dup(sys.stdout.fileno())
+
+    sys.stdout.flush()
+    os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
+
+    channel = os.fdopen(kept, "w", encoding="utf-8")
+
 
 def send(what, /, **fields):
     """POSITIONAL ONLY, SO A LINE MAY CARRY A FIELD OF ITS OWN CALLED "what"."""
     line = json.dumps({"is": what, **fields}, default=str)
 
     with writing:
-        sys.stdout.write(line + "\n")
-        sys.stdout.flush()
+        channel.write(line + "\n")
+        channel.flush()
 
 
 def ready(**about):

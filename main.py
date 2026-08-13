@@ -35,6 +35,9 @@ taking = threading.Lock()
 def main():
     windowed = SERVE in sys.argv
 
+    if windowed:
+        panel.only()  # BEFORE ANY LIBRARY GETS A CHANCE TO PRINT ON THE CHANNEL.
+
     log.opened("with the window" if windowed else "in a terminal")
 
     show.attach(panel if windowed else console)
