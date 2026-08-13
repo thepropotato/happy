@@ -8,7 +8,7 @@ MODEL, WRITING DOWN EVERY TOOL CALL, AND TIMING BOTH FOR THE FACE.
 import time
 
 from langchain.agents.middleware import wrap_model_call, wrap_tool_call
-from langchain_core.messages import HumanMessage, trim_messages
+from langchain_core.messages import trim_messages
 
 import memory
 from hands import asking
@@ -24,14 +24,6 @@ MODEL = "model"
 # WHAT ONE ROUND COST, SAID AS SOON AS THE MODEL COMES BACK AND BEFORE ANY TOOL
 # IT ASKED FOR HAS RUN.
 SPENT = "spent"
-
-# WHAT IT IS TOLD WHEN IT ANSWERED WITHOUT LOOKING. A DIRECTION, NEVER A FACT:
-# IT IS BEING SENT TO GO AND FIND OUT, NOT HANDED WHAT IT WOULD HAVE FOUND.
-INSIST = HumanMessage(
-    "You answered without calling anything. You cannot know that on your own. "
-    "Call the tool that finds it out and answer from what comes back. If the "
-    "question truly needs nothing looked up, look at what they are doing."
-)
 
 # THREE IN A ROW GETTING NOWHERE. TWO IS A RETRY, WHICH IS OFTEN THE RIGHT MOVE
 # AND IS ASKED FOR BY NAME IN THE STANDING PROMPT: THE OTHER SPELLING, THE OTHER
@@ -86,57 +78,6 @@ def tell(kind, name, seconds, about=None):
 def keep_recent(request, handler):
     """ONLY THE LAST STRETCH OF THE CONVERSATION GOES TO THE MODEL."""
     return handler(request.override(messages=recent(request.messages)))
-
-
-@wrap_model_call
-def keep_looking(request, handler):
-    """ANSWERING WITH NOTHING LOOKED AT IS NOT A MOVE THE MODEL IS ALLOWED.
-
-    THE FIRST ROUND OF EVERY TURN HAS TO CALL SOMETHING. WHICH TOOL IS STILL ITS
-    OWN CHOICE — THAT IS THE PART IT IS GOOD AT — BUT GOING STRAIGHT TO AN ANSWER
-    OUT OF ITS OWN HEAD IS NOT ON THE MENU ANY MORE.
-
-    ASKING IT NICELY WAS TRIED EVERY WAY THERE IS. THE SAME SENTENCE, THE SAME
-    SCREEN, THE SAME PROMPT LOOKED ONE RUN AND ANSWERED BLIND THE NEXT, AND
-    CUTTING THE DIRECTIONS FROM FOURTEEN THOUSAND CHARACTERS TO FOUR HUNDRED
-    MOVED NOTHING. A RULE THE MODEL FOLLOWS WHEN IT FEELS LIKE IT IS NOT A RULE.
-
-    SO THE ANSWER IS SENT BACK RATHER THAN THE REQUEST BEING DRESSED UP.
-    tool_choice IS THE OBVIOUS WAY AND IT IS NOT ON OFFER: OLLAMA TAKES THE FIELD
-    ON BOTH ITS SHAPES AND IGNORES IT, ANSWERING "hi" WITH NO CALL UNDER
-    "required". ASKED A SECOND TIME, WITH THE REFUSAL IN FRONT OF IT, IT CALLS.
-
-    ONCE, THEN IT IS LET THROUGH. A TURN THAT REALLY IS JUST HELLO SHOULD COST
-    ONE WASTED ROUND, NEVER A LOOP.
-    """
-    answered = handler(request)
-
-    if not starting(request.messages) or reached(answered):
-        return answered
-
-    return handler(request.override(messages=list(request.messages) + [INSIST]))
-
-
-def reached(answered):
-    """TRUE WHEN THE MODEL CALLED FOR SOMETHING INSTEAD OF JUST TALKING."""
-    said = getattr(answered, "result", None) or answered
-
-    if isinstance(said, list):
-        said = said[-1] if said else None
-
-    return bool(getattr(said, "tool_calls", None))
-
-
-def starting(messages):
-    """TRUE WHEN THIS IS THE FIRST ROUND OF THE TURN, NOTHING CALLED YET."""
-    for message in reversed(messages):
-        if getattr(message, "type", "") == "human":
-            return True
-
-        if getattr(message, "type", "") in ("ai", "tool"):
-            return False
-
-    return True
 
 
 @wrap_model_call
