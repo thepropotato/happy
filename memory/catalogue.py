@@ -41,7 +41,7 @@ BRAIN = [
          rare=True),
     number("brain.context", "Context window", 4096, 262144, 4096, 131072, "Sent every request.",
            "tokens", whole=True, rare=True),
-    number("brain.temperature", "Temperature", 0, 2, 0.05, 0.7, "Higher wanders further.",
+    number("brain.temperature", "Temperature", 0, 2, 0.05, 0, "Higher wanders further.",
            rare=True),
     number("brain.history", "History carried", 2, 64, 2, 24, "Messages of backchat.", "msgs",
            whole=True, rare=True),

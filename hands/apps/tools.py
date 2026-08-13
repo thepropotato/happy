@@ -1,12 +1,22 @@
 """THE TOOLS. EVERY DOCSTRING HERE IS READ BY THE MODEL, NOT BY US."""
 
 from pathlib import Path
+from typing import Literal
 
 from langchain_core.tools import tool
 
 from hands import asking
 from hands.apps import installed, machine, opening
 from hands.apps.running import launch
+
+# THE ONE THING THIS FIELD IS ALLOWED TO SAY, WHICH IS THE POINT OF IT. A LINE IN
+# THE PROMPT ABOUT NOT OPENING PAGES IT ONLY MEANT TO READ IS READ ONCE AND LONG
+# GONE BY THE TIME A LIST OF ADDRESSES IS IN FRONT OF IT. SPELLING THE CLAIM OUT
+# PER CALL PUTS IT WHERE THE CHOICE ACTUALLY IS. A SECOND VALUE FOR "ONLY LOOKING"
+# WAS TRIED AND MADE THIS read_page's TWIN: IT PEEKED THROUGH HERE SIX TIMES A TURN.
+SEEING = "yes, they asked to have this page in front of them"
+
+CHECKING = "no, I only want a fact off it"
 
 
 @tool
@@ -92,15 +102,29 @@ def open_path(path: str) -> str:
 
 
 @tool
-def open_url(url: str) -> str:
+def open_url(url: str, because: Literal[SEEING, CHECKING]) -> str:
     """Open a web address in the browser the user already uses, exactly as if
     they had clicked the link themselves. Use this for anything on the web that
     an address alone will reach: a site, a video, a search, a web app. Accepts
     "youtube.com" or a full address.
 
+    This lands on their screen, on top of whatever they were doing, and
+    "because" is you saying out loud that they asked for the page itself.
+    Something they want to know is not something they want to look at: a fact,
+    a number, how long something is — read_page hands you those with the screen
+    left alone, and they hear the answer instead of watching you fetch it.
+
     Their browser is already signed in to their accounts, so this is how you
     reach anything of theirs on the web. Prefer it over opening a browser
     application and typing, which is never right."""
+    if because == CHECKING:
+        from hands.web.reading import page  # LATE: apps IS IMPORTED BEFORE web.
+
+        try:
+            return f"Their screen did not move. The page says:\n\n{page(url, 0)}"
+        except Exception as error:
+            return asking.no(f"{error}")
+
     address = opening.web_address(url)
 
     return opening.hand_over(address) or f"Opened {address}."
