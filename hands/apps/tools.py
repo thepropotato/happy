@@ -14,9 +14,14 @@ from hands.apps.running import launch
 # GONE BY THE TIME A LIST OF ADDRESSES IS IN FRONT OF IT. SPELLING THE CLAIM OUT
 # PER CALL PUTS IT WHERE THE CHOICE ACTUALLY IS. A SECOND VALUE FOR "ONLY LOOKING"
 # WAS TRIED AND MADE THIS read_page's TWIN: IT PEEKED THROUGH HERE SIX TIMES A TURN.
-SEEING = "yes, they asked to have this page in front of them"
+#
+# ONE WORD EACH, BECAUSE THE CLAIM USED TO BE A WHOLE SENTENCE AND THE MODEL WROTE
+# ITS OWN REASON WHERE THE SENTENCE HAD TO GO: A QUARTER OF EVERY TOOL CALL EVER
+# MADE DIED HERE, ONE OF THEM ON A CAPITAL LETTER. THE CHOICE IS THE SAME CHOICE.
+# WHAT CHANGED IS THAT IT CAN NOW BE HIT.
+SEEING = "show"
 
-CHECKING = "no, I only want a fact off it"
+CHECKING = "read"
 
 
 @tool
@@ -108,11 +113,15 @@ def open_url(url: str, because: Literal[SEEING, CHECKING]) -> str:
     an address alone will reach: a site, a video, a search, a web app. Accepts
     "youtube.com" or a full address.
 
-    This lands on their screen, on top of whatever they were doing, and
-    "because" is you saying out loud that they asked for the page itself.
-    Something they want to know is not something they want to look at: a fact,
-    a number, how long something is — read_page hands you those with the screen
-    left alone, and they hear the answer instead of watching you fetch it.
+    This lands on their screen, on top of whatever they were doing, so
+    "because" is where you say which of the two this is, in that one word.
+    Say "show" when they asked for the page itself, to watch or read or use.
+    Say "read" when you only want a fact off it — a number, a height, how long
+    something is — and their screen stays exactly where they left it, because
+    something they want to know is not something they want to look at.
+
+    That field takes one of those two words and nothing else. The sentence
+    saying what you are doing and why goes in "why", the same as every tool.
 
     Their browser is already signed in to their accounts, so this is how you
     reach anything of theirs on the web. Prefer it over opening a browser
