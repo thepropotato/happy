@@ -11,23 +11,21 @@ from hands.web.searching import search
 @tool
 def search_web(query: str) -> str:
     """Search the web and read back the top results: a title, an address and a
-    line of what each page says. Use this whenever the answer is something you
-    do not already know or something that changes — the news, a score, a price,
-    when a place opens, who somebody is, what happened today. Prefer it over
-    saying you are not sure or that you cannot check.
+    line of what each page says.
 
-    Give it what a person would type into a search box rather than a sentence:
-    "weather hyderabad tomorrow", not "could you tell me what the weather will
-    be". Put the place and the day in when they matter. If the results do not
-    answer it, search again with different words before giving up.
+    Use this whenever the answer is something you do not know or something that
+    changes — the news, a score, a price, when a place opens, who somebody is.
+    Prefer it over saying you are not sure or cannot check. Give it what a
+    person would type into a search box: "weather hyderabad tomorrow", not a
+    full sentence. If the results do not answer it, search again with different
+    words before giving up.
 
-    A result's summary describes a page rather than answering out of it, so the
-    answer is almost always inside one of the results and not in this list. Pick
-    the result that looks like it holds the answer and read it with read_page.
-    Only answer from a summary when it plainly says the whole thing already.
+    The answer is almost always inside one of the results rather than in this
+    list, because a summary describes a page instead of answering out of it. So
+    pick the likeliest result and read it with read_page. Answer from a summary
+    only when it plainly says the whole thing.
 
-    To put a page in front of the person instead, use open_url. Anything that
-    needs clicking, typing or signing in on a site is not this."""
+    To put a page in front of the person instead, use open_url."""
     try:
         found = search(query)
     except Exception as error:
