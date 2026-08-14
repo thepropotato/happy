@@ -1,8 +1,4 @@
-"""WHAT THE TERMINAL SHOWS. ONE BLOCK PER TURN, AND WHERE THE TIME WENT.
-
-TIMES ARE MEASURED, NOT ESTIMATED. TOOLS REPORT THEMSELVES THROUGH step(), SO A
-TOOL ADDED LATER APPEARS HERE WITHOUT ANYONE WIRING IT UP.
-"""
+"""WHAT THE TERMINAL SHOWS."""
 
 import shutil
 from datetime import datetime
@@ -59,11 +55,7 @@ def listening():
 
 
 def idle():
-    """HE WAITED AND NOBODY SAID THE REST. TAKE THE LINE BACK OFF THE TERMINAL.
-
-    ONLY THE LINE listening() PUT THERE: BY NOW A TURN MAY HAVE STARTED AND BE
-    HALFWAY THROUGH A SENTENCE OF ITS OWN, AND THAT ONE IS NOT OURS TO WIPE.
-    """
+    """HE WAITED AND NOBODY SAID THE REST."""
     global waiting
 
     if not waiting:
@@ -97,11 +89,7 @@ def piece(text):
 
 
 def step(kind, name, seconds, about=None):
-    """WHAT brain.watches() FEEDS. NO TOOL HAS TO KNOW THIS EXISTS.
-
-    THE TERMINAL PRINTS ONE ACCOUNT AT THE END OF A TURN AND NOT A ROW PER CALL,
-    SO WHAT about CARRIES GOES NOWHERE HERE.
-    """
+    """WHAT brain.watches() FEEDS."""
     if turn is None:
         return
 

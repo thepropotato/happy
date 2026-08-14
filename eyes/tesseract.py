@@ -1,9 +1,4 @@
-"""FINDING THE TESSERACT PROGRAM AND RUNNING ONE PASS OF IT.
-
-NOT A PYTHON PACKAGE, A PROGRAM:
-    MAC      brew install tesseract
-    WINDOWS  winget install UB-Mannheim.TesseractOCR
-"""
+"""FINDING THE TESSERACT PROGRAM AND RUNNING ONE PASS OF IT."""
 
 import os
 import shutil

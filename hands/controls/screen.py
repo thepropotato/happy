@@ -58,8 +58,7 @@ def helper():
 
 
 def mac_level():
-    """THE BRIGHTNESS AS A PERCENTAGE, OR None. THE FRAMEWORK FIRST, THEN THE
-    HELPER FOR THE MACS THAT PREDATE IT ANSWERING."""
+    """THE BRIGHTNESS AS A PERCENTAGE, OR None."""
     fraction = backlight.level()
 
     if fraction is not None:

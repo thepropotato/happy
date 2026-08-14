@@ -1,8 +1,4 @@
-"""RUNNING THE SMALL COMMANDS THE SETTINGS LIVE BEHIND.
-
-EVERY CONTROL IN THIS FOLDER IS WRITTEN FOR BOTH SYSTEMS SIDE BY SIDE, SO A
-FEATURE THAT WORKS ON ONLY ONE OF THEM IS VISIBLE RATHER THAN HIDDEN.
-"""
+"""RUNNING THE SMALL COMMANDS THE SETTINGS LIVE BEHIND."""
 
 import re
 import subprocess
@@ -58,8 +54,7 @@ def number(said, default=None):
 
 
 def clamp(level, low=0, high=100):
-    """A LEVEL A PERSON ASKED FOR, KEPT INSIDE THE RANGE, OR None IF IT IS NOT
-    A NUMBER AT ALL."""
+    """A LEVEL A PERSON ASKED FOR, KEPT INSIDE THE RANGE, OR None IF IT IS NOT A NUMBER AT ALL."""
     try:
         return max(low, min(high, int(level)))
     except (TypeError, ValueError):

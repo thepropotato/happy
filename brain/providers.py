@@ -1,12 +1,4 @@
-"""THE BACKENDS THAT DO THE INFERENCE, AND NOTHING ELSE ABOUT THEM.
-
-TWO THINGS ACTUALLY DIFFER BETWEEN THEM: WHERE THE CONTEXT LENGTH GOES, AND WHAT
-THE THINKING KNOB IS CALLED. A BACKEND THAT CANNOT TAKE ONE SAYS SO PLAINLY
-RATHER THAN ACCEPTING IT AND DROPPING IT.
-
-THE CLIENT PACKAGES ARE IMPORTED WHEN A BACKEND IS BUILT, SO ONLY THE PROVIDER
-YOU USE HAS TO BE INSTALLED. TO ADD ONE: WRITE THE BUILDER, PUT IT IN PROVIDERS.
-"""
+"""THE BACKENDS THAT DO THE INFERENCE, AND NOTHING ELSE ABOUT THEM."""
 
 import importlib
 import json
@@ -51,8 +43,7 @@ class ProviderError(Exception):
 
 
 def ollama(model, url, key, temperature, context, effort, timeout, resident):
-    """OLLAMA'S OWN /api/chat. IT TAKES num_ctx PER REQUEST, WHICH IS THE WHOLE
-    REASON IT IS THE DEFAULT. key IS UNUSED, THE SIGNATURE IS SHARED."""
+    """OLLAMA'S OWN /api/chat."""
     chat = client("langchain_ollama", "ChatOllama", OLLAMA)
 
     return chat(
@@ -67,11 +58,7 @@ def ollama(model, url, key, temperature, context, effort, timeout, resident):
 
 
 def openai(model, url, key, temperature, context, effort, timeout, resident):
-    """THE OPENAI REQUEST SHAPE, WHICH IS ALSO LM STUDIO'S AND VLLM'S.
-
-    context AND resident ARE ACCEPTED AND CANNOT BE SENT. SEE SETS_CONTEXT ABOVE:
-    A SERVER BEHIND THIS SHAPE DECIDES FOR ITSELF WHAT IT HOLDS AND FOR HOW LONG.
-    """
+    """THE OPENAI REQUEST SHAPE, WHICH IS ALSO LM STUDIO'S AND VLLM'S."""
     chat = client("langchain_openai", "ChatOpenAI", OPENAI)
 
     return chat(

@@ -45,13 +45,7 @@ def resolve_or_confirm(said_name, service, candidate):
 
 
 async def resolved(query, service, searcher):
-    """CHECK THE SAVED KNOWLEDGE BASE FIRST; ONLY CALL searcher(query) IF NOTHING'S KNOWN.
-
-    RETURNS (result, remembered) WHERE remembered IS True IF THE VALUE CAME FROM THE
-    KNOWLEDGE BASE (ALREADY CONFIRMED EARLIER). searcher MAY BE SYNC OR ASYNC —
-    inspect.isawaitable HANDLES BOTH: wa.search_contacts IS ASYNC, SO ITS RETURN
-    VALUE IS A COROUTINE THAT IS AWAITED HERE RATHER THAN RETURNED UN-AWAITED.
-    """
+    """CHECK THE SAVED KNOWLEDGE BASE FIRST; ONLY CALL searcher(query) IF NOTHING'S KNOWN."""
     known = recall(query, service)
 
     if known:

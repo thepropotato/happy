@@ -1,15 +1,4 @@
-"""THE HALF THAT HOLDS THE WHATSAPP CONNECTION. IT READS, AND IT CANNOT WRITE.
-
-A FLASK SERVER ON LOOPBACK RUNNING neonize, WHICH LINKS TO WHATSAPP THE WAY THE
-WEB CLIENT DOES. mcps/servers/whatsapp/server.py IS THE MCP SIDE AND TALKS TO
-THIS OVER HTTP; THIS IS THE ONLY PART THAT EVER TOUCHES WHATSAPP ITSELF.
-
-IT SENDS TEXT AND MEDIA, AND NOTHING ELSE OUTBOUND. THE GROUP EDITS, THE
-MESSAGE DELETE AND THE AUTO REPLY THAT ANSWERED CHATS BEGINNING WITH A KEYWORD
-ARE STILL GONE: A REPLY NOBODY ASKED FOR IS THE ONE KIND OF OUTBOUND TRAFFIC
-THAT ARRIVES WHILE NOBODY IS WATCHING, AND VOLUME AND SPAM REPORTS ARE WHAT GET
-A NUMBER BANNED. EVERY SEND THAT REMAINS IS ONE SOMEBODY ASKED HAPPY FOR.
-"""
+"""THE HALF THAT HOLDS THE WHATSAPP CONNECTION."""
 import base64
 import hmac
 import io
@@ -76,21 +65,15 @@ def handle_exception(e):
     return jsonify({"error": "Internal bridge error"}), 500
 
 
-# BESIDE THE REST OF WHAT HAPPY KEEPS, NOT INSIDE THE SERVER'S OWN FOLDER. THE
-# SESSION IN HERE IS A LINKED WHATSAPP DEVICE AND HAS NO BUSINESS IN THE REPO.
+# BESIDE THE REST OF WHAT HAPPY KEEPS, NOT INSIDE THE SERVER'S OWN FOLDER.
 DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "whatsapp"
 
 PORT = int(os.environ.get("WHATSAPP_BRIDGE_PORT") or 3001)
 
-# NOTHING BUT THIS MACHINE CAN REACH THE PORT, SO THE KEY IS OPTIONAL AND OFF BY
-# DEFAULT. SET ONE AND BOTH HALVES START INSISTING ON IT.
+# NOTHING BUT THIS MACHINE CAN REACH THE PORT, SO THE KEY IS OPTIONAL AND OFF BY DEFAULT.
 BRIDGE_SECRET = os.environ.get("INTERNAL_API_SECRET", "")
 
-# HOW LONG A QR CODE IS WORTH SHOWING. WHATSAPP GIVES THE FIRST OF A RUN A
-# MINUTE AND EVERY ONE AFTER IT TWENTY SECONDS, AND WHILE A RUN IS ALIVE THE
-# REPLACEMENT ALWAYS ARRIVES BEFORE THE DEADLINE — SO ONLY A RUN THAT HAS ENDED
-# EVER GOES PAST ONE. THE SLACK IS THE HOP FROM THEIR SERVER TO THIS PROCESS,
-# AND IT LEAVES A PAIRING, WHICH LANDS IN A SECOND OR TWO, ALL THE ROOM IT NEEDS.
+# HOW LONG A QR CODE IS WORTH SHOWING.
 QR_FIRST = 60
 QR_LATER = 20
 QR_SLACK = 10
@@ -99,15 +82,12 @@ QR_SLACK = 10
 CACHE = "cache.json"
 
 # HOW MANY OF THE OWNER'S OWN MESSAGES ARE HELD BACK FOR WHOEVER IS WATCHING.
-# MORE THAN ANYBODY TYPES BETWEEN TWO LOOKS, AND IT IS NOT A HISTORY.
 RECENT_SENT = 50
 
 # AND HOW MANY OF OUR OWN SENDS. ONLY THIS TURN'S ARE EVER ASKED FOR.
 PUSHED = 50
 
-# raw_messages IS NOT IN HERE AND CANNOT BE: THEY ARE LIVE PROTOBUFS. THE ONE
-# THING THEY ARE FOR IS FETCHING MEDIA, WHICH ALREADY FALLS BACK ON WHAT IS ON
-# DISK AND THEN ON THE CDN.
+# raw_messages IS NOT IN HERE AND CANNOT BE: THEY ARE LIVE PROTOBUFS.
 KEPT = (
     "phone", "name",
     "contacts", "chats", "groups", "messages", "media",
@@ -164,8 +144,7 @@ def strip_emoji(text: str) -> str:
 
 
 def name_match(query: str, name: str) -> bool:
-    """True if query matches name via substring or lenient alphanumeric comparison.
-    Handles: emoji names, @ symbols, trailing 'group'/'bhai' suffixes added by agent."""
+    """True if query matches name via substring or lenient alphanumeric comparison."""
     q, n = query.lower(), name.lower()
     if q in n:
         return True
@@ -188,8 +167,7 @@ def jid_str(jid) -> str:
 
 
 def contact_name(contact_msg) -> str:
-    """Extract display name from a contactMessage.
-    Falls back to vCard FN, then waid= phone number embedded in TEL line."""
+    """Extract display name from a contactMessage."""
     name = getattr(contact_msg, 'displayName', "") or ""
     if name:
         return name
@@ -340,8 +318,7 @@ class Session:
         self.deleted = False
         self.upload_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"upload-{username}")
 
-        # BEFORE ANYTHING CONNECTS. THE PANEL AND THE TOOLS BOTH ASK THE MOMENT
-        # THE BRIDGE ANSWERS, WHICH IS SOONER THAN A SESSION COMES UP.
+        # BEFORE ANYTHING CONNECTS.
         remembered(self)
 
     def build_jid_to_name(self):
@@ -393,10 +370,7 @@ class Session:
         self.latest_sent_message = best
 
     def rebuild_group_senders(self):
-        """Resolve group message sender JIDs from:
-        1. Name → contact/participant JID lookup
-        2. Stored @lid JIDs → phone JIDs via lid_to_pn map
-        """
+        """Resolve group message sender JIDs from: 1."""
         name_to_jid = {}
         for c in self.contacts:
             cname = (c.get("name") or "").strip()
@@ -552,14 +526,7 @@ def format_message(session, message):
     elif msg.HasField('pollCreationMessage'):
         body = msg.pollCreationMessage.name or "[Poll]"
         msg_type = "poll"
-    # HasField, NOT getattr. AN UNSET PROTOBUF SUBMESSAGE IS STILL AN OBJECT AND
-    # STILL TRUTHY, SO getattr(msg, 'viewOnceMessage') AND ITS .message WERE BOTH
-    # TRUE OF EVERY MESSAGE EVER PARSED. THIS WAS THE LAST BRANCH THAT COULD
-    # MATCH, WHICH MADE IT A CATCH-ALL: ANYTHING THE BRANCHES ABOVE DID NOT
-    # RECOGNISE CAME OUT AS A VIEW ONCE WITH NO TEXT AND MEDIA THAT DOES NOT
-    # EXIST, WENT INTO THE MEDIA STORE RATHER THAN THE TEXT ONE, AND LEFT THE
-    # CHAT'S LAST LINE BLANK. IT ALSO MARKED THEM UNDOWNLOADABLE, SO NOTHING
-    # COULD GET AT WHAT THEY REALLY WERE EITHER.
+    # HasField, NOT getattr.
     elif msg.HasField('viewOnceMessage') and msg.viewOnceMessage.HasField('message'):
         body = ""
         msg_type = "viewonce"
@@ -614,9 +581,8 @@ def format_message(session, message):
             body = edited.imageMessage.caption or ""
         msg_type = "chat"
 
-    # A MESSAGE THE CHAIN ABOVE HAD NO BRANCH FOR IS STORED EMPTY AND READS AS
-    # NOTHING HAPPENING. SAY WHAT IT WAS MADE OF, ONCE, SO THE NEXT KIND WHATSAPP
-    # INVENTS IS A LINE IN THE LOG RATHER THAN A CHAT THAT GOES QUIET.
+    # A MESSAGE THE CHAIN ABOVE HAD NO BRANCH FOR IS STORED EMPTY AND READS AS NOTHING
+    # HAPPENING.
     if not body and not has_media and msg_type == "chat":
         carried = ", ".join(sorted(field.name for field, _ in msg.ListFields())) or "nothing"
         logger.info(f"[message] user={session.username} nothing readable in: {carried}")
@@ -874,8 +840,7 @@ def handle_message(session, message):
                 cur_ts = session.latest_sent_message.get("timestamp", 0) if session.latest_sent_message else 0
                 if ts and ts > cur_ts:
                     session.latest_sent_message = {**entry, "chatName": chat_name}
-                # ONE SLOT ONLY EVER HOLDS THE LAST. TWO MESSAGES TYPED IN A ROW
-                # ARE TWO THINGS ASKED, AND WHOEVER IS WATCHING WANTS BOTH.
+                # ONE SLOT ONLY EVER HOLDS THE LAST.
                 session.recent_sent = [m for m in session.recent_sent if m["id"] != entry["id"]]
                 session.recent_sent.append({**entry, "chatName": chat_name, "chatJid": chat_jid})
                 del session.recent_sent[:-RECENT_SENT]
@@ -994,17 +959,7 @@ SHOWN = {
 
 
 def previewed(session, chat, chat_id):
-    """THE CHAT'S LAST LINE, TAKEN FROM THE NEWEST MESSAGE ACTUALLY STORED.
-
-    IT USED TO BE SET INSIDE THE LOOP BY ANY MESSAGE THAT CAME IN NEWER THAN THE
-    CHAT'S OWN STAMP. BUT THAT STAMP HAD ALREADY BEEN TAKEN FROM THE
-    CONVERSATION'S METADATA, WHICH IS THE TIME OF THAT SAME NEWEST MESSAGE, SO
-    NOTHING WAS EVER NEWER AND EVERY PREVIEW STAYED EMPTY — 522 CHATS OUT OF 523
-    OF THEM. THE LIST CAME BACK FULL OF NAMES WITH NOTHING BESIDE THEM, WHICH IS
-    WHY "what was the last message i received" COULD NOT BE ANSWERED OFF IT.
-
-    A REACTION IS NOT A CHAT'S LAST WORD. WHATSAPP DOES NOT SHOW ONE EITHER.
-    """
+    """THE CHAT'S LAST LINE, TAKEN FROM THE NEWEST MESSAGE ACTUALLY STORED."""
     newest = None
 
     for message in session.messages.get(chat_id, []) + session.media.get(chat_id, []):
@@ -1277,8 +1232,7 @@ def enrich_contacts_from_store(session):
 
 
 def bulk_resolve_group_lids(session):
-    """For every @lid participant across all groups, call get_pn_from_lid and cache the result.
-    This populates lid_to_pn so that stored messages with @lid fromJid can be resolved."""
+    """For every @lid participant across all groups, call get_pn_from_lid and cache the result."""
     if not session.client or not session.connected:
         return
     lid_set = set()
@@ -1420,19 +1374,7 @@ def do_sync(session):
 
 
 def persist(session):
-    """THE STORE ON DISK, BESIDE THE SESSION IT BELONGS TO.
-
-    WHATSAPP HANDS THE HISTORY OVER ONCE, IN THE BUNDLE THAT FOLLOWS A SCAN, AND
-    NEVER AGAIN ON A RECONNECT — AND neonize HAS NO WAY TO ASK FOR IT. HOLDING
-    THAT BUNDLE IN MEMORY ALONE MEANT EVERY RESTART CAME UP LINKED AND EMPTY:
-    THE CHATS WERE THE GROUP LIST do_sync REBUILDS AND NOTHING ELSE, EVERY ONE
-    OF THEM STAMPED ZERO, AND EVERY TOOL ANSWERED THAT THERE WERE NO MESSAGES.
-    THIS WROTE TO CLOUD STORAGE AND WAS EMPTIED OUT WITH IT; ON ONE MACHINE A
-    FILE NEXT TO THE PAIRING IS THE SAME THING.
-
-    WRITTEN WHOLE AND MOVED INTO PLACE. IT IS WRITTEN OFF TIMERS WHILE MESSAGES
-    ARE STILL LANDING, AND HALF A FILE READS BACK AS NO HISTORY AT ALL.
-    """
+    """THE STORE ON DISK, BESIDE THE SESSION IT BELONGS TO."""
     if session.deleted:
         return
 
@@ -1458,12 +1400,7 @@ def persist(session):
 
 
 def remembered(session):
-    """THE LAST SNAPSHOT BACK INTO A SESSION THAT HAS ONLY JUST BEEN MADE.
-
-    A CACHE FOR AN ACCOUNT NOBODY IS LINKED TO ANY MORE IS NOT A PROBLEM HERE:
-    LINKING A DIFFERENT PHONE CLEARS THE LOT ON CONNECT, WHICH IS WHY THE NUMBER
-    IS IN THE FILE.
-    """
+    """THE LAST SNAPSHOT BACK INTO A SESSION THAT HAS ONLY JUST BEEN MADE."""
     where = Path(session.db_path).parent / CACHE
 
     try:
@@ -1632,16 +1569,7 @@ def make_jid(jid_str_val):
 
 
 def sending_jid(session, jid_val):
-    """WHERE TO ACTUALLY SEND SOMETHING ADDRESSED TO A PHONE NUMBER.
-
-    A NUMBER IS HOW A PERSON IS WRITTEN DOWN IN AN ADDRESS BOOK. IT IS NO LONGER
-    WHERE THEIR PHONE IS: WHATSAPP MOVED THESE ACCOUNTS ONTO LIDS, AND EVERY
-    ENCRYPTION SESSION THIS MACHINE HAS IS KEYED BY ONE. A MESSAGE ADDRESSED TO
-    THE NUMBER IS TAKEN BY THE SERVER, GIVEN AN ID, AND HANDED TO NOBODY.
-
-    THE NUMBER IS STILL WHAT COMES BACK TO THE CALLER, BECAUSE THAT IS WHO THEY
-    ASKED FOR. ONLY THE ENVELOPE CHANGES.
-    """
+    """WHERE TO ACTUALLY SEND SOMETHING ADDRESSED TO A PHONE NUMBER."""
     if "@s.whatsapp.net" not in (jid_val or ""):
         return jid_val
 
@@ -1666,17 +1594,7 @@ def sending_jid(session, jid_val):
 
 
 def posted(session, result, jid_val, target, **extra):
-    """WHAT CAME BACK FROM A SEND, ANSWERED HONESTLY.
-
-    THE ID IS MINTED HERE BEFORE ANYTHING LEAVES THE MACHINE, SO AN ID IS NOT
-    DELIVERY AND NEVER WAS — TWO MESSAGES WENT OUT WITH ONE AND NEITHER EXISTS.
-    THE TIMESTAMP IS THE SERVER'S OWN, PUT ON THE ACK, SO IT IS THE FIRST MOMENT
-    ANYBODY BUT US KNOWS THE MESSAGE IS REAL.
-
-    EVERY ACKNOWLEDGED SEND IS ALSO NOTED HERE, BECAUSE A MESSAGE THIS DEVICE
-    SENDS ITSELF NEVER COMES BACK AS AN EVENT AND SO APPEARS IN NO CHAT WE READ.
-    WHOEVER IS ANSWERING IN A CHAT NEEDS TO KNOW WHAT HAS ALREADY GONE INTO IT.
-    """
+    """WHAT CAME BACK FROM A SEND, ANSWERED HONESTLY."""
     stamp = int(getattr(result, "Timestamp", 0) or 0)
     ident = getattr(result, "ID", "") or ""
 
@@ -1780,19 +1698,7 @@ def stale(session):
 
 
 def renew(session):
-    """A QR SEQUENCE THAT HAS RUN OUT, BEGUN AGAIN.
-
-    WHATSAPP HANDS OVER A FIXED RUN OF CODES AND THEN GIVES UP — "Login event:
-    timeout" IN THE LOG, THE WEBSOCKET SHUT ABOUT TWO MINUTES AFTER THE BRIDGE
-    STARTED. NOTHING NOTICED. THE CONNECT THREAD IS INSIDE A GO CALL THAT ONLY
-    RETURNS WHEN THE CONTEXT IS CANCELLED, SO IT STAYED ALIVE AND THE PAGE WENT
-    ON SERVING THE LAST DEAD CODE UNDER A LINE PROMISING IT REFRESHES ITSELF.
-    EVERY SCAN AFTER THAT WAS "check your connection and try again" ON A PHONE
-    THAT HAD NOTHING WRONG WITH ITS CONNECTION.
-
-    A NEW CLIENT ON THE SAME SESSION FILE IS ISSUED A NEW RUN WITHIN A SECOND,
-    SO THE PAGE CAN BE LEFT OPEN AS LONG AS SOMEBODY NEEDS TO FIND THEIR PHONE.
-    """
+    """A QR SEQUENCE THAT HAS RUN OUT, BEGUN AGAIN."""
     with session.lock:
         # ANOTHER TAB MAY HAVE DONE IT IN THE TWO SECONDS SINCE WE LOOKED.
         if not stale(session):
@@ -1807,11 +1713,7 @@ def renew(session):
 
 @app.get("/<username>/scan")
 def scan(username):
-    """THE QR AS A PAGE, FOR A BROWSER RATHER THAN FOR THE PANEL.
-
-    IT REFRESHES ITSELF RATHER THAN POLLING WITH SCRIPT, SO THERE IS NOTHING TO
-    AUTHENTICATE AND NOTHING TO GO WRONG. THE REFRESH STOPS ONCE IT IS LINKED.
-    """
+    """THE QR AS A PAGE, FOR A BROWSER RATHER THAN FOR THE PANEL."""
     s = get_session(username)
 
     if s.authenticated or s.connected:
@@ -1942,12 +1844,7 @@ def chats(username):
                 chat = {**chat, "name": resolved}
         result.append(chat)
 
-    # NEWEST FIRST, EVERY TIME IT IS ASKED. THE ORDER USED TO BE WHATEVER THE
-    # HISTORY SYNC BUILT, WHICH WAS NEWEST FIRST ONCE AND THEN NEVER AGAIN: A
-    # LIVE MESSAGE RESTAMPS ITS CHAT WHERE IT SITS AND NOTHING MOVES IT UP. THE
-    # LIST STAYED SORTED-LOOKING AT THE TOP WHILE THE CHAT SOMEBODY HAD JUST
-    # WRITTEN IN SAT FIFTEENTH, SO READING THE FIRST ONE AS THE LATEST — WHICH
-    # IS THE ONLY REASONABLE WAY TO READ A CHAT LIST — GAVE AN OLDER ANSWER.
+    # NEWEST FIRST, EVERY TIME IT IS ASKED.
     result.sort(key=lambda chat: chat.get("timestamp", 0), reverse=True)
 
     return jsonify(clean(result))
@@ -1965,14 +1862,7 @@ CDN_SECONDS = 14 * 86400
 
 
 def with_media(s, entry):
-    """A MESSAGE WITH localPath ON IT WHEN ITS MEDIA IS ALREADY ON THIS DISK.
-
-    THE PATH WAS BEING WORKED OUT HERE AND THEN THROWN AWAY, LEAVING ONLY A
-    downloadable BOOLEAN. ASKED TO SHOW A PHOTO THAT HAD BEEN SITTING IN OUR OWN
-    downloads/ FOR TWO MINUTES, HAPPY WENT HUNTING THROUGH ~/Library FOR
-    WHATSAPP'S STORAGE AND RAN OUT OF TURNS BEFORE HE FOUND ANYTHING. A MESSAGE
-    THAT SAYS WHERE ITS PICTURE IS TURNS THAT SEARCH INTO ONE open_path.
-    """
+    """A MESSAGE WITH localPath ON IT WHEN ITS MEDIA IS ALREADY ON THIS DISK."""
     if not entry.get("hasMedia"):
         return entry
 
@@ -2320,11 +2210,7 @@ def latest_sent_message(username):
 
 @app.post("/<username>/create-group")
 def create_group(username):
-    """Start a new group with nobody else in it yet, and hand back its id.
-
-    It is put into this session's own lists as well, because the group list is
-    rebuilt on a sync and asking for one that was made a second ago would
-    otherwise answer that it does not exist."""
+    """Start a new group with nobody else in it yet, and hand back its id."""
     name = (request.json or {}).get("name", "").strip()
     s = get_session(username)
 
@@ -2354,10 +2240,7 @@ def create_group(username):
 
 @app.get("/<username>/pushed")
 def pushed(username):
-    """The chats this device has sent something into since a given moment.
-
-    A message sent from here is never echoed back to here, so it is in no chat
-    this bridge can read. Anything answering inside a chat has to ask."""
+    """The chats this device has sent something into since a given moment."""
     s = get_session(username)
     since = float(request.args.get("since", 0))
 
@@ -2369,8 +2252,8 @@ def pushed(username):
 
 @app.get("/<username>/recent-sent")
 def recent_sent(username):
-    """The owner's own last few messages across every chat, oldest first, each one
-    carrying the chat it was written in."""
+    """The owner's own last few messages across every chat, oldest first, each one carrying the
+    chat it was written in."""
     s = get_session(username)
     limit = int(request.args.get("limit", 25))
 
@@ -2496,9 +2379,7 @@ def query_messages(username):
             phone_to_name[cid.split("@")[0]] = cname
 
     def resolve_from(m):
-        """Replace `from` with the saved contact name when one is available.
-        Covers: raw phone number, partial push name (e.g. 'Rishi' instead of 'Rishi uncle 🙏'),
-        or any other mismatch between stored sender and the phone-book name."""
+        """Replace `from` with the saved contact name when one is available."""
         from_jid = (m.get("fromJid") or "")
         from_jid_phone = from_jid.split("@")[0] if "@" in from_jid else ""
         if not from_jid_phone:
@@ -2633,10 +2514,7 @@ def cleanup_stale_files():
     for user_dir in DATA_DIR.iterdir():
         if not user_dir.is_dir():
             continue
-        # A HALF WRITTEN UPLOAD IS RUBBISH. A -wal IS NOT: THE SESSION DATABASE IS
-        # IN WAL MODE, SO WHAT WAS WRITTEN LAST LIVES THERE UNTIL IT IS CHECKPOINTED
-        # IN. DELETING IT AFTER AN UNCLEAN EXIT WINDS THE PAIRING BACK TO WHENEVER
-        # SQLITE LAST CHECKPOINTED, WHICH IS THE LINK GONE AND THE QR AGAIN.
+        # A HALF WRITTEN UPLOAD IS RUBBISH.
         for f in user_dir.glob("*.upload"):
             try:
                 f.unlink()

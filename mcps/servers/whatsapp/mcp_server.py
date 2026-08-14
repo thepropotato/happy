@@ -27,8 +27,7 @@ from servers.whatsapp.client import WhatsAppClient
 
 
 def coerce_str(v):
-    """Coerce any non-string value to empty string so Pydantic validation never crashes.
-    Also discards code blocks and JSON blobs passed as parameter values."""
+    """Coerce any non-string value to empty string so Pydantic validation never crashes."""
     if isinstance(v, (dict, list)):
         return ""
     if v is None:
@@ -61,8 +60,8 @@ def get_client() -> WhatsAppClient:
     return wa
 
 def _json(obj) -> str:
-    """Serialize to a single JSON string so FastMCP returns ONE content block
-    instead of splitting lists into N separate blocks."""
+    """Serialize to a single JSON string so FastMCP returns ONE content block instead of
+    splitting lists into N separate blocks."""
     return json.dumps(obj, ensure_ascii=False, default=str)
 
 async def check_sync_status(wa: WhatsAppClient) -> dict | None:

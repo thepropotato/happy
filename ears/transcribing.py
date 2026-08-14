@@ -1,8 +1,4 @@
-"""SPEECH INTO TEXT, LOCALLY.
-
-GET THE WEIGHTS:
-    python -m ears --get
-"""
+"""SPEECH INTO TEXT, LOCALLY."""
 
 from pathlib import Path
 

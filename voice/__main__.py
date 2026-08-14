@@ -1,8 +1,5 @@
-"""HEAR IT WITHOUT THE REST OF HAPPY: python -m voice [--engine name] "say this"
-
-GET A VOICE:
-    python -m voice --get [hi | te]
-"""
+"""HEAR IT WITHOUT THE REST OF HAPPY: python -m voice [--engine name] "say this" GET A VOICE:
+python -m voice --get [hi | te]"""
 
 import sys
 

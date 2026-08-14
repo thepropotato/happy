@@ -1,8 +1,4 @@
-"""EVERY KNOB HAPPY HAS, IN THE ORDER A PERSON WOULD LOOK FOR THEM.
-
-THE DEFAULTS LIVE HERE AND NOWHERE ELSE. A MODULE THAT WANTS ONE ASKS
-memory.settings FOR IT, SO CHANGING A NUMBER IS NEVER EDITING CODE.
-"""
+"""EVERY KNOB HAPPY HAS, IN THE ORDER A PERSON WOULD LOOK FOR THEM."""
 
 from memory.knobs import action, choice, group, number, text, toggle
 
@@ -25,9 +21,8 @@ FOREVER = "0 keeps everything."
 
 RESIDENT = "0 keeps it loaded. Answers come back faster while it is."
 
-# WHAT WAKES HIM IS READ BY THE SAME SPEECH MODEL THAT READS EVERYTHING ELSE, SO
-# IT CAN BE ANY WORDS AT ALL. TWO OR THREE OF THEM: ONE IS SAID BY ACCIDENT ALL
-# DAY, AND A SENTENCE IS SOMETHING NOBODY WILL SAY THE SAME WAY TWICE.
+# WHAT WAKES HIM IS READ BY THE SAME SPEECH MODEL THAT READS EVERYTHING ELSE, SO IT CAN BE
+# ANY WORDS AT ALL.
 WAKE = "Two or three words. Happy answers anything said after them."
 
 LOGS = "Everything Happy did, as he did it, the way it would have gone past in a terminal."
@@ -45,17 +40,13 @@ BRAIN = [
            rare=True),
     number("brain.history", "History carried", 2, 64, 2, 24, "Messages of backchat.", "msgs",
            whole=True, rare=True),
-    # A BACKSTOP NOW, NOT THE BRAKE. GETTING NOWHERE IS CAUGHT BY THREE NOS IN A
-    # ROW, WHICH IS THE SHAPE THAT ACTUALLY WENT WRONG; THIS ONLY CATCHES A LOOP
-    # WHERE EVERY CALL WORKS AND NONE OF THEM HELP. FOURTEEN WAS SIZED FOR AN
-    # ERRAND GOING PERFECTLY AND CUT OFF EVERY ONE THAT NEEDED A SECOND GO.
+    # A BACKSTOP NOW, NOT THE BRAKE.
     number("brain.calls", "Tool rounds", 1, 60, 1, 40, "Before it has to answer.", "max",
            whole=True, rare=True),
     number("brain.timeout", "Timeout", 30, 900, 10, 300, "A cold load is not a dead server.",
            "sec", whole=True, rare=True),
-    # WHAT THE BACKEND WORKED OUT ABOUT THE STANDING PROMPT AND THE TOOLS IS
-    # THROWN OUT WITH THE MODEL, AND THAT IS THE FRONT OF EVERY REQUEST. OLLAMA
-    # LETS GO AFTER FIVE QUIET MINUTES, WHICH IS SHORTER THAN A CUP OF TEA.
+    # WHAT THE BACKEND WORKED OUT ABOUT THE STANDING PROMPT AND THE TOOLS IS THROWN OUT WITH
+    # THE MODEL, AND THAT IS THE FRONT OF EVERY REQUEST.
     number("brain.resident", "Stays loaded", 0, 240, 5, 0, RESIDENT, "min", whole=True,
            rare=True),
 ]

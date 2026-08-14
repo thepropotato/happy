@@ -1,8 +1,5 @@
-"""SEARCH, OR READ ONE PAGE:
-
-    python -m hands.web "weather hyderabad tomorrow"
-    python -m hands.web en.wikipedia.org/wiki/Hyderabad
-"""
+"""SEARCH, OR READ ONE PAGE: python -m hands.web "weather hyderabad tomorrow" python -m
+hands.web en.wikipedia.org/wiki/Hyderabad"""
 
 import sys
 

@@ -1,11 +1,4 @@
-"""THE GRAPH. SPEECH IN, A SPOKEN ANSWER OUT, TOOLS CALLED ALONG THE WAY.
-
-ONE LOOP: THE MODEL SEES EVERY TOOL AT ONCE, CALLS WHAT IT NEEDS, READS WHAT
-CAME BACK, ANSWERS. A ROUTER THAT PICKS AN AGENT THAT THEN THINKS FOR ITSELF
-COSTS TWO MORE ROUND TRIPS, WHICH IS SECONDS OF A PERSON WAITING FOR A SENTENCE.
-
-HISTORY LIVES IN THE CHECKPOINTER UNDER ONE THREAD, TRIMMED ON THE WAY IN.
-"""
+"""THE GRAPH."""
 
 import time
 import threading
@@ -66,16 +59,7 @@ class Happy:
         self.assemble()
 
     def assemble(self):
-        """THE GRAPH, BUILT OUT OF WHATEVER THE SETTINGS SAY RIGHT NOW.
-
-        ONE GRAPH, ONE PROMPT, ONE TOOL LIST — AND THAT IS THE POINT, NOT AN
-        OVERSIGHT. THE STANDING PROMPT AND THE TOOL SCHEMAS ARE THE FIRST TWELVE
-        THOUSAND TOKENS OF EVERY REQUEST, AND A SERVER THAT HAS READ THEM ONCE
-        ANSWERS IN HALF A SECOND INSTEAD OF TEN. IT ONLY HOLDS THAT READING FOR
-        A COUPLE OF DISTINCT PROMPTS AT A TIME, SO HANDING IT A SECOND SHAPE —
-        A NARROWER TOOL LIST, AN EXTRA PARAGRAPH — COSTS MORE THAN EVERY TOKEN
-        IT SAVES. WHATEVER IS BUILT HERE IS WHAT warm() READS AT STARTUP.
-        """
+        """THE GRAPH, BUILT OUT OF WHATEVER THE SETTINGS SAY RIGHT NOW."""
         self.model = self.given or brain.create()
         bound_tools = hands.tools() if self.handed is None else self.handed
         built_prompt = self.wording or system_prompt()
@@ -91,10 +75,8 @@ class Happy:
             ],
             checkpointer=self.kept,
         )
-        # A SERVICE CONNECTING MID SESSION MOVES THE PREFIX, SO THE READING DONE
-        # AT STARTUP IS NOW THE WRONG READING. GET THE NEW ONE READ WHILE NOBODY
-        # IS TALKING, OR THE NEXT THING SAID PAYS TEN TO TWENTY SECONDS FOR IT.
-        # THE FIRST BUILD IS NOT WARMED HERE: main.py DOES THAT ONE ALOUD.
+        # A SERVICE CONNECTING MID SESSION MOVES THE PREFIX, SO THE READING DONE AT STARTUP
+        # IS NOW THE WRONG READING.
         moved = self.version is not None and shape(built_prompt, bound_tools) != shape(self.prompt, self.tools)
 
         self.version = stamp()
@@ -181,9 +163,8 @@ class Happy:
                 if self.stopping.is_set():
                     break
 
-            # NOT ONE WORD CAME OUT, SO WHATEVER ENDED THE RUN ENDED IT SOMEWHERE
-            # THE STREAM CANNOT SEE. SAY WHAT IT LEFT BEHIND RATHER THAN GO QUIET.
-            # BUT NOT WHEN THE PERSON STOPPED IT THEMSELVES — THAT SILENCE IS THE POINT.
+            # NOT ONE WORD CAME OUT, SO WHATEVER ENDED THE RUN ENDED IT SOMEWHERE THE STREAM
+            # CANNOT SEE.
             if not reply.strip() and not self.stopping.is_set():
                 last = self.ending()
 
@@ -205,14 +186,7 @@ class Happy:
             memory.close(reply.strip() or None, taken)
 
     def ending(self):
-        """THE RUN'S LAST WORD WHEN THE STREAM CARRIED NONE, OR "" IF THERE IS NONE.
-
-        A RUN THAT STOPS ANYWHERE BUT THE MODEL LEAVES ITS LAST MESSAGE AS A STATE
-        UPDATE, AND stream_mode "messages" ONLY CARRIES WHAT AN LLM ACTUALLY
-        GENERATED. SO IT WAS DROPPED WHOLE: NOTHING SPOKEN, NOTHING SHOWN, AND A
-        NULL REPLY WRITTEN DOWN. RUNNING OUT OF ROUNDS IS THE ONE THAT HAPPENS,
-        AND FROM WHERE A PERSON SITS IT LOOKED LIKE HAPPY DYING MID SENTENCE.
-        """
+        """THE RUN'S LAST WORD WHEN THE STREAM CARRIED NONE, OR "" IF THERE IS NONE."""
         try:
             kept = self.graph.get_state(self.config()).values.get("messages") or []
         except Exception:
@@ -238,15 +212,7 @@ class Happy:
         self.thread = f"{THREAD}-{id(object())}"
 
     def turn(self, speech, context=None):
-        """WHAT WAS SAID, WITH WHERE IT WAS SAID IN FRONT OF IT WHEN THAT IS KNOWN.
-
-        ONE MESSAGE AND NOT TWO, SO NOTHING DOWNSTREAM HAS TO KNOW THIS HAPPENED.
-        THE BARE WORDS ARE STILL WHAT GETS CLASSIFIED, SHOWN AND REMEMBERED: A
-        TURN IS NOT A DIFFERENT TURN FOR HAVING ARRIVED SOMEWHERE.
-
-        context IS WHOSE CHAT THIS ARRIVED IN AND NOTHING ELSE. NOTHING ABOUT THE
-        MACHINE OR THE MOMENT GOES HERE: THAT IS WHAT THE TOOLS ARE FOR.
-        """
+        """WHAT WAS SAID, WITH WHERE IT WAS SAID IN FRONT OF IT WHEN THAT IS KNOWN."""
         return {"messages": [HumanMessage(f"{context}\n\n{speech}" if context else speech)]}
 
     def config(self):
@@ -254,8 +220,7 @@ class Happy:
 
 
 def shape(prompt, bound):
-    """THE PREFIX AS THE SERVER SEES IT. THE TOOL OBJECTS THEMSELVES ARE REMADE
-    ON EVERY BUILD, SO COMPARING THEM SAYS EVERYTHING MOVED WHEN NOTHING DID."""
+    """THE PREFIX AS THE SERVER SEES IT."""
     return prompt, tuple(each.name for each in bound)
 
 

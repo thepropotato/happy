@@ -1,8 +1,4 @@
-"""THE WORDS A SERVICE'S ROW SAYS ABOUT IT, AND NOTHING ABOUT ITS SHAPE.
-
-ONE LINE UNDER THE NAME, ONE WORD ON THE BUTTON. THE LONGER STORY IS ONLY EVER
-READ BY SOMEBODY WHO OPENED THE ROW, WHICH IS WHY IT IS NOT IN THE LIST.
-"""
+"""THE WORDS A SERVICE'S ROW SAYS ABOUT IT, AND NOTHING ABOUT ITS SHAPE."""
 
 from mcps import registry
 
@@ -31,8 +27,7 @@ SAYS = {
 
 
 def plainly(state):
-    """A SERVER'S ERROR AS ONE LINE A PERSON CAN ACT ON. THE WHOLE OF IT IS STILL
-    INSIDE THE ROW, WHERE SOMEBODY DEBUGGING WILL LOOK AND NOBODY ELSE WILL."""
+    """A SERVER'S ERROR AS ONE LINE A PERSON CAN ACT ON."""
     said = (state or "").lower()
 
     return AGAIN if any(each in said for each in DIED) else state
@@ -55,14 +50,13 @@ def wrong(known, row, poised):
 
 
 def story(known, row):
-    """WHAT THE OPEN ROW SAYS. WHAT WENT WRONG COMES FIRST AND IN FULL: THE LINE IN
-    THE LIST IS ONE LINE WIDE AND CUTS AN ERROR OFF EXACTLY WHERE IT MATTERS."""
+    """WHAT THE OPEN ROW SAYS."""
     return " ".join(each for each in (ended(trouble(row)), known.get("hint")) if each) or None
 
 
 def ended(said):
-    """A SERVER'S OWN WORDS RARELY END IN A FULL STOP, AND WHAT FOLLOWS THEM RUNS
-    STRAIGHT INTO THEM WHEN THEY DO NOT."""
+    """A SERVER'S OWN WORDS RARELY END IN A FULL STOP, AND WHAT FOLLOWS THEM RUNS STRAIGHT INTO
+    THEM WHEN THEY DO NOT."""
     if not said:
         return None
 
@@ -70,11 +64,7 @@ def ended(said):
 
 
 def asking(known):
-    """THE BUTTON ITSELF. IT NAMES THE SERVICE, BECAUSE IT IS THE LAST STEP.
-
-    NOTHING SAYS SWITCH ON ANY MORE. THERE WAS A SWITCH INSIDE EVERY CONNECTED
-    ROW ONCE, AND A BUTTON WEARING ITS WORDS READS AS THAT SWITCH COMING BACK.
-    """
+    """THE BUTTON ITSELF."""
     if registry.signs_in(known["kind"]):
         return f"Sign into {known['label']}"
 

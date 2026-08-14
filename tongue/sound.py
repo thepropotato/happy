@@ -34,9 +34,8 @@ def load_model():
     if model is None:
         from speechbrain.inference.classifiers import EncoderClassifier
 
-        # IT NARRATES EVERY FILE IT OPENS, ON LOGGERS THAT SOME OF THEM ONLY COME INTO
-        # BEING PART WAY THROUGH THE LOAD, SO LEVELS SET BEFOREHAND CANNOT CATCH THEM ALL.
-        # NOTHING OF HAPPY'S OWN GOES THROUGH logging, SO SHUTTING IT LOSES NOTHING.
+        # IT NARRATES EVERY FILE IT OPENS, ON LOGGERS THAT SOME OF THEM ONLY COME INTO BEING
+        # PART WAY THROUGH THE LOAD, SO LEVELS SET BEFOREHAND CANNOT CATCH THEM ALL.
         silence.hush_tree("speechbrain")
         logging.disable(logging.WARNING)
 
@@ -46,7 +45,6 @@ def load_model():
             logging.disable(logging.NOTSET)
 
         # ONLY THE HIGHEST SCORE IS EVER READ, SO HOW MANY THERE ARE IS NOT OURS TO PROMISE.
-        # SAYING SO IS WHAT STOPS IT WARNING ABOUT THE COUNT THE FIRST TIME IT IS ASKED.
         model.hparams.label_encoder.ignore_len()
 
     return model

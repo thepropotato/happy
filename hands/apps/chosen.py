@@ -68,8 +68,8 @@ def mac_handler():
 
 
 def mac_app(bundle):
-    """SPOTLIGHT ONLY IGNORES CASE IF ASKED TO, AND LAUNCH SERVICES WRITES THE ID
-    LOWERCASED WHILE THE BUNDLE DOES NOT."""
+    """SPOTLIGHT ONLY IGNORES CASE IF ASKED TO, AND LAUNCH SERVICES WRITES THE ID LOWERCASED
+    WHILE THE BUNDLE DOES NOT."""
     found = ask(MDFIND + [BUNDLE_QUERY.format(bundle=bundle)])
 
     for line in (found or "").splitlines():
@@ -94,8 +94,7 @@ def windows():
 
 
 def registry_value(said, name):
-    """THE LAST FIELD OF THE MATCHING reg query LINE. None NAME TAKES THE FIRST
-    LINE WITH A VALUE AT ALL, WHICH IS HOW THE DEFAULT ENTRY IS WRITTEN."""
+    """THE LAST FIELD OF THE MATCHING reg query LINE."""
     for line in (said or "").splitlines():
         parts = line.split(None, 2)
 

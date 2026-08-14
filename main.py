@@ -1,14 +1,4 @@
-"""COMPLETELY LOCAL VOICE ASSISTANT.
-
-    say his name ─► record ─► transcribe ─► think ─► speak
-        ears         ears        ears       brain    voice
-                                              │
-                                              ▼
-                                        hands and eyes
-
-PLAIN FOR A TERMINAL. WITH --serve IT TALKS JSON TO A WINDOW, WHICH IS HOW
-face/window RUNS IT.
-"""
+"""COMPLETELY LOCAL VOICE ASSISTANT."""
 
 from face import silence
 
@@ -93,12 +83,7 @@ def attend(happy, speaker, recorder, waking):
 
 
 def blocked():
-    """THE ONE THING WORTH A BANNER: A PERMISSION HAPPY IS STILL WAITING ON.
-
-    HEARING NO LONGER NEEDS ONE — HIS NAME IS SAID INTO A MICROPHONE AND NOT
-    TYPED — BUT READING A WINDOW AND CLICKING IN IT BOTH STILL DO, AND THE
-    BUTTON THAT FIXES IT IS THE SAME BUTTON IT ALWAYS WAS.
-    """
+    """THE ONE THING WORTH A BANNER: A PERMISSION HAPPY IS STILL WAITING ON."""
     from eyes import attention
 
     if not (attention.on_mac() or attention.on_windows()):
@@ -167,12 +152,7 @@ def start():
 
 
 def listen(waking, happy, speaker):
-    """ONE TURN PER LAP: HIS NAME, WHAT WAS ASKED, AN ANSWER.
-
-    THE HEARING IS ALL DONE BY THE TIME ANYTHING GETS HERE. WHAT ARRIVES IS A
-    QUESTION SOMEBODY PUT TO HAPPY BY NAME, AND EVERY OTHER SOUND IN THE ROOM
-    HAS ALREADY BEEN LISTENED TO AND FORGOTTEN.
-    """
+    """ONE TURN PER LAP: HIS NAME, WHAT WAS ASKED, AN ANSWER."""
     while True:
         heard = waking.next()
 
@@ -215,22 +195,13 @@ def typed_soon(happy, speaker, text):
 
 
 def distant(happy, text, context=None):
-    """A TURN THAT ARRIVED IN A MESSAGE. NOTHING IS SPOKEN INTO THE ROOM FOR IT.
-
-    GIVES BACK WHAT TO SAY AND ANY PICTURES TO SEND WITH IT. THIS IS THE ONLY KIND
-    OF TURN THAT CAN CARRY ONE: WHOEVER ASKED IS NOT LOOKING AT THE SCREEN.
-
-    context IS WHOSE CHAT IT CAME FROM, WHICH ONLY THE MODEL NEEDS. WHAT IS SHOWN
-    IS WHAT THE PERSON ACTUALLY WROTE.
-    """
+    """A TURN THAT ARRIVED IN A MESSAGE."""
     with taking:
         show.begin()
         show.said(text)
 
-        # THE WINDOW OPENS EVERY TURN ON "MAKING IT OUT", WHICH IS THE EARS
-        # WORKING OUT WHAT WAS SAID. NOTHING IS BEING MADE OUT HERE — THE WORDS
-        # ARRIVED WRITTEN — AND ONLY A SPOKEN TURN EVER MOVED IT ON, SO A MESSAGE
-        # SAT UNDER THAT WORD FOR THE WHOLE OF THE THINKING AND LOOKED STUCK.
+        # THE WINDOW OPENS EVERY TURN ON "MAKING IT OUT", WHICH IS THE EARS WORKING OUT WHAT
+        # WAS SAID.
         show.opening()
 
         handing.opened()

@@ -224,8 +224,7 @@ def named(found):
 
 
 def readable(payload):
-    """THE READABLE PART OF A MAIL. PLAIN TEXT WHERE THERE IS ANY, HTML STRIPPED
-    BACK WHERE THERE IS NOT, BECAUSE PLENTY OF SENDERS ONLY EVER SEND HTML."""
+    """THE READABLE PART OF A MAIL."""
     plain, marked = gathered(payload)
 
     return " ".join((plain or TAGS.sub(" ", marked)).split())

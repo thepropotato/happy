@@ -1,9 +1,4 @@
-"""THE POINTER AND THE KEYBOARD. THE ONLY PLACE ANYTHING IS ACTUALLY INJECTED.
-
-NOTHING HERE DECIDES ANYTHING. IT MOVES, PRESSES AND TYPES WHERE IT IS TOLD, AND
-EVERY CALL TELLS noticing FIRST SO THE EVENT COMES BACK LABELLED AS OURS RATHER
-THAN AS A PERSON REACHING FOR THE MOUSE.
-"""
+"""THE POINTER AND THE KEYBOARD."""
 
 import time
 
@@ -81,8 +76,7 @@ def at(x, y):
 
 
 def click(x, y, times=1, button="left"):
-    """PRESS SOMEWHERE. THE POINTER IS LEFT ON THE THING IT PRESSED, WHICH IS
-    WHAT LETS US NOTICE LATER THAT SOMEONE ELSE MOVED IT."""
+    """PRESS SOMEWHERE."""
     from pynput.mouse import Button
 
     which = Button.right if button == "right" else Button.left
@@ -107,11 +101,7 @@ def parts(keys):
 
 
 def unknown_keys(keys):
-    """WHY THIS SHORTCUT CANNOT BE PRESSED, OR None.
-
-    ASKED BEFORE ANYTHING LOOKS AT THE SCREEN, SO A TYPO COSTS NOTHING INSTEAD
-    OF COSTING A LOOK AT THE WHOLE DESKTOP FIRST.
-    """
+    """WHY THIS SHORTCUT CANNOT BE PRESSED, OR None."""
     wanted = parts(keys)
 
     if not wanted:
