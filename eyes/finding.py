@@ -1,21 +1,6 @@
-"""WHERE SOMETHING IS ON THE SCREEN.
+"""WHERE SOMETHING IS ON THE SCREEN."""
 
-FOUR WAYS OF ANSWERING, TRIED CHEAPEST AND SUREST FIRST, STOPPING AT THE FIRST
-ONE THAT ANSWERS:
-
-    1. THE APPLICATION IS ASKED. IT KNOWS ITS OWN BUTTONS AND THEIR EXACT BOXES,
-       COSTS NO PICTURE AND NO MODEL, AND IS THE ONLY SOURCE THAT ALSO KNOWS
-       WHETHER THE THING IS GREYED OUT.
-    2. THE WORDS. OCR KNOWS EXACTLY WHERE IT READ SOMETHING.
-    3. THE MODEL PICKS ONE OF THOSE WORDS, BY NUMBER.
-    4. THE MODEL POINTS, FOR WHAT HAS NO TEXT AT ALL.
-
-A MODEL IS NEVER ASKED FOR A COORDINATE UNTIL EVERYTHING ELSE HAS FAILED,
-BECAUSE A WRONG COORDINATE IS NOT A WRONG ANSWER, IT IS A THING THAT HAPPENED
-SOMEWHERE ON YOUR DESKTOP.
-"""
-
-from eyes import structure
+from eyes import masking, structure
 from eyes.describing import PICK, POINT, asked, digits, listing, numbers, smaller
 from eyes.estimating import PICKED, POINTED, READ, TOLD
 from eyes.matching import CLICK_CUTOFF, likeness, middle, span, spot, tidy, typing
@@ -45,12 +30,7 @@ ENTRY = ("text field", "text box", "search field", "combo box", "dropdown")
 
 
 def told(target, elements=None):
-    """THE ELEMENT THE APPLICATION ITSELF SAYS IS target, OR None.
-
-    NO PICTURE AND NO MODEL: THIS IS THE WHOLE ANSWER FOR ANY APPLICATION THAT
-    DESCRIBES ITSELF, WHICH IS MOST OF THEM, AND IT COMES BACK IN A SIXTH OF A
-    SECOND KNOWING THE EXACT BOX.
-    """
+    """THE ELEMENT THE APPLICATION ITSELF SAYS IS target, OR None."""
     wanted = tidy(target)
 
     if not wanted:
@@ -97,16 +77,7 @@ def overlapping(one, other):
 
 
 def decided(worth):
-    """THE ONE MEANT, AND ANYTHING ELSE ANSWERING TO THE SAME NAME.
-
-    TWO THINGS SCORING THE SAME ARE EITHER ONE THING DESCRIBED TWICE OR TWO REAL
-    THINGS, AND WHICH ONE DECIDES THE ANSWER. LYING ON TOP OF EACH OTHER MEANS A
-    LABEL AND ITS BUTTON, AND THEY MEAN THE BUTTON. SITTING APART MEANS TWO
-    THINGS, AND THEN THE BIG ONE IS THE ROW OR CARD BEING POINTED AT WHILE THE
-    SMALL ONE IS AN ICON OR A TITLE: WHATSAPP CALLS BOTH THE CHAT IN THE LIST AND
-    THE FORTY PIXEL CHIP ABOVE IT "AUNTY", AND PRESSING THE CHIP LEAVES THE
-    CONVERSATION FOR THE CONTACT'S SETTINGS.
-    """
+    """THE ONE MEANT, AND ANYTHING ELSE ANSWERING TO THE SAME NAME."""
     top = max(rank for rank, _ in worth)
     tied = [element for rank, element in worth if rank == top]
 
@@ -122,18 +93,17 @@ def decided(worth):
 
 
 def where(target, shot=None, seen=None, ask=True, elements=None):
-    """WHERE target IS ON THE SCREEN, AS A POINT FOR THE POINTER, OR None.
-
-    NOTHING HERE TAKES A PICTURE UNTIL ASKING HAS FAILED, SO THE COMMON CASE
-    NEVER PAYS FOR ONE.
-    """
+    """WHERE target IS ON THE SCREEN, AS A POINT FOR THE POINTER, OR None."""
     found = told(target, elements)
 
     if found:
         return found
 
     shot = shot or grab()
-    seen = seen or look(shot.image)
+
+    # HAPPY'S OWN TRANSCRIPT IS ON THE SCREEN AND ANSWERS TO WHATEVER WAS JUST
+    # SAID TO HIM: "resume game of thrones" BEAT EVERY REAL THING CALLED THAT.
+    seen = masking.elsewhere(seen or look(shot.image), shot.density)
 
     words = spot(seen, target)
 
@@ -149,12 +119,7 @@ def where(target, shot=None, seen=None, ask=True, elements=None):
 
 
 def chosen(shot, seen, target):
-    """THE MODEL PICKING WHICH PIECE OF READ TEXT IS THE TARGET.
-
-    IT ANSWERS WITH A NUMBER, NEVER A COORDINATE. THE NUMBER INDEXES TEXT OCR
-    ALREADY FOUND THE EXACT BOX OF, SO A RIGHT ANSWER IS EXACTLY RIGHT AND A
-    WRONG ONE IS STILL SOMEWHERE REAL ON THE SCREEN.
-    """
+    """THE MODEL PICKING WHICH PIECE OF READ TEXT IS THE TARGET."""
     lines, menu = listing(seen)
 
     if not lines:
@@ -172,8 +137,7 @@ def chosen(shot, seen, target):
 
 
 def pointed(shot, target):
-    """THE MODEL GIVING A PLACE OUTRIGHT, FOR WHAT HAS NO TEXT TO PICK. THE LEAST
-    EXACT OF THE THREE WAYS AND THE LAST TRIED."""
+    """THE MODEL GIVING A PLACE OUTRIGHT, FOR WHAT HAS NO TEXT TO PICK."""
     small, ratio = smaller(shot.image)
     pair = numbers(asked(small, POINT.format(target=target, width=small.width, height=small.height)))
 

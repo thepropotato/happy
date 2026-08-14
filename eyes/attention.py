@@ -1,9 +1,4 @@
-"""WHAT IS IN FRONT, WHAT HAS THE CARET, AND WHERE THE POINTER IS.
-
-THESE ARE THE CHEAP SENSES. THEY COST NO PICTURE AND NO MODEL, AND THEY ARE HOW
-HAPPY NOTICES THAT SOMEONE ELSE HAS TOUCHED THE COMPUTER: A DIFFERENT
-APPLICATION IN FRONT, OR A POINTER THAT IS NOT WHERE IT WAS LEFT.
-"""
+"""WHAT IS IN FRONT, WHAT HAS THE CARET, AND WHERE THE POINTER IS."""
 
 import os
 import sys
@@ -38,11 +33,7 @@ def on_windows():
 
 
 def allowed():
-    """WHY THE TREE CANNOT BE READ, OR None WHEN IT CAN.
-
-    MACOS REFUSES BY HANDING BACK AN EMPTY TREE RATHER THAN AN ERROR, WHICH
-    WOULD OTHERWISE READ AS AN APPLICATION THAT DESCRIBES NOTHING.
-    """
+    """WHY THE TREE CANNOT BE READ, OR None WHEN IT CAN."""
     if on_mac():
         try:
             from ApplicationServices import AXIsProcessTrusted
@@ -62,10 +53,18 @@ def allowed():
     return UNSUPPORTED
 
 
+def ours():
+    """THE PROCESSES HAPPY IS. THE PANEL IS ELECTRON, AND IT STARTED THIS."""
+    return {os.getpid(), os.getppid()}
+
+
 def front():
-    """THE APPLICATION IN FRONT, AS (NAME, HANDLE). THE HANDLE IS WHAT EACH
-    SYSTEM WANTS BACK WHEN ASKED TO DESCRIBE IT: A PROCESS ON MACOS, A WINDOW
-    ON WINDOWS."""
+    """THE APPLICATION IN FRONT, AS (NAME, HANDLE), NEVER HAPPY HIMSELF.
+
+    HIS PANEL IS ACTIVE WHENEVER ANYBODY IS TALKING TO HIM, SO THE SYSTEM'S OWN
+    ANSWER TO WHAT IS IN FRONT WAS HIM, AND list_controls READ HIS TRANSCRIPT
+    BACK AS THE SCREEN. pile() ALREADY SKIPS HIM, SO IT IS THE ANSWER INSTEAD.
+    """
     if on_mac():
         try:
             from AppKit import NSWorkspace
@@ -76,6 +75,9 @@ def front():
 
         if running is None:
             return "", None
+
+        if running.processIdentifier() in ours():
+            return behind()
 
         # THROUGH wording() FOR INVISIBLE DIRECTION MARKS: THE NAME IN FRONT COMES
         # BACK AS "‎WhatsApp", NOT "WhatsApp".
@@ -97,6 +99,9 @@ def front():
             pid = ctypes.c_ulong()
             ctypes.windll.user32.GetWindowThreadProcessId(handle, ctypes.byref(pid))
 
+            if pid.value in ours():
+                return behind()
+
             return psutil.Process(pid.value).name().removesuffix(".exe"), handle
         except Exception:
             return "", None
@@ -104,14 +109,16 @@ def front():
     return "", None
 
 
-def doing():
-    """WHAT THE PERSON IS IN AND WHAT IT IS CALLED, IN ONE LINE, OR "".
+def behind():
+    """THE FIRST WINDOW THAT IS NOT HAPPY, FOR WHEN HIS PANEL IS THE ACTIVE ONE."""
+    for name, handle, _ in pile():
+        return name, handle
 
-    THE CHEAPEST ANSWER THERE IS TO "WHAT IS THIS PERSON DOING": FORTY
-    MILLISECONDS, NO PICTURE AND NO MODEL. THE TITLE IS THE PART THAT MEANS
-    ANYTHING — THE FILE, THE PAGE, THE EPISODE — SO A WINDOW WITH NO TITLE IS
-    ONLY WORTH THE NAME OF THE APPLICATION.
-    """
+    return "", None
+
+
+def doing():
+    """WHAT THE PERSON IS IN AND WHAT IT IS CALLED, IN ONE LINE, OR ""."""
     for name, handle, title in pile():
         if not title:
             try:
@@ -128,12 +135,7 @@ def doing():
 
 
 def windows():
-    """EVERY ORDINARY WINDOW, FRONT TO BACK, AS (NAME, TITLE), DUPLICATES GONE.
-
-    doing() IS THE FRONT ONE AND THIS IS ALL OF THEM, WHICH IS NOT THE SAME
-    QUESTION: WHAT SOMEBODY IS DOING IS OFTEN NOT THE WINDOW ON TOP. A VIDEO
-    PLAYS ON BEHIND THE THING BEING TYPED INTO, AND A CHAT SITS TWO WINDOWS BACK.
-    """
+    """EVERY ORDINARY WINDOW, FRONT TO BACK, AS (NAME, TITLE), DUPLICATES GONE."""
     found = []
     seen = set()
 
@@ -150,21 +152,15 @@ def windows():
 
 
 def everything():
-    """EVERY WINDOW WORTH NAMING, FRONT TO BACK, AS (NAME, HANDLE, TITLE).
-
-    NOT pile(): THAT ONE ASKS MACOS FOR WHAT IS ON SCREEN, AND A CALL OR A VIDEO
-    GONE FULLSCREEN IS A SPACE OF ITS OWN — SO ON-SCREEN-ONLY THEN SWEARS THE
-    OTHER SIX WINDOWS ARE NOT OPEN. WINDOWS HAS NO SPACES AND ITS WALK DOWN THE
-    PILE IS ALREADY EVERY TITLED WINDOW, SO THERE IT IS THE SAME LIST.
-    """
-    ours = {os.getpid(), os.getppid()}
+    """EVERY WINDOW WORTH NAMING, FRONT TO BACK, AS (NAME, HANDLE, TITLE)."""
+    mine = ours()
 
     try:
         if on_mac():
-            return mac_everything(ours)
+            return mac_everything(mine)
 
         if on_windows():
-            return windows_pile(ours)
+            return windows_pile(mine)
     except Exception:
         return []
 
@@ -195,9 +191,8 @@ def mac_everything(ours):
         if pid in ours or min(box.get("Width") or 0, box.get("Height") or 0) < LEAST:
             continue
 
-        # ONE THAT NAMES ITSELF NOTHING IS FURNITURE: AN AUTOFILL BUBBLE, A LOGIN
-        # PANEL, A HELPER. doing() CAN ASK ACCESSIBILITY FOR THE ONE IN FRONT,
-        # BUT A WHOLE LIST CANNOT WITHOUT A ROUND TRIP PER WINDOW.
+        # ONE THAT NAMES ITSELF NOTHING IS FURNITURE: AN AUTOFILL BUBBLE, A LOGIN PANEL, A
+        # HELPER.
         if not title:
             continue
 
@@ -207,22 +202,15 @@ def mac_everything(ours):
 
 
 def pile():
-    """EVERY ORDINARY WINDOW, FRONT TO BACK, AS (NAME, HANDLE, TITLE), SKIPPING
-    HAPPY'S OWN. THE HANDLE IS WHAT window() WANTS BACK.
-
-    NOT front(): HIS PANEL COMES UP OVER EVERYTHING THE SECOND HIS NAME IS SAID
-    AND STAYS ACTIVE WHILE ANYBODY TYPES INTO IT, SO THE SYSTEM'S OWN ANSWER TO
-    WHAT IS IN FRONT IS HIMSELF. A MENU BAR AND A STATUS DOT ARE IN FRONT TOO.
-    WHAT SOMEBODY IS DOING IS THE FIRST WINDOW THAT IS NONE OF THAT.
-    """
-    ours = {os.getpid(), os.getppid()}  # THE PANEL IS ELECTRON, AND IT STARTED THIS.
+    """EVERY ORDINARY WINDOW, FRONT TO BACK, AS (NAME, HANDLE, TITLE), SKIPPING HAPPY'S OWN."""
+    mine = ours()
 
     try:
         if on_mac():
-            return mac_pile(ours)
+            return mac_pile(mine)
 
         if on_windows():
-            return windows_pile(ours)
+            return windows_pile(mine)
     except Exception:
         return []
 
@@ -294,8 +282,7 @@ def windows_pile(ours):
 
 
 def window(handle=None):
-    """THE TITLE OF THE WINDOW IN FRONT. handle IS A PROCESS ON MACOS AND A
-    WINDOW ON WINDOWS, WHICHEVER front() HANDED BACK."""
+    """THE TITLE OF THE WINDOW IN FRONT."""
     if on_mac():
         from ApplicationServices import AXUIElementCreateApplication
 
