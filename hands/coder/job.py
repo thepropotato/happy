@@ -19,12 +19,16 @@ CREATE TABLE IF NOT EXISTS coder_jobs (
     coder_name TEXT    NOT NULL,
     task       TEXT    NOT NULL,
     session_id TEXT,
+    folder     TEXT,
     result     TEXT,
     failed     TEXT
 );
 
 CREATE INDEX IF NOT EXISTS coder_jobs_epoch ON coder_jobs(epoch);
 """
+
+# ADDED SINCE THE TABLE WAS FIRST WRITTEN, SO AN OLD DATABASE HAS TO CATCH UP.
+LATER = ["session_id TEXT", "folder TEXT"]
 
 TIMEOUT_SECONDS = 900
 
@@ -44,11 +48,13 @@ def setup():
 
     with handle:
         handle.executescript(SCHEMA)
-        # KEEP OLD DATABASES WORKING AFTER THE NEW COLUMN.
-        try:
-            handle.execute("ALTER TABLE coder_jobs ADD COLUMN session_id TEXT")
-        except Exception:
-            pass
+
+        # KEEP OLD DATABASES WORKING AFTER THE NEW COLUMNS.
+        for column in LATER:
+            try:
+                handle.execute(f"ALTER TABLE coder_jobs ADD COLUMN {column}")
+            except Exception:
+                pass
 
     built = True
 
@@ -56,14 +62,15 @@ def setup():
 class Job:
     """ONE ERRAND, ONE PROCESS, ONE WATCHER THREAD."""
 
-    def __init__(self, coder_name, task, session_id=None):
+    def __init__(self, coder_name, task, folder, session_id=None):
         self.coder_name = coder_name
         self.task = task
+        self.folder = str(folder)
         self.session_id = session_id
         self.answer = None
         self.failed = None
         self.doing = None  # THE LAST THING THE CODER SAID IT WAS DOING.
-        self.id = remember_start(coder_name, task, self.session_id)
+        self.id = remember_start(coder_name, task, self.session_id, self.folder)
         self.thread = threading.Thread(target=self.work, daemon=True)
         self.thread.start()
 
@@ -72,7 +79,9 @@ class Job:
 
     def work(self):
         try:
-            result = run(self.coder_name, self.task, self.session_id, self.watching)
+            result = run(
+                self.coder_name, self.task, self.folder, self.session_id, self.watching
+            )
         except Exception as error:
             result = {"failed": f"{error.__class__.__name__}: {error}"}
 
@@ -109,14 +118,17 @@ class Job:
         return f"About {said(self.task)}. {self.answer}"
 
 
-def run(coder_name, task, session_id=None, watching=None):
+def run(coder_name, task, folder, session_id=None, watching=None):
     if session_id and coder_name == "Claude Code":
         command = registry.claude_code_resume(session_id, task)
     else:
         command = registry.CODERS[coder_name](task)
 
+    # THE ONE THING THAT DECIDES WHICH PROJECT GETS WRITTEN INTO. WITHOUT IT THE
+    # CODER INHERITS WHEREVER HAPPY WAS STARTED FROM, WHICH IS HAPPY'S OWN CODE.
     process = subprocess.Popen(
         command,
+        cwd=folder,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -188,16 +200,16 @@ def said(task):
     return " ".join(str(task).split()).rstrip(".")
 
 
-def remember_start(coder_name, task, session_id):
+def remember_start(coder_name, task, session_id, folder):
     now = time.time()
     at = datetime.now().astimezone().isoformat(timespec="seconds")
 
     return storage.write(
         """
-        INSERT INTO coder_jobs (at, epoch, coder_name, task, session_id, result, failed)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO coder_jobs (at, epoch, coder_name, task, session_id, folder, result, failed)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (at, now, coder_name, task, session_id, None, None),
+        (at, now, coder_name, task, session_id, folder, None, None),
     )
 
 

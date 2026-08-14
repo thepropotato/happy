@@ -40,6 +40,35 @@ def walk(root, depth):
                 yield Path(here) / name
 
 
+def crawl(root, depth):
+    """EVERY FOLDER UNDER root, WITHOUT DESCENDING INTO THE ENORMOUS."""
+    for here, folders, names in os.walk(root):
+        folders[:] = [f for f in folders if f not in AVOID and not f.startswith(".")]
+
+        if len(Path(here).relative_to(root).parts) >= depth:
+            folders[:] = []
+
+        for name in folders:
+            yield Path(here) / name
+
+
+def dig(wanted, depth=MAX_DEPTH, limit=MAX_HITS):
+    """FOLDERS WHOSE NAME CONTAINS wanted, NEAREST PLACES FIRST, NO REPEATS."""
+    needle = wanted.lower().strip()
+    seen, hits = set(), []
+
+    for root in roots():
+        for path in crawl(root, depth):
+            if needle in path.name.lower() and path not in seen:
+                seen.add(path)
+                hits.append(path)
+
+                if len(hits) >= limit:
+                    return hits
+
+    return hits
+
+
 def hunt(wanted, depth=MAX_DEPTH, limit=MAX_HITS):
     """FILES WHOSE NAME CONTAINS wanted, NEAREST PLACES FIRST, NO REPEATS."""
     needle = wanted.lower().strip()
