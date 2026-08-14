@@ -5,7 +5,7 @@ from pathlib import Path
 
 from langchain_core.tools import tool
 
-from eyes import attention
+from eyes import attention, ongoing
 from eyes.describing import QUESTION, asked, smaller
 from face import handing
 from hands import asking
@@ -82,31 +82,24 @@ def read_screen() -> str:
 
 @tool
 def current_activity() -> str:
-    """What this person is doing on the computer right now: the application they
-    are in front of, and the title of the window they have open in it.
+    """What this person is doing right now: the application in front of them and
+    the title of its window.
 
-    Use this whenever you are asked what they are doing, what they are up to,
-    what they are working on, whether they are busy, or asked to tell somebody
-    else any of that. "What am I doing" is that question. "What are you doing"
-    is not: that one is about you, and nothing on their screen answers it.
-    Never answer out of your own head. There is no way to know what somebody is
-    doing without looking, and "on the computer" tells whoever asked nothing
-    they had not already guessed.
+    Use this whenever you are asked what they are doing, are up to, are working
+    on, or whether they are busy, and whenever you are asked to tell somebody
+    else any of that. Use it too when the question never says the word screen
+    but cannot be answered without looking: how much of this is left, what the
+    next one is, how far in they are, which one this is.
 
-    Use it just as much when the question never says the word screen but cannot
-    be answered without it: how much of this is left, what the next one is, how
-    far in they are, which one this is. Those are about what they are in front
-    of right now, so they start here, every time, before you count anything.
+    "What am I doing" is this question. "What are you doing" is not — that one
+    is about you, and nothing on their screen answers it.
 
-    This is the front window only, and what somebody is doing is often behind
-    it. If what came back is not what you were asked about — the wrong
-    application, a call, Happy himself — do not answer from it and do not give
-    up: list_open_windows has everything else they have open.
+    This is the front window only. When what comes back is not what you were
+    asked about, already_open and list_open_windows have the rest. When the
+    title is too little to go on, read_screen next.
 
-    The window title is usually the specific thing: the file being edited, the
-    page being read, the video playing, the person being written to. Say what it
-    actually is, in a way that means something to whoever asked. If the title is
-    too little to go on, read_screen next and say what is really happening."""
+    The title is usually the specific thing: the file, the page, the video, the
+    person being written to. Say what it actually is."""
     seen = attention.doing()
 
     if not seen:
@@ -121,13 +114,7 @@ def current_activity() -> str:
 
 
 def rest():
-    """WHAT ELSE IS OPEN, NAMED HERE RATHER THAN FETCHED BY A SECOND CALL.
-
-    POINTING AT THE OTHER TOOL WAS TRIED AND FOLLOWED ONE TIME IN FOUR: THE
-    MODEL READS ONE WINDOW TITLE, TAKES IT FOR THE ANSWER, AND STOPS. SO THE
-    QUESTION IS ANSWERED WHOLE IN ONE ROUND TRIP INSTEAD, BECAUSE A CHAIN THAT
-    HAS TO BE FOLLOWED THREE TIMES OUT OF FOUR IS NOT A CHAIN THAT WORKS.
-    """
+    """WHAT ELSE IS OPEN, NAMED HERE RATHER THAN FETCHED BY A SECOND CALL."""
     behind = attention.windows()[1:MOST]
 
     if not behind:
@@ -140,19 +127,17 @@ def rest():
 
 @tool
 def list_open_windows() -> str:
-    """Every window this person has open right now, front to back, each with the
-    application it is in and its own title.
+    """Every window open right now, front to back, each with its application and
+    its own title.
 
-    What somebody is doing is not only the window on top. A video plays on
-    behind the thing being typed into, a chat sits open two windows back, a
-    download finishes somewhere nobody has looked in an hour. current_activity
-    hands you the front one and nothing else, so come here whenever what you
-    were asked about is not in it, whenever you were asked what else is open or
-    running, and whenever the front window turns out to be Happy or a call.
+    Use this when you were asked what else is open or running, and when what you
+    were asked about is not the front window: a video plays on behind the thing
+    being typed into, a chat sits two windows back. To ask whether one
+    particular thing is open, use already_open instead — it also reads browser
+    tabs, which this cannot see.
 
-    The titles are the part that means anything: the file, the page, the
-    episode, the person being written to. Read the whole list before answering,
-    and name the real thing rather than the application it happens to be in."""
+    Read the whole list before answering, and name the real thing rather than
+    the application it happens to be in."""
     seen = attention.windows()[:MOST]
 
     if not seen:
@@ -164,6 +149,47 @@ def list_open_windows() -> str:
     listed = "\n".join(f'{name} — "{title}"' if title else name for name, title in seen)
 
     return f"Open right now, front to back:\n{listed}"
+
+
+@tool
+def already_open(about: str) -> str:
+    """Check whether the thing you are about to do is already going on this
+    computer. Give what it is about in a few words, for example "Game of
+    Thrones", "the spreadsheet", "Gmail".
+
+    Call this first, before you open, start, play or search for anything. A show
+    is usually already paused in a tab, a document is usually already open in
+    the editor, and carrying on with it is what the person meant by "resume",
+    "carry on", "go back to" or "put it back on". Starting a second copy of
+    something they already have open is the wrong answer.
+
+    This reads every window and every browser tab, so it sees pages no window
+    title mentions. It only looks. Finding the tab is not resuming it and is not
+    an answer on its own: when something comes back, call bring_to_front with a
+    few words from its title to put it in front of them, with play set if they
+    asked you to resume or carry on with it. If nothing comes back, go and open
+    or search for it as normal."""
+    if not about.strip():
+        return "Say what to look for."
+
+    found = ongoing.matches(about)
+
+    if found:
+        listed = "\n".join(found[:MOST])
+
+        return (
+            f"{listed}\n\nThis is only what is open, not what is playing. Nothing has "
+            f"moved on their screen yet. Call bring_to_front to put it in front of them."
+        )
+
+    rest_of_it = ongoing.everything()
+
+    if not rest_of_it:
+        return f"Nothing about {about} is open, and neither is anything else."
+
+    listed = "\n".join(rest_of_it)
+
+    return f"Nothing about {about} is open. What is open:\n{listed}"
 
 
 @tool
@@ -222,6 +248,7 @@ TOOLS = [
     read_image,
     read_screen,
     current_activity,
+    already_open,
     list_open_windows,
     look_at_screen,
     show_screen,

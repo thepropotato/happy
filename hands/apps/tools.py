@@ -9,16 +9,7 @@ from hands import asking
 from hands.apps import installed, machine, opening
 from hands.apps.running import launch
 
-# THE ONE THING THIS FIELD IS ALLOWED TO SAY, WHICH IS THE POINT OF IT. A LINE IN
-# THE PROMPT ABOUT NOT OPENING PAGES IT ONLY MEANT TO READ IS READ ONCE AND LONG
-# GONE BY THE TIME A LIST OF ADDRESSES IS IN FRONT OF IT. SPELLING THE CLAIM OUT
-# PER CALL PUTS IT WHERE THE CHOICE ACTUALLY IS. A SECOND VALUE FOR "ONLY LOOKING"
-# WAS TRIED AND MADE THIS read_page's TWIN: IT PEEKED THROUGH HERE SIX TIMES A TURN.
-#
-# ONE WORD EACH, BECAUSE THE CLAIM USED TO BE A WHOLE SENTENCE AND THE MODEL WROTE
-# ITS OWN REASON WHERE THE SENTENCE HAD TO GO: A QUARTER OF EVERY TOOL CALL EVER
-# MADE DIED HERE, ONE OF THEM ON A CAPITAL LETTER. THE CHOICE IS THE SAME CHOICE.
-# WHAT CHANGED IS THAT IT CAN NOW BE HIT.
+# THE ONE THING THIS FIELD IS ALLOWED TO SAY, WHICH IS THE POINT OF IT.
 SEEING = "show"
 
 CHECKING = "read"
@@ -47,6 +38,10 @@ def open_app(name: str) -> str:
     """Open an installed application by name, for example "Visual Studio Code"
     or "Calculator". A short name like "chrome" is enough. Prefer this over a
     shell command whenever the user asks to open or launch an app.
+
+    Check already_open first. Starting an app to do something the person already
+    has open — a show paused in a tab, a document in the editor — is the wrong
+    answer, and opening an app so they can search it themselves is not doing it.
 
     This opens things. Never use it to find out whether an app is installed:
     that is list_installed_apps, and it changes nothing on screen.
@@ -113,15 +108,11 @@ def open_url(url: str, because: Literal[SEEING, CHECKING]) -> str:
     an address alone will reach: a site, a video, a search, a web app. Accepts
     "youtube.com" or a full address.
 
-    This lands on their screen, on top of whatever they were doing, so
-    "because" is where you say which of the two this is, in that one word.
-    Say "show" when they asked for the page itself, to watch or read or use.
-    Say "read" when you only want a fact off it — a number, a height, how long
-    something is — and their screen stays exactly where they left it, because
-    something they want to know is not something they want to look at.
-
-    That field takes one of those two words and nothing else. The sentence
-    saying what you are doing and why goes in "why", the same as every tool.
+    "because" takes one of two words and nothing else. Say "show" when they
+    asked for the page itself, to watch or read or use, and it lands on their
+    screen on top of what they were doing. Say "read" when you only want a fact
+    off it and their screen should stay exactly where they left it. The sentence
+    saying what you are doing goes in "why", the same as every tool.
 
     Their browser is already signed in to their accounts, so this is how you
     reach anything of theirs on the web. Prefer it over opening a browser
