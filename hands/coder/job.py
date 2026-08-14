@@ -2,14 +2,14 @@
 
 import atexit
 from datetime import datetime
-import json
 import subprocess
 import threading
 import time
 
 import memory.storage as storage
 
-from hands.coder import registry
+from face import show
+from hands.coder import reading, registry
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS coder_jobs (
@@ -62,6 +62,7 @@ class Job:
         self.session_id = session_id
         self.answer = None
         self.failed = None
+        self.doing = None  # THE LAST THING THE CODER SAID IT WAS DOING.
         self.id = remember_start(coder_name, task, self.session_id)
         self.thread = threading.Thread(target=self.work, daemon=True)
         self.thread.start()
@@ -71,34 +72,44 @@ class Job:
 
     def work(self):
         try:
-            result = run(self.coder_name, self.task, self.session_id)
+            result = run(self.coder_name, self.task, self.session_id, self.watching)
         except Exception as error:
             result = {"failed": f"{error.__class__.__name__}: {error}"}
 
         self.failed = result.get("failed")
         self.answer = result.get("answer")
-        self.session_id = result.get("session_id")
+
+        # KEPT WHEN THE RUN THAT JUST ENDED HAS NONE TO GIVE, OR ONE BAD GO WOULD
+        # THROW AWAY THE THREAD OF EVERY GOOD ONE BEFORE IT.
+        self.session_id = result.get("session_id") or self.session_id
 
         remember_finish(self.id, self.answer, self.failed, self.session_id)
+
+        # NOBODY ASKED, AND WAITING TO BE ASKED IS HOW A FINISHED JOB GOES UNNOTICED.
+        show.unprompted(self.report())
+
+    def watching(self, said):
+        """WHAT THE CODER IS DOING, ON THE FACE WHILE IT IS STILL DOING IT."""
+        self.doing = said
+
+        show.working(said)
+
+    def progress(self):
+        doing = f" Right now: {self.doing}" if self.doing else ""
+
+        return f"Still working on: {said(self.task)}.{doing}"
 
     def report(self):
         if self.failed:
             return f"That build job did not work out. {self.failed}"
 
         if not self.answer:
-            return f"Finished {self.task}, but it came back with nothing to tell you."
+            return f"Finished {said(self.task)}, but it came back with nothing to tell you."
 
-        if self.session_id:
-            return (
-                f"About {self.task}. {self.answer}"
-                " To continue, call build_answer with the user's reply"
-                " - do not try to resolve this yourself."
-            )
-
-        return f"About {self.task}. {self.answer}"
+        return f"About {said(self.task)}. {self.answer}"
 
 
-def run(coder_name, task, session_id=None):
+def run(coder_name, task, session_id=None, watching=None):
     if session_id and coder_name == "Claude Code":
         command = registry.claude_code_resume(session_id, task)
     else:
@@ -112,39 +123,69 @@ def run(coder_name, task, session_id=None):
     )
     running_processes.add(process)
 
-    try:
-        try:
-            stdout, stderr = process.communicate(timeout=TIMEOUT_SECONDS)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.communicate()
+    # THE OUTPUT IS READ A LINE AT A TIME NOW, SO THE DEADLINE CANNOT RIDE ALONG
+    # ON A communicate() CALL AND HAS TO KEEP ITS OWN CLOCK.
+    overdue = threading.Event()
+    alarm = threading.Timer(TIMEOUT_SECONDS, expire, args=(process, overdue))
+    alarm.start()
 
-            return {"failed": f"It gave up after {TIMEOUT_SECONDS // 60} minutes."}
+    # DRAINED ON ITS OWN THREAD, OR A CODER THAT COMPLAINS ENOUGH TO FILL THE PIPE
+    # SITS THERE WAITING FOR SOMEBODY TO READ IT.
+    complaints = []
+    grumbling = threading.Thread(target=complaints.extend, args=(process.stderr,), daemon=True)
+    grumbling.start()
+
+    try:
+        found = watched(coder_name, process, watching)
+        process.wait()
     finally:
+        alarm.cancel()
+        grumbling.join(timeout=1)
         running_processes.discard(process)
 
-    said = (stdout or "").strip()
+    return outcome(found, process.returncode, complaints, overdue.is_set())
 
-    if process.returncode != 0:
-        complaint = (stderr or "").strip() or said or f"exit code {process.returncode}"
 
-        return {"failed": complaint[:500]}
+def watched(coder_name, process, watching):
+    """WHAT CAME OUT OF THE CODER, SAID OUT LOUD AS IT CAME IF IT SPEAKS JSON."""
+    if coder_name not in registry.STREAMING:
+        return {"answer": process.stdout.read()}
 
-    if coder_name == "Claude Code":
-        if not said:
-            return {"answer": None, "session_id": None}
+    return reading.follow(process.stdout, watching or (lambda said: None))
 
-        try:
-            payload = json.loads(said)
-        except json.JSONDecodeError:
-            return {"failed": "Claude Code returned invalid JSON."}
 
-        answer = payload.get("result")
-        session_id = payload.get("session_id")
+def expire(process, overdue):
+    """THE DEADLINE CAME ROUND AND THE CODER IS STILL GOING."""
+    if process.poll() is not None:
+        return
 
-        return {"answer": answer[:2000] if answer else None, "session_id": session_id}
+    overdue.set()
+    process.kill()
 
-    return {"answer": said[:2000] if said else None}
+
+def outcome(found, code, complaints, overdue):
+    """WHAT THE RUN CAME TO, WITH THE SESSION KEPT WHICHEVER WAY IT WENT."""
+    session = {"session_id": found.get("session_id")}
+
+    if overdue:
+        return {**session, "failed": f"It gave up after {TIMEOUT_SECONDS // 60} minutes."}
+
+    if code != 0:
+        complaint = "".join(complaints).strip() or f"exit code {code}"
+
+        return {**session, "failed": complaint[:500]}
+
+    if found.get("failed"):
+        return {**session, "failed": str(found["failed"])[:500]}
+
+    answer = (found.get("answer") or "").strip()
+
+    return {**session, "answer": answer[:2000] or None}
+
+
+def said(task):
+    """A TASK WITH ITS OWN FULL STOP OFF, SO IT CAN SIT INSIDE A SENTENCE."""
+    return " ".join(str(task).split()).rstrip(".")
 
 
 def remember_start(coder_name, task, session_id):

@@ -131,6 +131,10 @@ def unprompted(text):
     send("message", who="happy", text=text, unprompted=True)
 
 
+def working(text):
+    send("working", text=text)
+
+
 def level(value):
     send("level", level=round(value, 4))
 

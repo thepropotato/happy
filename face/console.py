@@ -120,6 +120,11 @@ def end():
         print(f"{DIM}{'':<{LABEL}}{line}{OFF}")
 
 
+def working(text):
+    """WORK STILL GOING, INDENTED UNDER THE EXCHANGE THAT ASKED FOR IT."""
+    print(f"{DIM}{'':<{LABEL}}{text}{OFF}")
+
+
 def unprompted(text):
     """WORK THAT FINISHED ON ITS OWN GETS ITS OWN BLOCK, NOT SOMEONE ELSE'S."""
     stamp = datetime.now().strftime("%H:%M:%S")

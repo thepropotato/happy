@@ -171,6 +171,10 @@ function hear(word) {
     },
     stats: () => Talk.spent(word),
     trouble: () => Talk.aside(word.text, 'trouble'),
+    working: () => {
+      Talk.aside(word.text, 'working')
+      showing()
+    },
     settings: () => Knobs.show(word),
     history: () => {
       Talk.history(word.messages)

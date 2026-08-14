@@ -75,6 +75,11 @@ def unprompted(text):
     tell("unprompted", text)
 
 
+def working(text):
+    """WHERE SOMETHING RUNNING IN THE BACKGROUND HAS GOT TO, WHILE IT IS STILL GOING."""
+    tell("working", text)
+
+
 def level(value):
     """HOW LOUD THE MICROPHONE IS RIGHT NOW, 0 TO 1."""
     tell("level", value)

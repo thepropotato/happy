@@ -143,6 +143,10 @@ def unprompted(text):
     line("happy", f"(unprompted) {text}")
 
 
+def working(text):
+    line("build", text)
+
+
 def end():
     if turn is None:
         return

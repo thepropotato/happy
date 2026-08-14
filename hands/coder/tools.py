@@ -43,15 +43,16 @@ def build_status() -> str:
     if job.current is None:
         return NOTHING
 
-    return f"Still working on: {job.current.task}" if job.current.running() else job.current.report()
+    return job.current.progress() if job.current.running() else job.current.report()
 
 
 @tool
 def build_answer(response: str) -> str:
-    """Use when build_status says the coder asked a question or needs approval.
+    """Send a follow-up to the coder that just finished, in its own session.
 
-    Send your reply here to continue that same session; chat replies alone do not
-    reach the coding tool."""
+    Use this when the user wants a change to work the coder already did, or has
+    answered something it asked. It keeps everything that session already knows,
+    so prefer it over build for anything that carries on from the last job."""
     if job.current is None:
         job.setup()
         rows = storage.read(
