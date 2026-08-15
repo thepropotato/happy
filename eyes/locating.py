@@ -1,9 +1,10 @@
 """WHERE SOMETHING IS ON THE SCREEN."""
 
-from eyes import masking, structure
+from eyes import masking
 from eyes.agreeing import PICKED, POINTED, READ, TOLD
 from eyes.deciphering import look
 from eyes.describing import PICK, POINT, asked, digits, listing, numbers, smaller
+from eyes.elements import tree
 from eyes.matching import CLICK_CUTOFF, likeness, middle, span, spot, tidy, typing
 from eyes.screen import grab
 from eyes.shapes import Found
@@ -37,7 +38,7 @@ def told(target, elements=None):
         return None
 
     if elements is None:
-        elements = structure.tree()
+        elements = tree()
 
     wants = typing(target)
     worth = []

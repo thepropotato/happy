@@ -19,12 +19,12 @@ DELAY_SECONDS = 3
 
 def main(argv):
     if not argv:
-        return look()
+        return snapshot()
 
     what, rest = argv[0], argv[1:]
 
     if what == "where":
-        return find(" ".join(rest))
+        return point(" ".join(rest))
 
     print(f"Switch to the window you want in {DELAY_SECONDS} seconds...")
     time.sleep(DELAY_SECONDS)
@@ -44,7 +44,7 @@ def main(argv):
     print(__doc__)
 
 
-def look():
+def snapshot():
     model = eyes.current()
     started = time.perf_counter()
     scene = model.refresh()
@@ -54,7 +54,7 @@ def look():
     print(f"\n[{len(scene.elements)} elements, senses {', '.join(scene.senses) or 'none'}, {taken:.0f}ms]")
 
 
-def find(target):
+def point(target):
     started = time.perf_counter()
     found = eyes.where(target)
     taken = (time.perf_counter() - started) * 1000

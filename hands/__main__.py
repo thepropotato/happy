@@ -66,21 +66,21 @@ def listing(matching=None, full=False):
             print(f"\n  {group}")
 
         shown += 1
-        print(f"    {each.name:<{WIDE}} {said(each.description, full)}")
+        print(f"    {each.name:<{WIDE}} {blurb(each.description, full)}")
 
         if full:
-            print(f"    {'':<{WIDE}} {shape(each)}")
+            print(f"    {'':<{WIDE}} {signature(each)}")
 
     print(f"\n  {shown} of {len(tools)} tools" if matching else f"\n  {len(tools)} tools")
 
 
-def said(description, full):
+def blurb(description, full):
     words = " ".join(str(description or "").split())
 
     return words if full else clipped(words, MOST)
 
 
-def shape(each):
+def signature(each):
     """THE ARGUMENTS, WHICH IS THE OTHER HALF OF WHAT THE MODEL IS DECIDING FROM."""
     try:
         held = each.args_schema

@@ -106,16 +106,16 @@ class Job:
     def progress(self):
         doing = f" Right now: {self.doing}" if self.doing else ""
 
-        return f"Still working on: {said(self.task)}.{doing}"
+        return f"Still working on: {trimmed(self.task)}.{doing}"
 
     def report(self):
         if self.failed:
             return f"That build job did not work out. {self.failed}"
 
         if not self.answer:
-            return f"Finished {said(self.task)}, but it came back with nothing to tell you."
+            return f"Finished {trimmed(self.task)}, but it came back with nothing to tell you."
 
-        return f"About {said(self.task)}. {self.answer}"
+        return f"About {trimmed(self.task)}. {self.answer}"
 
 
 def run(coder_name, task, folder, session_id=None, watching=None):
@@ -195,7 +195,7 @@ def outcome(found, code, complaints, overdue):
     return {**session, "answer": answer[:2000] or None}
 
 
-def said(task):
+def trimmed(task):
     """A TASK WITH ITS OWN FULL STOP OFF, SO IT CAN SIT INSIDE A SENTENCE."""
     return " ".join(str(task).split()).rstrip(".")
 

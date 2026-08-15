@@ -54,7 +54,7 @@ def call(name, tool, arguments):
         loop.run(session.close(), 5)
 
     print("--- what the model sees ---")
-    print(shortening.said(result))
+    print(shortening.shortened(result))
 
 
 def listing():
@@ -65,7 +65,7 @@ def listing():
     rows = {row["name"]: row for row in store.every()}
     bound = {each.name for each in mcps.offering()}
 
-    print(f"sign ins are kept in {tokens.where()}\n")
+    print(f"sign ins are kept in {tokens.sitting()}\n")
 
     for known in registry.known():
         row = rows.get(known["name"], {})

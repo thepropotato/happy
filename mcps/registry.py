@@ -110,7 +110,7 @@ def names():
     return [each["name"] for each in KNOWN]
 
 
-def find(name):
+def one(name):
     return BY_NAME.get(name)
 
 

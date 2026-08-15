@@ -24,7 +24,7 @@ NAME_LENGTH = 85  # WHAT GetUserDefaultLocaleName WANTS, IN CHARACTERS.
 QUIET = {"capture_output": True, "text": True, "timeout": 4}
 
 
-def where():
+def report():
     """THE PLACE AND THE MOMENT, IN A FEW LINES."""
     now = datetime.now().astimezone()
     place = country()

@@ -26,7 +26,7 @@ def pushed(chat, since):
     return any(each.get("chatJid") == chat for each in found)
 
 
-def look(chat, limit):
+def tail(chat, limit):
     """THE TAIL OF ONE CHAT, OLDEST FIRST."""
     found = asked(client().get_messages(chat, limit=limit))
 

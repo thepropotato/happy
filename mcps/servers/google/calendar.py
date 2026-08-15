@@ -71,7 +71,7 @@ def create_event(
     made = (
         account.calendar()
         .events()
-        .insert(calendarId=calendar_id or HERE, body=laid(summary, start, end, description, attendees))
+        .insert(calendarId=calendar_id or HERE, body=assembled(summary, start, end, description, attendees))
         .execute()
     )
 
@@ -130,7 +130,7 @@ def outlined(event):
     }
 
 
-def laid(summary, start, end, description, attendees):
+def assembled(summary, start, end, description, attendees):
     body = {
         "summary": summary,
         "description": description,
@@ -153,17 +153,17 @@ def gaps(busy, minutes):
     free = []
 
     for each in busy:
-        began = read(each["start"])
+        began = moment(each["start"])
 
         if began - edge >= wanted:
             free.append({"from": edge.isoformat(), "to": began.isoformat()})
 
-        edge = max(edge, read(each["end"]))
+        edge = max(edge, moment(each["end"]))
 
     return free[:MOST]
 
 
-def read(when):
+def moment(when):
     return datetime.fromisoformat(when.replace("Z", "+00:00"))
 
 

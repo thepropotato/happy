@@ -5,7 +5,7 @@ from eyes.naming import (
     MAC_KINDS,
     MAC_TICKABLE,
     WINDOWS_KINDS,
-    plain,
+    spelled,
     wording,
 )
 from eyes.shapes import Element
@@ -65,7 +65,7 @@ def mac_element(element, role):
     )
 
     return Element(
-        kind=MAC_KINDS.get(role, plain(role)),
+        kind=MAC_KINDS.get(role, spelled(role)),
         label=label,
         value="" if ticked is not None else wording(raw),
         left=box[0],

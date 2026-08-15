@@ -18,7 +18,7 @@ class KnowledgeError(Exception):
 
 
 def recall(entity, service):
-    who = said(entity)
+    who = folded(entity)
     where = named(service)
 
     if not who or not where:
@@ -60,7 +60,7 @@ async def resolved(query, service, searcher):
 
 
 def remember_fact(entity, service, value):
-    who = said(entity)
+    who = folded(entity)
     where = named(service)
 
     if not who or not where:
@@ -185,7 +185,7 @@ def root():
     return Path(storage.path()).parent
 
 
-def said(value):
+def folded(value):
     return str(value or "").strip().lower()
 
 

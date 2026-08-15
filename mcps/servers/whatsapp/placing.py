@@ -57,7 +57,7 @@ def lines(chat, owner, with_whom):
     """THE TAIL OF THAT CHAT, OLDEST FIRST, EACH LINE NAMED BY WHO SAID IT."""
     said = []
 
-    for entry in talking.look(chat, TAIL):
+    for entry in talking.tail(chat, TAIL):
         body = " ".join(str(entry.get("body") or "").split())
 
         if not body:

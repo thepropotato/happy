@@ -79,12 +79,12 @@ def loaded():
     global held
 
     if held is None:
-        held = read()
+        held = stored()
 
     return held
 
 
-def read():
+def stored():
     """WHAT THE FILE HOLDS, THE UNREADABLE AND THE UNKNOWN LEFT OUT."""
     kept = {}
 

@@ -18,10 +18,10 @@ def clear(name=None):
 
 
 def drawn(reach=None):
-    return [{**group, "settings": laid(group, reach)} for group in settings.groups()]
+    return [{**group, "settings": controls(group, reach)} for group in settings.groups()]
 
 
-def laid(group, reach):
+def controls(group, reach):
     """A GROUP'S CONTROLS."""
     filled = [fill(entry) for entry in group["settings"]]
 

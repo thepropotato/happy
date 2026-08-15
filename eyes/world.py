@@ -86,9 +86,9 @@ def described(element):
 def listing(scene):
     """EVERY CONTROL WORTH NAMING, GROUPED BY WHAT KIND OF THING IT IS."""
     if scene.blind:
-        from eyes import structure
+        from eyes import elements
 
-        return structure.readable() or NOTHING
+        return elements.readable() or NOTHING
 
     named = scene.named
 

@@ -77,7 +77,7 @@ class Happy:
         )
         # A SERVICE CONNECTING MID SESSION MOVES THE PREFIX, SO THE READING DONE AT STARTUP
         # IS NOW THE WRONG READING.
-        moved = self.version is not None and shape(built_prompt, bound_tools) != shape(self.prompt, self.tools)
+        moved = self.version is not None and prefix(built_prompt, bound_tools) != prefix(self.prompt, self.tools)
 
         self.version = stamp()
         self.tools = bound_tools
@@ -219,7 +219,7 @@ class Happy:
         return {"configurable": {"thread_id": self.thread}}
 
 
-def shape(prompt, bound):
+def prefix(prompt, bound):
     """THE PREFIX AS THE SERVER SEES IT."""
     return prompt, tuple(each.name for each in bound)
 

@@ -6,12 +6,12 @@ from pathlib import Path
 from langchain_core.tools import tool
 
 from eyes import attention, ongoing
+from eyes.deciphering import look
 from eyes.describing import QUESTION, asked, smaller
+from eyes.screen import grab
+from eyes.shapes import VisionError
 from face import handing
 from hands import reasons
-from eyes.shapes import VisionError
-from eyes.deciphering import look
-from eyes.screen import grab
 
 MAX_CHARS = 20000
 

@@ -54,7 +54,7 @@ MARKS = dict.fromkeys(
 )
 
 
-def plain(role):
+def spelled(role):
     """A ROLE NOBODY MAPPED, AS SOMETHING READABLE. AXScrollBar IS A SCROLL BAR."""
     bare = role.removeprefix("AX")
     spaced = "".join(f" {letter}" if letter.isupper() else letter for letter in bare)

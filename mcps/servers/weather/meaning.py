@@ -15,7 +15,7 @@ SKIES = {
 }
 
 
-def now(found):
+def current(found):
     return {
         "sky": sky(found.get("weather_code")),
         "temperature_c": found.get("temperature_2m"),

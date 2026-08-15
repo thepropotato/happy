@@ -164,7 +164,7 @@ def scroll(direction, amount=1):
     return None
 
 
-def where():
+def here():
     """WHERE THE POINTER IS NOW."""
     x, y = mouse().position
 

@@ -94,7 +94,7 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `hands/browser/` | The browser errand. **Blank — being rebuilt.** |
 | `eyes/systems.py` | Asking each system to describe its own screen. macOS and Windows side by side. |
 | `eyes/naming.py` | What each system calls a thing, and what a person calls it. |
-| `eyes/structure.py` | The controls in the window in front, filtered down to the real ones. |
+| `eyes/elements.py` | The controls in the window in front, filtered down to the real ones. |
 | `eyes/attention.py` | What is in front, and what the window in front is called. |
 | `eyes/pointing.py` | Where the keyboard and the pointer are. |
 | `eyes/agreeing.py` | Every sense fused into one scene, and what changed between two of them. |
@@ -131,7 +131,6 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `mcps/loop.py` | The one event loop the servers live on. The async side of the wall. |
 | `mcps/binding.py` | A tool on one of those servers, as one the graph calls like any other. |
 | `mcps/shortening.py` | What came back, squeezed down to something that can be said out loud. |
-| `mcps/writing.py` | Which of those tools changes something out there, and asking first. |
 | `mcps/panel.py` | Every service as one row somebody can read, for the window to draw. |
 | `mcps/wording.py` | The words a row says about a service, and nothing about its shape. |
 | `mcps/store.py` | What is connected, which is whatever remembers tools, and what those are. |

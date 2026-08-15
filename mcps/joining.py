@@ -6,7 +6,7 @@ from memory import settings
 
 def connect(name):
     """CONNECT A SERVICE AND FIND OUT WHAT IT OFFERS. WAITS FOR A PERSON."""
-    known = registry.find(name)
+    known = registry.one(name)
 
     if known is None:
         return f"There is nothing called {name}."
@@ -81,7 +81,7 @@ def paste(where, value):
     """SOMETHING TYPED INTO ONE OF A SERVICE'S BOXES. where IS name.field."""
     name, _, field = str(where).partition(".")
 
-    if not name or not field or registry.find(name) is None:
+    if not name or not field or registry.one(name) is None:
         return
 
     store.add(name)

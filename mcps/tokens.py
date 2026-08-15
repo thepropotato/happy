@@ -17,7 +17,7 @@ def clear(name):
     credentials.clear(name)
 
 
-def where():
+def sitting():
     """WHAT A PERSON SHOULD BE TOLD THEIR SIGN IN IS SITTING IN."""
     return "Happy's database, unencrypted"
 

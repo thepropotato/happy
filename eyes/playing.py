@@ -21,7 +21,7 @@ WINDOWS_MARK = "DISPLAY"
 SECONDS = 4
 
 
-def said(argv):
+def output(argv):
     try:
         done = subprocess.run(argv, capture_output=True, text=True, timeout=SECONDS)
     except (OSError, subprocess.SubprocessError):
@@ -42,7 +42,7 @@ def playing(pid=None):
 
 
 def mac_playing(pid=None):
-    out = said(["pmset", "-g", "assertions"])
+    out = output(["pmset", "-g", "assertions"])
 
     if out is None:
         return None
@@ -57,7 +57,7 @@ def mac_playing(pid=None):
 
 def windows_playing():
     """powercfg NAMES WHAT IS HOLDING THE DISPLAY AWAKE, BUT ONLY FOR AN ADMIN."""
-    out = said(["powercfg", "/requests"])
+    out = output(["powercfg", "/requests"])
 
     if out is None:
         return None

@@ -29,9 +29,9 @@ SPACE = re.compile(r"\s+")
 BLANK = re.compile(r"[ \t]+")
 
 
-def said(result):
+def shortened(result):
     """A CallToolResult AS THE ONE SHORT LINE THE MODEL AND THE PERSON GET."""
-    body = plain(reading(result))
+    body = stripped(reading(result))
 
     if result.isError:
         return f"{FAILED} {body}".strip() if body else FAILED
@@ -100,7 +100,7 @@ def flat(structured):
     return "\n".join(lines)
 
 
-def plain(text):
+def stripped(text):
     """NO MARKDOWN, NO RUNS OF SPACE, AND NEVER LONGER THAN A PERSON WILL HEAR."""
     if not text:
         return ""
@@ -114,10 +114,10 @@ def plain(text):
 
 def blurb(description, service):
     """A TOOL'S DESCRIPTION, WHOLE, WITH THE SERVICE IT BELONGS TO ON THE FRONT."""
-    return f"{service}. {clipped(laid(description or ''), MOST_BLURB)}".strip()
+    return f"{service}. {clipped(squeezed(description or ''), MOST_BLURB)}".strip()
 
 
-def laid(text):
+def squeezed(text):
     """RUNS OF SPACE OFF, AND EVERY LINE LEFT WHERE IT WAS."""
     return "\n".join(BLANK.sub(" ", line).strip() for line in str(text).splitlines()).strip()
 

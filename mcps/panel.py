@@ -74,7 +74,7 @@ def one(known, row):
             name,
             label,
             wording.initial(known),
-            wording.plainly(gone) if gone else wording.said(len(tools)),
+            wording.plainly(gone) if gone else wording.numbered(len(tools)),
             tone="warn" if gone else "live",
             connected=True,
             signed=1,
@@ -120,7 +120,7 @@ def tally(live):
     """WHAT THE Connected HEADING SAYS ON ITS RIGHT: HOW MANY, AND HOW MUCH."""
     tools = sum(each["tools"] for each in live)
 
-    return f"{len(live)} · {wording.said(tools)}"
+    return f"{len(live)} · {wording.numbered(tools)}"
 
 
 def boxes(name, kind):

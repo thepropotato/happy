@@ -31,13 +31,13 @@ def serve(**handlers):
     if reach is not None:
         reach.whenever(describe)
 
-    reader = threading.Thread(target=read, daemon=True)
+    reader = threading.Thread(target=listen, daemon=True)
     reader.start()
 
     return reader
 
 
-def read():
+def listen():
     for line in sys.stdin:
         line = line.strip()
 

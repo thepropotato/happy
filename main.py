@@ -13,8 +13,8 @@ import ears
 import mcps
 import memory
 import voice
-from mcps.servers.whatsapp import chatting
 from face import console, handing, log, requests, show, telling
+from mcps.servers.whatsapp import chatting
 
 SERVE = "--serve"
 

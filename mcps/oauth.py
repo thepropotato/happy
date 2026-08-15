@@ -22,7 +22,7 @@ WRONG_WAY = "That sign in came back wrong. Try connecting again."
 
 def sign_in(name, doorway):
     """THE WHOLE SIGN IN."""
-    known = registry.find(name)
+    known = registry.one(name)
     client = tokens.client(name)
 
     if not client.get("client_id"):

@@ -75,7 +75,7 @@ def waking():
 
 def resume():
     """AN ACCOUNT THAT WAS ALREADY LINKED, BACK ON THE WIRE WITHOUT THE PHONE."""
-    if look() == "connected":
+    if progress() == "connected":
         return
 
     if not configured():
@@ -104,7 +104,7 @@ def linked():
     return seen == "connected"
 
 
-def look():
+def progress():
     """WHERE THE BRIDGE IS UP TO, REMEMBERED SO THE PANEL NEED NOT ASK EVERY DRAW."""
     global seen
 
@@ -231,7 +231,7 @@ def scan():
     if not answering():
         return False
 
-    look()
+    progress()
     watch()
 
     return show(f"{BASE}/default/scan")
@@ -258,7 +258,7 @@ def watched():
             if not answering():
                 return
 
-            if look() == "connected":
+            if progress() == "connected":
                 if told:
                     told()
 

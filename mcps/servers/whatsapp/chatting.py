@@ -68,7 +68,7 @@ def watching(turn):
 
 def sweep(turn, chat, seen):
     """EVERY MESSAGE IN HIS GROUP SINCE THE LAST ONE. GIVES BACK THE NEW MARK."""
-    listed = talking.look(chat, WINDOW)
+    listed = talking.tail(chat, WINDOW)
 
     if seen is None:
         return mark(listed[-1]) if listed else blank()

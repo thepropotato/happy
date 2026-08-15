@@ -152,7 +152,7 @@ class Speaker:
                 continue
 
             try:
-                show.envelope(shape(samples, self.voice.rate), len(samples) / self.voice.rate)
+                show.envelope(levels(samples, self.voice.rate), len(samples) / self.voice.rate)
                 sd.play(samples, self.voice.rate)
                 sd.wait()  # RETURNS EARLY WHEN stop() CUTS IT.
             except Exception as error:
@@ -168,7 +168,7 @@ class Speaker:
                 self.quiet.notify_all()
 
 
-def shape(samples, rate):
+def levels(samples, rate):
     """A CLIP AS A HANDFUL OF LOUDNESSES, ONE PER SLICE, FOR DRAWING."""
     step = max(1, int(rate * ENVELOPE_MS / 1000))
     slices = len(samples) // step

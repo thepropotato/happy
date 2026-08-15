@@ -52,17 +52,17 @@ async def waking(row):
     try:
         offered = await here.listing()
     except Exception as error:
-        store.mark(row["name"], said(row, error))
+        store.mark(row["name"], complaint(row, error))
 
         return False
 
-    told(row, [tool.model_dump() for tool in offered])
+    refreshed(row, [tool.model_dump() for tool in offered])
     store.mark(row["name"], None)
 
     return True
 
 
-def told(row, offered):
+def refreshed(row, offered):
     """WHAT THE SERVER REALLY OFFERS, AND THE GRAPH TOLD WHEN THAT IS NEWS."""
     if offered == row["tools"]:
         return
@@ -78,12 +78,12 @@ def refresh(row):
     try:
         return loop.run(waking(row), patience() + 5)
     except Exception as error:
-        store.mark(row["name"], said(row, error))
+        store.mark(row["name"], complaint(row, error))
 
         return False
 
 
-def said(row, error):
+def complaint(row, error):
     """WHAT WENT WRONG, AS SOMETHING A ROW CAN SAY."""
     return str(error)[:200] or f"{registry.label(row['name'])} did not answer in time"
 

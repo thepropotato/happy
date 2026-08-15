@@ -70,6 +70,6 @@ def calling(service, session, tool):
         except Exception:
             return reasons.no(BROKE.format(service=service))
 
-        return reasons.no(shortening.said(result)) if result.isError else shortening.said(result)
+        return reasons.no(shortening.shortened(result)) if result.isError else shortening.shortened(result)
 
     return call

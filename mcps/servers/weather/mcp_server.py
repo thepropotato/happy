@@ -48,7 +48,7 @@ def get_weather(place: str) -> str:
 
     got = asked(found, {"current": CURRENT})
 
-    return ok({"place": found["place"], **meaning.now(got.get("current") or {})})
+    return ok({"place": found["place"], **meaning.current(got.get("current") or {})})
 
 
 @mcp.tool()

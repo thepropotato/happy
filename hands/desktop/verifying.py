@@ -4,7 +4,7 @@ import time
 from typing import NamedTuple
 
 import eyes
-from eyes import agreeing, structure
+from eyes import agreeing, elements
 from hands.desktop import expecting, noticing
 
 # HOW LONG TO WAIT FOR THE SCREEN TO REACT, AND THEN FOR WHATEVER STARTED TO FINISH.
@@ -31,7 +31,7 @@ def looking():
     scene = model.glance()
 
     if scene.blind:
-        return model, scene, structure.readable() or BLIND
+        return model, scene, elements.readable() or BLIND
 
     return model, scene, None
 

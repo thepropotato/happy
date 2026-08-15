@@ -46,7 +46,7 @@ def where_we_are() -> str:
     Call it too for anything about the time or the date here — what time it is,
     what day it is, whether something has already started. You are not told the
     time, so this is the only way you know it."""
-    return whereabouts.where()
+    return whereabouts.report()
 
 
 @tool

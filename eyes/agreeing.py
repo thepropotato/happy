@@ -2,7 +2,7 @@
 
 import time
 
-from eyes import attention, pointing, structure
+from eyes import attention, elements, pointing
 from eyes.shapes import Scene, VisionError
 
 # THESE RANK THE SENSES, THEY ARE NOT PROBABILITIES.
@@ -29,9 +29,9 @@ def glance():
 
 
 def observed(words, reading):
-    elements = structure.tree()
-    senses = ["structure"] if elements else []
-    bare = structure.thin(elements)
+    found = elements.tree()
+    senses = ["structure"] if found else []
+    bare = elements.thin(found)
     text, mark = "", ""
 
     if bare or words:
@@ -45,7 +45,7 @@ def observed(words, reading):
     return Scene(
         app=name,
         window=attention.window(handle),
-        elements=tuple(elements),
+        elements=tuple(found),
         focus=pointing.caret(),
         pointer=pointing.pointer(),
         text=text,
@@ -86,7 +86,7 @@ def fingerprint(image):
     return "".join("1" if value > middle else "0" for value in pixels)
 
 
-def shape(scene):
+def reduced(scene):
     """A SCENE REDUCED TO WHAT WOULD HAVE TO CHANGE FOR SOMETHING TO HAVE HAPPENED."""
     return (
         scene.app,
@@ -99,7 +99,7 @@ def shape(scene):
 
 def moved(before, after):
     """TRUE WHEN ANYTHING AT ALL IS DIFFERENT BETWEEN TWO SCENES."""
-    return shape(before) != shape(after)
+    return reduced(before) != reduced(after)
 
 
 def difference(before, after):

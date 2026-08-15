@@ -79,7 +79,7 @@ def initial(known):
     return known.get("mark") or known["label"][:1].upper()
 
 
-def said(count):
+def numbered(count):
     return f"{count} tool" if count == 1 else f"{count} tools"
 
 
