@@ -1,15 +1,20 @@
 """SERVICES HAPPY CAN REACH THAT ARE NOT THIS COMPUTER."""
 
+import time
+
 from langchain_core.tools import tool
 from mcp.types import Tool
 
-from mcps import binding, bridging, pool, registry, store
+from mcps import binding, bridging, loop, pool, registry, store
 from mcps.bridging import whenever
 from mcps.joining import connect, disconnect, paste, stir
 
 TOOLS = []
 
 NOTHING = "Nothing is connected."
+
+# NOBODY IS WAITING ON A NAME FOR LONGER THAN THIS, HOWEVER MANY SERVICES ARE ASKED.
+PATIENCE = 4
 
 MENTION = (
     "Some of your tools reach a service this person has connected rather than this "
@@ -69,6 +74,57 @@ def local_names():
 def mention():
     """THE LINE THE SYSTEM PROMPT GAINS, AND ONLY WHILE SOMETHING IS CONNECTED."""
     return MENTION if any(row["tools"] for row in store.every()) else ""
+
+
+def signed_in():
+    """WHAT EVERY CONNECTED SERVICE CALLS THE PERSON WHOSE ACCOUNT IT IS.
+
+    EACH SERVER ANSWERS FOR ITSELF, BECAUSE EACH ONE ALREADY HOLDS ITS OWN SIGN IN AND
+    KNOWS WHERE THE NAME SITS IN WHAT IT GETS BACK. THEY ARE ASKED TOGETHER AND WAITED ON
+    ONCE: A SERVICE HAVING A BAD DAY COSTS THE OTHERS NOTHING."""
+    asking = [row for row in pool.live() if binding.OURS[0] in named(row)]
+
+    if not asking:
+        return []
+
+    ends = time.monotonic() + PATIENCE
+    sent = [(row, loop.submit(answering(row))) for row in asking]
+
+    return [(said, registry.label(row["name"])) for row, said in gathered(sent, ends) if said]
+
+
+def named(row):
+    return {each.get("name") for each in row["tools"] or []}
+
+
+async def answering(row):
+    return spoken(await pool.session(row).call(binding.OURS[0], {}))
+
+
+def spoken(result):
+    """THE NAME OUT OF ONE ANSWER. A SERVER THAT WOULD NOT SAY IS A SERVER THAT SAID NOTHING."""
+    if result.isError:
+        return ""
+
+    said = [each.text for each in result.content if getattr(each, "type", None) == "text"]
+
+    return " ".join(said).strip()
+
+
+def gathered(sent, ends):
+    """WHAT CAME BACK BEFORE THE ONE BUDGET RAN OUT, AND NOTHING FROM WHAT DID NOT."""
+    found = []
+
+    for row, each in sent:
+        try:
+            found.append((row, each.result(timeout=max(0.0, ends - time.monotonic()))))
+        except Exception:
+            # DROPPED AND PUT DOWN: A CALL NOBODY IS WAITING FOR ANY MORE MUST NOT BE LEFT
+            # TURNING ON THE ONE LOOP EVERY OTHER CONNECTION SHARES.
+            each.cancel()
+            found.append((row, ""))
+
+    return found
 
 
 @tool

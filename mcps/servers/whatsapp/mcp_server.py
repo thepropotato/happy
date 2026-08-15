@@ -97,6 +97,16 @@ async def get_status() -> str:
     return _json(await wa.get_status())
 
 @mcp.tool()
+async def who_signed_in() -> str:
+    """THE NAME ON THIS ACCOUNT. HAPPY ASKS IT HIMSELF; IT IS NEVER OFFERED TO THE MODEL."""
+    found = await get_client().get_status() or {}
+
+    if not (found.get("connected") or found.get("authenticated")):
+        return ""
+
+    return str(found.get("name") or "").strip()
+
+@mcp.tool()
 async def get_qr_code() -> str:
     """Get QR code for WhatsApp authentication. Returns base64 encoded QR image if not authenticated."""
     wa = get_client()

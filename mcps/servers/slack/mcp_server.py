@@ -130,6 +130,16 @@ async def remember_slack(said: str, means: str) -> str:
     return ok({"remembered": True, "said": said, "means": means})
 
 
+@mcp.tool()
+def who_signed_in() -> str:
+    """THE NAME ON THIS ACCOUNT. HAPPY ASKS IT HIMSELF; IT IS NEVER OFFERED TO THE MODEL."""
+    who = asked("auth.test")
+    found = asked("users.info", {"user": who.get("user_id")})
+    profile = ((found.get("user") or {}).get("profile")) or {}
+
+    return str(profile.get("real_name") or who.get("user") or "").strip()
+
+
 def slack():
     token = credentials.token(NAME)
 

@@ -99,6 +99,14 @@ def comment(each):
     }
 
 
+@mcp.tool()
+def who_signed_in() -> str:
+    """THE NAME ON THIS ACCOUNT. HAPPY ASKS IT HIMSELF; IT IS NEVER OFFERED TO THE MODEL."""
+    found = instagram().get("me", {"fields": "username"})
+
+    return str(found.get("username") or "").strip()
+
+
 def counted(limit):
     return max(1, min(int(limit), MOST))
 

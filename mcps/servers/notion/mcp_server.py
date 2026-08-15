@@ -102,6 +102,17 @@ def query_database(database_id: str, limit: int = 10) -> str:
     return ok([outlined(each) for each in found.get("results", [])])
 
 
+@mcp.tool()
+def who_signed_in() -> str:
+    """THE NAME ON THIS ACCOUNT. HAPPY ASKS IT HIMSELF; IT IS NEVER OFFERED TO THE MODEL."""
+    found = notion().get("users/me")
+
+    # THE TOKEN BELONGS TO AN INTEGRATION, SO THE PERSON IS WHOEVER MADE IT.
+    owner = (((found.get("bot") or {}).get("owner")) or {}).get("user") or {}
+
+    return str(owner.get("name") or "").strip()
+
+
 def notion():
     token = credentials.token(NAME)
 

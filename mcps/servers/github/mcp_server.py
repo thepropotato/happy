@@ -119,6 +119,14 @@ def list_commits(repo: str, limit: int = 10) -> str:
     return ok([commit(each) for each in found])
 
 
+@mcp.tool()
+def who_signed_in() -> str:
+    """THE NAME ON THIS ACCOUNT. HAPPY ASKS IT HIMSELF; IT IS NEVER OFFERED TO THE MODEL."""
+    found = github().get("user")
+
+    return str(found.get("name") or found.get("login") or "").strip()
+
+
 def github():
     token = credentials.token(NAME)
 

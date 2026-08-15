@@ -6,6 +6,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
+from servers.google import mcp
 from servers.shared import credentials
 
 NAME = "google"
@@ -60,6 +61,23 @@ def ending(when):
         return None
 
     return datetime.fromtimestamp(float(when), timezone.utc).replace(tzinfo=None)
+
+
+@mcp.tool()
+def who_signed_in() -> str:
+    """THE NAME ON THIS ACCOUNT. HAPPY ASKS IT HIMSELF; IT IS NEVER OFFERED TO THE MODEL."""
+    inbox = mail().users()
+
+    try:
+        found = inbox.settings().sendAs().list(userId="me").execute()
+
+        for entry in found.get("sendAs") or []:
+            if entry.get("isPrimary") and entry.get("displayName"):
+                return str(entry["displayName"]).strip()
+    except Exception:
+        pass  # THE SIGN IN MAY NOT REACH THE SETTINGS, AND THE ADDRESS BELOW ALWAYS DOES.
+
+    return str(inbox.getProfile(userId="me").execute().get("emailAddress") or "").strip()
 
 
 def mail():

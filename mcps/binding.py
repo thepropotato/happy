@@ -14,6 +14,10 @@ LONGEST = 64
 
 ANYTHING = {"type": "object", "properties": {}}
 
+# A TOOL HAPPY CALLS HIMSELF, SO IT IS KEPT OUT OF WHAT THE MODEL IS SHOWN: SIX MORE
+# SCHEMAS TO READ PAST EVERY TURN, TO ASK SIX SERVICES ONE THING HE ASKS THEM ALL AT ONCE.
+OURS = ("who_signed_in",)
+
 ASLEEP = "{service} is not connected right now."
 
 BROKE = "{service} could not be reached. It may need connecting again in the panel."
@@ -36,6 +40,9 @@ def bind(service, session, offered, taken=None):
     built = []
 
     for tool in offered:
+        if tool.name in OURS:
+            continue
+
         name = named(service, tool.name)
 
         # A CLASH IS SKIPPED, NEVER SHADOWED: NOBODY ELSE'S read_file WINS.

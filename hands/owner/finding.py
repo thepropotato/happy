@@ -5,8 +5,7 @@ import os
 import re
 import sys
 
-from hands.owner import asking
-from mcps import registry
+import mcps
 
 WINDOWS = "win32"
 
@@ -25,7 +24,7 @@ def named():
 
     THE SERVICES GO FIRST BECAUSE EACH ONE IS AN ACCOUNT THEY SIGNED INTO AND NAMED
     THEMSELVES. THIS COMPUTER IS ASKED TOO, AND ANSWERS EVEN WITH NOTHING CONNECTED AT ALL."""
-    services = whittled((said, registry.label(name)) for said, name in asking.named())
+    services = whittled(mcps.signed_in())
     found = services + whittled([(account(), HERE), (login(), LOGIN)], services)
 
     if not found:
