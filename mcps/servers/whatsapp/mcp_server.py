@@ -43,6 +43,12 @@ def coerce_str(v):
 
 CoercedStr = Annotated[str, BeforeValidator(coerce_str)]
 
+NOBODY = (
+    'No WhatsApp contact matches "{name}". Ask this person who they meant, saying "{name}" '
+    "back to them the way you heard it, and use only the name they give you. Do not send "
+    "this to anyone else, and never to someone named earlier in the conversation."
+)
+
 mcp = FastMCP("whatsapp", log_level="ERROR")
 
 from contextvars import ContextVar
@@ -117,6 +123,11 @@ async def search_contacts(query: str) -> str:
     if remembered:
         # SIGNAL TO THE MODEL THIS CONTACT WAS ALREADY CONFIRMED — NO NEED TO RE-ASK.
         return _json({"remembered": True, "contacts": [{"name": result}]})
+
+    # AN EMPTY LIST READS AS NOTHING TO GO ON, AND NOTHING TO GO ON IS WHERE A NAME OFF THE
+    # LAST FEW MINUTES GETS PUT IN ITS PLACE. SAY WHOSE NAME FAILED AND WHAT TO DO INSTEAD.
+    if not result:
+        return NOBODY.format(name=query)
 
     return _json(result)
 
