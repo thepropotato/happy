@@ -75,10 +75,17 @@ def open_now():
 
 
 def awake():
-    """THE BROWSERS WITH A WINDOW OPEN, SO ASKING ONE NEVER STARTS IT."""
-    from eyes.attention import everything
+    """THE BROWSERS ALREADY RUNNING, SO ASKING ONE NEVER STARTS IT."""
+    # A BROWSER FULLSCREEN ON ANOTHER DESKTOP IS OFTEN LISTED AS UNTITLED FURNITURE, SO
+    # HAVING A WINDOW IS THE WRONG TEST AND ITS TABS WENT MISSING ALONG WITH THE WINDOW.
+    from AppKit import NSWorkspace
 
-    here = {name for name, _, _ in everything()}
+    from eyes.naming import wording
+
+    here = {
+        wording(app.localizedName())
+        for app in NSWorkspace.sharedWorkspace().runningApplications()
+    }
 
     return [name for name in MAC_CHROMIUM + MAC_SAFARI if name in here]
 

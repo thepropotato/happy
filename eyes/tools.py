@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 from langchain_core.tools import tool
 
@@ -17,6 +18,11 @@ MAX_CHARS = 20000
 
 # WINDOWS DEEP ENOUGH TO NAME. PAST THIS IS A LIST NOBODY COULD BE READ OUT LOUD.
 MOST = 12
+
+# THE ONE THING THIS FIELD IS ALLOWED TO SAY, THE SAME TWO WORDS open_url TAKES.
+SEEING = "show"
+
+CHECKING = "read"
 
 SHOTS = Path(__file__).resolve().parents[1] / "data" / "shots"
 
@@ -94,41 +100,53 @@ def current_activity() -> str:
     "What am I doing" is this question. "What are you doing" is not — that one
     is about you, and nothing on their screen answers it.
 
-    This is the front window only. When what comes back is not what you were
-    asked about, already_open and list_open_windows have the rest. When the
-    title is too little to go on, read_screen next.
+    This names the window in front and everything else open behind it, on this
+    desktop and on every other one, so a show playing fullscreen somewhere else
+    is in the answer too. Read past the first window before you answer: what
+    they asked about is often one of the ones behind it. already_open also
+    reads browser tabs, which no window title shows. When a title is too little
+    to go on, read_screen next.
 
     The title is usually the specific thing: the file, the page, the video, the
-    person being written to. Say what it actually is."""
-    seen = attention.doing()
+    person being written to. Say what it actually is. It often carries a season
+    and an episode, or a page and a chapter — that is where they are up to, not
+    how much is left. How much is left is that minus what the whole thing runs
+    to, and search_web is where the total comes from. Work it out rather than
+    saying you cannot."""
+    # ONE INVENTORY FOR BOTH HALVES OF THE ANSWER, SO THE TWO CANNOT DISAGREE.
+    seen = attention.windows()
 
     if not seen:
         return reasons.no("Nothing is in front: no application is active on this screen.")
 
-    if "window is" in seen:
-        return f"{seen}.{rest()}"
+    name, title = seen[0]
+
+    if title:
+        return f'{name} is in front, and the window is "{title}".{rest(seen)}'
 
     # A REFUSED ACCESSIBILITY PROMPT LOOKS EXACTLY LIKE A WINDOW WITH NO NAME, AND
     # ONE OF THE TWO IS SOMETHING THE PERSON CAN ACTUALLY GO AND FIX.
-    return f"{seen}. {attention.allowed() or 'Its window has no title.'}{rest()}"
+    return f"{name} is in front. {attention.allowed() or 'Its window has no title.'}{rest(seen)}"
 
 
-def rest():
+def rest(seen):
     """WHAT ELSE IS OPEN, NAMED HERE RATHER THAN FETCHED BY A SECOND CALL."""
-    behind = attention.windows()[1:MOST]
+    # windows() PUTS THE FRONT ONE FIRST BY ASKING WHO IS IN FRONT, SO THIS DROPS IT.
+    behind = seen[1:MOST]
 
     if not behind:
         return ""
 
     listed = "; ".join(f'{name} — "{title}"' if title else name for name, title in behind)
 
-    return f" Also open behind it, front to back: {listed}."
+    return f" Also open, on this desktop and any other: {listed}."
 
 
 @tool
 def list_open_windows() -> str:
-    """Every window open right now, front to back, each with its application and
-    its own title.
+    """Every window open right now, the one in front first, each with its
+    application and its own title. This covers every desktop, not only the one
+    being looked at, so a show playing fullscreen on another one is in here.
 
     Use this when you were asked what else is open or running, and when what you
     were asked about is not the front window: a video plays on behind the thing
@@ -148,11 +166,11 @@ def list_open_windows() -> str:
 
     listed = "\n".join(f'{name} — "{title}"' if title else name for name, title in seen)
 
-    return f"Open right now, front to back:\n{listed}"
+    return f"Open right now, the one in front first:\n{listed}"
 
 
 @tool
-def already_open(about: str) -> str:
+def already_open(about: str, because: Literal[SEEING, CHECKING]) -> str:
     """Check whether the thing you are about to do is already going on this
     computer. Give what it is about in a few words, for example "Game of
     Thrones", "the spreadsheet", "Gmail".
@@ -163,12 +181,20 @@ def already_open(about: str) -> str:
     "carry on", "go back to" or "put it back on". Starting a second copy of
     something they already have open is the wrong answer.
 
-    This reads every window and every browser tab, so it sees pages no window
-    title mentions. It only looks. Finding the tab is not resuming it and is not
-    an answer on its own: when something comes back, call bring_to_front with a
-    few words from its title to put it in front of them, with play set if they
-    asked you to resume or carry on with it. If nothing comes back, go and open
-    or search for it as normal."""
+    This reads every window and every browser tab, on this desktop and on every
+    other one, so it sees pages no window title mentions and shows playing
+    fullscreen somewhere else. It only looks, and nothing here moves.
+
+    "because" takes one of two words and nothing else. Say "show" when they
+    asked for the thing itself — to watch it, resume it, carry on with it, put
+    it back on — and finding it is not the job: call bring_to_front afterwards
+    with a few words of its title, then play_pause. Say "read" when they only
+    asked you something and their screen should stay exactly where it is: which
+    show this is, how far in they are, whether a thing is open. Answer them out
+    of what comes back and leave their screen alone. Asking about something is
+    not asking to be shown it.
+
+    If nothing comes back, go and open or search for it as normal."""
     if not about.strip():
         return "Say what to look for."
 
@@ -176,10 +202,15 @@ def already_open(about: str) -> str:
 
     if found:
         listed = "\n".join(found[:MOST])
+        after = (
+            "Call bring_to_front to put it in front of them."
+            if because == SEEING
+            else "They did not ask to be shown it, so answer them from this and move nothing."
+        )
 
         return (
             f"{listed}\n\nThis is only what is open, not what is playing. Nothing has "
-            f"moved on their screen yet. Call bring_to_front to put it in front of them."
+            f"moved on their screen. {after}"
         )
 
     rest_of_it = ongoing.everything()

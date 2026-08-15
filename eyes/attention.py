@@ -117,38 +117,45 @@ def behind():
     return "", None
 
 
-def doing():
-    """WHAT THE PERSON IS IN AND WHAT IT IS CALLED, IN ONE LINE, OR ""."""
-    for name, handle, title in pile():
-        if not title:
-            try:
-                title = window(handle)
-            except Exception:
-                title = ""
-
-        if not title or title == name:
-            return f"{name} is in front"
-
-        return f'{name} is in front, and the window is "{title}"'
-
-    return ""
-
-
 def windows():
-    """EVERY ORDINARY WINDOW, FRONT TO BACK, AS (NAME, TITLE), DUPLICATES GONE."""
-    found = []
+    """EVERY ORDINARY WINDOW ON EVERY DESKTOP, THE FRONT ONE FIRST, AS (NAME, TITLE)."""
+    # everything() SORTS A FULLSCREEN WINDOW ON ANOTHER DESKTOP AHEAD OF THE ONE BEING
+    # TYPED INTO, SO WHO IS IN FRONT IS ASKED FOR RATHER THAN TAKEN OFF THE TOP OF IT.
+    name, handle = front()
+    ahead = []
+    behind = []
     seen = set()
 
-    for name, handle, title in everything():
-        pair = (name, "" if title == name else title)
+    for other, who, title in everything():
+        pair = (other, "" if title == other else title)
 
         if pair in seen:
             continue
 
         seen.add(pair)
-        found.append(pair)
 
-    return found
+        # THE FRONT APP'S FIRST WINDOW IS THE ONE THEY ARE LOOKING AT; ITS OTHERS ARE NOT.
+        if who is not None and who == handle and not ahead:
+            ahead.append(pair)
+        else:
+            behind.append(pair)
+
+    # A WINDOW FULLSCREEN ON ANOTHER DESKTOP IS SOMETIMES LISTED AS UNTITLED FURNITURE
+    # AND NOTHING ELSE, SO THE APP IN FRONT CAN BE MISSING FROM THIS ENTIRELY.
+    if name and not ahead:
+        ahead.append((name, titled(handle, name)))
+
+    return ahead + behind
+
+
+def titled(handle, name):
+    """THE FRONT WINDOW'S TITLE, ASKED OF THE APPLICATION RATHER THAN OF THE SCREEN."""
+    try:
+        title = window(handle)
+    except Exception:
+        return ""
+
+    return "" if title == name else title
 
 
 def everything():
@@ -196,7 +203,7 @@ def mac_everything(ours):
         if not title:
             continue
 
-        found.append((name, None, title))
+        found.append((name, pid, title))
 
     return found
 

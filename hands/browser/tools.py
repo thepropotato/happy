@@ -22,9 +22,13 @@ def bring_to_front(what: str) -> str:
     screen so the person can see it. Give a few words from its title or address,
     for example "Game of Thrones" or "hotstar".
 
-    This is how you finish what already_open found: it switches to that tab,
-    raises its window above everything else and makes it full size. It does not
-    start or stop anything — to do that, use play_pause afterwards.
+    This is how you finish what already_open found with "show": it switches to
+    that tab, raises its window above everything else and makes it full size. It
+    does not start or stop anything — to do that, use play_pause afterwards.
+
+    This moves what is in front of them, so only call it when they asked for the
+    thing itself. Someone asking which show it is, or how far through it they
+    are, wants an answer, not their work covered over.
 
     If this says no such tab is open, then it is not open, and you should search
     for it and open it instead."""
