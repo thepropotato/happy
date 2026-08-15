@@ -1,6 +1,7 @@
 const { app, ipcMain, shell, systemPreferences } = require('electron')
 
 const { Core } = require('./core')
+const blooms = require('./bloom')
 const popover = require('./popover')
 const trays = require('./tray')
 
@@ -11,7 +12,13 @@ const MACOS = 'darwin'
 // HE COMES UP ON HIS OWN FOR A TURN, AND GOES AWAY AGAIN WHEN IT IS OVER.
 const LINGER = 5000 // LONG ENOUGH TO READ THE LAST THING HE SAID.
 
-const LISTENING = 'listening'
+const SLIDE = 220 // THE CAPSULE'S WAY OUT, WHICH IT NEEDS BEFORE IT IS HIDDEN.
+
+// A TURN HAS STARTED WITHOUT ANYBODY OPENING ANYTHING. HIS NAME ON ITS OWN
+// LEAVES HIM listening; HIS NAME AND THE WHOLE QUESTION IN ONE BREATH GOES
+// STRAIGHT TO hearing, AND SHOWING NOTHING FOR THAT IS THE COMMON CASE MISSED.
+const WOKEN = { listening: true, hearing: true }
+
 const IDLE = 'idle'
 
 // WHERE MACOS KEEPS THE LIST HAPPY HAS TO BE ON TO HEAR THE KEY FROM ANYWHERE.
@@ -20,6 +27,7 @@ const PRIVACY = 'x-apple.systempreferences:com.apple.preference.security?Privacy
 const core = new Core()
 
 let panel = null
+let bloom = null
 let tray = null
 let pinned = false
 
@@ -33,6 +41,7 @@ let listening = false
 // OURS TO PUT AWAY. ONE THAT WAS OPENED ON PURPOSE STAYS OPEN.
 let summoned = false
 let leaving = null
+let slipping = null
 
 if (process.platform === 'darwin') app.dock?.hide()
 
@@ -68,6 +77,8 @@ app.whenReady().then(() => {
     process.stderr.write(`panel: ${event.message} (${event.lineNumber})\n`),
   )
 
+  bloom = blooms.make()
+
   tray = trays.make({ toggle, show, restart, quit })
 
   core.on('word', (word) => relay(word))
@@ -91,24 +102,32 @@ function relay(word) {
   if (listening && panel && !panel.isDestroyed()) panel.webContents.send('happy:event', word)
   else backlog.push(word)
 
+  if (bloom && !bloom.isDestroyed()) bloom.webContents.send('happy:event', word)
+
   overheard(word)
 }
 
+// HEARING HIS NAME IS NOT SOMEBODY ASKING TO SEE HIM. WHAT COMES UP UNASKED IS
+// THE CAPSULE; THE PANEL ONLY EVER OPENS BECAUSE THIS PERSON OPENED IT.
 function overheard(word) {
-  if (!panel || word.is !== 'state') return
+  if (!bloom || word.is !== 'state') return
 
-  if (word.state === LISTENING && !panel.isVisible()) rise()
+  if (WOKEN[word.state]) rise()
   else if (word.state === IDLE) fade()
 }
 
 function rise() {
-  popover.place(panel, tray)
-
-  // NOT show(): TAKING THE FOCUS WOULD PULL THE CARET OUT OF ANOTHER WINDOW.
-  panel.showInactive()
-  panel.webContents.send('happy:event', { is: 'shown' })
+  if (panel?.isVisible()) return // THEY ARE ALREADY LOOKING AT THE REAL THING.
 
   clearTimeout(leaving)
+  clearTimeout(slipping)
+
+  if (!bloom.isVisible()) {
+    blooms.place(bloom)
+    bloom.showInactive() // TAKING THE FOCUS WOULD PULL THE CARET OUT OF THEIR WORK.
+  }
+
+  bloom.webContents.send('happy:event', { is: 'shown' })
   summoned = true
 }
 
@@ -119,9 +138,17 @@ function fade() {
 
   leaving = setTimeout(() => {
     summoned = false
-
-    if (!pinned && panel && !panel.isDestroyed() && !panel.isFocused()) panel.hide()
+    tuck()
   }, LINGER)
+}
+
+function tuck() {
+  if (!bloom || bloom.isDestroyed() || !bloom.isVisible()) return
+
+  clearTimeout(slipping)
+  bloom.webContents.send('happy:event', { is: 'hiding' })
+
+  slipping = setTimeout(() => bloom?.hide(), SLIDE)
 }
 
 function show() {
@@ -129,6 +156,8 @@ function show() {
 
   clearTimeout(leaving) // OPENED ON PURPOSE: NOT OURS TO PUT AWAY.
   summoned = false
+
+  tuck() // THE CAPSULE WAS THE STAND IN FOR THIS, AND THIS IS HERE NOW.
 
   popover.place(panel, tray)
   panel.show()
@@ -158,6 +187,7 @@ ipcMain.on('happy:pin', (event, on) => {
 })
 
 ipcMain.on('happy:hide', () => panel?.hide())
+ipcMain.on('happy:show', () => show())
 
 // A LINK IN AN ANSWER GOES TO THEIR BROWSER. FOLLOWED IN HERE IT WOULD REPLACE
 // THE PANEL WITH A WEB PAGE, AND THERE IS NOTHING TO GO BACK WITH.

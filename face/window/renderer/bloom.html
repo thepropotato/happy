@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:" />
+    <title>Happy</title>
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="bloom.css" />
+  </head>
+
+  <body class="bloom">
+    <!-- THE WHOLE THING IS THE BUTTON: ANYWHERE ON IT OPENS THE REAL PANEL. -->
+    <div class="pill" id="pill" title="Open Happy">
+      <canvas class="blob" id="blob" width="200" height="200"></canvas>
+
+      <div class="words">
+        <div class="mood" id="mood">listening</div>
+        <div class="said" id="said"></div>
+      </div>
+    </div>
+
+    <script src="aurora.js"></script>
+    <script src="orb.js"></script>
+    <script src="bloom.js"></script>
+  </body>
+</html>

@@ -1,0 +1,80 @@
+/* THE CAPSULE HAPPY SHOWS WHEN NOBODY OPENED HIM.
+
+   IT SAYS THE TWO THINGS THAT CANNOT WAIT — THAT HE IS LISTENING, AND WHAT HE
+   HAS OF IT SO FAR. EVERYTHING ELSE IS IN THE PANEL, ONE CLICK AWAY. */
+
+body.bloom {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: transparent;
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  height: 62px;
+  border: 1px solid var(--edge);
+  border-radius: 31px;
+  background: rgba(14, 15, 22, 0.82);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5), 0 0 22px -6px var(--glow-soft);
+  padding: 0 20px 0 6px;
+  overflow: hidden;
+  cursor: pointer;
+  transform: translateY(-14px);
+  opacity: 0;
+  transition: transform var(--spring), opacity 200ms ease;
+}
+
+.pill.up {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.pill:hover {
+  border-color: var(--glow-soft);
+}
+
+/* DRAWN AT FULL SIZE AND SHOWN SMALL, SO IT IS THE SAME ORB AS THE PANEL'S
+   RATHER THAN A COARSER ONE THAT HAPPENS TO MOVE THE SAME WAY. */
+.blob {
+  flex: 0 0 auto;
+  width: 62px;
+  height: 62px;
+}
+
+.words {
+  flex: 1;
+  min-width: 0;
+}
+
+.mood {
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 560;
+  letter-spacing: 0.01em;
+  transition: opacity 180ms ease;
+}
+
+.mood.fade {
+  opacity: 0;
+}
+
+/* ONE LINE, NEVER TWO: THE CAPSULE IS A GLANCE, NOT A TRANSCRIPT. */
+.said {
+  color: var(--dim);
+  font-size: 11.5px;
+  line-height: 1.45;
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.said:empty {
+  display: none;
+}
