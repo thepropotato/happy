@@ -1,11 +1,23 @@
-"""THE ACCOUNT A SERVER RUNS AS, READ STRAIGHT OUT OF data/happy.db."""
+"""THE ACCOUNT A SERVER RUNS AS, READ STRAIGHT OUT OF data/happy.db.
+
+A SIGN IN IS CHECKED ON THE WAY INTO EVERY TOOL CALL, NEVER ONCE AT STARTUP: A SERVER THAT
+HAS BEEN UP SINCE THIS MORNING IS HOLDING AN ACCESS TOKEN THAT DIED AT LUNCHTIME. WHERE THERE
+IS A WAY TO RENEW IT, IT IS RENEWED IN PLACE AND WRITTEN BACK BEFORE THE CALL GOES OUT, AND
+WHERE THERE IS NOT, THE CALL IS REFUSED IN WORDS THAT SAY WHAT TO DO ABOUT IT."""
 
 import json
 import sqlite3
+import time
 from datetime import datetime
 from pathlib import Path
 
 FILE = Path(__file__).resolve().parents[3] / "data" / "happy.db"
+
+# HOW LONG BEFORE ITS LAST MOMENT A TOKEN IS TREATED AS GONE. A CALL THAT TAKES A SECOND MUST
+# NOT SET OUT ON A TOKEN WITH A SECOND LEFT ON IT.
+MARGIN = 60
+
+STALE = "{service} needs signing in again. Connect it in Happy's connections panel."
 
 TABLE = """
 CREATE TABLE IF NOT EXISTS connection_secrets (
@@ -83,9 +95,44 @@ def forget(name):
         handle.close()
 
 
-def token(name):
-    """THE ONE PASTED SECRET A SERVICE SIGNS IN WITH, FOR THE ONES THAT ONLY WANT ONE."""
-    return (kept(name)["tokens"] or {}).get("access_token") or ""
+def token(name, renew=None, service=None):
+    """THE ONE SECRET A SERVICE SIGNS IN WITH, GOOD AT THE MOMENT IT IS HANDED OVER.
+
+    CALL THIS INSIDE THE TOOL, NEVER ABOVE IT: WHAT IT ANSWERS IS ONLY TRUE NOW. renew IS THE
+    SERVICE'S OWN WAY OF GETTING ANOTHER ONE, BECAUSE ONLY THE SERVICE KNOWS HOW."""
+    held = kept(name)
+    tokens = held["tokens"] or {}
+
+    if not tokens.get("access_token") and not tokens.get("refresh_token"):
+        return ""  # NEVER SIGNED IN AT ALL, WHICH IS THE SERVER'S OWN MISSING TO SAY.
+
+    if not spent(tokens):
+        return tokens.get("access_token") or ""
+
+    if renew is None:
+        raise PermissionError(STALE.format(service=service or name))
+
+    moved = renew(tokens, held["client"]) or {}
+
+    if not moved.get("access_token"):
+        raise PermissionError(STALE.format(service=service or name))
+
+    put(name, tokens={**tokens, **moved})
+
+    return moved["access_token"]
+
+
+def spent(tokens):
+    """TRUE WHEN THE TOKEN HAS RUN OUT. ONE THAT NEVER SAID IT WOULD IS TAKEN AT ITS WORD."""
+    when = (tokens or {}).get("expires_at")
+
+    if not when:
+        return False
+
+    try:
+        return float(when) - MARGIN <= time.time()
+    except (TypeError, ValueError):
+        return False
 
 
 def dumped(value):

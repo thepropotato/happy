@@ -17,7 +17,7 @@ MISSING = "Google is not signed in. Connect it in Happy's connections panel."
 
 
 def signed():
-    """LIVE CREDENTIALS, RENEWED AND WRITTEN BACK IF THE OLD ONES HAD RUN OUT."""
+    """LIVE CREDENTIALS, CHECKED ON THE WAY INTO EVERY CALL AND RENEWED IN PLACE IF SPENT."""
     held = credentials.kept(NAME)
     tokens, client = held["tokens"], held["client"]
 
@@ -33,13 +33,19 @@ def signed():
         expiry=ending(tokens.get("expires_at")),
     )
 
-    if creds.valid:
+    if creds.valid and not credentials.spent(tokens):
         return creds
 
     if not creds.refresh_token:
         raise PermissionError(MISSING)
 
-    creds.refresh(Request())
+    try:
+        creds.refresh(Request())
+    except Exception as error:
+        # THE REFRESH TOKEN ITSELF HAS GONE, WHICH NO AMOUNT OF REFRESHING MENDS: GOOGLE DROPS
+        # ONE WEEKLY FOR AN APP LEFT UNPUBLISHED. SAY THE ONE THING THAT FIXES IT.
+        raise PermissionError(credentials.STALE.format(service="Google")) from error
+
     credentials.put(NAME, tokens={**tokens, **renewed(creds)})
 
     return creds

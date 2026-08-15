@@ -318,6 +318,29 @@ Nothing that starts on its own can open a browser — a sign in that has finally
 the service refusing, which a row can say out loud, and not as a window appearing in front of
 whoever is standing there mid sentence.
 
+**The sign in is checked on the way into every tool call, and never once at startup.** A server
+comes up when it is first wanted and then stays up for the rest of the day, so an access token
+it read at breakfast is a dead token by the afternoon, and there is no moment after startup
+when anything would have thought to look again. So the check belongs on the path every call
+already takes: `credentials.token(name, renew=…)` reads the row, sees whether the token has run
+out, renews it in place and writes it back before handing it over, and every server asks for
+its token **inside** the tool rather than above it. A token is treated as gone a minute before
+it really is, because a call that takes a second must not set out on a token with a second left.
+Google is the one with a refresh token today, and `google/account.py` does the same thing with
+`google.auth` doing the renewing.
+
+**Only the service knows how to renew, so only the service says how.** The shared side owns the
+policy — when to look, when to give up, what to say — and takes the *how* as an argument.
+Nothing in `servers/shared` holds a URL belonging to any one service, and adding a service that
+renews differently is a function passed in, not a branch added here.
+
+**A renewal that cannot work is a sentence, not a stack trace.** A refresh token can be revoked
+rather than expired — Google drops one weekly for an app left unpublished — and no amount of
+refreshing mends that. When the renewal itself fails, or when a token has run out and the
+service has no way to get another, the call is refused with `credentials.STALE`, which names
+the service and says to connect it again in the panel. That is the one thing that fixes it, and
+it is what the person hears.
+
 ### Adding a capability
 
 1. Write `hands/yourthing/`, as a folder with an `__init__.py`. Put the work in files named
@@ -343,10 +366,12 @@ place to look; a tool missing there is missing from the model too.
 1. Write `mcps/servers/yourthing/mcp_server.py` — **the whole server, in the one file.** Make a
    `FastMCP`, decorate functions with `@mcp.tool()`, and put the credentials, the HTTP and the
    tidying of what comes back underneath them. **The docstring is the prompt** here too.
-2. Take what you need from `servers.shared`: `credentials.token(name)` is the pasted token,
-   `reaching.Service` is an HTTP client with the sign in already on it, and `answering.ok` is
-   what a tool returns. Do not catch exceptions — a tool that raises comes back as a failed
-   call carrying the reason, and `mcps/shortening.py` turns that into one plain line.
+2. Take what you need from `servers.shared`: `credentials.token(name)` is the signed in token,
+   asked for **inside** each tool so it is checked afresh every call, and given `renew=` where
+   the service can get another one; `reaching.Service` is an HTTP client with the sign in
+   already on it, and `answering.ok` is what a tool returns. Do not catch exceptions — a tool
+   that raises comes back as a failed call carrying the reason, and `mcps/shortening.py` turns
+   that into one plain line.
 3. Add one entry to `KNOWN` in `mcps/registry.py`: a name, a label, the folder, and whether it
    wants nothing, a pasted token, or a browser sign in.
 
@@ -365,9 +390,17 @@ Split a server across files only when it earns it. Google is four — `mail.py`,
 tools would run past 200 lines. The others are one file each.
 
 Two rules the servers live by. **Every tool you write is a tool the model gets** — there is no
-allowlist to also remember, and nothing gates a call once it is bound. And **name tools so a
-reader can tell what they touch**: `search_emails` reads, `send_email` sends, and the name is
-the only warning anybody gets.
+allowlist to also remember, and nothing gates a call once it is bound. The single exception is
+`mcps/binding.py`'s `OURS`, which Happy calls himself and never shows the model; put a tool in
+there only when he is the only one who would ever call it, or it is six more schemas read on
+every turn for nothing. And **name tools so a reader can tell what they touch**:
+`search_emails` reads, `send_email` sends, and the name is the only warning anybody gets.
+
+A service that signs in as somebody answers `who_signed_in()` too, returning the name on the
+account and nothing else. It is in `OURS`, so it costs the model nothing; `mcps.signed_in()`
+asks every server that offers one, all at once on the shared loop, and `hands/owner` turns
+that into the name Happy calls the person he works for. A service with no account of its own —
+Weather — simply does not write one, and nothing has to be told that.
 
 ## Things that are easy to get wrong here
 
