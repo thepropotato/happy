@@ -15,6 +15,11 @@ const MARKS = /(\*\*|__|~~|`+|^\s*#{1,6}\s+|^\s*[-*+]\s+|^\s*>\s?)/gm
 // PAGE WAS STILL LOADING IS A shown NOBODY HEARD.
 const UNDER_WAY = { listening: true, hearing: true, thinking: true, speaking: true }
 
+// THE FRONT OF A TURN. WHATEVER IS STILL ON THE LINE HERE BELONGS TO THE LAST
+// ONE, AND THE KEY LANDS ON listening EVERY TIME, SO IT IS READ AS AN ANSWER TO
+// WHAT IS ONLY NOW BEING ASKED.
+const AFRESH = { listening: true, hearing: true }
+
 let mood = 'idle'
 let reply = ''
 
@@ -51,9 +56,11 @@ function feel(name) {
 
 function hear(word) {
   const doing = {
-    // A TURN OF HIS OWN STARTS THE LINE OVER: WHAT WAS ON IT WAS THE LAST ONE.
     state: () => {
-      if (word.state === 'hearing') reply = ''
+      if (AFRESH[word.state]) {
+        reply = ''
+        say('')
+      }
 
       if (UNDER_WAY[word.state]) up(true)
 
