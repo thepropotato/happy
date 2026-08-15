@@ -3,9 +3,9 @@
 from langchain_core.tools import tool
 import memory.storage as storage
 
-from hands import asking
+from hands import reasons
 from hands.coder import job, where
-from hands.coder.registry import available
+from hands.coder.coders import available
 
 STARTED = "Started in {folder}. Carry on, I will say when it is done."
 BUSY = "Already working on something in the coder: "
@@ -31,12 +31,12 @@ def build(task: str, project: str) -> str:
     names = available()
 
     if not names:
-        return asking.no(MISSING)
+        return reasons.no(MISSING)
 
     folder, complaint = where.settle(project)
 
     if folder is None:
-        return asking.no(complaint)
+        return reasons.no(complaint)
 
     with job.lock:
         if job.busy():
@@ -77,7 +77,7 @@ def build_answer(response: str) -> str:
         )
 
         if not rows:
-            return asking.no(NO_CONTINUE)
+            return reasons.no(NO_CONTINUE)
 
         latest = rows[0]
 
@@ -95,10 +95,10 @@ def build_answer(response: str) -> str:
         return STARTED.format(folder=latest["folder"])
 
     if not job.current.session_id:
-        return asking.no(NO_CONTINUE)
+        return reasons.no(NO_CONTINUE)
 
     if job.current.coder_name != "Claude Code":
-        return asking.no(NO_FOLLOWUPS)
+        return reasons.no(NO_FOLLOWUPS)
 
     with job.lock:
         if job.busy():

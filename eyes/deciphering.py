@@ -4,7 +4,7 @@ import numpy as np
 
 from eyes.cleaning import RECIPES, prepared
 from eyes.loading import BORDER, factor, load
-from eyes.parts import Reading, Row, VisionError, Word
+from eyes.shapes import Reading, Row, VisionError, Word
 from eyes.tesseract import LANGUAGE, MODES, scan, use
 
 # BELOW THIS A "WORD" IS USUALLY AN ICON EDGE THAT LOOKED LIKE AN L.

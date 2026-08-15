@@ -3,7 +3,7 @@
 import time
 
 import eyes
-from eyes import estimating
+from eyes import agreeing
 from hands.desktop import expecting, noticing, pointer
 from hands.desktop.verifying import Done, judged, looking, report, settled
 
@@ -34,7 +34,7 @@ def clicked(target, times=1, button="left"):
 
     answer, after = judged(expectation, before, settled(before), model)
 
-    sure = found.confidence > estimating.POINTED
+    sure = found.confidence > agreeing.POINTED
     did = f"Clicked {found.label}" if sure else f"Clicked where I think {target} is"
     done = report(did, answer, after, at, ours=(found.x, found.y))
 

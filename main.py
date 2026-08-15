@@ -14,7 +14,7 @@ import mcps
 import memory
 import voice
 from mcps.servers.whatsapp import chatting
-from face import console, handing, log, orders, panel, show
+from face import console, handing, log, requests, show, telling
 
 SERVE = "--serve"
 
@@ -26,13 +26,13 @@ def main():
     windowed = SERVE in sys.argv
 
     if windowed:
-        panel.only()  # BEFORE ANY LIBRARY GETS A CHANCE TO PRINT ON THE CHANNEL.
+        telling.only()  # BEFORE ANY LIBRARY GETS A CHANCE TO PRINT ON THE CHANNEL.
 
     log.opened("with the window" if windowed else "in a terminal")
 
-    show.attach(panel if windowed else console)
+    show.attach(telling if windowed else console)
     show.attach(log)  # THE ONE FACE THAT IS STILL THERE TOMORROW.
-    show.state(panel.LOADING)
+    show.state(telling.LOADING)
 
     happy, speaker = start()
 
@@ -68,9 +68,9 @@ def attend(happy, speaker, recorder, waking):
     # SENT AGAIN WHENEVER A KNOB MOVES: THE NAME HAPPY WAKES TO IS ONE OF THEM,
     # AND A HINT STILL NAMING THE OLD ONE IS A HINT THAT IS WRONG.
     def ready():
-        panel.ready(wake=waking.phrase(), amiss=blocked())
+        telling.ready(wake=waking.phrase(), amiss=blocked())
 
-    orders.serve(
+    requests.serve(
         forget=happy.forget,
         say=lambda text: typed_soon(happy, speaker, text),
         stop=lambda: stop_turn(happy, speaker),
@@ -79,7 +79,7 @@ def attend(happy, speaker, recorder, waking):
     )
 
     ready()
-    show.state(panel.IDLE)
+    show.state(telling.IDLE)
 
 
 def blocked():

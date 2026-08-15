@@ -1,6 +1,6 @@
 """THE SCREEN AS STRUCTURE RATHER THAN AS PIXELS."""
 
-from eyes import asking, attention
+from eyes import attention, systems
 
 # BELOW THIS MANY NAMED CONTROLS, THE WORDS ON SCREEN ARE WORTH AN OCR PASS.
 THIN = 4
@@ -41,9 +41,9 @@ def tree():
 
     try:
         if attention.on_mac():
-            found = asking.mac_elements(handle)
+            found = systems.mac_elements(handle)
         elif attention.on_windows():
-            found = asking.windows_elements(handle)
+            found = systems.windows_elements(handle)
         else:
             return []
     except Exception:

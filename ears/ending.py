@@ -11,7 +11,7 @@ import collections
 import re
 import time
 
-from ears.naming import WORDS
+from ears.calling import WORDS
 
 # WHAT WAS ASKED, THE RECORDING IT WAS ASKED IN, AND WHAT THE HEARING COST.
 Heard = collections.namedtuple("Heard", "text audio seconds")

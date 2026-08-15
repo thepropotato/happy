@@ -2,8 +2,8 @@
 
 from langchain_core.tools import tool
 
-from hands import asking
-from hands.controls import clipboard, media, network, power, screen, sound
+from hands import reasons
+from hands.controls import clipboard, display, media, network, power, volume
 
 STEP = 10  # HOW MUCH "A BIT LOUDER" IS WORTH.
 
@@ -23,21 +23,21 @@ def sound_control(action: str, level: int = -1) -> str:
     step = STEP if level < 0 else level
 
     if wanted == "status":
-        return sound.status()
+        return volume.status()
 
     if wanted == "set":
-        return sound.set_level(level)
+        return volume.set_level(level)
 
     if wanted == UP:
-        return sound.change(step)
+        return volume.change(step)
 
     if wanted == DOWN:
-        return sound.change(-step)
+        return volume.change(-step)
 
     if wanted in ("mute", "unmute"):
-        return sound.mute(wanted == "mute")
+        return volume.mute(wanted == "mute")
 
-    return asking.no(f"I can set, step, mute or report the volume, not {action}.")
+    return reasons.no(f"I can set, step, mute or report the volume, not {action}.")
 
 
 @tool
@@ -53,18 +53,18 @@ def brightness_control(action: str, level: int = -1) -> str:
     step = STEP if level < 0 else level
 
     if wanted == "status":
-        return screen.status()
+        return display.status()
 
     if wanted == "set":
-        return screen.set_level(level)
+        return display.set_level(level)
 
     if wanted == UP:
-        return screen.change(step)
+        return display.change(step)
 
     if wanted == DOWN:
-        return screen.change(-step)
+        return display.change(-step)
 
-    return asking.no(f"I can set, step or report the brightness, not {action}.")
+    return reasons.no(f"I can set, step or report the brightness, not {action}.")
 
 
 @tool
@@ -85,12 +85,12 @@ def display_control(action: str) -> str:
     wanted = (action or "").strip().lower()
 
     if wanted == "off":
-        return screen.display_off()
+        return display.off()
 
     if wanted in ("dark", "light"):
-        return screen.dark_mode(wanted == "dark")
+        return display.dark_mode(wanted == "dark")
 
-    return asking.no(f"I can turn the screen off or switch dark mode, not {action}.")
+    return reasons.no(f"I can turn the screen off or switch dark mode, not {action}.")
 
 
 @tool
@@ -115,7 +115,7 @@ def power_control(action: str) -> str:
     }.get(wanted)
 
     if act is None:
-        return asking.no(f"I can report the battery, lock, sleep, restart or shut down, not {action}.")
+        return reasons.no(f"I can report the battery, lock, sleep, restart or shut down, not {action}.")
 
     return act()
 
@@ -134,7 +134,7 @@ def network_control(action: str) -> str:
     if wanted in ("on", "off"):
         return network.switch(wanted == "on")
 
-    return asking.no(f"I can report or switch the Wi-Fi, not {action}.")
+    return reasons.no(f"I can report or switch the Wi-Fi, not {action}.")
 
 
 @tool
@@ -152,7 +152,7 @@ def clipboard_control(action: str, text: str = "") -> str:
     if wanted == "write":
         return clipboard.write(text)
 
-    return asking.no(f"I can read the clipboard or write to it, not {action}.")
+    return reasons.no(f"I can read the clipboard or write to it, not {action}.")
 
 
 TOOLS = [

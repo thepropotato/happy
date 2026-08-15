@@ -1,6 +1,6 @@
 """THE SCREEN ITSELF, GRABBED NOW."""
 
-from eyes.parts import Shot, VisionError
+from eyes.shapes import Shot, VisionError
 
 BLIND = (
     "I cannot see the screen. Screen recording has to be allowed for whatever "

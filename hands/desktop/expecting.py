@@ -3,8 +3,8 @@
 from pathlib import Path
 from typing import NamedTuple
 
-from eyes import estimating
-from eyes.finding import ENTRY
+from eyes import agreeing
+from eyes.locating import ENTRY
 
 
 class Expectation(NamedTuple):
@@ -47,7 +47,7 @@ def holding(scene, text):
 
 def stirred(before, after):
     """THE WEAKEST USEFUL CHECK: DID ANYTHING AT ALL HAPPEN."""
-    return estimating.moved(before, after)
+    return agreeing.moved(before, after)
 
 
 def for_click(found):
@@ -142,7 +142,7 @@ def verdict(expectation, before, after):
     except Exception:
         answer = None
 
-    happened = estimating.difference(before, after)
+    happened = agreeing.difference(before, after)
 
     if answer is None:
         return Verdict(True, False, happened or "nothing I can see changed")

@@ -5,7 +5,7 @@ import threading
 from datetime import datetime
 
 from memory import catalogue, storage
-from memory.knobs import settle
+from memory.kinds import settle
 
 SAVE = "INSERT INTO settings (key, value, at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, at=excluded.at"
 

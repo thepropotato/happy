@@ -1,6 +1,6 @@
 """EVERY KNOB HAPPY HAS, IN THE ORDER A PERSON WOULD LOOK FOR THEM."""
 
-from memory.knobs import action, choice, group, number, text, toggle
+from memory.kinds import action, choice, group, number, text, toggle
 
 EFFORTS = [("off", "Off"), ("low", "Low"), ("medium", "Medium"), ("high", "High")]
 

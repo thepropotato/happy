@@ -4,8 +4,8 @@ import re
 
 from langchain_core.tools import StructuredTool
 
-from hands import asking
-from mcps import loop, speaking
+from hands import reasons
+from mcps import loop, shortening
 from mcps.session import Unreachable
 
 UNTIDY = re.compile(r"[^a-z0-9_]+")
@@ -51,7 +51,7 @@ def bind(service, session, offered, taken=None):
 def one(service, session, tool, name):
     return StructuredTool(
         name=name,
-        description=speaking.blurb(tool.description, service),
+        description=shortening.blurb(tool.description, service),
         args_schema=tool.inputSchema or ANYTHING,
         func=calling(service, session, tool),
     )
@@ -64,12 +64,12 @@ def calling(service, session, tool):
         try:
             result = loop.run(session.call(tool.name, arguments), session.timeout)
         except Unreachable:
-            return asking.no(ASLEEP.format(service=service))
+            return reasons.no(ASLEEP.format(service=service))
         except TimeoutError:
-            return asking.no(f"{service} took too long to answer.")
+            return reasons.no(f"{service} took too long to answer.")
         except Exception:
-            return asking.no(BROKE.format(service=service))
+            return reasons.no(BROKE.format(service=service))
 
-        return asking.no(speaking.said(result)) if result.isError else speaking.said(result)
+        return reasons.no(shortening.said(result)) if result.isError else shortening.said(result)
 
     return call

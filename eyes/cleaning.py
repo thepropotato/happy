@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 
 from eyes.loading import BORDER, enlarged, greyed
-from eyes.parts import Recipe
+from eyes.shapes import Recipe
 
 WHITE = 255
 MID_GREY = 128

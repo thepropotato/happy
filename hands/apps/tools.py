@@ -5,7 +5,7 @@ from typing import Literal
 
 from langchain_core.tools import tool
 
-from hands import asking
+from hands import reasons
 from hands.apps import installed, machine, opening, whereabouts
 from hands.apps.running import launch
 
@@ -22,7 +22,7 @@ def list_installed_apps() -> str:
     what it is called. If an app is not in this list, it is not installed."""
     apps = installed.apps()
 
-    return ", ".join(apps) if apps else asking.no("No applications found.")
+    return ", ".join(apps) if apps else reasons.no("No applications found.")
 
 
 @tool
@@ -68,7 +68,7 @@ def open_app(name: str) -> str:
     match, sure = installed.resolve(name)
 
     if match is None:
-        return asking.no(f"There is no app called {name} on this computer.")
+        return reasons.no(f"There is no app called {name} on this computer.")
 
     if not sure:
         return (
@@ -80,12 +80,12 @@ def open_app(name: str) -> str:
     how = opening.app_opener()
 
     if how is None:
-        return asking.no("Opening apps is not supported on this platform.")
+        return reasons.no("Opening apps is not supported on this platform.")
 
     complaint = launch(how + [match])
 
     if complaint:
-        return asking.no(complaint)
+        return reasons.no(complaint)
 
     # EVERY TOOL AFTER THIS ONE READS WHATEVER IS IN FRONT, SO IF IT IS NOT THIS
     # APP THE MODEL HAS TO BE TOLD RATHER THAN LEFT CLICKING IN SOMEBODY ELSE'S.
@@ -107,12 +107,12 @@ def open_path(path: str) -> str:
     target = Path(path).expanduser()
 
     if not target.exists():
-        return asking.no(f"There is nothing at {target}.")
+        return reasons.no(f"There is nothing at {target}.")
 
     how = opening.opener()
 
     if how is None:
-        return asking.no("Opening paths is not supported on this platform.")
+        return reasons.no("Opening paths is not supported on this platform.")
 
     return launch(how + [str(target)]) or f"Opened {target}."
 
@@ -134,12 +134,12 @@ def open_url(url: str, because: Literal[SEEING, CHECKING]) -> str:
     reach anything of theirs on the web. Prefer it over opening a browser
     application and typing, which is never right."""
     if because == CHECKING:
-        from hands.web.reading import page  # LATE: apps IS IMPORTED BEFORE web.
+        from hands.web.pages import page  # LATE: apps IS IMPORTED BEFORE web.
 
         try:
             return f"Their screen did not move. The page says:\n\n{page(url, 0)}"
         except Exception as error:
-            return asking.no(f"{error}")
+            return reasons.no(f"{error}")
 
     address = opening.web_address(url)
 

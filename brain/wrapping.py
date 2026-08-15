@@ -6,7 +6,7 @@ from langchain.agents.middleware import wrap_model_call, wrap_tool_call
 from langchain_core.messages import trim_messages
 
 import memory
-from hands import asking
+from hands import reasons
 from memory import settings
 
 TOOL = "tool"
@@ -111,7 +111,7 @@ def keep_record(request, handler):
     call = request.tool_call
 
     # READ, NOT TAKEN: THE CALL ITSELF GOES ON UNTOUCHED.
-    args, why = asking.without(call)
+    args, why = reasons.without(call)
     name = call.get("name")
 
     # THE ID TIES THE STARTED AND FINISHED REPORTS TO THE ONE ROW.
@@ -145,7 +145,7 @@ def keep_record(request, handler):
 
     # THE MARK COMES OFF HERE AND NOWHERE ELSE, SO THE MODEL READS THE SENTENCE
     # THE TOOL MEANT TO SAY AND NEVER THE BOOKKEEPING IN FRONT OF IT.
-    said, nope = asking.went(text(result))
+    said, nope = reasons.went(text(result))
 
     missed = missed + 1 if nope else 0
 

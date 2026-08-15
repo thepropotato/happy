@@ -4,7 +4,7 @@ import base64
 import io
 import re
 
-from eyes.parts import VisionError
+from eyes.shapes import VisionError
 from memory import settings
 
 MAX_LABELS = 150

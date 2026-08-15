@@ -8,7 +8,7 @@ from eyes.naming import (
     plain,
     wording,
 )
-from eyes.parts import Element
+from eyes.shapes import Element
 
 # A DEEPLY NESTED APPLICATION WOULD OTHERWISE HAND BACK TENS OF THOUSANDS OF GROUPS.
 MAX_DEPTH = 16

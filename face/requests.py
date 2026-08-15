@@ -5,7 +5,7 @@ import sys
 import threading
 
 import memory
-from face import panel, sources
+from face import sources, telling
 from memory import settings
 
 RECENT_MESSAGES = 60
@@ -52,7 +52,7 @@ def read():
         try:
             carry(order)
         except Exception as error:
-            panel.trouble(error)
+            telling.trouble(error)
 
     call("quit")
 
@@ -127,7 +127,7 @@ def reaching(asked, name):
         else:
             reach.disconnect(name)
     except Exception as error:
-        panel.trouble(error)
+        telling.trouble(error)
 
     describe()
 
@@ -145,16 +145,16 @@ def connections():
 def describe():
     reach = connections()
 
-    panel.send("settings", groups=sources.drawn(reach), values=dict(settings.every()))
+    telling.send("settings", groups=sources.drawn(reach), values=dict(settings.every()))
 
 
 def recall(limit):
-    panel.send("history", messages=memory.history(limit=max(1, int(limit))))
+    telling.send("history", messages=memory.history(limit=max(1, int(limit))))
 
 
 def logs():
     """WRITE THE PAGE OUT AND HAND THE WINDOW SOMETHING TO OPEN IT WITH."""
     try:
-        panel.send("open", url=memory.exported().as_uri())
+        telling.send("open", url=memory.exported().as_uri())
     except Exception as error:
-        panel.trouble(error)
+        telling.trouble(error)

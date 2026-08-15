@@ -286,7 +286,7 @@ def window(handle=None):
     if on_mac():
         from ApplicationServices import AXUIElementCreateApplication
 
-        from eyes.asking import mac_attribute
+        from eyes.systems import mac_attribute
         from eyes.naming import wording
 
         pid = handle if handle is not None else front()[1]

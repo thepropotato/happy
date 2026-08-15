@@ -8,7 +8,7 @@ import sounddevice as sd
 
 from face import show
 from memory import settings
-from voice import engines, plain
+from voice import engines, stripping
 from voice.sentences import Sentences
 
 IDLE_POLL_SECONDS = 0.1  # SHORT HOPS SO CTRL+C STILL LANDS WHILE WAITING.
@@ -109,7 +109,7 @@ class Speaker:
             return
 
         # THE PANEL DRAWS THE MARKDOWN. NOTHING OUT HERE SHOULD HEAR IT.
-        sentence = plain.spoken(sentence)
+        sentence = stripping.spoken(sentence)
 
         if not sentence:
             return

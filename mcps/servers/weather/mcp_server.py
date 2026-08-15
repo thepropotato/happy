@@ -11,7 +11,7 @@ from mcp.server.fastmcp import FastMCP  # noqa: E402
 
 from servers.shared.answering import ok  # noqa: E402
 from servers.shared.reaching import Service  # noqa: E402
-from servers.weather import places, reading  # noqa: E402
+from servers.weather import meaning, places  # noqa: E402
 
 mcp = FastMCP("weather", log_level="ERROR")
 
@@ -48,7 +48,7 @@ def get_weather(place: str) -> str:
 
     got = asked(found, {"current": CURRENT})
 
-    return ok({"place": found["place"], **reading.now(got.get("current") or {})})
+    return ok({"place": found["place"], **meaning.now(got.get("current") or {})})
 
 
 @mcp.tool()
@@ -61,7 +61,7 @@ def get_forecast(place: str, days: int = 3) -> str:
 
     answer = asked(found, {"daily": DAILY, "forecast_days": counted(days, MOST_DAYS)})
 
-    return ok({"place": found["place"], "days": reading.days(answer.get("daily") or {})})
+    return ok({"place": found["place"], "days": meaning.days(answer.get("daily") or {})})
 
 
 @mcp.tool()
@@ -74,7 +74,7 @@ def get_hourly_weather(place: str, hours: int = 12) -> str:
 
     answer = asked(found, {"hourly": HOURLY, "forecast_hours": counted(hours, MOST_HOURS)})
 
-    return ok({"place": found["place"], "hours": reading.hours(answer.get("hourly") or {})})
+    return ok({"place": found["place"], "hours": meaning.hours(answer.get("hourly") or {})})
 
 
 @mcp.tool()

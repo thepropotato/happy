@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytesseract
 
-from eyes.parts import VisionError
+from eyes.shapes import VisionError
 
 MACOS = "darwin"
 WINDOWS = "win32"

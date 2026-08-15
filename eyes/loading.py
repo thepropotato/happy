@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from eyes.parts import VisionError
+from eyes.shapes import VisionError
 
 # UI TEXT IS AROUND THIRTEEN PIXELS TALL AND TESSERACT WANTS ABOUT THIRTY.
 TARGET_WIDTH = 3000

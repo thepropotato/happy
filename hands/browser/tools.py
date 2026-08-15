@@ -6,7 +6,7 @@ from typing import Literal
 from langchain_core.tools import tool
 
 from eyes import playing
-from hands import asking
+from hands import reasons
 from hands.browser import showing
 
 PLAY = "play"
@@ -29,12 +29,12 @@ def bring_to_front(what: str) -> str:
     If this says no such tab is open, then it is not open, and you should search
     for it and open it instead."""
     if not what.strip():
-        return asking.no("Say which page to bring to the front.")
+        return reasons.no("Say which page to bring to the front.")
 
     found = showing.shown(what)
 
     if found is None:
-        return asking.no(
+        return reasons.no(
             f"No open tab matches {what}, so nothing was brought to the front. "
             f"It is not already open: search for it and open it instead."
         )
@@ -65,7 +65,7 @@ def play_pause(want: Literal[PLAY, PAUSE]) -> str:
         return f"It is already {'playing' if was else 'paused'}, so nothing was pressed."
 
     if not showing.played():
-        return asking.no("The play key would not go through, so nothing changed.")
+        return reasons.no("The play key would not go through, so nothing changed.")
 
     time.sleep(SETTLE_SECONDS)
     now = playing.playing()
@@ -76,7 +76,7 @@ def play_pause(want: Literal[PLAY, PAUSE]) -> str:
     if now == (want == PLAY):
         return f"It is {'playing' if now else 'paused'} now."
 
-    return asking.no(
+    return reasons.no(
         f"I pressed it but it is still {'playing' if now else 'paused'}. "
         f"Something else has the keyboard, so nothing was {want}ed."
     )

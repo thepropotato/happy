@@ -1,7 +1,7 @@
 """WHERE HAPPY'S OWN WINDOWS SIT, SO NOTHING EVER CLICKS HIM."""
 
 from eyes.attention import GW_HWNDNEXT, on_mac, on_windows, ours
-from eyes.parts import Row
+from eyes.shapes import Row
 
 
 def boxes():

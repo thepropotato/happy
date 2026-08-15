@@ -146,7 +146,7 @@ def change(step):
     return "Brightness turned up." if step > 0 else "Brightness turned down."
 
 
-def display_off():
+def off():
     if on_mac():
         done = run(["pmset", "displaysleepnow"])
     elif on_windows():

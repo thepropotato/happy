@@ -9,7 +9,7 @@ import time
 import memory.storage as storage
 
 from face import show
-from hands.coder import reading, registry
+from hands.coder import coders, following
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS coder_jobs (
@@ -120,9 +120,9 @@ class Job:
 
 def run(coder_name, task, folder, session_id=None, watching=None):
     if session_id and coder_name == "Claude Code":
-        command = registry.claude_code_resume(session_id, task)
+        command = coders.claude_code_resume(session_id, task)
     else:
-        command = registry.CODERS[coder_name](task)
+        command = coders.CODERS[coder_name](task)
 
     # THE ONE THING THAT DECIDES WHICH PROJECT GETS WRITTEN INTO. WITHOUT IT THE
     # CODER INHERITS WHEREVER HAPPY WAS STARTED FROM, WHICH IS HAPPY'S OWN CODE.
@@ -160,10 +160,10 @@ def run(coder_name, task, folder, session_id=None, watching=None):
 
 def watched(coder_name, process, watching):
     """WHAT CAME OUT OF THE CODER, SAID OUT LOUD AS IT CAME IF IT SPEAKS JSON."""
-    if coder_name not in registry.STREAMING:
+    if coder_name not in coders.STREAMING:
         return {"answer": process.stdout.read()}
 
-    return reading.follow(process.stdout, watching or (lambda said: None))
+    return following.follow(process.stdout, watching or (lambda said: None))
 
 
 def expire(process, overdue):

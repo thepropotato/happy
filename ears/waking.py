@@ -5,9 +5,9 @@ import threading
 import time
 
 from ears import ending, engines
+from ears.calling import addressed, phrases, spoken
 from ears.ending import Heard
 from ears.listening import POLL_SECONDS, Room
-from ears.naming import addressed, phrases, spoken
 from face import show
 from memory import settings
 

@@ -14,7 +14,7 @@ JSON SHOWS UP BEFORE IT IS BEING READ OUT LOUD TO SOMEBODY.
 import json
 import sys
 
-from mcps import binding, loop, registry, speaking
+from mcps import binding, loop, registry, shortening
 from mcps.session import Session, local
 
 USAGE = __doc__
@@ -42,7 +42,7 @@ def probe(name):
 
     for tool in offered:
         print(f"  {binding.named(name, tool.name)}")
-        print(f"    {speaking.blurb(tool.description, registry.label(name))}\n")
+        print(f"    {shortening.blurb(tool.description, registry.label(name))}\n")
 
 
 def call(name, tool, arguments):
@@ -54,7 +54,7 @@ def call(name, tool, arguments):
         loop.run(session.close(), 5)
 
     print("--- what the model sees ---")
-    print(speaking.said(result))
+    print(shortening.said(result))
 
 
 def listing():

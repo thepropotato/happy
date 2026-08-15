@@ -6,7 +6,7 @@ from eyes.attention import front, on_mac, on_windows
 def caret():
     """WHAT HAS THE KEYBOARD, IN WORDS, OR "". TYPING GOES WHEREVER THIS IS."""
     if on_mac():
-        from eyes.asking import mac_attribute
+        from eyes.systems import mac_attribute
         from eyes.naming import wording
 
         _, pid = front()

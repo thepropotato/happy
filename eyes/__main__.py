@@ -3,8 +3,8 @@
 import sys
 
 from eyes.cleaning import RECIPES
+from eyes.deciphering import LANGUAGE, MODES, attempt, look
 from eyes.loading import factor, load
-from eyes.reading import LANGUAGE, MODES, attempt, look
 from eyes.tesseract import complaint
 
 problem = complaint()

@@ -3,7 +3,7 @@
 import time
 
 from eyes import attention, pointing, structure
-from eyes.parts import Scene, VisionError
+from eyes.shapes import Scene, VisionError
 
 # THESE RANK THE SENSES, THEY ARE NOT PROBABILITIES.
 TOLD = 0.90  # THE APPLICATION SAID SO.
@@ -69,7 +69,7 @@ def looked(read_words):
     if not read_words:
         return "", mark
 
-    from eyes.reading import look
+    from eyes.deciphering import look
 
     try:
         return look(shot.image).text, mark

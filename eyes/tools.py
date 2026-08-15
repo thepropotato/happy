@@ -8,9 +8,9 @@ from langchain_core.tools import tool
 from eyes import attention, ongoing
 from eyes.describing import QUESTION, asked, smaller
 from face import handing
-from hands import asking
-from eyes.parts import VisionError
-from eyes.reading import look
+from hands import reasons
+from eyes.shapes import VisionError
+from eyes.deciphering import look
 from eyes.screen import grab
 
 MAX_CHARS = 20000
@@ -42,18 +42,18 @@ def read_image(path: str) -> str:
     where, note = files.locate(path)
 
     if where is None:
-        return asking.no(note)
+        return reasons.no(note)
 
     if where.is_dir():
-        return asking.no(f"{where} is a folder, not a picture.")
+        return reasons.no(f"{where} is a folder, not a picture.")
 
     try:
         seen = look(where)
     except VisionError as problem:
-        return asking.no(str(problem))
+        return reasons.no(str(problem))
 
     if not seen.text:
-        return asking.no(f"{where.name} is a picture, but there are no words in it.")
+        return reasons.no(f"{where.name} is a picture, but there are no words in it.")
 
     header = f"{note}\n" if note else ""
 
@@ -75,9 +75,9 @@ def read_screen() -> str:
     try:
         seen = look(grab().image)
     except VisionError as problem:
-        return asking.no(str(problem))
+        return reasons.no(str(problem))
 
-    return seen.text[:MAX_CHARS] if seen.text else asking.no("There is no text on the screen.")
+    return seen.text[:MAX_CHARS] if seen.text else reasons.no("There is no text on the screen.")
 
 
 @tool
@@ -103,7 +103,7 @@ def current_activity() -> str:
     seen = attention.doing()
 
     if not seen:
-        return asking.no("Nothing is in front: no application is active on this screen.")
+        return reasons.no("Nothing is in front: no application is active on this screen.")
 
     if "window is" in seen:
         return f"{seen}.{rest()}"
@@ -141,7 +141,7 @@ def list_open_windows() -> str:
     seen = attention.windows()[:MOST]
 
     if not seen:
-        return asking.no(
+        return reasons.no(
             f"Nothing is open: no ordinary window is on this screen. "
             f"{attention.allowed() or ''}".strip()
         )
@@ -208,7 +208,7 @@ def look_at_screen(question: str) -> str:
 
         return asked(smaller(shot.image)[0], about)
     except VisionError as problem:
-        return asking.no(str(problem))
+        return reasons.no(str(problem))
 
 
 @tool
@@ -225,12 +225,12 @@ def show_screen() -> str:
     than describing every corner of it. read_screen is still the way to answer a
     question about what the screen says."""
     if not handing.wanted():
-        return asking.no(HERE)
+        return reasons.no(HERE)
 
     try:
         shot = grab()
     except VisionError as problem:
-        return asking.no(str(problem))
+        return reasons.no(str(problem))
 
     SHOTS.mkdir(parents=True, exist_ok=True)
     where = SHOTS / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
@@ -239,7 +239,7 @@ def show_screen() -> str:
     if not handing.offer(where):
         where.unlink(missing_ok=True)
 
-        return asking.no("They have already been sent a picture of the screen this turn.")
+        return reasons.no("They have already been sent a picture of the screen this turn.")
 
     return f"A picture of the whole screen, {shot.image.width} by {shot.image.height}, is on its way."
 

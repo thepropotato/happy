@@ -3,9 +3,9 @@
 from langchain_core.tools import tool
 from mcp.types import Tool
 
-from mcps import binding, pool, registry, store, whatsapp
+from mcps import binding, bridging, pool, registry, store
+from mcps.bridging import whenever
 from mcps.joining import connect, disconnect, paste, stir
-from mcps.whatsapp import whenever
 
 TOOLS = []
 
@@ -93,10 +93,10 @@ def drawn(behind=()):
 def start():
     """START WHAT IS CONNECTED, IN THE BACKGROUND."""
     pool.warm()
-    whatsapp.start()
+    bridging.start()
 
 
 def stop():
     """PUT DOWN EVERY PROCESS HAPPY STARTED."""
-    whatsapp.stop()
+    bridging.stop()
     pool.shut()

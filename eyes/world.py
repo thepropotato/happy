@@ -1,7 +1,7 @@
 """WHAT HAPPY CURRENTLY BELIEVES IS TRUE ABOUT THE DESKTOP."""
 
-from eyes import estimating
-from eyes.parts import Scene
+from eyes import agreeing
+from eyes.shapes import Scene
 
 MAX_CHARS = 1400
 MAX_PER_KIND = 12
@@ -31,11 +31,11 @@ class World:
 
     def refresh(self, words=False):
         """LOOK AGAIN AND BELIEVE WHAT CAME BACK."""
-        return self.update(estimating.scene(words=words))
+        return self.update(agreeing.scene(words=words))
 
     def glance(self):
         """LOOK AGAIN THE CHEAP WAY, WITHOUT READING ANY WORDS."""
-        return self.update(estimating.glance())
+        return self.update(agreeing.glance())
 
     def update(self, scene):
         self.before, self.scene = self.scene, scene
@@ -44,7 +44,7 @@ class World:
 
     def changed(self):
         """WHAT THE LAST LOOK FOUND DIFFERENT FROM THE ONE BEFORE IT."""
-        return estimating.difference(self.before, self.scene)
+        return agreeing.difference(self.before, self.scene)
 
     def summary(self):
         """THE SCREEN AS STRUCTURE, FOR A PLANNER THAT SHOULD NOT BE READING PIXELS."""

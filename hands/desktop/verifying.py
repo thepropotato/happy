@@ -4,7 +4,7 @@ import time
 from typing import NamedTuple
 
 import eyes
-from eyes import estimating, structure
+from eyes import agreeing, structure
 from hands.desktop import expecting, noticing
 
 # HOW LONG TO WAIT FOR THE SCREEN TO REACT, AND THEN FOR WHATEVER STARTED TO FINISH.
@@ -39,22 +39,22 @@ def looking():
 def settled(before):
     """THE SCREEN ONCE IT HAS REACTED AND THEN STOPPED MOVING."""
     started = time.perf_counter()
-    scene = estimating.glance()
+    scene = agreeing.glance()
 
-    while not estimating.moved(before, scene):
+    while not agreeing.moved(before, scene):
         if time.perf_counter() - started > REACT_SECONDS:
             return scene
 
         time.sleep(STEP_SECONDS)
-        scene = estimating.glance()
+        scene = agreeing.glance()
 
     steady = time.perf_counter()
 
     while time.perf_counter() - steady < SETTLE_SECONDS:
         time.sleep(STEP_SECONDS)
-        again = estimating.glance()
+        again = agreeing.glance()
 
-        if not estimating.moved(scene, again):
+        if not agreeing.moved(scene, again):
             return again
 
         scene = again
@@ -68,7 +68,7 @@ def judged(expectation, before, after, model):
 
     if not answer.ok:
         time.sleep(PATIENCE_SECONDS)
-        after = estimating.glance()
+        after = agreeing.glance()
         answer = expecting.verdict(expectation, before, after)
 
     model.update(after)
@@ -95,7 +95,7 @@ def report(did, answer, after, at, ours=None):
     elif answer.ok and not answer.sure:
         said.append("I could not confirm it either way.")
 
-    if estimating.meddling(after, ours) or noticing.watch().busy(at):
+    if agreeing.meddling(after, ours) or noticing.watch().busy(at):
         said.append("You were using the computer at the same time, so do check it.")
 
     return Done(" ".join(said), answer.ok)

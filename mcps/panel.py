@@ -1,7 +1,7 @@
 """EVERY SERVICE AS ONE ROW, AND THE PANEL THOSE ROWS SIT IN."""
 
 from mcps import registry, tokens, wording
-from memory.knobs import action, folded, heading, service, text
+from memory.kinds import action, folded, heading, service, text
 
 PASTE = "mcps.paste."
 
@@ -154,9 +154,9 @@ def poised(name, kind):
 
 def scanned():
     """WHETHER THE ONE SERVICE WITH A QR HAS ACTUALLY HAD IT SCANNED."""
-    from mcps import whatsapp
+    from mcps import bridging
 
-    return whatsapp.linked()
+    return bridging.linked()
 
 
 def doing(row):

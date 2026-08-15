@@ -2,7 +2,7 @@
 
 import eyes
 import mcps
-from hands import apps, asking, browser, coder, controls, desktop, files, memory, shell, web
+from hands import apps, browser, coder, controls, desktop, files, memory, reasons, shell, web
 
 # EVERY MODULE, EVERY TURN.
 MODULES = [apps, controls, files, memory, mcps, web, eyes, desktop, browser, coder, shell]
@@ -21,7 +21,7 @@ def tools():
         if offering:
             found.extend(offering())
 
-    return asking.widened(found)
+    return reasons.widened(found)
 
 
 def names():

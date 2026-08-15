@@ -1,6 +1,6 @@
 """CHANGING WHAT IS CONNECTED: SIGNING IN, SWITCHING ON, PASTING SOMETHING IN."""
 
-from mcps import pool, registry, store, tokens, whatsapp
+from mcps import bridging, pool, registry, store, tokens
 from memory import settings
 
 
@@ -30,12 +30,12 @@ def connect(name):
     # WAITING FOR THE BRIDGE IS FINE HERE: CONNECTING HAS ITS OWN THREAD AND
     # NOBODY IS WAITING ON THIS ONE TO SPEAK.
     if known.get("scan"):
-        if not whatsapp.scan():
+        if not bridging.scan():
             return f"Could not start {known['label']}. See data/whatsapp.log."
 
         return f"Scan the QR in your browser to finish linking {known['label']}."
 
-    whatsapp.start()
+    bridging.start()
 
     return f"{known['label']} is connected, with {len(store.one(name)['tools'])} tools."
 
@@ -68,7 +68,7 @@ def admitted(known):
 def disconnect(name):
     """FORGET THE SIGN IN AND SWITCH IT OFF."""
     if name == "whatsapp":
-        whatsapp.disconnect(name)
+        bridging.disconnect(name)
 
     pool.drop(name)
     store.remember(name, [])

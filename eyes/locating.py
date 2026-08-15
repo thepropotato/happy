@@ -1,12 +1,12 @@
 """WHERE SOMETHING IS ON THE SCREEN."""
 
 from eyes import masking, structure
+from eyes.agreeing import PICKED, POINTED, READ, TOLD
+from eyes.deciphering import look
 from eyes.describing import PICK, POINT, asked, digits, listing, numbers, smaller
-from eyes.estimating import PICKED, POINTED, READ, TOLD
 from eyes.matching import CLICK_CUTOFF, likeness, middle, span, spot, tidy, typing
-from eyes.parts import Found
-from eyes.reading import look
 from eyes.screen import grab
+from eyes.shapes import Found
 
 # A LABEL AND THE BUTTON UNDER IT OFTEN SAY THE SAME WORD, AND THEY MEAN THE BUTTON.
 ACTIONABLE = (

@@ -70,7 +70,7 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | --- | --- |
 | `main.py` | The loop. His name, what was asked, an answer. Nothing else. |
 | `brain/thinking.py` | The graph. Speech in, spoken answer out, tools called along the way. |
-| `brain/watching.py` | What wraps every call: what goes in, what is kept, how long it took. |
+| `brain/wrapping.py` | What wraps every call: what goes in, what is kept, how long it took. |
 | `brain/model.py` | Which model, at which URL, with which settings. |
 | `brain/prompt.py` | What the model is told before it hears anything, read once from `prompt.md`. |
 | `prompt.md` | The wording itself, one section per block, editable without reading Python. |
@@ -92,15 +92,15 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `hands/desktop/` | The pointer and the keyboard, and checking that they worked. |
 | `hands/web/` | Searching the web, and reading whichever result holds the answer. |
 | `hands/browser/` | The browser errand. **Blank — being rebuilt.** |
-| `eyes/asking.py` | Asking each system to describe its own screen. macOS and Windows side by side. |
+| `eyes/systems.py` | Asking each system to describe its own screen. macOS and Windows side by side. |
 | `eyes/naming.py` | What each system calls a thing, and what a person calls it. |
 | `eyes/structure.py` | The controls in the window in front, filtered down to the real ones. |
 | `eyes/attention.py` | What is in front, and what the window in front is called. |
 | `eyes/pointing.py` | Where the keyboard and the pointer are. |
-| `eyes/estimating.py` | Every sense fused into one scene, and what changed between two of them. |
+| `eyes/agreeing.py` | Every sense fused into one scene, and what changed between two of them. |
 | `eyes/world.py` | What Happy currently believes about the desktop, and how he tells the model. |
 | `eyes/matching.py` | Matching a spoken name against what is written on the screen. |
-| `eyes/finding.py` | Where something is: four ways, cheapest first. |
+| `eyes/locating.py` | Where something is: four ways, cheapest first. |
 | `eyes/` (rest) | Seeing by pixels: text off a picture or off the screen. |
 | `hands/desktop/pointer.py` | The only place anything is actually injected. |
 | `hands/desktop/noticing.py` | Telling Happy's own events from the person's. |
@@ -110,16 +110,16 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `memory/conversation.py` | The conversation: every message ever, and how to read it back. |
 | `memory/storage.py` | The database. Owns the file and the schema, nothing else. |
 | `memory/catalogue.py` | Every knob Happy has, and what it shipped as. The defaults live here and nowhere else. |
-| `memory/knobs.py` | What a setting *is*: a kind, a default, and enough for a control to draw itself. |
+| `memory/kinds.py` | What a setting *is*: a kind, a default, and enough for a control to draw itself. |
 | `memory/settings.py` | What every knob is set to now. Held in memory, written through to the file. |
 | `memory/pruning.py` | Throwing the old away, if a setting says how long to keep it. |
 | `memory/exporting.py` | `data/happy.log` as a page a browser can open, which is all it is. |
 | `face/show.py` | Every face at once. The rest of Happy reports here, never to a particular one. |
 | `face/console.py` | What the terminal shows: one block per turn, and where the time went. |
-| `face/panel.py` | What the window is told, as one JSON object per line on stdout. |
+| `face/telling.py` | What the window is told, as one JSON object per line on stdout. |
 | `face/log.py` | The face nobody watches: every event, stamped, into `data/happy.log`. |
 | `face/handing.py` | Pictures that go back with the answer, for somebody who is not in the room. |
-| `face/orders.py` | What the window asks for, read off stdin on its own thread. |
+| `face/requests.py` | What the window asks for, read off stdin on its own thread. |
 | `face/sources.py` | The catalogue finished off with the lists only a running machine knows. |
 | `face/window/` | The Electron app: the icon in the menu bar and the panel that drops out of it. |
 | `face/silence.py` | Silences the libraries. Must be called before anything opens an ONNX session. |
@@ -130,7 +130,7 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `mcps/pool.py` | Every connected server, started in the background, never blocking a start. |
 | `mcps/loop.py` | The one event loop the servers live on. The async side of the wall. |
 | `mcps/binding.py` | A tool on one of those servers, as one the graph calls like any other. |
-| `mcps/speaking.py` | What came back, squeezed down to something that can be said out loud. |
+| `mcps/shortening.py` | What came back, squeezed down to something that can be said out loud. |
 | `mcps/writing.py` | Which of those tools changes something out there, and asking first. |
 | `mcps/panel.py` | Every service as one row somebody can read, for the window to draw. |
 | `mcps/wording.py` | The words a row says about a service, and nothing about its shape. |
@@ -145,7 +145,7 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `mcps/servers/slack/` | Channels, what was said in them, and saying something. |
 | `mcps/servers/weather/` | The forecast anywhere, from the one that wants no account. |
 | `mcps/servers/instagram/` | This account's own posts, their comments, and replying to one. |
-| `mcps/whatsapp.py` | The bridge from Happy's side: starting it, asking it, putting it down. |
+| `mcps/bridging.py` | The bridge from Happy's side: starting it, asking it, putting it down. |
 | `mcps/servers/whatsapp/` | Reads your chats over a local bridge, and sends on them. |
 | `AGENTS.md` | How to write code in this repo. Read it before you write any. |
 | `TODO.md` | What is still pending. |
@@ -259,7 +259,7 @@ No cloud storage, no telemetry, no backend callbacks. This runs on one machine f
 
 **Happy starts the bridge itself**, rather than leaving it a second terminal somebody has to
 remember — the worst possible shape given the paragraph below, since forgetting it errors
-nothing. `mcps/whatsapp.py` owns it: it starts the bridge when WhatsApp is connected and
+nothing. `mcps/bridging.py` owns it: it starts the bridge when WhatsApp is connected and
 not before, never doubles up on one already serving the port, puts down only a bridge it
 started, and refuses to respawn a dead one more than once every thirty seconds so that a bridge
 which cannot start is one dead process and not a stream of them. Its output goes to
@@ -347,7 +347,7 @@ place to look; a tool missing there is missing from the model too.
 2. Take what you need from `servers.shared`: `credentials.token(name)` is the pasted token,
    `reaching.Service` is an HTTP client with the sign in already on it, and `answering.ok` is
    what a tool returns. Do not catch exceptions — a tool that raises comes back as a failed
-   call carrying the reason, and `mcps/speaking.py` turns that into one plain line.
+   call carrying the reason, and `mcps/shortening.py` turns that into one plain line.
 3. Add one entry to `KNOWN` in `mcps/registry.py`: a name, a label, the folder, and whether it
    wants nothing, a pasted token, or a browser sign in.
 
@@ -549,7 +549,7 @@ serve a script a different page or none, so `searching.py` asks wearing Chrome's
 Wikipedia does the reverse: it **403s anything calling itself Chrome** and answers an honest
 `Happy/1.0` — but only one with a contact URL in it, so `Happy/1.0 (voice assistant; reads a
 page)` is refused and `Happy/1.0 (+https://github.com/thepropotato/happy)` is served. So
-`reading.py` says who it is first and only dresses up for the hosts that turn that away, which
+`pages.py` says who it is first and only dresses up for the hosts that turn that away, which
 is one retry and covers both populations. AccuWeather is the mirror image of Wikipedia: it
 answers the honest one and 403s the browser.
 
@@ -797,7 +797,7 @@ the app.
 **Electron owns the process.** It spawns `python main.py --serve` as a child and the two talk
 over that child's own pipes: one JSON object per line, events down stdout, orders up stdin. No
 port, no server, no dependency on either side — `json` on one end and `JSON.parse` on the other.
-Electron exiting ends Happy, because the reader in `face/orders.py` sees stdin end and shuts him
+Electron exiting ends Happy, because the reader in `face/requests.py` sees stdin end and shuts him
 down.
 
 **The panel has no close button, only minimize.** A cross would promise something it cannot
@@ -892,7 +892,7 @@ switch, a row for signing out and a row per secret, twenty-one identical rows de
 timeout slider, a client secret and a thing you sign into all looked the same — and nowhere did
 it say what was actually connected.
 
-So `memory/knobs.py` has three shapes that are not settings, and `mcps/panel.py` builds the
+So `memory/kinds.py` has three shapes that are not settings, and `mcps/panel.py` builds the
 whole panel out of them: a **heading** over a run of rows, a **service** — one row saying what
 it is and how it is, with what it wants folded inside until somebody taps it — and a **folded**
 row, which is an ordinary group of knobs behind one line. The two global settings live in one
@@ -1141,7 +1141,7 @@ happens — a notification lands, a window is still loading, the person moves th
 it keeps going, confidently, having no way to know the world stopped matching its assumptions.
 
 So the desktop is treated as **a state estimation problem rather than a computer vision one**.
-A screenshot is one observation of the state, and not the best one. `eyes/estimating.py` fuses
+A screenshot is one observation of the state, and not the best one. `eyes/agreeing.py` fuses
 every sense that answered into a single `Scene` — what is in front, what has the keyboard, where
 the pointer is, the controls the application described, and the words only if they were needed.
 `eyes/world.py` holds the current belief, and the one before it, because **every useful question
