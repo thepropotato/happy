@@ -8,7 +8,7 @@ import sounddevice as sd
 
 from face import show
 from memory import settings
-from voice import engines
+from voice import engines, plain
 from voice.sentences import Sentences
 
 IDLE_POLL_SECONDS = 0.1  # SHORT HOPS SO CTRL+C STILL LANDS WHILE WAITING.
@@ -106,6 +106,12 @@ class Speaker:
 
     def send(self, sentence):
         if settings.get("voice.muted"):
+            return
+
+        # THE PANEL DRAWS THE MARKDOWN. NOTHING OUT HERE SHOULD HEAR IT.
+        sentence = plain.spoken(sentence)
+
+        if not sentence:
             return
 
         with self.quiet:
