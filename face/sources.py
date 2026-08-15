@@ -73,6 +73,11 @@ def ask(name):
             import voice
 
             return voice.installed()
+
+        if name == "microphones":
+            from ears import microphone
+
+            return microphone.offered()
     except Exception:
         pass
 

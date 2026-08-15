@@ -18,6 +18,17 @@ CHANNELS = 1
 SAMPLE_WIDTH_BYTES = 2
 BLOCK_SIZE = 1600  # 100 ms.
 
+BLOCK_SECONDS = BLOCK_SIZE / SAMPLE_RATE
+
+DEVICE = "ears.microphone"
+
+# WHAT THE SETTING HOLDS WHILE NOBODY HAS PICKED ONE.
+ANY = "Whatever the system picks"
+
+# A DEAD DEVICE STILL HANDS OVER BLOCKS ON TIME, SO ONLY THEIR BEING EMPTY GIVES IT AWAY, AND
+# A FEW SECONDS OF IT IS LONGER THAN ANY REAL ROOM IS EVER PERFECTLY SILENT.
+DEAF_SECONDS = 5
+
 # THE LONGEST LEAD IN ANYONE CAN ASK FOR, SO THE SETTING MOVES WITHOUT REOPENING THE DEVICE.
 MOST_PREROLL_SECONDS = 1.5
 
@@ -36,15 +47,56 @@ class Recorder:
         self.recent = collections.deque(maxlen=blocks(MOST_PREROLL_SECONDS))
         self.listener = None
 
-        # RAW int16: A SAMPLE PAST ±1.0 IN float32 WOULD WRAP TO THE OPPOSITE SIGN.
-        self.stream = sd.RawInputStream(
-            samplerate=SAMPLE_RATE,
-            channels=CHANNELS,
-            dtype="int16",
-            blocksize=BLOCK_SIZE,
-            callback=self.on_audio,
-        )
-        self.stream.start()
+        # HOW LONG THE DEVICE HAS BEEN HANDING OVER NOTHING BUT ZEROS.
+        self.empty = 0.0
+
+        self.stream = None
+        self.wanted = None
+        self.open()
+
+    def open(self):
+        """THE DEVICE THE SETTINGS NAME, OR WHATEVER THE SYSTEM PICKS WHEN THAT ONE IS GONE."""
+        self.wanted = settings.get(DEVICE)
+        self.empty = 0.0
+
+        for device in (named(self.wanted), None):
+            try:
+                # RAW int16: A SAMPLE PAST ±1.0 IN float32 WOULD WRAP TO THE OPPOSITE SIGN.
+                self.stream = sd.RawInputStream(
+                    device=device,
+                    samplerate=SAMPLE_RATE,
+                    channels=CHANNELS,
+                    dtype="int16",
+                    blocksize=BLOCK_SIZE,
+                    callback=self.on_audio,
+                )
+                self.stream.start()
+
+                return
+            except Exception as error:
+                if device is None:
+                    raise
+
+                show.trouble(f"{self.wanted} would not open, hearing on the usual one ({error})")
+
+    def refit(self):
+        """A DIFFERENT MICROPHONE WAS PICKED. A STREAM CANNOT BE RETUNED, ONLY REPLACED."""
+        if settings.get(DEVICE) == self.wanted or self.capturing:
+            return
+
+        self.close()
+        self.open()
+
+    def deaf(self):
+        """TRUE WHEN THE DEVICE IS HANDING OVER DIGITAL SILENCE, WHICH NO ROOM EVER IS."""
+        return self.empty >= DEAF_SECONDS
+
+    def hearing(self):
+        """THE DEVICE BEING LISTENED TO, BY NAME."""
+        try:
+            return sd.query_devices(self.stream.device)["name"]
+        except Exception:
+            return self.wanted or ANY
 
     def is_recording(self):
         return self.capturing
@@ -97,6 +149,9 @@ class Recorder:
         block = bytes(indata)
         listener = self.listener
 
+        # ZEROS ARE NOT A QUIET ROOM, THEY ARE A DEVICE THAT HAS STOPPED HEARING ALTOGETHER.
+        self.empty = 0.0 if any(block) else self.empty + frames / SAMPLE_RATE
+
         with self.lock:
             self.recent.append(block)
 
@@ -123,6 +178,31 @@ class Recorder:
             file.writeframes(pcm)
 
         return path
+
+
+def offered():
+    """EVERY DEVICE THAT CAN HEAR, BY NAME."""
+    try:
+        found = [each["name"] for each in sd.query_devices() if each["max_input_channels"] > 0]
+    except Exception:
+        found = []
+
+    return [ANY] + found
+
+
+def named(wanted):
+    """ONE DEVICE'S INDEX, OR None FOR WHATEVER THE SYSTEM PICKS."""
+    if not wanted or wanted == ANY:
+        return None
+
+    try:
+        for index, each in enumerate(sd.query_devices()):
+            if each["name"] == wanted and each["max_input_channels"] > 0:
+                return index
+    except Exception:
+        pass
+
+    return None
 
 
 def blocks(seconds):

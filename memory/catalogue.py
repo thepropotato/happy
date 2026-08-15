@@ -17,6 +17,19 @@ EARS_LANGUAGES = [
 
 PROVIDERS = [("ollama", "Ollama"), ("openai", "OpenAI shape")]
 
+# EVERY ONE OF THESE IS A MODIFIER, SO HOLDING IT NEVER TYPES ANYTHING.
+TALK_KEYS = [
+    ("alt_r", "Right Option / Alt"),
+    ("alt_l", "Left Option / Alt"),
+    ("cmd_r", "Right Command / Win"),
+    ("cmd_l", "Left Command / Win"),
+    ("ctrl_r", "Right Control"),
+    ("ctrl_l", "Left Control"),
+    ("shift_r", "Right Shift"),
+    ("caps_lock", "Caps Lock"),
+    ("f13", "F13"),
+]
+
 FOREVER = "0 keeps everything."
 
 RESIDENT = "0 keeps it loaded. Answers come back faster while it is."
@@ -26,6 +39,9 @@ RESIDENT = "0 keeps it loaded. Answers come back faster while it is."
 WAKE = "Separate several with commas. A name of one word only counts said first."
 
 MORE = "When you stop on a word like and or the, how long he waits for the rest."
+
+# HEADSETS TAKE THIS OVER THE MOMENT THEY CONNECT, AND SOME OF THEM HAND OVER NOTHING AT ALL.
+MICROPHONE = "Which device does the hearing."
 
 LOGS = "Everything Happy did, as he did it, the way it would have gone past in a terminal."
 
@@ -55,6 +71,9 @@ BRAIN = [
 
 EARS = [
     text("ears.wake", "Wakes to", "hey happy, happy", WAKE, "hey happy, happy"),
+    choice("ears.key", "Hold to talk", TALK_KEYS, "alt_r",
+           "Held from any window, not just this. Nothing has to be said to him first."),
+    choice("ears.microphone", "Microphone", [], "", MICROPHONE, source="microphones"),
     choice("ears.device", "Runs on", DEVICES, "cpu", "CPU is the sure one."),
     choice("ears.engine", "Engine", EARS_ENGINES, "whisper",
         "Parakeet is English only and fast. Whisper is multilingual and slower."),
@@ -106,7 +125,7 @@ REMEMBERING = [
 
 GROUPS = [
     group("brain", "Brain", "What does the thinking.", BRAIN, ["brain.model", "brain.effort"]),
-    group("ears", "Ears", "Hearing you, and when.", EARS, ["ears.wake"]),
+    group("ears", "Ears", "Hearing you, and when.", EARS, ["ears.wake", "ears.key"]),
     group("voice", "Voice", "How Happy sounds.", VOICE, ["voice.name", "voice.muted"]),
     group("eyes", "Eyes", "Looking at the screen.", EYES, ["eyes.model"]),
     group("mcps", "Connections", "Services that are not this computer.", CONNECTIONS),
@@ -128,3 +147,12 @@ def default(key):
 
 def keys():
     return list(EVERY)
+
+
+def naming(key, value):
+    """WHAT ONE CHOICE IS CALLED WHERE A PERSON CAN SEE IT."""
+    for each in (EVERY.get(key) or {}).get("options", []):
+        if each["value"] == value:
+            return each["label"]
+
+    return str(value)

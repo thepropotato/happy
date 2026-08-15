@@ -1,6 +1,7 @@
 const node = (id) => document.getElementById(id)
 
 const WAKE = 'Say <b>{wake}</b> to talk'
+const HOLD = 'Say <b>{wake}</b> or hold <b>{key}</b> to talk'
 
 // SOUND OUTLIVES THE WORDS, SO GOING QUIET WAITS FOR THE LAST CLIP.
 const TAIL_MS = 120
@@ -189,8 +190,9 @@ function hear(word) {
 
 function ready(word) {
   const wake = word.wake || 'his name'
+  const said = word.key ? HOLD.replace('{key}', word.key) : WAKE
 
-  node('hint').innerHTML = WAKE.replace('{wake}', wake)
+  node('hint').innerHTML = said.replace('{wake}', wake)
 
   amiss(word.amiss || '')
 }

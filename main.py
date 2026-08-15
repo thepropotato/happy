@@ -38,8 +38,11 @@ def main():
 
     recorder = ears.Recorder()
 
+    # SOMEBODY WHO HAS STARTED TALKING HAS STOPPED LISTENING.
+    key = held(speaker)
+
     # NOTHING IS LISTENED TO WHILE HAPPY IS THE LOUDEST THING IN THE ROOM.
-    waking = ears.Waking(recorder, busy=speaker.talking)
+    waking = ears.Waking(recorder, busy=speaker.talking, key=key)
 
     brain.watches(show.step)
 
@@ -53,7 +56,10 @@ def main():
     if windowed:
         attend(happy, speaker, recorder, waking)
     else:
-        show.note(f'Say "{waking.phrase()}" to talk. Ctrl+C to quit.')
+        show.note(f"{inviting(waking, key)} Ctrl+C to quit.")
+
+        if key and key.deaf:
+            show.note(ears.DEAF)
 
     try:
         listen(waking, happy, speaker)
@@ -63,12 +69,35 @@ def main():
         shut(speaker, recorder, waking)
 
 
+def held(speaker):
+    """THE KEY HE ALSO WAKES TO, OR None WHERE THE OS WILL NOT HAND ONE OVER."""
+    try:
+        return ears.PushToTalk(on_press=speaker.stop)
+    except Exception as error:
+        show.trouble(f"No hold to talk key ({error})")
+
+        return None
+
+
+def inviting(waking, key):
+    """THE TWO WAYS IN, IN WORDS, FOR SOMEBODY WHO HAS JUST STARTED HIM."""
+    said = f'Say "{waking.phrase()}"'
+
+    return f"{said} or hold {key.key_name} to talk." if key else f"{said} to talk."
+
+
 def attend(happy, speaker, recorder, waking):
     """HAND THE WINDOW THE FEW THINGS ONLY THIS FILE CAN DO."""
+    key = waking.key
+
     # SENT AGAIN WHENEVER A KNOB MOVES: THE NAME HAPPY WAKES TO IS ONE OF THEM,
     # AND A HINT STILL NAMING THE OLD ONE IS A HINT THAT IS WRONG.
     def ready():
-        telling.ready(wake=waking.phrase(), amiss=blocked())
+        telling.ready(
+            wake=waking.phrase(),
+            key=key.key_said if key else "",
+            amiss=blocked() or (ears.DEAF if key and key.deaf else ""),
+        )
 
     requests.serve(
         forget=happy.forget,

@@ -434,6 +434,25 @@ echo cancelling the alternative is Happy waking himself on his own answer and tr
 back. That is the whole cost of the wake word: cutting him off by voice is gone, and stop is the
 button in the window.
 
+**The key is the other way in, and it needs no name at all.** `ears/trigger.py` watches one
+modifier globally — `ears.key`, Right Option by default, and every option is a modifier so
+holding it never types anything. Held, it records; released, it transcribes and hands the whole
+take over without matching a name, because holding a key down is already somebody saying who
+they are talking to. It is what still works in a room too loud for the level to mean anything,
+and what a person reaches for when they do not want to say his name out loud. The key and the
+room share the one device under a lock, and the room stands down while the key is held. On macOS
+the permission belongs to whatever started Python, and an untrusted listener is handed only this
+process's own keys — which looks exactly like push to talk working until you click another
+window — so `ears.DEAF` says so on startup.
+
+**A dead microphone is not a quiet room, and only the code can tell them apart.** A device that
+has stopped hearing still hands over blocks on time, all of them zero — AirPods take the default
+input the moment they connect and some hand over nothing at all. Loudness alone reads that as
+silence forever and never complains. So `Recorder` counts how long it has been handed nothing
+but zeros, and after `DEAF_SECONDS` Happy says which device is doing it. `ears.microphone` pins
+one by name so a headset connecting cannot take the ears away again; empty means whatever the
+system picks.
+
 **Parakeet TDT 0.6B v2**, int8, through `onnx-asr`. Measured on this machine over the fifty takes
 in `recordings/`: **232.8 s of speech in 4.5 s — 51.8x realtime**, against WhisperX medium's 2.9x.
 The model loads and warms in 0.77 s where WhisperX took 2.89 s. 631 MB in `models/parakeet/`.

@@ -3,13 +3,11 @@
 import queue
 import time
 
-from ears.microphone import BLOCK_SIZE, SAMPLE_RATE, loudness
+from ears.microphone import BLOCK_SECONDS, loudness
 from memory import settings
 
 LEVEL = "ears.level"
 GAP = "ears.gap"
-
-BLOCK_SECONDS = BLOCK_SIZE / SAMPLE_RATE
 
 POLL_SECONDS = 0.2  # SHORT HOPS KEEP CTRL+C RESPONSIVE.
 

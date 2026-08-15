@@ -1,4 +1,4 @@
-"""SAY HIS NAME AND HE LISTENS."""
+"""SAY HIS NAME AND HE LISTENS, OR HOLD THE KEY AND HE LISTENS WITHOUT IT."""
 
 import queue
 import threading
@@ -14,6 +14,8 @@ from memory import settings
 AFTER = "ears.after"
 MORE = "ears.more"
 
+DEAD = "{name} is handing over silence. Pick another microphone in Settings, Ears."
+
 # HOW MANY TIMES ONE QUESTION MAY BE PICKED BACK UP. WITHOUT A CAP, SOMEBODY WHO
 # ENDS EVERY BREATH ON "AND" IS NEVER ANSWERED AT ALL.
 MOST_CARRIES = 3
@@ -22,18 +24,28 @@ MOST_CARRIES = 3
 class Waking:
     """THE ROOM, LISTENED TO, WITH THE PART MEANT FOR HAPPY HANDED ON."""
 
-    def __init__(self, recorder, busy=None):
+    def __init__(self, recorder, busy=None, key=None):
+        self.recorder = recorder
         self.room = Room(recorder, busy=busy)
         self.held = ending.Held()
+
+        # THE KEY AND THE ROOM BOTH REACH FOR THE ONE DEVICE, NEVER AT THE SAME TIME.
+        self.key = key
+        self.mic = threading.Lock()
 
         # ONE QUESTION DEEP: TWO THINGS ASKED WHILE HE WAS THINKING MEANS THE
         # SECOND ONE IS WHAT WAS WANTED, NOT A BACKLOG TO WORK THROUGH.
         self.asked = queue.Queue(maxsize=1)
 
+        self.silent = False
         self.running = True
 
         self.listener = threading.Thread(target=self.watching, daemon=True, name="waking")
         self.listener.start()
+
+        if key:
+            self.pusher = threading.Thread(target=self.pushing, daemon=True, name="pushing")
+            self.pusher.start()
 
     def next(self):
         """THE NEXT THING ASKED OF HAPPY, OR None SO THE CALLER CAN DRAW BREATH."""
@@ -45,6 +57,9 @@ class Waking:
     def stop(self):
         self.running = False
         self.room.close()
+
+        if self.key:
+            self.key.stop()
 
     def phrase(self):
         """EVERY NAME HE ANSWERS TO, IN WORDS, FOR A HINT SOMEBODY READS."""
@@ -71,6 +86,12 @@ class Waking:
         """ONE UTTERANCE: WAIT FOR IT, KEEP IT, READ IT, DECIDE WHOSE IT WAS."""
         self.room.drain()
         self.lapsed()
+        self.deafness()
+        self.recorder.refit()  # A DIFFERENT MICROPHONE WAS PICKED WHILE THE LAST TAKE RAN.
+
+        # THE KEY IS ALREADY HOLDING THE DEVICE, AND WHAT IS BEING SAID INTO IT IS ITS TAKE.
+        if self.key and self.key.holding():
+            return
 
         if not self.room.begun():
             return
@@ -78,12 +99,79 @@ class Waking:
         # WHEN SOMEBODY STARTED TALKING, WHICH IS NOT WHEN WE FIND OUT WHAT THEY SAID.
         began = time.monotonic()
 
-        where = self.room.taken()
+        with self.mic:
+            where = self.room.taken()
 
         if where is None:  # A DOOR, A COUGH, ANYTHING BRIEFER THAN A WORD.
             return
 
         self.considered(where, began)
+
+    def deafness(self):
+        """A DEVICE HANDING OVER NOTHING IS NOT A QUIET ROOM, AND NOTHING ELSE HERE SAYS SO."""
+        gone = self.recorder.deaf()
+
+        if gone and not self.silent:
+            show.trouble(DEAD.format(name=self.recorder.hearing()))
+
+        self.silent = gone
+
+    # ── THE KEY ──
+
+    def pushing(self):
+        """THE OTHER WAY IN, WATCHED ON ITS OWN THREAD BECAUSE THE ROOM'S LOOP BLOCKS."""
+        moaned = None
+
+        while self.running:
+            try:
+                self.key.refit()  # A DIFFERENT KEY WAS PICKED WHILE THE LAST TAKE RAN.
+                self.key.reset()  # THE KEYBOARD FROM WHILE THAT TAKE WAS BEING READ.
+                self.key.wait_press()
+
+                if not self.running:
+                    return
+
+                with self.mic:
+                    self.pressed()
+
+                moaned = None
+            except Exception as error:
+                if str(error) != moaned:
+                    moaned = str(error)
+                    show.trouble(f"Key: {moaned}")
+
+                time.sleep(POLL_SECONDS)
+
+    def pressed(self):
+        """ONE PRESS: RECORD WHILE IT IS DOWN, AND HAND OVER WHATEVER WAS SAID INTO IT.
+
+        NOTHING IS MATCHED AGAINST HIS NAME HERE. HOLDING THE KEY IS ALREADY SOMEBODY SAYING
+        WHO THEY ARE TALKING TO, AND SAYING IT TWICE IS SAYING IT ONCE TOO OFTEN."""
+        self.held.clear()  # A PRESS IS A NEW QUESTION, NOT THE REST OF THE LAST ONE.
+
+        show.listening()
+        self.recorder.start()
+
+        self.key.wait_release()
+
+        where = self.recorder.stop()
+
+        if where is None:  # THE KEY WAS BRUSHED, NOT HELD.
+            show.idle()
+            return
+
+        started = time.perf_counter()
+        text = (engines.transcribe(where) or "").strip()
+        seconds = time.perf_counter() - started
+
+        if not text or ending.nothing(text):
+            where.unlink(missing_ok=True)
+            show.idle()
+            return
+
+        self.remember(Heard(text=text, audio=where, seconds=seconds))
+
+    # ── WHAT WAS HEARD ──
 
     def considered(self, where, began):
         """READ THE TAKE AND EITHER HAND IT ON, HOLD IT, OR FORGET IT."""
