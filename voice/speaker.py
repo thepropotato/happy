@@ -2,6 +2,7 @@
 
 import queue
 import threading
+import time
 
 import numpy as np
 import sounddevice as sd
@@ -12,6 +13,9 @@ from voice import engines, stripping
 from voice.sentences import Sentences
 
 IDLE_POLL_SECONDS = 0.1  # SHORT HOPS SO CTRL+C STILL LANDS WHILE WAITING.
+
+# SHORT ENOUGH THAT THE JOIN BETWEEN TWO SENTENCES IS STILL A JOIN AND NOT A GAP.
+PLAYING_POLL_SECONDS = 0.02
 
 ENVELOPE_MS = 40
 
@@ -30,6 +34,11 @@ class Speaker:
 
         self.pending = 0
         self.quiet = threading.Condition()
+
+        # THE OUTPUT DEVICE'S OWN LIFECYCLE. BARGING IN REACHES FOR IT FROM WHICHEVER THREAD
+        # THE PERSON WAS ON, AND COREAUDIO THROWS IF THAT LANDS WHILE A CLIP IS BEING SET UP.
+        self.device = threading.Lock()
+
         self.running = True
 
         self.workers = [
@@ -81,7 +90,10 @@ class Speaker:
 
         empty(self.sentences)
         empty(self.clips)
-        sd.stop()
+
+        with self.device:
+            sd.stop()
+
         show.hush()
 
         with self.quiet:
@@ -153,12 +165,31 @@ class Speaker:
 
             try:
                 show.envelope(levels(samples, self.voice.rate), len(samples) / self.voice.rate)
-                sd.play(samples, self.voice.rate)
-                sd.wait()  # RETURNS EARLY WHEN stop() CUTS IT.
+                self.sound(samples)
             except Exception as error:
                 print(f"\n[speaker] {error}")
             finally:
                 self.settle()
+
+    def sound(self, samples):
+        """ONE CLIP, PLAYED AND WAITED OUT.
+
+        NOT sd.wait(): THAT SITS INSIDE PORTAUDIO FOR THE LENGTH OF THE CLIP, AND STOPPING THE
+        DEVICE FROM ANOTHER THREAD WHILE IT DOES IS THE RACE THAT MAKES COREAUDIO THROW AND
+        SOMETIMES NEVER COME BACK AT ALL. HOLDING THE DEVICE ONLY WHILE THE CLIP IS SET GOING
+        LEAVES BARGING IN SOMETHING THAT CAN LAND AT ANY MOMENT."""
+        with self.device:
+            sd.play(samples, self.voice.rate)
+
+        while self.running and self.sounding():
+            time.sleep(PLAYING_POLL_SECONDS)
+
+    def sounding(self):
+        """TRUE WHILE THE DEVICE IS STILL PLAYING SOMETHING."""
+        try:
+            return sd.get_stream().active
+        except RuntimeError:  # NOTHING HAS EVER PLAYED, SO NOTHING IS PLAYING NOW.
+            return False
 
     def settle(self):
         with self.quiet:

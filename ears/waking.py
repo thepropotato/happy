@@ -26,12 +26,13 @@ class Waking:
 
     def __init__(self, recorder, busy=None, key=None):
         self.recorder = recorder
-        self.room = Room(recorder, busy=busy)
         self.held = ending.Held()
 
         # THE KEY AND THE ROOM BOTH REACH FOR THE ONE DEVICE, NEVER AT THE SAME TIME.
         self.key = key
         self.mic = threading.Lock()
+
+        self.room = Room(recorder, busy=busy, ousted=self.holding)
 
         # ONE QUESTION DEEP: TWO THINGS ASKED WHILE HE WAS THINKING MEANS THE
         # SECOND ONE IS WHAT WAS WANTED, NOT A BACKLOG TO WORK THROUGH.
@@ -65,6 +66,10 @@ class Waking:
         """EVERY NAME HE ANSWERS TO, IN WORDS, FOR A HINT SOMEBODY READS."""
         return spoken()
 
+    def holding(self):
+        """TRUE WHILE THE KEY IS DOWN."""
+        return bool(self.key) and self.key.holding()
+
     # ── THE LOOP ──
 
     def watching(self):
@@ -90,7 +95,7 @@ class Waking:
         self.recorder.refit()  # A DIFFERENT MICROPHONE WAS PICKED WHILE THE LAST TAKE RAN.
 
         # THE KEY IS ALREADY HOLDING THE DEVICE, AND WHAT IS BEING SAID INTO IT IS ITS TAKE.
-        if self.key and self.key.holding():
+        if self.holding():
             return
 
         if not self.room.begun():
@@ -103,6 +108,12 @@ class Waking:
             where = self.room.taken()
 
         if where is None:  # A DOOR, A COUGH, ANYTHING BRIEFER THAN A WORD.
+            return
+
+        # THE KEY TOOK THE DEVICE PART WAY THROUGH. THIS IS THE FRONT OF WHAT IS BEING SAID
+        # INTO THE KEY, AND READING IT WOULD ANSWER HALF A SENTENCE TWICE.
+        if self.holding():
+            where.unlink(missing_ok=True)
             return
 
         self.considered(where, began)
@@ -131,6 +142,10 @@ class Waking:
                 if not self.running:
                     return
 
+                # BEFORE THE LOCK, NEVER AFTER IT: THE FACE ANSWERS WHAT THE PERSON JUST DID,
+                # AND THE ROOM MAY STILL BE A MOMENT LETTING GO OF THE DEVICE.
+                show.listening()
+
                 with self.mic:
                     self.pressed()
 
@@ -149,7 +164,6 @@ class Waking:
         WHO THEY ARE TALKING TO, AND SAYING IT TWICE IS SAYING IT ONCE TOO OFTEN."""
         self.held.clear()  # A PRESS IS A NEW QUESTION, NOT THE REST OF THE LAST ONE.
 
-        show.listening()
         self.recorder.start()
 
         self.key.wait_release()

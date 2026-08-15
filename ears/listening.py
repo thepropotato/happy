@@ -21,11 +21,15 @@ AFTER_SPEAKING_SECONDS = 0.4
 class Room:
     """EVERY BLOCK THE DEVICE HANDS OVER, TURNED INTO ONE TAKE AT A TIME."""
 
-    def __init__(self, recorder, busy=None):
+    def __init__(self, recorder, busy=None, ousted=None):
         self.recorder = recorder
 
         # TRUE WHILE HAPPY HIMSELF IS THE LOUDEST THING IN THE ROOM.
         self.busy = busy or (lambda: False)
+
+        # TRUE WHEN THE KEY HAS CLAIMED THE MICROPHONE, WHICH OUTRANKS ANY TAKE THE ROOM IS
+        # HALFWAY THROUGH: SOMEBODY HOLDING A KEY DOWN IS NOT WAITING FOR THE ROOM TO SETTLE.
+        self.ousted = ousted or (lambda: False)
 
         # THE SOUND AS IT ARRIVES. THE DEVICE'S OWN THREAD ONLY EVER PUTS.
         self.blocks = queue.Queue()
@@ -72,6 +76,9 @@ class Room:
 
         while self.running:
             block = self.block()
+
+            if self.ousted():  # THE KEY WENT DOWN. WHATEVER THIS WAS, IT IS NOT WANTED NOW.
+                break
 
             # NO SOUND ARRIVING AT ALL IS THE QUIETEST THE ROOM GETS.
             if block is None or loudness(block) < floor():
