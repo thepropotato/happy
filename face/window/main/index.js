@@ -158,6 +158,13 @@ ipcMain.on('happy:pin', (event, on) => {
 })
 
 ipcMain.on('happy:hide', () => panel?.hide())
+
+// A LINK IN AN ANSWER GOES TO THEIR BROWSER. FOLLOWED IN HERE IT WOULD REPLACE
+// THE PANEL WITH A WEB PAGE, AND THERE IS NOTHING TO GO BACK WITH.
+ipcMain.on('happy:open', (event, url) => {
+  if (/^https?:\/\//i.test(String(url))) shell.openExternal(url)
+})
+
 ipcMain.on('happy:restart', () => restart())
 ipcMain.on('happy:quit', () => quit())
 

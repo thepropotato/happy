@@ -56,12 +56,137 @@
 .line .words {
   line-height: 1.55;
   color: var(--ink);
-  white-space: pre-wrap;
   word-break: break-word;
 }
 
+/* SPOKEN, NOT WRITTEN: THE BREAKS ARE THE ONES THE MICROPHONE HEARD. */
 .line.you .words {
   color: var(--dim);
+  white-space: pre-wrap;
+}
+
+/* ── AN ANSWER, AS MARKDOWN ──
+
+   THE SAME PROSE AS BEFORE UNTIL HE REACHES FOR A LIST OR A FENCE. THE FIRST
+   BLOCK AND THE LAST GIVE UP THEIR MARGINS SO ONE PLAIN SENTENCE STILL SITS
+   EXACTLY WHERE A PLAIN SENTENCE USED TO. */
+.line.happy .words > *:first-child {
+  margin-top: 0;
+}
+
+.line.happy .words > *:last-child {
+  margin-bottom: 0;
+}
+
+.line.happy .words p {
+  margin: 0 0 8px;
+}
+
+.line.happy .words strong {
+  color: #fff;
+  font-weight: 620;
+}
+
+.line.happy .words em {
+  font-style: italic;
+}
+
+.line.happy .words del {
+  color: var(--faint);
+}
+
+.line.happy .words h1,
+.line.happy .words h2,
+.line.happy .words h3,
+.line.happy .words h4,
+.line.happy .words h5,
+.line.happy .words h6 {
+  margin: 14px 0 6px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.4;
+}
+
+.line.happy .words ul,
+.line.happy .words ol {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.line.happy .words li {
+  margin: 2px 0;
+}
+
+.line.happy .words li::marker {
+  color: var(--faint);
+}
+
+.line.happy .words code {
+  border-radius: 4px;
+  background: var(--block-open);
+  padding: 1px 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+}
+
+.line.happy .words pre {
+  margin: 0 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--block);
+  padding: 8px 10px;
+  overflow-x: auto;
+}
+
+.line.happy .words pre code {
+  background: none;
+  padding: 0;
+  line-height: 1.5;
+}
+
+.line.happy .words blockquote {
+  margin: 0 0 8px;
+  border-left: 2px solid var(--glow-soft);
+  padding-left: 10px;
+  color: var(--dim);
+}
+
+.line.happy .words hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.line.happy .words a {
+  color: var(--glow);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.line.happy .words table {
+  margin: 0 0 8px;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+
+.line.happy .words th,
+.line.happy .words td {
+  border: 1px solid var(--line);
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.line.happy .words th {
+  background: var(--block);
+  font-weight: 600;
+}
+
+.line.happy .words img {
+  max-width: 100%;
+  border-radius: var(--r-md);
 }
 
 /* ── ONE CALL, FOLDED ──

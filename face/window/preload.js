@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('happy', {
   pin: (on) => ipcRenderer.send('happy:pin', on),
   allow: () => ipcRenderer.send('happy:allow'),
   hide: () => ipcRenderer.send('happy:hide'),
+  open: (url) => ipcRenderer.send('happy:open', url),
   restart: () => ipcRenderer.send('happy:restart'),
   quit: () => ipcRenderer.send('happy:quit'),
 })

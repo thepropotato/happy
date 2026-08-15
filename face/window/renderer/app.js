@@ -295,6 +295,7 @@ function boot() {
   Aurora.start(node('aurora'))
   Orb.start(node('orb'), node('puck'))
   Talk.start(node('stream'))
+  Prose.away(node('stream'))
   Knobs.start(node('rows'), ask)
 
   Talk.quiet('Nothing yet. Say his name and talk, or type below.')

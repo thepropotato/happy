@@ -110,12 +110,18 @@ const Talk = (() => {
 
   // ── WHAT WAS SAID ──
 
+  // WHAT HE SAYS IS MARKDOWN AND IS DRAWN AS IT. WHAT A PERSON SAID IS LEFT
+  // ALONE: IT CAME OFF A MICROPHONE, WHERE A STAR IS A STAR.
   function make(who, text) {
     const line = element('div', `line ${who}`)
+    const words = element('div', 'words')
 
-    line.append(element('div', 'words', text))
+    if (who === 'happy') Prose.write(words, text)
+    else Prose.plain(words, text)
 
-    return { line, words: line.firstChild }
+    line.append(words)
+
+    return { line, words }
   }
 
   function add(who, text) {
@@ -265,6 +271,17 @@ const Talk = (() => {
 
   // ── READING A TURN BACK ──
 
+  // MARKDOWN IS A BLOCK LANGUAGE READ A LINE AT A TIME, SO A CUT LANDING MID LINE
+  // WOULD LEAVE HALF A LIST ITEM IN ONE BLOCK AND HALF IN THE NEXT. THE CUT GOES
+  // BACK TO THE START OF THAT LINE, WHICH IS AT MOST ONE LINE EARLY AND WHOLE.
+  function edge(reply, at) {
+    if (at <= 0 || at >= reply.length) return at
+
+    const before = reply.lastIndexOf('\n', at - 1)
+
+    return before + 1 // -1 BECOMES 0: THE CUT WAS INSIDE THE VERY FIRST LINE.
+  }
+
   // THE CALLS CARRY HOW MUCH OF THE ANSWER HAD BEEN SAID WHEN EACH WAS REACHED
   // FOR, SO THE ANSWER IS CUT AT THOSE POINTS AND THE CALLS GO IN THE GAPS.
   function replay(each) {
@@ -276,7 +293,9 @@ const Talk = (() => {
     let at = 0
 
     for (const one of each.tools || []) {
-      const upto = Number.isFinite(one.after) ? Math.min(Math.max(one.after, at), reply.length) : at
+      const upto = Number.isFinite(one.after)
+        ? Math.min(Math.max(edge(reply, one.after), at), reply.length)
+        : at
 
       if (upto > at) box.append(make('happy', reply.slice(at, upto)).line)
 
@@ -351,7 +370,7 @@ const Talk = (() => {
 
       const was = pinned()
 
-      prose.words.textContent += text
+      Prose.grow(prose.words, text)
       settle(was)
     },
 
