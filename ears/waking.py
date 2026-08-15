@@ -4,7 +4,7 @@ import queue
 import threading
 import time
 
-from ears import ending, engines
+from ears import ending, engines, rousing
 from ears.calling import addressed, phrases, spoken
 from ears.ending import Heard
 from ears.listening import POLL_SECONDS, Room
@@ -104,8 +104,15 @@ class Waking:
         # WHEN SOMEBODY STARTED TALKING, WHICH IS NOT WHEN WE FIND OUT WHAT THEY SAID.
         began = time.monotonic()
 
-        with self.mic:
-            where = self.room.taken()
+        # NOTHING TO HEAR HIS NAME IN WHEN HE IS ALREADY LISTENING FOR THE REST OF A LINE.
+        early = None if self.held.open(began) else rousing.watch(self.recorder)
+
+        try:
+            with self.mic:
+                where = self.room.taken()
+        finally:
+            if early:
+                early.stop()
 
         if where is None:  # A DOOR, A COUGH, ANYTHING BRIEFER THAN A WORD.
             return

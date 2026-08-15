@@ -137,6 +137,13 @@ class Recorder:
 
         return self.save(pcm)
 
+    def peek(self, where):
+        """THE TAKE AS FAR AS IT HAS GOT, ON DISK, WITHOUT ENDING IT."""
+        with self.lock:
+            pcm = b"".join(self.chunks) if self.capturing else b""
+
+        return written(where, pcm) if pcm else None
+
     def close(self):
         self.capturing = False
 
@@ -169,15 +176,19 @@ class Recorder:
 
     def save(self, pcm):
         self.recordings.mkdir(parents=True, exist_ok=True)
-        path = self.recordings / f"{timestamp()}.wav"
 
-        with wave.open(str(path), "wb") as file:
-            file.setnchannels(CHANNELS)
-            file.setsampwidth(SAMPLE_WIDTH_BYTES)
-            file.setframerate(SAMPLE_RATE)
-            file.writeframes(pcm)
+        return written(self.recordings / f"{timestamp()}.wav", pcm)
 
-        return path
+
+def written(where, pcm):
+    """SOUND ONTO DISK AS THE ONE SHAPE EVERYTHING HERE READS."""
+    with wave.open(str(where), "wb") as file:
+        file.setnchannels(CHANNELS)
+        file.setsampwidth(SAMPLE_WIDTH_BYTES)
+        file.setframerate(SAMPLE_RATE)
+        file.writeframes(pcm)
+
+    return where
 
 
 def offered():

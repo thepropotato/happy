@@ -73,6 +73,11 @@ def transcribe(audio_file):
     return load_model().recognize(str(audio_file)).strip()
 
 
+def quickly(audio_file):
+    """THE SAME ONE PASS: THIS ENGINE NEVER HAD A SECOND ONE TO SKIP."""
+    return transcribe(audio_file)
+
+
 def warm():
     """RECOGNISE ONCE NOW. THE FIRST CALL IS THE ONE THAT BUILDS THE SESSION."""
     load_model().recognize(np.zeros(RATE // 2, dtype=np.float32), sample_rate=RATE)
