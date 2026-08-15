@@ -6,7 +6,7 @@ from typing import Literal
 from langchain_core.tools import tool
 
 from hands import asking
-from hands.apps import installed, machine, opening
+from hands.apps import installed, machine, opening, whereabouts
 from hands.apps.running import launch
 
 # THE ONE THING THIS FIELD IS ALLOWED TO SAY, WHICH IS THE POINT OF IT.
@@ -31,6 +31,22 @@ def system_info() -> str:
     architecture, number of CPU cores, total memory, free disk space, hostname
     and the logged in user. Use this for questions about the machine itself."""
     return machine.facts()
+
+
+@tool
+def where_we_are() -> str:
+    """Where in the world this computer is: its country, its time zone, the
+    local date and time, and the language it is set to.
+
+    Call this before you look for somewhere to watch, listen to, buy or book
+    anything. What is available, what it costs and which service carries it all
+    depend on the country, and a search made without it comes back answered for
+    somewhere else. Put the country into the words you search with.
+
+    Call it too for anything about the time or the date here — what time it is,
+    what day it is, whether something has already started. You are not told the
+    time, so this is the only way you know it."""
+    return whereabouts.where()
 
 
 @tool
@@ -130,4 +146,4 @@ def open_url(url: str, because: Literal[SEEING, CHECKING]) -> str:
     return opening.hand_over(address) or f"Opened {address}."
 
 
-TOOLS = [list_installed_apps, system_info, open_app, open_path, open_url]
+TOOLS = [list_installed_apps, system_info, where_we_are, open_app, open_path, open_url]
