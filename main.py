@@ -45,6 +45,7 @@ def main():
     waking = ears.Waking(recorder, busy=speaker.talking, key=key)
 
     brain.watches(show.step)
+    brain.troubles(show.trouble)
 
     chatting.listen(lambda text, context=None: distant(happy, text, context))
 

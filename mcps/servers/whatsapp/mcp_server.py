@@ -446,29 +446,61 @@ async def query_messages(
     return _json(result)
 
 
+# AS MANY COPIES OF ONE MESSAGE AS ANYBODY HAS A REASON TO SEND, AND HOW LONG TO
+# WAIT BETWEEN THEM SO WHATSAPP READS IT AS A PERSON RATHER THAN A SCRIPT.
+MOST_COPIES = 100
+
+BETWEEN_COPIES = 0.4
+
+
+def repeats(times):
+    """HOW MANY COPIES TO ACTUALLY SEND, OUT OF WHATEVER THE MODEL PUT IN THE FIELD."""
+    try:
+        wanted = int(times)
+    except (TypeError, ValueError):
+        return 1
+
+    return max(1, min(wanted, MOST_COPIES))
+
+
 @mcp.tool()
-async def send_message(recipients: list[str], message: str) -> str:
+async def send_message(recipients: list[str], message: str, times: int = 1) -> str:
     """Send a text message to one or more contacts or groups.
 
     Args:
         recipients: List of contact names, phone numbers, or group names.
                     For a single contact pass a one-item list: ["john"]
-        message: The text message to send.
+        message: The text message to send. Write it out as a plain finished
+                 string — never an expression like "hi" * 3 or "hi".repeat(3).
+        times: How many separate copies of it to send to each recipient, up to
+               100. Use this to send the same text over and over rather than
+               repeating it inside message or calling this tool again and again.
     """
     wa = get_client()
     if isinstance(recipients, str):
         recipients = [recipients]
     results = {}
+    copies = repeats(times)
 
     for recipient in recipients:
         resolved = knowledge.recall(recipient, "whatsapp") or recipient
-        result = await wa.send_message(resolved, message)
+        sent = []
 
-        if await should_sync_on_error(result):
-            await wa.sync()
+        for copy in range(copies):
             result = await wa.send_message(resolved, message)
 
-        results[recipient] = result
+            if await should_sync_on_error(result):
+                await wa.sync()
+                result = await wa.send_message(resolved, message)
+
+            sent.append(result)
+
+            # WHATSAPP TREATS A BURST WITH NO GAP IN IT AS A ROBOT, AND SAYS SO BY
+            # DROPPING THE ACCOUNT.
+            if copy + 1 < copies:
+                await asyncio.sleep(BETWEEN_COPIES)
+
+        results[recipient] = sent[0] if copies == 1 else {"sent": len(sent), "results": sent}
 
     return _json(results)
 

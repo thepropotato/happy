@@ -3,7 +3,7 @@
 import time
 
 from langchain.agents.middleware import wrap_model_call, wrap_tool_call
-from langchain_core.messages import trim_messages
+from langchain_core.messages import HumanMessage, trim_messages
 
 import memory
 from hands import reasons
@@ -28,7 +28,24 @@ NOWHERE = (
     "Tell me a bit more about what you are after and I will try it another way."
 )
 
+# HOW THE BACKEND SAYS THE MODEL WROTE SOMETHING IN A TOOL CALL THAT IS NOT JSON.
+UNPARSED = ("error parsing tool call", "invalid tool call", "failed to parse tool")
+
+# HOW MANY GOES ONE OF THOSE GETS BEFORE THE ROUND GIVES UP ON IT.
+TRIES = 3
+
+# TEMPERATURE IS USUALLY 0, SO AN UNCHANGED REQUEST WOULD COME BACK WORD FOR WORD
+# THE SAME. NAMING THE MISTAKE IS WHAT MAKES THE NEXT GO DIFFERENT.
+AGAIN = (
+    "Your last tool call could not be read: {trouble}. Tool arguments must be "
+    "finished JSON values and never expressions — write the whole string out in "
+    'full instead of anything like "hello" * 100 or "a" + "b". Make the call again.'
+)
+
 report = None
+
+# HOW THE FACE IS SHOWN THE RAW DETAIL OF A FAILURE HAPPY WILL ONLY SUMMARISE ALOUD.
+shown = None
 
 # HOW MANY TOOLS IN A ROW HAVE SAID NO.
 missed = 0
@@ -61,10 +78,50 @@ def tell(kind, name, seconds, about=None):
         report(kind, name, seconds, about)
 
 
+def troubles(handler):
+    """BE SHOWN WHAT WENT WRONG, IN THE BACKEND'S OWN WORDS."""
+    global shown
+
+    shown = handler
+
+
+def amiss(said):
+    if shown:
+        shown(said)
+
+
 @wrap_model_call
 def keep_recent(request, handler):
     """ONLY THE LAST STRETCH OF THE CONVERSATION GOES TO THE MODEL."""
     return handler(request.override(messages=recent(request.messages)))
+
+
+@wrap_model_call
+def keep_trying(request, handler):
+    """A TOOL CALL THE BACKEND COULD NOT READ IS A MISTAKE TO NAME, NOT THE END OF A TURN."""
+    for left in range(TRIES - 1, -1, -1):
+        try:
+            return handler(request)
+        except Exception as error:
+            said = str(error)
+
+            if not left or not unparsed(said):
+                raise
+
+            amiss(said)
+
+            # THE MODEL'S BAD ANSWER NEVER MADE IT ONTO THE CONVERSATION, SO THE
+            # CORRECTION GOES ON AS THE NEXT THING SAID TO IT.
+            request = request.override(
+                messages=list(request.messages) + [HumanMessage(AGAIN.format(trouble=said))]
+            )
+
+
+def unparsed(said):
+    """WHETHER A FAILURE IS THE MODEL WRITING A BAD TOOL CALL, WHICH IS WORTH ANOTHER GO."""
+    lowered = said.lower()
+
+    return any(each in lowered for each in UNPARSED)
 
 
 @wrap_model_call

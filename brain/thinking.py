@@ -5,7 +5,7 @@ import threading
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import ModelCallLimitMiddleware
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.checkpoint.memory import InMemorySaver
 
 import hands
@@ -13,7 +13,19 @@ import memory
 from brain import model as brain
 from brain.model import LLMError
 from brain.prompt import system_prompt
-from brain.wrapping import MODEL, Stuck, fresh, keep_count, keep_recent, keep_record, tell, watches
+from brain.wrapping import (
+    MODEL,
+    Stuck,
+    amiss,
+    fresh,
+    keep_count,
+    keep_recent,
+    keep_record,
+    keep_trying,
+    tell,
+    troubles,
+    watches,
+)
 from memory import settings
 
 MODEL_NODE = "model"
@@ -31,6 +43,15 @@ RAN_OUT = (
     "I ran out of steps before I got that finished. Ask me again and I will carry "
     "on from where I got to."
 )
+
+# NOBODY IS EVER LEFT WITHOUT AN ANSWER: A TURN THAT PRODUCED NO WORDS OF ITS OWN
+# ENDS ON ONE OF THESE INSTEAD OF ON SILENCE.
+NOTHING = (
+    "I got tangled up on that one and never got an answer out. Ask me again and I "
+    "will have another go at it."
+)
+
+BROKE = "Something went wrong at my end on that one, so I did not get it done."
 
 
 def stamp():
@@ -72,6 +93,9 @@ class Happy:
                 keep_count,
                 keep_record,
                 ModelCallLimitMiddleware(run_limit=settings.get("brain.calls")),
+                # LAST, SO IT SITS CLOSEST TO THE MODEL: A GO THROWN AWAY OVER BAD
+                # JSON IS NOT A ROUND ANYBODY ASKED FOR AND IS NOT COUNTED AS ONE.
+                keep_trying,
             ],
             checkpointer=self.kept,
         )
@@ -166,24 +190,46 @@ class Happy:
             # NOT ONE WORD CAME OUT, SO WHATEVER ENDED THE RUN ENDED IT SOMEWHERE THE STREAM
             # CANNOT SEE.
             if not reply.strip() and not self.stopping.is_set():
-                last = self.ending()
+                last = self.ending() or NOTHING
+                reply += last
 
-                if last:
-                    reply += last
-
-                    yield last
+                yield last
         except Stuck as stuck:
             # NOT A FAILURE OF HAPPY'S, SO IT IS SAID RATHER THAN SHOWN AS TROUBLE.
             reply += str(stuck)
 
             yield str(stuck)
         except Exception as error:
-            raise LLMError(brain.reason(error))
+            # SHOWN IN THE BACKEND'S WORDS FOR WHOEVER READS THE LOG, SAID IN HAPPY'S
+            # FOR WHOEVER IS IN THE ROOM. A TURN NEVER ENDS ON SILENCE.
+            amiss(brain.reason(error))
+            reply += BROKE
+
+            yield BROKE
         finally:
             taken = time.perf_counter() - started
             tell(MODEL, None, taken)
 
-            memory.close(reply.strip() or None, taken)
+            said = reply.strip()
+
+            memory.close(said or None, taken)
+            self.settle(said)
+
+    def settle(self, said):
+        """WHAT WAS ANSWERED GOES ON THE CONVERSATION EVEN WHEN THE RUN NEVER PUT IT THERE,
+        SO THE NEXT TURN DOES NOT OPEN ON TWO QUESTIONS IN A ROW WITH NOTHING BETWEEN THEM."""
+        if not said:
+            return
+
+        try:
+            kept = self.graph.get_state(self.config()).values.get("messages") or []
+
+            if kept and getattr(kept[-1], "type", "") == "ai":
+                return
+
+            self.graph.update_state(self.config(), {"messages": [AIMessage(said)]})
+        except Exception:
+            pass
 
     def ending(self):
         """THE RUN'S LAST WORD WHEN THE STREAM CARRIED NONE, OR "" IF THERE IS NONE."""
