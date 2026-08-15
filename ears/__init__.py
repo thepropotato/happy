@@ -2,7 +2,8 @@
 
 from ears.engines import EarsError, fetch, load_model, transcribe, warm
 from ears.microphone import Recorder
-from ears.waking import Heard, Waking
+from ears.ending import Heard
+from ears.waking import Waking
 
 __all__ = [
     "EarsError",

@@ -1,73 +1,39 @@
 """SAY HIS NAME AND HE LISTENS."""
 
-import collections
-import difflib
 import queue
-import re
 import threading
 import time
 
-from ears import engines
-from ears.microphone import BLOCK_SIZE, SAMPLE_RATE, loudness
+from ears import ending, engines
+from ears.ending import Heard
+from ears.listening import POLL_SECONDS, Room
+from ears.naming import addressed, phrases, spoken
 from face import show
 from memory import settings
 
-PHRASE = "ears.wake"
-LEVEL = "ears.level"
-GAP = "ears.gap"
 AFTER = "ears.after"
+MORE = "ears.more"
 
-FALLBACK = "hey happy"
-
-BLOCK_SECONDS = BLOCK_SIZE / SAMPLE_RATE
-
-POLL_SECONDS = 0.2  # SHORT HOPS KEEP CTRL+C RESPONSIVE.
-
-# A TELEVISION LEFT ON IS NOT AN UTTERANCE, AND NOBODY ASKS ANYTHING THIS LONG.
-MOST_SECONDS = 20
-
-# THE ROOM IS STILL RINGING WITH HIM FOR A MOMENT AFTER THE LAST CLIP STOPS.
-AFTER_SPEAKING_SECONDS = 0.4
-
-# HOW CLOSE A MISHEARD WORD STILL COUNTS AS THAT WORD, AND HOW CLOSE THE LAST ONE HAS TO BE.
-EACH_CLOSE = 0.55
-NAME_CLOSE = 0.8
-
-# EVERY LANGUAGE'S WORDS, SO A PHRASE SOMEBODY SET IN THEIR OWN SCRIPT STILL SPLITS INTO
-# ONES.
-WORDS = re.compile(r"\w+", re.UNICODE)
-
-# WHAT WAS ASKED, THE RECORDING IT WAS ASKED IN, AND WHAT THE HEARING COST.
-Heard = collections.namedtuple("Heard", "text audio seconds")
+# HOW MANY TIMES ONE QUESTION MAY BE PICKED BACK UP. WITHOUT A CAP, SOMEBODY WHO
+# ENDS EVERY BREATH ON "AND" IS NEVER ANSWERED AT ALL.
+MOST_CARRIES = 3
 
 
 class Waking:
     """THE ROOM, LISTENED TO, WITH THE PART MEANT FOR HAPPY HANDED ON."""
 
     def __init__(self, recorder, busy=None):
-        self.recorder = recorder
-
-        # TRUE WHILE HAPPY HIMSELF IS THE LOUDEST THING IN THE ROOM.
-        self.busy = busy or (lambda: False)
-
-        # THE SOUND AS IT ARRIVES. THE DEVICE'S OWN THREAD ONLY EVER PUTS.
-        self.blocks = queue.Queue()
+        self.room = Room(recorder, busy=busy)
+        self.held = ending.Held()
 
         # ONE QUESTION DEEP: TWO THINGS ASKED WHILE HE WAS THINKING MEANS THE
         # SECOND ONE IS WHAT WAS WANTED, NOT A BACKLOG TO WORK THROUGH.
         self.asked = queue.Queue(maxsize=1)
 
-        self.deaf_until = 0.0  # NOTHING IS LISTENED TO BEFORE THIS MOMENT.
-        self.open_until = 0.0  # HIS NAME LANDED BARE; UNTIL THIS, ANY TAKE IS THE QUESTION.
         self.running = True
-
-        recorder.overhear(self.blocks.put)
 
         self.listener = threading.Thread(target=self.watching, daemon=True, name="waking")
         self.listener.start()
-
-    def phrase(self):
-        return (settings.get(PHRASE) or FALLBACK).strip() or FALLBACK
 
     def next(self):
         """THE NEXT THING ASKED OF HAPPY, OR None SO THE CALLER CAN DRAW BREATH."""
@@ -78,7 +44,11 @@ class Waking:
 
     def stop(self):
         self.running = False
-        self.recorder.overhear(None)
+        self.room.close()
+
+    def phrase(self):
+        """EVERY NAME HE ANSWERS TO, IN WORDS, FOR A HINT SOMEBODY READS."""
+        return spoken()
 
     # ── THE LOOP ──
 
@@ -99,68 +69,24 @@ class Waking:
 
     def round(self):
         """ONE UTTERANCE: WAIT FOR IT, KEEP IT, READ IT, DECIDE WHOSE IT WAS."""
-        self.drain()
+        self.room.drain()
         self.lapsed()
 
-        if not self.begun():
+        if not self.room.begun():
             return
 
         # WHEN SOMEBODY STARTED TALKING, WHICH IS NOT WHEN WE FIND OUT WHAT THEY SAID.
         began = time.monotonic()
 
-        where = self.taken()
+        where = self.room.taken()
 
         if where is None:  # A DOOR, A COUGH, ANYTHING BRIEFER THAN A WORD.
             return
 
         self.considered(where, began)
 
-    def begun(self):
-        """WAIT UNTIL SOMEBODY IS TALKING."""
-        for _ in range(int(POLL_SECONDS / BLOCK_SECONDS) or 1):
-            if not self.running:
-                return False
-
-            block = self.block()
-
-            if block is None:
-                return False
-
-            if self.ignoring():
-                continue
-
-            if loudness(block) >= floor():
-                return True
-
-        return False
-
-    def taken(self):
-        """CAPTURE UNTIL THE TALKING STOPS."""
-        self.recorder.start()
-
-        began = time.monotonic()
-        silence = 0.0
-        gap = hush()
-
-        while self.running:
-            block = self.block()
-
-            # NO SOUND ARRIVING AT ALL IS THE QUIETEST THE ROOM GETS.
-            if block is None or loudness(block) < floor():
-                silence += BLOCK_SECONDS
-
-                if silence >= gap:
-                    break
-            else:
-                silence = 0.0
-
-            if time.monotonic() - began >= MOST_SECONDS:
-                break
-
-        return self.recorder.stop()
-
     def considered(self, where, began):
-        """READ THE TAKE AND EITHER HAND IT ON OR FORGET IT EVER HAPPENED."""
+        """READ THE TAKE AND EITHER HAND IT ON, HOLD IT, OR FORGET IT."""
         started = time.perf_counter()
         text = engines.transcribe(where)
         seconds = time.perf_counter() - started
@@ -171,36 +97,52 @@ class Waking:
             where.unlink(missing_ok=True)
             return
 
-        if not wanted:  # HIS NAME AND NOTHING ELSE. THE QUESTION IS STILL COMING.
-            self.open_until = time.monotonic() + patience()
-            where.unlink(missing_ok=True)
-            show.listening()
+        whole = ending.joined(self.held.text, wanted)
+
+        if not whole or ending.nothing(whole):
+            # HIS NAME AND NOTHING ELSE, OR NOTHING BUT THINKING NOISES. THE
+            # QUESTION IS STILL COMING, SO WAIT FOR IT WITHOUT NEEDING THE NAME.
+            self.waiting("", where, patience())
             return
 
-        self.open_until = 0.0
-        self.remember(Heard(text=wanted, audio=where, seconds=seconds))
-
-    def lapsed(self):
-        """THE WAIT FOR THE REST OF A SENTENCE RAN OUT."""
-        if not self.open_until or time.monotonic() < self.open_until:
+        # STOPPING IS NOT FINISHING. A LINE THAT TRAILS OFF MID THOUGHT IS THE
+        # FRONT OF A SENTENCE, AND ANSWERING IT NOW IS TALKING OVER SOMEBODY.
+        if ending.unfinished(whole) and self.held.times < MOST_CARRIES:
+            self.waiting(whole, where, carry_on(), seconds)
             return
 
-        self.open_until = 0.0
-
-        show.idle()
+        self.held.keep(where)
+        self.remember(self.held.taken(whole, seconds))
 
     def meant(self, text, began):
         """WHAT WAS ASKED OF HAPPY IN THIS TAKE."""
         if not (text or "").strip():
             return None
 
-        found = addressed(text, self.phrase())
+        found = addressed(text, phrases())
 
-        # ALREADY WOKEN.
-        if found is None and began < self.open_until:
+        # ALREADY WOKEN, OR PART WAY THROUGH SAYING SOMETHING.
+        if found is None and self.held.open(began):
             return text.strip()
 
         return found
+
+    def waiting(self, whole, where, wait, seconds=None):
+        self.held.hold(whole, where, wait, seconds)
+        show.listening()
+
+    def lapsed(self):
+        """THE WAIT FOR THE REST OF A SENTENCE RAN OUT."""
+        found = self.held.ran_out()
+
+        if found is None:
+            return
+
+        if isinstance(found, Heard):
+            self.remember(found)
+            return
+
+        show.idle()
 
     def remember(self, found):
         """THE NEWEST QUESTION WINS THE ONE SLOT THERE IS."""
@@ -214,79 +156,10 @@ class Waking:
                 except queue.Empty:
                     continue
 
-    # ── THE SOUND ITSELF ──
-
-    def block(self):
-        try:
-            return self.blocks.get(timeout=BLOCK_SECONDS * 2)
-        except queue.Empty:
-            return None
-
-    def drain(self):
-        """THE ROOM FROM WHILE HAPPY WAS BUSY. NONE OF IT WAS EVER LISTENED TO."""
-        while True:
-            try:
-                self.blocks.get_nowait()
-            except queue.Empty:
-                return
-
-    def ignoring(self):
-        """TRUE WHILE THE ONLY THING WORTH HEARING WOULD BE HAPPY HIMSELF."""
-        if self.busy():
-            self.deaf_until = time.monotonic() + AFTER_SPEAKING_SECONDS
-
-            return True
-
-        return time.monotonic() < self.deaf_until
-
-
-def addressed(text, phrase):
-    """WHAT FOLLOWS HIS NAME IN THIS LINE, OR None WHEN HIS NAME IS NOT IN IT."""
-    found = list(WORDS.finditer(text or ""))
-    wanted = split(phrase)
-
-    if not found or not wanted or len(found) < len(wanted):
-        return None
-
-    for at in range(len(found) - len(wanted) + 1):
-        run = [each.group().lower() for each in found[at : at + len(wanted)]]
-
-        if says(run, wanted):
-            # ONLY OFF THE FRONT: THE QUESTION MARK AT THE END IS PART OF THE QUESTION.
-            return text[found[at + len(wanted) - 1].end() :].lstrip(" ,.!?:;-").strip()
-
-    return None
-
-
-def says(run, wanted):
-    """WHETHER THIS RUN OF WORDS IS SOMEBODY SAYING THAT NAME."""
-    if run == wanted:
-        return True
-
-    last = len(wanted) - 1
-
-    for at, (said, word) in enumerate(zip(run, wanted)):
-        if near(said, word) < (NAME_CLOSE if at == last else EACH_CLOSE):
-            return False
-
-    return True
-
-
-def near(said, name):
-    return difflib.SequenceMatcher(None, said, name).ratio()
-
-
-def split(text):
-    return WORDS.findall((text or "").lower())
-
-
-def floor():
-    return settings.get(LEVEL)
-
-
-def hush():
-    return settings.get(GAP)
-
 
 def patience():
     return settings.get(AFTER)
+
+
+def carry_on():
+    return settings.get(MORE)

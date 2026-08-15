@@ -23,7 +23,9 @@ RESIDENT = "0 keeps it loaded. Answers come back faster while it is."
 
 # WHAT WAKES HIM IS READ BY THE SAME SPEECH MODEL THAT READS EVERYTHING ELSE, SO IT CAN BE
 # ANY WORDS AT ALL.
-WAKE = "Two or three words. Happy answers anything said after them."
+WAKE = "Separate several with commas. A name of one word only counts said first."
+
+MORE = "When you stop on a word like and or the, how long he waits for the rest."
 
 LOGS = "Everything Happy did, as he did it, the way it would have gone past in a terminal."
 
@@ -52,7 +54,7 @@ BRAIN = [
 ]
 
 EARS = [
-    text("ears.wake", "Wakes to", "hey happy", WAKE, "hey happy"),
+    text("ears.wake", "Wakes to", "hey happy, happy", WAKE, "hey happy, happy"),
     choice("ears.device", "Runs on", DEVICES, "cpu", "CPU is the sure one."),
     choice("ears.engine", "Engine", EARS_ENGINES, "whisper",
         "Parakeet is English only and fast. Whisper is multilingual and slower."),
@@ -61,10 +63,11 @@ EARS = [
             rare=True),
     number("ears.after", "Waits for you", 2, 20, 1, 6, "After his name on its own.", "sec",
            whole=True),
+    number("ears.more", "Waits mid sentence", 0.5, 10, 0.5, 2.5, MORE, "sec"),
     number("ears.level", "Hears you over", 0.002, 0.08, 0.002, 0.015,
            "Quieter than this is the room, not somebody talking.", rare=True),
-    number("ears.gap", "Ends a take", 0.2, 3, 0.1, 0.7, "Silence that means you have finished.",
-           "sec", rare=True),
+    number("ears.gap", "Ends a take", 0.2, 3, 0.1, 0.8, "Silence that means you have paused.",
+           "sec"),
     number("ears.hold", "Shortest take", 0.05, 2, 0.05, 0.25, "Briefer was a noise.", "sec",
            rare=True),
     number("ears.preroll", "Lead in", 0, 1.5, 0.05, 0.3, "Kept from before you were noticed.",
