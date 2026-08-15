@@ -49,7 +49,7 @@ def call(name, tool, arguments):
     session = opened(name)
 
     try:
-        result = loop.run(session.call(tool, arguments), session.timeout)
+        result = loop.run(session.call(tool, arguments))
     finally:
         loop.run(session.close(), 5)
 

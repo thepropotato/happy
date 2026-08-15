@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.fastmcp import Context, FastMCP
 from pydantic import BeforeValidator, Field
 
 from memory import knowledge
@@ -453,6 +453,17 @@ MOST_COPIES = 100
 BETWEEN_COPIES = 0.4
 
 
+async def getting_on(ctx, done, whole, said):
+    """SAY HOW FAR ALONG WE ARE, IF ANYBODY IS LISTENING. NOTHING RIDES ON IT ARRIVING."""
+    if ctx is None:
+        return
+
+    try:
+        await ctx.report_progress(done, whole, said)
+    except Exception:
+        pass
+
+
 def repeats(times):
     """HOW MANY COPIES TO ACTUALLY SEND, OUT OF WHATEVER THE MODEL PUT IN THE FIELD."""
     try:
@@ -464,7 +475,9 @@ def repeats(times):
 
 
 @mcp.tool()
-async def send_message(recipients: list[str], message: str, times: int = 1) -> str:
+async def send_message(
+    recipients: list[str], message: str, times: int = 1, ctx: Context = None
+) -> str:
     """Send a text message to one or more contacts or groups.
 
     Args:
@@ -481,6 +494,8 @@ async def send_message(recipients: list[str], message: str, times: int = 1) -> s
         recipients = [recipients]
     results = {}
     copies = repeats(times)
+    whole = len(recipients) * copies
+    done = 0
 
     for recipient in recipients:
         resolved = knowledge.recall(recipient, "whatsapp") or recipient
@@ -494,15 +509,34 @@ async def send_message(recipients: list[str], message: str, times: int = 1) -> s
                 result = await wa.send_message(resolved, message)
 
             sent.append(result)
+            done += 1
+
+            # A LONG ERRAND SAYS SO AS IT GOES, AND EVERY WORD OF IT PUTS HAPPY'S
+            # WHOLE TIMEOUT BACK. A SEND THAT NEVER SPOKE WOULD BE GIVEN UP ON.
+            await getting_on(ctx, done, whole, f"sent {done} of {whole} to {recipient}")
 
             # WHATSAPP TREATS A BURST WITH NO GAP IN IT AS A ROBOT, AND SAYS SO BY
             # DROPPING THE ACCOUNT.
             if copy + 1 < copies:
                 await asyncio.sleep(BETWEEN_COPIES)
 
-        results[recipient] = sent[0] if copies == 1 else {"sent": len(sent), "results": sent}
+        results[recipient] = sent[0] if copies == 1 else tally(sent)
 
     return _json(results)
+
+
+def tally(sent):
+    """A HUNDRED MESSAGE IDS TELL NOBODY ANYTHING. HOW MANY LANDED DOES."""
+    failed = [each for each in sent if isinstance(each, dict) and "error" in each]
+
+    if not failed:
+        return {"sent": len(sent)}
+
+    return {
+        "sent": len(sent) - len(failed),
+        "failed": len(failed),
+        "why": failed[0].get("error"),
+    }
 
 
 @mcp.tool()

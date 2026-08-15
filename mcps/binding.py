@@ -69,7 +69,10 @@ def calling(service, session, tool):
 
     def call(**arguments):
         try:
-            result = loop.run(session.call(tool.name, arguments), session.timeout)
+            # NO SECOND CLOCK OUT HERE: session.call KEEPS ITS OWN, ON THE SILENCE
+            # RATHER THAN THE LENGTH. ONE ON TOP WOULD CUT OFF AN ERRAND THAT IS
+            # STILL WORKING AND LEAVE THE SERVER FINISHING IT WITH NOBODY LISTENING.
+            result = loop.run(session.call(tool.name, arguments))
         except Unreachable:
             return reasons.no(ASLEEP.format(service=service))
         except TimeoutError:

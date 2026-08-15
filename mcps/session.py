@@ -1,13 +1,37 @@
 """ONE RUNNING SERVER, HELD OPEN BETWEEN CALLS."""
 
 import asyncio
-from datetime import timedelta
+import contextlib
+import time
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.shared.exceptions import McpError
 
 GOODBYE_SECONDS = 2
+
+WENT_QUIET = "{name} went quiet for {seconds:g} seconds"
+
+
+class Alive:
+    """HOW LONG SINCE A CALL LAST SHOWED A SIGN OF LIFE.
+
+    THE TIMEOUT IS THERE TO CATCH A SERVER THAT HAS HUNG, AND AN ERRAND THAT IS
+    STILL WORKING HAS NOT HUNG NO MATTER HOW LONG IT TAKES. SO THE CLOCK IS ON
+    THE SILENCE AND NEVER ON THE LENGTH: EVERY WORD OUT OF THE SERVER PUTS THE
+    WHOLE TIMEOUT BACK.
+    """
+
+    def __init__(self, patience):
+        self.patience = patience
+        self.spoke = time.monotonic()
+
+    async def stirred(self, progress=None, total=None, message=None):
+        """WHAT THE SERVER CALLS TO SAY IT IS STILL GOING."""
+        self.spoke = time.monotonic()
+
+    def left(self):
+        return self.patience - (time.monotonic() - self.spoke)
 
 
 class Unreachable(Exception):
@@ -109,16 +133,39 @@ class Session:
 
     async def call(self, name, arguments):
         session = await self.open()
-        waiting = timedelta(seconds=self.timeout)
 
         try:
-            return await session.call_tool(name, arguments, read_timeout_seconds=waiting)
-        except McpError:
-            raise  # THE SERVER ANSWERED AND SAID NO.
+            return await self.patiently(session, name, arguments)
+        except (McpError, TimeoutError):
+            raise  # THE SERVER ANSWERED AND SAID NO, OR STOPPED ANSWERING AT ALL.
         except Exception:
             # ONE RESTART, NEVER TWO: THE SECOND WAIT OUTLASTS ANYONE'S PATIENCE.
             await self.close()
 
             session = await self.open()
 
-            return await session.call_tool(name, arguments, read_timeout_seconds=waiting)
+            return await self.patiently(session, name, arguments)
+
+    async def patiently(self, session, name, arguments):
+        """THE CALL, GIVEN THE WHOLE TIMEOUT BACK EVERY TIME IT SAYS IT IS STILL WORKING."""
+        alive = Alive(self.timeout)
+        work = asyncio.create_task(
+            session.call_tool(name, arguments, progress_callback=alive.stirred)
+        )
+
+        while True:
+            done, _ = await asyncio.wait({work}, timeout=max(alive.left(), 0))
+
+            if done:
+                return work.result()
+
+            # IT SPOKE WHILE WE WERE SAT WAITING, SO THE WAIT STARTS OVER.
+            if alive.left() > 0:
+                continue
+
+            work.cancel()
+
+            with contextlib.suppress(BaseException):
+                await work
+
+            raise TimeoutError(WENT_QUIET.format(name=self.name, seconds=self.timeout))
