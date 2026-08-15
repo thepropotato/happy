@@ -9,6 +9,8 @@ NOBODY = (
     "and never call them the user."
 )
 
+ALSO = " Elsewhere: {said}."
+
 
 @tool
 def who_i_work_for() -> str:
@@ -16,13 +18,24 @@ def who_i_work_for() -> str:
 
     Call this before their name has to appear anywhere: writing to somebody else
     on their behalf, saying whose assistant you are, or being asked what you know
-    about them. It reads the name off what they have already signed in to, so it
-    is the name they actually go by rather than a guess. Never invent it, and
-    never fall back to calling them the user.
+    about them. It asks every service they have connected — their mail, their
+    chats, their accounts — and this computer as well, so what comes back is the
+    name they actually go by rather than a guess. Where it also gives you what
+    they are called somewhere else, that is the same person under a handle, not
+    another person. Never invent the name, and never fall back to calling them
+    the user.
     """
-    found, where = finding.named()
+    found, where, others = finding.named()
 
-    return f"{found}, off {where}." if found else NOBODY
+    if not found:
+        return NOBODY
+
+    said = f"{found}, off {where}."
+
+    if others:
+        said += ALSO.format(said=", ".join(f"{name} on {place}" for name, place in others))
+
+    return said
 
 
 TOOLS = [who_i_work_for]
