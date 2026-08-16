@@ -1,4 +1,6 @@
-"""ASKING AN ENGINE FOR A PAGE OF RESULTS, AND THE NEXT ONE WHEN IT WILL NOT."""
+"""ASKING AN ENGINE WHAT IT HAS, IN PAGES OR IN PICTURES, AND THE NEXT ONE WHEN IT WILL NOT."""
+
+import re
 
 import httpx
 from bs4 import BeautifulSoup
@@ -8,6 +10,19 @@ from hands.web import engines
 PATIENCE = 8
 
 MOST = 5
+
+# FAR MORE PICTURES THAN ANYONE ASKS FOR, BECAUSE HALF OF ANY PAGE OF THEM REFUSES TO BE FETCHED.
+POOL = 60
+
+# DUCKDUCKGO WILL NOT ANSWER ITS PICTURE ENDPOINT WITHOUT A TOKEN OFF ITS OWN SEARCH PAGE.
+TOKEN = re.compile(r'vqd="?([\w-]+)"?')
+
+DUCK = "https://duckduckgo.com/"
+
+OPENVERSE = "https://api.openverse.org/v1/images/"
+
+# WE PICK THESE ADDRESSES OURSELVES, SO WHAT COMES BACK HAS TO PROVE IT IS A PICTURE.
+ENDINGS = {".jpg", ".png", ".gif", ".webp", ".bmp", ".tif", ".ico", ".svg", ".avif", ".heic"}
 
 # ASKED AS A SCRIPT, AN ENGINE SERVES A DIFFERENT PAGE OR NONE AT ALL.
 LIKE_A_BROWSER = {
@@ -74,3 +89,72 @@ def asked(engine, question):
         raise SearchError(f"{engine.name} wanted a captcha filled in instead of answering.")
 
     return engine.read(page)
+
+
+def pictures(question, most=POOL):
+    """THE ADDRESS OF EACH ACTUAL IMAGE, WHICH IS A DIFFERENT INDEX FROM THE ONE search READS."""
+    question = " ".join((question or "").split())
+
+    if not question:
+        raise SearchError("There is nothing to look for.")
+
+    trouble = None
+
+    for source in (looking, openly):
+        try:
+            found = source(question, most)
+        except Exception as error:
+            trouble = error
+            continue
+
+        if found:
+            return found
+
+    raise SearchError(f"No image search would answer. {trouble or ''}".strip())
+
+
+def looking(question, most):
+    with httpx.Client(headers=LIKE_A_BROWSER, timeout=PATIENCE, follow_redirects=True) as client:
+        token = TOKEN.search(client.get(DUCK, params={"q": question}).text)
+
+        if not token:
+            raise SearchError("duckduckgo would not hand over a token for its pictures.")
+
+        answer = client.get(
+            f"{DUCK}i.js",
+            params={"l": "us-en", "o": "json", "q": question, "vqd": token.group(1), "p": "1"},
+            headers={"Referer": DUCK},
+        )
+
+        if answer.status_code >= 400:
+            raise SearchError(f"duckduckgo answered {answer.status_code} for pictures.")
+
+        found = answer.json().get("results", [])[:most]
+
+        return [
+            engines.Picture(each["image"], each.get("url", ""))
+            for each in found
+            if each.get("image")
+        ]
+
+
+def openly(question, most):
+    """THE OPENLY LICENSED ONES: NO TOKEN, AND THEY ANSWER WHEN THE OTHER IS BEING DIFFICULT."""
+    answer = httpx.get(
+        OPENVERSE,
+        params={"q": question, "page_size": min(most, 100)},
+        headers={"User-Agent": LIKE_A_BROWSER["User-Agent"]},
+        timeout=PATIENCE,
+        follow_redirects=True,
+    )
+
+    if answer.status_code >= 400:
+        raise SearchError(f"openverse answered {answer.status_code}.")
+
+    found = answer.json().get("results", [])[:most]
+
+    return [
+        engines.Picture(each["url"], each.get("foreign_landing_url", ""))
+        for each in found
+        if each.get("url")
+    ]

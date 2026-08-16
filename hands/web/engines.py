@@ -11,6 +11,11 @@ class Result(NamedTuple):
     summary: str
 
 
+class Picture(NamedTuple):
+    url: str
+    page: str  # WHERE IT SITS. SOME HOSTS ONLY HAND THE FILE OVER TO ITS OWN PAGE.
+
+
 class Engine(NamedTuple):
     name: str
     url: str
