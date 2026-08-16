@@ -17,7 +17,14 @@ EARS_LANGUAGES = [
 
 PROVIDERS = [("ollama", "Ollama"), ("openai", "OpenAI shape")]
 
-PERSONAS = [("neutral", "Neutral"), ("serious", "Serious"), ("witty", "Witty")]
+PERSONAS = [
+    ("neutral", "Neutral"),
+    ("serious", "Serious"),
+    ("warm", "Warm"),
+    ("witty", "Witty"),
+    ("playful", "Playful"),
+    ("blunt", "Blunt"),
+]
 
 # EVERY ONE OF THESE IS A MODIFIER, SO HOLDING IT NEVER TYPES ANYTHING.
 TALK_KEYS = [
@@ -54,7 +61,7 @@ BRAIN = [
     choice("brain.model", "Model", [], "gpt-oss:20b", "What does the talking.", source="models"),
     choice("brain.effort", "Thinking effort", EFFORTS, "low", "Low keeps answers conversational."),
     choice("brain.persona", "Personality", PERSONAS, "neutral",
-           "Same facts, different tone. Witty lets a little dry sarcasm through."),
+           "Same facts, said differently. Neutral is the only one that adds nothing."),
     choice("brain.provider", "Backend", PROVIDERS, "ollama", "Who runs the model.", rare=True),
     text("brain.url", "Address", "", "Empty uses the backend's own.", "http://localhost:11434",
          rare=True),

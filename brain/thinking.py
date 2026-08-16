@@ -10,7 +10,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 import hands
 import memory
-from brain import model as brain
+from brain import model as brain, persona
 from brain.model import LLMError
 from brain.prompt import system_prompt
 from brain.wrapping import (
@@ -258,8 +258,11 @@ class Happy:
         self.thread = f"{THREAD}-{id(object())}"
 
     def turn(self, speech, context=None):
-        """WHAT WAS SAID, WITH WHERE IT WAS SAID IN FRONT OF IT WHEN THAT IS KNOWN."""
-        return {"messages": [HumanMessage(f"{context}\n\n{speech}" if context else speech)]}
+        """WHAT WAS SAID, WITH WHERE IT WAS SAID IN FRONT OF IT AND HOW TO SAY IT BACK BEHIND."""
+        said = f"{context}\n\n{speech}" if context else speech
+        reminder = persona.nudge(settings.get("brain.persona"))
+
+        return {"messages": [HumanMessage(f"{said}\n\n{reminder}" if reminder else said)]}
 
     def config(self):
         return {"configurable": {"thread_id": self.thread}}
