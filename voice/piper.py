@@ -52,11 +52,16 @@ class Voice:
             self.load(Path(wanted))
 
     def say(self, text):
-        self.refit(text)
-
-        parts = [chunk.audio_float_array for chunk in self.voice.synthesize(text, self.how)]
+        parts = list(self.stream(text))
 
         return np.concatenate(parts) if parts else np.zeros(0, dtype=np.float32)
+
+    def stream(self, text):
+        """ONE SENTENCE AS THE PIECES IT IS MADE OF, PASSED ON AS THE MODEL FINISHES EACH."""
+        self.refit(text)
+
+        for chunk in self.voice.synthesize(text, self.how):
+            yield chunk.audio_float_array
 
     def warm(self):
         """SYNTHESISE ONCE NOW. THE FIRST CALL COSTS THIRTY TIMES THE REST."""

@@ -11,6 +11,9 @@ class Mute:
     def say(self, text):
         return np.zeros(0, dtype=np.float32)
 
+    def stream(self, text):
+        return iter(())
+
     def refit(self):
         pass
 

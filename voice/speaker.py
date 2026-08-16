@@ -2,22 +2,23 @@
 
 import queue
 import threading
-import time
 
 import numpy as np
 import sounddevice as sd
 
 from face import show
 from memory import settings
-from voice import engines, stripping
+from voice import clips, engines, stripping
 from voice.sentences import Sentences
 
 IDLE_POLL_SECONDS = 0.1  # SHORT HOPS SO CTRL+C STILL LANDS WHILE WAITING.
 
-# SHORT ENOUGH THAT THE JOIN BETWEEN TWO SENTENCES IS STILL A JOIN AND NOT A GAP.
-PLAYING_POLL_SECONDS = 0.02
+# HOW MUCH SOUND GOES INTO THE DEVICE AT ONCE, WHICH IS ALSO HOW LONG BARGING IN CAN TAKE.
+BLOCK_MS = 60
 
 ENVELOPE_MS = 40
+
+CHANNELS = 1
 
 
 class Speaker:
@@ -32,12 +33,17 @@ class Speaker:
         # BUMPED BY stop(). WORK STAMPED WITH AN OLDER ONE IS THROWN AWAY.
         self.era = 0
 
+        # EVERY SENTENCE HANDED OVER AND EVERY PIECE MADE OF IT, UNTIL EACH HAS BEEN PLAYED.
+        # THE SENTENCE HOLDS ONE OF ITS OWN SO THE COUNT CANNOT REACH NOUGHT BETWEEN PIECES.
         self.pending = 0
         self.quiet = threading.Condition()
 
         # THE OUTPUT DEVICE'S OWN LIFECYCLE. BARGING IN REACHES FOR IT FROM WHICHEVER THREAD
         # THE PERSON WAS ON, AND COREAUDIO THROWS IF THAT LANDS WHILE A CLIP IS BEING SET UP.
         self.device = threading.Lock()
+
+        # HELD OPEN BETWEEN CLIPS, WHICH IS WHERE AN EIGHTH OF A SECOND PER PIECE USED TO GO.
+        self.stream = None
 
         self.running = True
 
@@ -85,20 +91,22 @@ class Speaker:
 
     def stop(self):
         """BARGE IN. DROP EVERYTHING QUEUED AND CUT WHAT IS PLAYING."""
-        self.era += 1
+        # THE ERA AND THE COUNT MOVE TOGETHER: A SENTENCE ARRIVING AT THIS MOMENT IS EITHER
+        # WHOLLY BEFORE THE BARGE, AND DROPPED WITH THE REST, OR WHOLLY AFTER IT AND COUNTED.
+        with self.quiet:
+            self.era += 1
+            self.pending = 0
+            self.quiet.notify_all()
+
         self.pieces.clear()
 
         empty(self.sentences)
         empty(self.clips)
 
         with self.device:
-            sd.stop()
+            self.cut()
 
         show.hush()
-
-        with self.quiet:
-            self.pending = 0
-            self.quiet.notify_all()
 
     def wait(self):
         """BLOCK UNTIL HAPPY HAS FINISHED TALKING."""
@@ -114,7 +122,10 @@ class Speaker:
         self.stop()
 
         self.sentences.put((self.era, None))
-        self.clips.put((self.era, None))
+        self.clips.put((self.era, None, None))
+
+        with self.device:
+            self.shut()
 
     def send(self, sentence):
         if settings.get("voice.muted"):
@@ -126,10 +137,13 @@ class Speaker:
         if not sentence:
             return
 
+        # THE ERA IS READ WHERE IT IS COUNTED, SO THE SENTENCE IS NEVER STAMPED WITH ONE ERA
+        # AND COUNTED AGAINST ANOTHER.
         with self.quiet:
+            era = self.era
             self.pending += 1
 
-        self.sentences.put((self.era, sentence))
+        self.sentences.put((era, sentence))
 
     def synthesise(self):
         """SENTENCES INTO SOUND, ONE AHEAD OF WHAT IS PLAYING."""
@@ -140,63 +154,147 @@ class Speaker:
                 return
 
             if era != self.era:  # BARGED IN ON WHILE IT SAT IN THE QUEUE.
-                self.settle()
+                self.settle(era)
                 continue
 
-            try:
-                samples = self.voice.say(sentence)
-            except Exception as error:
-                print(f"\n[voice] {error}")
-                self.settle()
-                continue
+            # THE RATE TRAVELS WITH THE CLIP, BECAUSE THE ONE THE DEVICE RUNS AT IS NOT THE
+            # VOICE'S OWN AND THE TWO ENGINES DO NOT RUN AT THE SAME ONE EITHER.
+            self.pour(era, self.voice.stream(sentence), self.voice.rate)
 
-            self.clips.put((era, samples))
+    def pour(self, era, pieces, rate):
+        """A SENTENCE'S PIECES ONTO THE QUEUE THE MOMENT EACH IS MADE, SO THE FIRST IS ALREADY
+        PLAYING WHILE THE LAST IS STILL BEING SYNTHESISED.
+
+        EACH PIECE TAKES A COUNT OF ITS OWN AND THE SENTENCE KEEPS ITS ONE UNTIL THERE ARE NO
+        MORE PIECES, WHICH IS WHAT STOPS HAPPY FROM READING AS FINISHED IN THE GAP BETWEEN A
+        PIECE PLAYING OUT AND THE NEXT ONE EXISTING."""
+        out = native(rate)
+
+        try:
+            for samples in pieces:
+                if not len(samples):
+                    continue
+
+                # PUT TO THE DEVICE'S RATE HERE RATHER THAN ON THE WAY OUT: THE THREAD THAT
+                # PLAYS HAS A PIECE ALREADY RUNNING, AND ANYTHING IT STOPS TO DO IS A GAP.
+                ready = clips.resampled(samples, rate, out)
+
+                with self.quiet:
+                    if era != self.era:  # BARGED IN ON PART WAY THROUGH SAYING IT.
+                        return
+
+                    self.pending += 1
+
+                self.clips.put((era, ready, out))
+        except Exception as error:  # A VOICE THAT GAVE UP HALF A SENTENCE IN.
+            print(f"\n[voice] {error}")
+        finally:
+            self.settle(era)  # THE SENTENCE ITSELF, WHICH HAS NOW BEEN WHOLLY HANDED OVER.
 
     def play(self):
         while self.running:
-            era, samples = self.clips.get()
+            era, samples, rate = self.clips.get()
 
             if samples is None:
                 return
 
-            if era != self.era or not len(samples):
-                self.settle()
-                continue
-
             try:
-                show.envelope(levels(samples, self.voice.rate), len(samples) / self.voice.rate)
-                self.sound(samples)
+                if era == self.era and len(samples):
+                    show.envelope(levels(samples, rate), len(samples) / rate)
+                    self.sound(samples, rate, era)
             except Exception as error:
                 print(f"\n[speaker] {error}")
             finally:
-                self.settle()
+                self.settle(era)
+                self.rest()
 
-    def sound(self, samples):
-        """ONE CLIP, PLAYED AND WAITED OUT.
+    def sound(self, samples, rate, era):
+        """ONE CLIP INTO THE DEVICE, A BLOCK AT A TIME.
 
-        NOT sd.wait(): THAT SITS INSIDE PORTAUDIO FOR THE LENGTH OF THE CLIP, AND STOPPING THE
-        DEVICE FROM ANOTHER THREAD WHILE IT DOES IS THE RACE THAT MAKES COREAUDIO THROW AND
-        SOMETIMES NEVER COME BACK AT ALL. HOLDING THE DEVICE ONLY WHILE THE CLIP IS SET GOING
-        LEAVES BARGING IN SOMETHING THAT CAN LAND AT ANY MOMENT."""
+        NOT sd.play(): THAT BUILDS A WHOLE STREAM PER CLIP, WHICH IS AN EIGHTH OF A SECOND OF
+        SILENCE BEFORE EVERY PIECE AND MORE THAN A SECOND WHEN COREAUDIO HAS LET THE DEVICE
+        SLEEP. ONE STREAM IS KEPT INSTEAD AND WRITTEN INTO, WHICH BLOCKS FOR THE LENGTH OF THE
+        SOUND WITHOUT SITTING INSIDE PORTAUDIO FOR IT: THE LOCK IS LET GO BETWEEN BLOCKS, SO
+        BARGING IN LANDS WITHIN ONE OF THEM RATHER THAN AT THE END OF THE CLIP."""
+        step = max(1, int(rate * BLOCK_MS / 1000))
+        samples = np.ascontiguousarray(samples, dtype=np.float32).reshape(-1, CHANNELS)
+
+        for at in range(0, len(samples), step):
+            # UNDER THE LOCK, BECAUSE CLOSING TAKES IT TOO AND A CHECK MADE OUTSIDE IT CAN BE
+            # OVERTAKEN BY ONE, LEAVING A FRESH STREAM OPENED BEHIND A SHUT DEVICE.
+            with self.device:
+                if not self.running or era != self.era:
+                    return
+
+                self.opened(rate).write(samples[at : at + step])
+
+    def opened(self, rate):
+        """THE OUTPUT DEVICE, HELD OPEN BETWEEN CLIPS AND REBUILT ONLY IF THE RATE MOVES."""
+        if self.stream is not None and self.stream.samplerate != rate:
+            self.shut()
+
+        if self.stream is None:
+            self.stream = sd.OutputStream(samplerate=rate, channels=CHANNELS, dtype="float32")
+
+        if not self.stream.active:
+            self.stream.start()
+
+        return self.stream
+
+    def rest(self):
+        """NOTHING LEFT TO SAY, SO THE DEVICE STOPS PULLING. THE STREAM ITSELF IS KEPT, WHICH
+        IS WHAT MAKES STARTING AGAIN THIRTY MILLISECONDS INSTEAD OF A SECOND AND A HALF, AND
+        ONLY THE WHOLE TURN ENDING COUNTS: MID SENTENCE THERE IS ALWAYS SOMETHING PENDING."""
+        if self.pending > 0 or not self.clips.empty():
+            return
+
         with self.device:
-            sd.play(samples, self.voice.rate)
+            try:
+                if self.stream is not None and self.stream.active:
+                    self.stream.stop()
+            except Exception:
+                pass
 
-        while self.running and self.sounding():
-            time.sleep(PLAYING_POLL_SECONDS)
-
-    def sounding(self):
-        """TRUE WHILE THE DEVICE IS STILL PLAYING SOMETHING."""
+    def cut(self):
+        """WHAT IS BUFFERED THROWN AWAY RATHER THAN PLAYED OUT. THE DEVICE STAYS OPEN, WHICH IS
+        WHAT KEEPS THE NEXT THING SAID FROM WAITING ON COREAUDIO WAKING IT UP AGAIN."""
         try:
-            return sd.get_stream().active
-        except RuntimeError:  # NOTHING HAS EVER PLAYED, SO NOTHING IS PLAYING NOW.
-            return False
+            if self.stream is not None and self.stream.active:
+                self.stream.abort()
+        except Exception:
+            pass
 
-    def settle(self):
+    def shut(self):
+        try:
+            if self.stream is not None:
+                self.stream.abort()
+                self.stream.close()
+        except Exception:
+            pass
+        finally:
+            self.stream = None
+
+    def settle(self, era):
+        """ONE THING DONE WITH. WORK FROM BEFORE A BARGE COUNTS FOR NOTHING: ITS COUNT WENT
+        WITH THE ERA IT WAS RAISED IN, AND TAKING ONE OFF NOW WOULD TAKE IT OFF WHATEVER IS
+        BEING SAID INSTEAD, WHICH IS HOW HAPPY USED TO READ AS FINISHED WHILE STILL TALKING."""
         with self.quiet:
+            if era != self.era:
+                return
+
             self.pending = max(0, self.pending - 1)
 
             if self.pending == 0:
                 self.quiet.notify_all()
+
+
+def native(fallback):
+    """THE RATE THE OUTPUT DEVICE ITSELF RUNS AT, BECAUSE PORTAUDIO ANSWERS ANY OTHER ONE WITH
+    ITS OWN CONVERTER, WHICH ON COREAUDIO ASKS FOR FIFTEEN SAMPLES AT A TIME AND CRACKLES."""
+    try:
+        return int(sd.query_devices(kind="output")["default_samplerate"])
+    except Exception:
+        return fallback
 
 
 def levels(samples, rate):

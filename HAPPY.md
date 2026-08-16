@@ -593,6 +593,24 @@ live in `voice/speaker.py`.
 - **The first sentence of a reply goes out fast.** `MIN_CHARS_FIRST` is deliberately tiny, so
   "Done." is said immediately rather than waiting to be joined to the paragraph after it.
   Later sentences use the larger `MIN_CHARS` because by then smoothness beats speed.
+- **A sentence is spoken in pieces, not after it.** Nothing is heard until a mouthful has been
+  synthesised, and the model costs about **a tenth of a second flat plus another per 200 sounds**
+  — so a full-length sentence was a **two second** wait with its words already on the screen.
+  `phonemes.mouthfuls()` now cuts a short first mouthful (`FIRST`) and leaves the rest long, and
+  `Speaker.pour()` queues each piece the moment it exists rather than at the end of the sentence.
+  First sound is **0.35–0.45 s whatever the length**. The rest is made at 7x realtime, so it is
+  always there before it is wanted — checked against PortAudio's own underflow flag, not by ear.
+  Under `WHOLE` a sentence is still said in one go: the join would cost more than the wait saves.
+- **The join is free, and that is measurable.** Each piece is trimmed and faded by `clips.tidied()`
+  as mouthfuls always were, and only the last one gets the breath on the end. Across the seam the
+  step between samples is **0.0000** and the lull is **25 ms**, against the 100–184 ms pauses the
+  model puts inside the same sentence unsplit. What splitting does cost is prosody: the second
+  piece starts its own intonation, which is why the first is the only short one.
+- **The output device is opened once and held.** `sd.play()` builds a whole stream per clip —
+  **120 ms** of silence before every piece, and **1.5 s** when CoreAudio has let the device sleep.
+  One `OutputStream` is kept and written into in `BLOCK_MS` blocks, which is also how long barging
+  in takes to land, since the lock is let go between them. When nothing is pending `rest()` stops
+  the stream without closing it: starting again is **30 ms**, flat however long the silence was.
 - **Abbreviations are not sentence ends.** That short first-sentence floor makes "Mr. Stark
   is on the phone" likely to break in half, so `SHORTENED` and the single-initial rule catch
   it. Decimals are already safe — the split needs whitespace after the full stop.
@@ -603,6 +621,10 @@ live in `voice/speaker.py`.
   queued is dropped and playback is cut.
 - **In-flight work is cancelled by an era counter**, not by trying to kill a thread. `stop()`
   bumps it; work stamped with an older era is thrown away when it surfaces.
+- **The count of what is still to be said is stamped with an era too**, and `settle()` ignores
+  anything older. Without that, a sentence cut off mid-synthesis would take its count off
+  whatever was being said *instead* when it finally surfaced, and Happy read as finished while
+  still talking — which is what `ears/waking.py` asks about before it listens to the room.
 
 ## Searching the web, and reading a result
 
