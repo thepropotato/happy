@@ -27,6 +27,9 @@ class Speaker:
         self.engine = engines.chosen()
         self.pieces = Sentences()
 
+        # THE LAST VOICE HEARD BEFORE ANYBODY PICKED IT, AS (NAME, VOICE).
+        self.heard = None
+
         self.sentences = queue.Queue()
         self.clips = queue.Queue()
 
@@ -121,7 +124,7 @@ class Speaker:
         self.running = False
         self.stop()
 
-        self.sentences.put((self.era, None))
+        self.sentences.put((self.era, None, None))
         self.clips.put((self.era, None, None))
 
         with self.device:
@@ -131,6 +134,12 @@ class Speaker:
         if settings.get("voice.muted"):
             return
 
+        self.sample(sentence)
+
+    def sample(self, sentence, name=None):
+        """A LINE SAID BECAUSE SOMEBODY ASKED TO HEAR IT, WHICH MUTE HAS NOTHING TO SAY ABOUT:
+        MUTE IS ABOUT ANSWERS, AND A BUTTON PRESSED TO LISTEN THAT STAYS SILENT READS AS BROKEN.
+        A NAME SAYS WHICH VOICE, WHICH IS HOW ONE IS HEARD BEFORE IT IS PICKED."""
         # THE PANEL DRAWS THE MARKDOWN. NOTHING OUT HERE SHOULD HEAR IT.
         sentence = stripping.spoken(sentence)
 
@@ -143,12 +152,20 @@ class Speaker:
             era = self.era
             self.pending += 1
 
-        self.sentences.put((era, sentence))
+        self.sentences.put((era, sentence, name))
+
+    def pinned(self, name):
+        """ONE VOICE OFF THE LIST, HELD TO ITS NAME WHATEVER THE SETTING SAYS, AND KEPT SO THAT
+        AUDITIONING THE SAME ONE TWICE LOADS IT ONCE."""
+        if not self.heard or self.heard[0] != name:
+            self.heard = (name, engines.pinned(name))
+
+        return self.heard[1]
 
     def synthesise(self):
         """SENTENCES INTO SOUND, ONE AHEAD OF WHAT IS PLAYING."""
         while self.running:
-            era, sentence = self.sentences.get()
+            era, sentence, name = self.sentences.get()
 
             if sentence is None:
                 return
@@ -157,9 +174,17 @@ class Speaker:
                 self.settle(era)
                 continue
 
-            # THE RATE TRAVELS WITH THE CLIP, BECAUSE THE ONE THE DEVICE RUNS AT IS NOT THE
-            # VOICE'S OWN AND THE TWO ENGINES DO NOT RUN AT THE SAME ONE EITHER.
-            self.pour(era, self.voice.stream(sentence), self.voice.rate)
+            try:
+                voice = self.pinned(name) if name else self.voice
+            except Exception as error:
+                print(f"\n[voice] {error}")
+                self.settle(era)
+
+                continue
+
+            # THE RATE TRAVELS WITH THE CLIP: A PINNED VOICE IS NOT ALWAYS THE ONE THAT IS SET,
+            # AND TWO VOICES DO NOT ALWAYS RUN AT THE SAME RATE.
+            self.pour(era, voice.stream(sentence), voice.rate)
 
     def pour(self, era, pieces, rate):
         """A SENTENCE'S PIECES ONTO THE QUEUE THE MOMENT EACH IS MADE, SO THE FIRST IS ALREADY

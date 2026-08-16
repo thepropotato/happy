@@ -90,6 +90,9 @@ def carry(order):
         granting(order.get("name"))
     elif asked == "say":
         call("say", order.get("text", ""))
+    elif asked == "preview":
+        # THE NAME IS THE OPTION THE BUTTON SITS BESIDE, WHICH IS NOT THE ONE THAT IS SET.
+        call("preview", order.get("name"))
     else:
         call(asked)
 

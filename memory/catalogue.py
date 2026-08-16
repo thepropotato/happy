@@ -47,6 +47,8 @@ MICROPHONE = "Which device does the hearing."
 
 LOGS = "Everything Happy did, as he did it, the way it would have gone past in a terminal."
 
+VOICES = "Whichever are installed. Play one to hear it before you pick it."
+
 # WHAT IS SET ONCE AND NEVER AGAIN IS MARKED rare AND SITS BEHIND ONE MORE TAP.
 BRAIN = [
     choice("brain.model", "Model", [], "gpt-oss:20b", "What does the talking.", source="models"),
@@ -99,7 +101,7 @@ EARS = [
 ]
 
 VOICE = [
-    choice("voice.name", "Voice", [], "", "Whichever is installed.", source="voices"),
+    choice("voice.name", "Voice", [], "", VOICES, source="voices", preview="preview"),
     toggle("voice.muted", "Mute", False, "Happy still answers, in writing."),
     number("voice.pace", "Pace", 0.6, 1.6, 0.05, 0.95, "Below one is faster speech."),
 ]

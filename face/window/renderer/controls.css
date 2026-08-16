@@ -257,6 +257,52 @@
   outline-offset: -2px;
 }
 
+/* A NAME AND A WAY TO HEAR IT ON ONE LINE. */
+.options .pair {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.options .pair .option {
+  flex: 1;
+  min-width: 0;
+}
+
+/* QUIET UNTIL IT IS WANTED: A ROW OF LOUD PLAY BUTTONS WOULD READ AS THE LIST'S
+   POINT, WHEN THE POINT IS THE NAMES. */
+.hear {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--faint);
+  cursor: pointer;
+  transition: background 140ms, color 140ms;
+}
+
+.hear svg {
+  width: 14px;
+  height: 14px;
+}
+
+.options .pair:hover .hear {
+  color: var(--dim);
+}
+
+.hear:hover {
+  background: rgba(124, 92, 245, 0.22);
+  color: var(--ink);
+}
+
+.hear:active {
+  transform: scale(0.94);
+}
+
 /* A BUTTON THAT DOES SOMETHING RATHER THAN HOLDING A VALUE. IT READS AS THE
    ACTION IT IS, SO IT IS NOT MISTAKEN FOR ONE MORE THING TO SET. */
 .doer {

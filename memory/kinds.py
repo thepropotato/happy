@@ -13,8 +13,9 @@ SERVICE = "service"
 FOLDED = "folded"
 
 
-def choice(key, label, options, default, hint=None, source=None, rare=False):
-    """ONE OF A FEW. source NAMES A LIST THAT ONLY THE RUNNING MACHINE KNOWS."""
+def choice(key, label, options, default, hint=None, source=None, rare=False, preview=None):
+    """ONE OF A FEW. source NAMES A LIST THAT ONLY THE RUNNING MACHINE KNOWS, AND preview NAMES
+    THE VERB EACH OPTION CAN BE TRIED WITH WITHOUT BEING PICKED."""
     return knob(
         key,
         label,
@@ -24,6 +25,7 @@ def choice(key, label, options, default, hint=None, source=None, rare=False):
         rare,
         options=[option(each) for each in options],
         source=source,
+        preview=preview,
     )
 
 

@@ -10,6 +10,16 @@ const MARKS = {
   allowing:
     '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>' +
     '<path d="M12 15v2"/>',
+  // ONE WAVE, NOT THREE: THE OTHER TWO ARE A SMUDGE AT THE SIZE THIS IS DRAWN AT.
+  hear: '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/>',
+}
+
+// BUILT AS TEXT BECAUSE AN SVG PATH IS NOT WORTH TWELVE createElementNS CALLS.
+function glyph(key) {
+  return (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"' +
+    ` stroke-linecap="round" stroke-linejoin="round">${MARKS[key]}</svg>`
+  )
 }
 
 function marking(key, label) {
@@ -20,10 +30,7 @@ function marking(key, label) {
     return held
   }
 
-  // BUILT AS TEXT BECAUSE AN SVG PATH IS NOT WORTH TWELVE createElementNS CALLS.
-  held.innerHTML =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"' +
-    ` stroke-linecap="round" stroke-linejoin="round">${MARKS[key]}</svg>`
+  held.innerHTML = glyph(key)
 
   return held
 }

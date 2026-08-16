@@ -68,6 +68,11 @@ class Voice:
         self.say("Ready.")
 
 
+def pinned(name):
+    """ONE VOICE FILE BY NAME, WHICH NO SETTING AND NO SENTENCE CAN MOVE."""
+    return Voice(path=MODELS / f"{name}.onnx")
+
+
 def whole(path):
     """A VOICE IS TWO FILES. HALF A DOWNLOAD IS NOT A VOICE."""
     return path.exists() and path.with_suffix(".onnx.json").exists()

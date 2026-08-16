@@ -33,6 +33,26 @@ const Fields = (() => {
     return holder
   }
 
+  // AN OPTION THAT CAN BE TRIED BEFORE IT IS TAKEN. THE PLAY BUTTON SITS INSIDE THE ROW BUT NOT
+  // INSIDE THE ROW'S BUTTON, WHERE IT WOULD BE A BUTTON WITHIN A BUTTON, AND PRESSING IT NEITHER
+  // PICKS THE OPTION NOR SHUTS THE LIST.
+  function paired(entry, option, row) {
+    const pair = element('div', 'pair')
+    const hear = element('button', 'hear')
+
+    hear.innerHTML = glyph('hear')
+    hear.title = `Hear ${option.label}`
+
+    hear.onclick = (event) => {
+      event.stopPropagation()
+      help.ask({ do: entry.preview, name: option.value })
+    }
+
+    pair.append(row, hear)
+
+    return pair
+  }
+
   function picker(entry, value) {
     const holder = element('div', 'dropdown')
     const here = entry.options.find((each) => each.value === value)
@@ -54,12 +74,15 @@ const Fields = (() => {
         }
 
         face.textContent = option.label
-        for (const other of list.children) other.className = 'option'
+
+        // THE ROWS ARE NOT ALWAYS THE LIST'S OWN CHILDREN: A ROW THAT CAN BE HEARD IS A PAIR.
+        for (const other of list.querySelectorAll('.option')) other.className = 'option'
+
         row.className = 'option on'
         help.tell(entry.key, option.value)
       }
 
-      list.append(row)
+      list.append(entry.preview && option.value !== CUSTOM ? paired(entry, option, row) : row)
     }
 
     face.onclick = () => list.classList.toggle('open')

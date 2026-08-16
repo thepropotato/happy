@@ -143,6 +143,7 @@ def attend(happy, speaker, recorder, waking):
     requests.serve(
         forget=happy.forget,
         say=lambda text: typed_soon(happy, speaker, text),
+        preview=lambda name=None: preview(speaker, name),
         stop=lambda: stop_turn(happy, speaker),
         ready=ready,
         quit=lambda: leave(speaker, recorder, waking),
@@ -150,6 +151,13 @@ def attend(happy, speaker, recorder, waking):
 
     ready()
     show.state(telling.IDLE)
+
+
+def preview(speaker, name=None):
+    """ONE LINE IN ONE VOICE OFF THE LIST, SO PICKING ONE IS NOT PICKING BLIND."""
+    speaker.refit()  # THE ENGINE MAY HAVE CHANGED SINCE THE LAST TURN, AND THE VOICE WITH IT.
+    speaker.stop()  # AUDITIONING IS TAPPING DOWN A LIST, NOT QUEUEING ONE UP.
+    speaker.sample(voice.sample(name), name)
 
 
 def blocked():

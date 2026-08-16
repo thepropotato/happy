@@ -48,6 +48,12 @@ def attempt(engine=None, **kwargs):
         return Mute(), f"{error}"
 
 
+def pinned(name, engine=None):
+    """THE VOICE ONE NAME OFF THE LIST STANDS FOR. ONLY THE ENGINE HOLDING IT KNOWS WHAT ITS
+    OWN NAMES MEAN, SO ONLY THE ENGINE IS ASKED."""
+    return part(engine).pinned(name)
+
+
 def installed(engine=None):
     """THE VOICES THIS ENGINE HAS. NOTHING TO OFFER IS A SHORTER LIST, NOT A FAILURE."""
     try:
