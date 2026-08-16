@@ -23,7 +23,7 @@ WINDOW = packages.HAPPY / "face" / "window"
 # WITHOUT A REASON WRITTEN DOWN FOR EACH ONE, MACOS KILLS THE APP THE MOMENT IT ASKS.
 REASONS = {
     "NSMicrophoneUsageDescription":
-        "Happy listens for his name and for what you ask him.",
+        "Happy hears you while you hold the talk key, and not at any other time.",
     "NSCameraUsageDescription":
         "Happy does not use the camera.",
     "NSAppleEventsUsageDescription":

@@ -15,7 +15,7 @@ PANES = {
     KEYS: "Privacy_ListenEvent",
 }
 
-MICROPHONE_HINT = "Hearing you at all, whether you say his name or hold the key."
+MICROPHONE_HINT = "Hearing you at all, for as long as the key is held."
 KEYS_HINT = "Noticing the hold to talk key while another window is in front."
 
 # WHAT AVCaptureDevice ANSWERS: NOT ASKED, REFUSED BY POLICY, REFUSED, ALLOWED.

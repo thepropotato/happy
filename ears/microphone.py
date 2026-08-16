@@ -1,6 +1,5 @@
 """MICROPHONE CAPTURE."""
 
-import collections
 import threading
 import time
 import wave
@@ -18,19 +17,10 @@ CHANNELS = 1
 SAMPLE_WIDTH_BYTES = 2
 BLOCK_SIZE = 1600  # 100 ms.
 
-BLOCK_SECONDS = BLOCK_SIZE / SAMPLE_RATE
-
 DEVICE = "ears.microphone"
 
 # WHAT THE SETTING HOLDS WHILE NOBODY HAS PICKED ONE.
 ANY = "Whatever the system picks"
-
-# A DEAD DEVICE STILL HANDS OVER BLOCKS ON TIME, SO ONLY THEIR BEING EMPTY GIVES IT AWAY, AND
-# A FEW SECONDS OF IT IS LONGER THAN ANY REAL ROOM IS EVER PERFECTLY SILENT.
-DEAF_SECONDS = 5
-
-# THE LONGEST LEAD IN ANYONE CAN ASK FOR, SO THE SETTING MOVES WITHOUT REOPENING THE DEVICE.
-MOST_PREROLL_SECONDS = 1.5
 
 FULL_SCALE = 32768.0  # int16, SO LOUDNESS COMES BACK AS 0 TO 1.
 
@@ -38,26 +28,27 @@ RECORDINGS = Path(__file__).resolve().parent.parent / "recordings"
 
 
 class Recorder:
+    """THE DEVICE, OPENED FOR ONE TAKE AND SHUT AFTER IT.
+
+    NOTHING IS HEARD BETWEEN TAKES: THE KEY IS THE ONLY WAY IN, SO A STREAM LEFT RUNNING
+    WOULD BE COSTING BATTERY AND HOLDING THE SYSTEM'S MICROPHONE LIGHT ON FOR NOBODY."""
+
     def __init__(self, recordings=RECORDINGS):
         self.recordings = Path(recordings)
         self.chunks = []
         self.capturing = False
         self.started_at = 0.0
         self.lock = threading.Lock()
-        self.recent = collections.deque(maxlen=blocks(MOST_PREROLL_SECONDS))
-        self.listener = None
 
-        # HOW LONG THE DEVICE HAS BEEN HANDING OVER NOTHING BUT ZEROS.
-        self.empty = 0.0
+        self.empty = False  # THE LAST TAKE WAS NOTHING BUT ZEROS.
 
         self.stream = None
         self.wanted = None
-        self.open()
+        self.name = ANY
 
     def open(self):
         """THE DEVICE THE SETTINGS NAME, OR WHATEVER THE SYSTEM PICKS WHEN THAT ONE IS GONE."""
         self.wanted = settings.get(DEVICE)
-        self.empty = 0.0
 
         for device in (named(self.wanted), None):
             try:
@@ -72,6 +63,9 @@ class Recorder:
                 )
                 self.stream.start()
 
+                # WHILE IT IS OPEN, WHICH IS THE ONLY TIME THE SYSTEM WILL ANSWER.
+                self.name = self.naming()
+
                 return
             except Exception as error:
                 if device is None:
@@ -79,20 +73,15 @@ class Recorder:
 
                 show.trouble(f"{self.wanted} would not open, hearing on the usual one ({error})")
 
-    def refit(self):
-        """A DIFFERENT MICROPHONE WAS PICKED. A STREAM CANNOT BE RETUNED, ONLY REPLACED."""
-        if settings.get(DEVICE) == self.wanted or self.capturing:
-            return
-
-        self.close()
-        self.open()
-
     def deaf(self):
-        """TRUE WHEN THE DEVICE IS HANDING OVER DIGITAL SILENCE, WHICH NO ROOM EVER IS."""
-        return self.empty >= DEAF_SECONDS
+        """TRUE WHEN THE LAST TAKE WAS DIGITAL SILENCE, WHICH NO ROOM EVER IS."""
+        return self.empty
 
     def hearing(self):
-        """THE DEVICE BEING LISTENED TO, BY NAME."""
+        """THE DEVICE THAT WAS LISTENED TO, BY NAME, WHETHER OR NOT IT IS STILL OPEN."""
+        return self.name
+
+    def naming(self):
         try:
             return sd.query_devices(self.stream.device)["name"]
         except Exception:
@@ -101,16 +90,12 @@ class Recorder:
     def is_recording(self):
         return self.capturing
 
-    def overhear(self, listener):
-        """WHO ELSE GETS EVERY BLOCK, KEPT OR NOT."""
-        self.listener = listener
-
     def start(self):
-        wanted = blocks(settings.get("ears.preroll"))
+        """OPEN THE DEVICE AND KEEP EVERYTHING IT HANDS OVER."""
+        self.open()  # AFTER THE SETTING IS READ, SO A MICROPHONE PICKED SINCE LAST TIME IS USED.
 
         with self.lock:
-            # A KEY IS NEVER PRESSED ON THE FIRST SYLLABLE.
-            self.chunks = list(self.recent)[-wanted:] if wanted else []
+            self.chunks = []
             self.started_at = time.monotonic()
             self.capturing = True
 
@@ -122,7 +107,7 @@ class Recorder:
         # TIMED, NOT MEASURED OFF THE CLIP, WHICH THE PADDING INFLATES.
         held = time.monotonic() - self.started_at
 
-        time.sleep(settings.get("ears.tail"))
+        time.sleep(settings.get("ears.tail"))  # BEFORE THE CLOSE, OR THERE IS NO TAIL TO KEEP.
 
         with self.lock:
             if not self.capturing:
@@ -132,17 +117,15 @@ class Recorder:
             pcm = b"".join(self.chunks)
             self.chunks = []
 
+        self.close()
+
+        # ZEROS ARE NOT A QUIET ROOM, THEY ARE A DEVICE THAT HAS STOPPED HEARING ALTOGETHER.
+        self.empty = bool(pcm) and not any(pcm)
+
         if held < settings.get("ears.hold") or not pcm:
             return None
 
         return self.save(pcm)
-
-    def peek(self, where):
-        """THE TAKE AS FAR AS IT HAS GOT, ON DISK, WITHOUT ENDING IT."""
-        with self.lock:
-            pcm = b"".join(self.chunks) if self.capturing else b""
-
-        return written(where, pcm) if pcm else None
 
     def close(self):
         self.capturing = False
@@ -154,25 +137,14 @@ class Recorder:
 
     def on_audio(self, indata, frames, moment, status):
         block = bytes(indata)
-        listener = self.listener
-
-        # ZEROS ARE NOT A QUIET ROOM, THEY ARE A DEVICE THAT HAS STOPPED HEARING ALTOGETHER.
-        self.empty = 0.0 if any(block) else self.empty + frames / SAMPLE_RATE
 
         with self.lock:
-            self.recent.append(block)
+            if not self.capturing:  # RE-CHECKED UNDER THE LOCK, stop() MAY HAVE WON.
+                return
 
-            if self.capturing:  # RE-CHECKED UNDER THE LOCK, stop() MAY HAVE WON.
-                self.chunks.append(block)
-                keeping = True
-            else:
-                keeping = False
+            self.chunks.append(block)
 
-        if keeping:
-            show.level(loudness(block))
-
-        if listener:
-            listener(block)
+        show.level(loudness(block))
 
     def save(self, pcm):
         self.recordings.mkdir(parents=True, exist_ok=True)
@@ -214,10 +186,6 @@ def named(wanted):
         pass
 
     return None
-
-
-def blocks(seconds):
-    return int(seconds * SAMPLE_RATE / BLOCK_SIZE)
 
 
 def loudness(block):
