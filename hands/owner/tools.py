@@ -17,8 +17,11 @@ def who_i_work_for() -> str:
     """Say the name of the person whose computer this is — the one you belong to.
 
     Call this before their name has to appear anywhere: writing to somebody else
-    on their behalf, saying whose assistant you are, or being asked what you know
-    about them. It asks every service they have connected — their mail, their
+    on their behalf, telling somebody else whose assistant you are, or being asked
+    what you know about them. Do not call it to answer them about you — asked who
+    you are by the person whose computer this is, you are talking to them, and
+    their name has no place in the answer. It asks every service they have
+    connected — their mail, their
     chats, their accounts — and this computer as well, so what comes back is the
     name they actually go by rather than a guess. Where it also gives you what
     they are called somewhere else, that is the same person under a handle, not
