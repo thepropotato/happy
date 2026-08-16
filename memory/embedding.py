@@ -9,18 +9,10 @@ MODELS = Path(__file__).resolve().parent.parent / "models" / "minilm"
 REPO = "sentence-transformers/all-MiniLM-L6-v2"
 
 # HALF A DOWNLOAD IS NOT A MODEL.
-PARTS = (
-    "config.json",
-    "config_sentence_transformers.json",
-    "modules.json",
-    "sentence_bert_config.json",
-    "special_tokens_map.json",
-    "tokenizer.json",
-    "tokenizer_config.json",
-    "vocab.txt",
-    "model.safetensors",
-    "1_Pooling/config.json",
-)
+PARTS = ("tokenizer.json", "onnx/model.onnx")
+
+# WHAT THE MODEL WAS TRAINED TO TAKE, OUT OF ITS OWN sentence_bert_config.json.
+LONGEST = 256
 
 loaded = None
 loading = threading.Lock()
@@ -52,10 +44,19 @@ def model():
                 show.note("Getting the memory model, this happens once.")
                 fetch()
 
-            from sentence_transformers import SentenceTransformer
+            import onnxruntime
+            from tokenizers import Tokenizer
+
+            words = Tokenizer.from_file(str(MODELS / "tokenizer.json"))
+            words.enable_truncation(max_length=LONGEST)
 
             # THE FOLDER, NOT THE NAME — OFF DISK, AND NEVER OUT TO HUGGINGFACE AGAIN.
-            loaded = SentenceTransformer(str(MODELS), local_files_only=True)
+            session = onnxruntime.InferenceSession(
+                str(MODELS / "onnx" / "model.onnx"),
+                providers=["CPUExecutionProvider"],
+            )
+
+            loaded = (words, session)
 
     return loaded
 
@@ -77,6 +78,21 @@ def ready():
 
 def vector(text):
     asked = str(text or "").strip()
-    made = model().encode([asked], convert_to_numpy=True)[0]
+    words, session = model()
 
-    return np.asarray(made, dtype=np.float32)
+    encoded = words.encode(asked)
+    ids = np.array([encoded.ids], dtype=np.int64)
+    mask = np.array([encoded.attention_mask], dtype=np.int64)
+
+    states = session.run(
+        None,
+        {"input_ids": ids, "attention_mask": mask, "token_type_ids": np.zeros_like(ids)},
+    )[0]
+
+    # THE AVERAGE OF THE REAL TOKENS, THEN ONTO THE UNIT SPHERE: WHAT THE THREE STEPS IN THE
+    # MODEL'S OWN modules.json DO, AND WHAT EVERY VECTOR ALREADY IN THE DATABASE CAME OUT OF.
+    weights = mask[..., None].astype(np.float32)
+    pooled = (states * weights).sum(axis=1) / np.clip(weights.sum(axis=1), 1e-9, None)
+    made = pooled / np.linalg.norm(pooled, axis=1, keepdims=True)
+
+    return np.asarray(made[0], dtype=np.float32)
