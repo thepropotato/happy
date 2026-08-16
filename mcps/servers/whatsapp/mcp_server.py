@@ -344,10 +344,10 @@ async def query_messages(
     Examples:
     - "last message from Ram in Just Mumbai group"          -> group="just mumbai", sender="ram", limit=1
     - "first message in Dhurandhar group from Siddu today"  -> group="dhurandhar", sender="siddu", date="today", oldest_first=true, limit=1
-    - "messages I sent to Venu"                             -> contact="venu", from_me=true
+    - "messages I sent to User"                             -> contact="user", from_me=true
     - "last message Rasool sent in Zookie Bhai group"       -> group="zookie", sender="rasool", limit=1
     - "last message received from Jaswanth / what did Athul say last" -> sender="jaswanth", limit=1
-    - "yesterday's messages from Venu in WhatsApp"          -> sender="venu", date="yesterday"
+    - "yesterday's messages from User in WhatsApp"          -> sender="user", date="yesterday"
     - "first message today in Just Mumbai"                  -> group="just mumbai", date="today", oldest_first=true, limit=1
 
     Args:
@@ -420,7 +420,7 @@ async def query_messages(
             "bad_params": bad,
             "correct_example": {
                 "group": "<2-3 word partial group name, e.g. 'fans sathi'>",
-                "contact": "<1-2 word contact name for DMs, e.g. 'venu'>",
+                "contact": "<1-2 word contact name for DMs, e.g. 'user'>",
                 "sender": "<1-2 word sender name, e.g. 'deekshit'>",
                 "limit": limit,
                 "order": order,
