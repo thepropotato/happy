@@ -3,18 +3,12 @@
 # espeak-ng HAS ITS OWN NAME FOR A LANGUAGE, WHICH IS NOT THE TWO LETTERS EVERYTHING ELSE USES.
 SPELLING = {"en": "en-us", "hi": "hi", "te": "te"}
 
-# THE MODEL READS NO MORE THAN THIS AT ONCE, AND ITS STYLES ARE ONLY WRITTEN OUT THAT FAR.
+# THE MODEL READS NO MORE THAN THIS AT ONCE, AND ITS STYLES ARE ONLY WRITTEN OUT THAT FAR. A
+# SENTENCE ARRIVES CUT TO 260 LETTERS, SO ONLY ONE MADE ALMOST WHOLLY OF DIGITS REACHES IT.
 LIMIT = 500
 
-# NOTHING IS HEARD UNTIL A MOUTHFUL IS FINISHED, AND THE MODEL COSTS A TENTH OF A SECOND FLAT
-# PLUS ANOTHER PER TWO HUNDRED SOUNDS, SO THE FIRST ONE IS CUT SHORT AND THE REST ARE NOT.
-FIRST = 40
-
-# UNDER THIS A SENTENCE IS SAID IN ONE GO: THE JOIN WOULD COST MORE THAN THE WAIT IT SAVES.
-WHOLE = 80
-
-# A LONG SENTENCE IS BROKEN WHERE A PERSON WOULD BREATHE, NEVER IN THE MIDDLE OF A WORD.
-BREAKS = ".,!?;:"
+# WHERE A PERSON WOULD BREATHE, STRONGEST FIRST.
+BREAKS = ".!?;:,"
 
 started = False
 
@@ -60,40 +54,35 @@ def spoken(text, language, vocab):
 
 
 def mouthfuls(said):
-    """AS FEW PIECES AS POSSIBLE, EACH ENDING WHERE THE SENTENCE ITSELF PAUSES, EXCEPT THE
-    FIRST, WHICH IS SHORT SO SPEAKING STARTS WHILE THE REST OF IT IS STILL BEING MADE."""
-    if not said:
-        return []
+    """A SENTENCE IS SAID IN ONE GO. THE ONLY THING THAT EVER BREAKS ONE IS THE MODEL REFUSING
+    TO READ MORE THAN LIMIT SOUNDS AT A TIME.
 
-    if len(said) <= WHOLE:
-        return [said]
-
+    NOTHING IS BROKEN TO START SPEAKING SOONER ANY MORE. IT SAVED HALF A SECOND OF WAITING AND
+    BOUGHT A PAUSE IN THE MIDDLE OF A CLAUSE: THE MODEL SHAPES A WHOLE UTTERANCE AT ONCE, SO
+    WHEREVER A SENTENCE IS CUT IT FALLS AWAY AS THOUGH IT HAD ENDED THERE, MARK OR NO MARK."""
     pieces = []
-    limit = FIRST
 
-    while len(said) > limit:
-        at = cut(said, limit)
+    while len(said) > LIMIT:
+        at = cut(said)
 
         pieces.append(said[:at].strip())
         said = said[at:].strip()
-        limit = LIMIT
 
-    pieces.append(said)
-
-    return [piece for piece in pieces if piece]
+    return [piece for piece in pieces + [said] if piece]
 
 
-def cut(said, limit=LIMIT):
-    """WHERE TO BREAK: THE LAST PAUSE THAT FITS, OR THE LAST GAP BETWEEN WORDS."""
+def cut(said):
+    """WHERE TO BREAK A SENTENCE LONGER THAN THE MODEL WILL READ: THE LAST PAUSE THAT FITS, AND
+    ONLY IF IT HAS NONE AT ALL, THE LAST GAP BETWEEN WORDS."""
     for mark in BREAKS:
-        at = said.rfind(mark, 0, limit)
+        at = said.rfind(mark, 0, LIMIT)
 
-        if at > limit // 2:
+        if at > 0:
             return at + 1
 
-    space = said.rfind(" ", 0, limit)
+    space = said.rfind(" ", 0, LIMIT)
 
-    return space + 1 if space > 0 else limit
+    return space + 1 if space > 0 else LIMIT
 
 
 def ids(said, vocab):
