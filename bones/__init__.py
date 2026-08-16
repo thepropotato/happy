@@ -25,6 +25,8 @@ def setup(models=True):
         thinking()
         speaking()
 
+    clickable()
+
     return report()
 
 
@@ -170,10 +172,51 @@ def speaking():
         saying.done() if weights.memory() else wrong("Memory model", "would not download")
 
 
+def clickable():
+    """THE APP, THE SHORTCUT, OR THE MENU ENTRY: HAPPY WITHOUT A TERMINAL."""
+    from bones import bundling
+
+    saying.step(started())
+
+    if not packages.window_ready():
+        return wrong(started(), "the window has no Electron to build one from")
+
+    saying.doing("building")
+
+    try:
+        where, why = bundling.build()
+    except Exception as error:
+        where, why = None, str(error)
+
+    if where is None:
+        return wrong(started(), why or "could not be built")
+
+    saying.done()
+    saying.note(str(where))
+
+
+def started():
+    if systems.on_mac():
+        return "Happy.app"
+
+    return "Shortcut" if systems.on_windows() else "Menu entry"
+
+
+def opening():
+    """HOW SOMEBODY STARTS HIM NOW, IN THE WORDS OF WHATEVER THIS SYSTEM MADE."""
+    if systems.on_mac():
+        return "Open him from Spotlight, or from Applications."
+
+    if systems.on_windows():
+        return "He is in the Start menu."
+
+    return "He is in your applications."
+
+
 def report():
     """WHAT IS STILL WRONG, OR HOW TO START HIM."""
     if not amiss:
-        saying.title("Happy is ready. Start him with:\n\n    python main.py")
+        saying.title(f"Happy is ready. {opening()}")
 
         return True
 
