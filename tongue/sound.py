@@ -142,7 +142,8 @@ def aloud(audio):
 
 def fetch():
     """THE THREE FILES, OFF THE RELEASE. EIGHTY FIVE MEGABYTES, THE ONE TIME."""
-    import urllib.request
+    # requests CARRIES ITS OWN CERTIFICATES, AND urllib ON A PYTHON.ORG MAC HAS NONE.
+    import requests
 
     MODELS.mkdir(parents=True, exist_ok=True)
 
@@ -153,7 +154,13 @@ def fetch():
         # BESIDE IT, THEN MOVED: A DOWNLOAD CUT OFF HALFWAY MUST NOT LOOK LIKE A MODEL.
         half = part.with_suffix(part.suffix + ".part")
 
-        urllib.request.urlretrieve(f"{RELEASE}/{part.name}", half)
+        with requests.get(f"{RELEASE}/{part.name}", stream=True, timeout=30) as answer:
+            answer.raise_for_status()
+
+            with half.open("wb") as file:
+                for lump in answer.iter_content(chunk_size=1 << 20):
+                    file.write(lump)
+
         half.replace(part)
 
     return MODELS
