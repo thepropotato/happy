@@ -10,6 +10,7 @@ import webbrowser
 from pathlib import Path
 
 import httpx
+import psutil
 
 OURS = Path(__file__).resolve().parents[1]
 
@@ -39,7 +40,7 @@ WATCH_TRIES = 100
 
 ours = None
 noted = None
-tried = 0.0
+tried = None
 started = False
 seen = None
 told = None
@@ -124,18 +125,23 @@ def ensure():
     row = store.one(NAME)
 
     # NOBODY CONNECTED WHATSAPP, SO NOTHING OF OURS LINKS TO THEIR ACCOUNT.
-    if not row or not row["tools"]:
-        return False
+    wanted = bool(row and row["tools"])
 
     with lock:
+        # ONE WE STARTED AND STILL HOLD IS ALREADY THE ONE WE WANT.
         if alive():
             return True
 
-        # ONE SOMEBODY ELSE IS ALREADY RUNNING IS THEIRS, NOT OURS TO DOUBLE UP ON.
-        if answering():
-            return True
+        # NEVER TRIED IS NOT THE SAME AS TRIED AT THE MOMENT THE MACHINE CAME UP.
+        if tried is not None and time.monotonic() - tried < AGAIN_SECONDS:
+            return False
 
-        if time.monotonic() - tried < AGAIN_SECONDS:
+        # ANYTHING ELSE ON THE PORT OUTLIVED THE HAPPY THAT STARTED IT, AND SINCE
+        # ONLY ONE HAPPY EVER RUNS IT IS A LEFTOVER RATHER THAN SOMEBODY'S. IT GOES
+        # WHETHER OR NOT WE WANT ONE OF OUR OWN IN ITS PLACE.
+        clear()
+
+        if not wanted:
             return False
 
         return spawn()
@@ -184,8 +190,49 @@ def answering():
         return False
 
 
+def holding():
+    """WHOEVER IS LISTENING ON OUR PORT, WHICH ON THIS MACHINE ONLY A BRIDGE EVER IS."""
+    mine = os.getpid()
+    found = []
+
+    for proc in psutil.process_iter():
+        # THE PORT TABLE ITSELF WANTS ROOT, BUT A PROCESS OF OURS WILL SAY ITS OWN.
+        try:
+            if proc.pid == mine:
+                continue
+            for conn in proc.net_connections(kind="inet"):
+                if conn.status == psutil.CONN_LISTEN and conn.laddr and conn.laddr.port == PORT:
+                    found.append(proc)
+                    break
+        except Exception:
+            continue
+
+    return found
+
+
+def clear():
+    """PUT DOWN WHATEVER HOLDS THE PORT, SO A FRESH BRIDGE CAN HAVE IT."""
+    held = holding()
+
+    if not held:
+        return
+
+    # ASKED, NOT SHOT: THE BRIDGE WRITES ITS CHATS OUT ON THE WAY DOWN.
+    for proc in held:
+        try:
+            proc.terminate()
+        except Exception:
+            continue
+
+    for proc in psutil.wait_procs(held, timeout=GOODBYE_SECONDS)[1]:
+        try:
+            proc.kill()
+        except Exception:
+            continue
+
+
 def stop():
-    """PUT DOWN ONLY A BRIDGE WE STARTED. ONE SOMEBODY ELSE IS RUNNING IS THEIRS."""
+    """PUT THE BRIDGE DOWN: THE ONE WE HOLD, AND ANYTHING LEFT SITTING ON THE PORT."""
     global ours, seen
 
     seen = None
@@ -200,6 +247,10 @@ def stop():
                 here.wait(GOODBYE_SECONDS)
             except Exception:
                 here.kill()
+
+        # A BRIDGE THAT OUTLIVED THE HANDLE WE HAD ON IT STILL HAS TO GO, OR THE
+        # NEXT HAPPY INHERITS IT AND NOBODY EVER OWNS IT AGAIN.
+        clear()
 
         closed()
 
