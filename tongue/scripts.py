@@ -13,6 +13,9 @@ BLOCKS = {
 # ONE ENGLISH WORD IN A LONG HINDI SENTENCE IS STILL HINDI. HALF AND HALF IS NOT.
 CLEAR = 0.8
 
+# THE SCRIPTS A PLAIN ENGLISH VOICE CANNOT READ, HARDEST FIRST, FOR reading() BELOW.
+HARDEST = (TELUGU, HINDI)
+
 
 def which(character):
     point = ord(character)
@@ -55,6 +58,17 @@ def language(text):
     counts = tally(text)
 
     return max(counts, key=counts.get) if counts else ENGLISH
+
+
+def reading(text):
+    """THE LANGUAGE WHOSE VOICE CAN READ ALL OF THIS, WHICH IS NOT ALWAYS MOST OF IT.
+
+    ASKED TO READ A SCRIPT IT DOES NOT KNOW, A VOICE DOES NOT SKIP IT — IT SAYS THE NAME OF
+    THE LANGUAGE OUT LOUD BEFORE EVERY LETTER. AN INDIAN VOICE HANDED AN ENGLISH WORD READS IT
+    ANYWAY, SO ONE INDIAN WORD IN A MOSTLY ENGLISH SENTENCE DECIDES WHICH VOICE SPEAKS IT."""
+    counts = tally(text)
+
+    return next((code for code in HARDEST if counts.get(code)), ENGLISH)
 
 
 def share(text):
