@@ -81,8 +81,8 @@ def main():
     # SOMEBODY WHO HAS STARTED TALKING HAS STOPPED LISTENING.
     key = held(speaker)
 
-    # NOTHING IS LISTENED TO WHILE HAPPY IS THE LOUDEST THING IN THE ROOM.
-    waking = ears.Waking(recorder, busy=speaker.talking, key=key)
+    # THE ONLY WAY IN: NOTHING IS HEARD UNTIL THE KEY GOES DOWN.
+    holding = ears.Holding(recorder, key=key)
 
     brain.watches(show.step)
     brain.troubles(show.trouble)
@@ -95,23 +95,23 @@ def main():
         show.note(f"Threw away {thrown}")
 
     if windowed:
-        attend(happy, speaker, recorder, waking)
+        attend(happy, speaker, recorder, holding)
     else:
-        show.note(f"{inviting(waking, key)} Ctrl+C to quit.")
+        show.note(f"{inviting(key)} Ctrl+C to quit.")
 
         if key and key.deaf:
             show.note(ears.DEAF)
 
     try:
-        listen(waking, happy, speaker)
+        listen(holding, happy, speaker)
     except KeyboardInterrupt:
         show.note("\nBye")
     finally:
-        shut(speaker, recorder, waking)
+        shut(speaker, recorder, holding)
 
 
 def held(speaker):
-    """THE KEY HE ALSO WAKES TO, OR None WHERE THE OS WILL NOT HAND ONE OVER."""
+    """THE KEY HE WAKES TO, OR None WHERE THE OS WILL NOT HAND ONE OVER."""
     try:
         return ears.PushToTalk(on_press=speaker.stop)
     except Exception as error:
@@ -120,22 +120,22 @@ def held(speaker):
         return None
 
 
-def inviting(waking, key):
-    """THE TWO WAYS IN, IN WORDS, FOR SOMEBODY WHO HAS JUST STARTED HIM."""
-    said = f'Say "{waking.phrase()}"'
+def inviting(key):
+    """THE WAY IN, IN WORDS, FOR SOMEBODY WHO HAS JUST STARTED HIM."""
+    if not key:
+        return "Nothing can be heard without the key, so type to him."
 
-    return f"{said} or hold {key.key_name} to talk." if key else f"{said} to talk."
+    return f"Hold {key.key_name} to talk."
 
 
-def attend(happy, speaker, recorder, waking):
+def attend(happy, speaker, recorder, holding):
     """HAND THE WINDOW THE FEW THINGS ONLY THIS FILE CAN DO."""
-    key = waking.key
+    key = holding.key
 
-    # SENT AGAIN WHENEVER A KNOB MOVES: THE NAME HAPPY WAKES TO IS ONE OF THEM,
-    # AND A HINT STILL NAMING THE OLD ONE IS A HINT THAT IS WRONG.
+    # SENT AGAIN WHENEVER A KNOB MOVES: THE KEY HAPPY WAKES TO IS ONE OF THEM, AND
+    # A HINT STILL NAMING THE OLD ONE IS A HINT THAT IS WRONG.
     def ready():
         telling.ready(
-            wake=waking.phrase(),
             key=key.key_said if key else "",
             amiss=blocked() or (ears.DEAF if key and key.deaf else ""),
         )
@@ -146,7 +146,7 @@ def attend(happy, speaker, recorder, waking):
         preview=lambda name=None: preview(speaker, name),
         stop=lambda: stop_turn(happy, speaker),
         ready=ready,
-        quit=lambda: leave(speaker, recorder, waking),
+        quit=lambda: leave(speaker, recorder, holding),
     )
 
     ready()
@@ -239,10 +239,10 @@ def start():
     return happy, speaker
 
 
-def listen(waking, happy, speaker):
-    """ONE TURN PER LAP: HIS NAME, WHAT WAS ASKED, AN ANSWER."""
+def listen(holding, happy, speaker):
+    """ONE TURN PER LAP: THE KEY, WHAT WAS ASKED, AN ANSWER."""
     while True:
-        heard = waking.next()
+        heard = holding.next()
 
         if heard is None:  # NOBODY SAID ANYTHING. GO ROUND, SO CTRL+C LANDS.
             continue
@@ -333,17 +333,17 @@ def respond(happy, speaker, speech, audio=None):
         show.trouble(error)
 
 
-def shut(speaker, recorder, waking):
+def shut(speaker, recorder, holding):
     mcps.stop()  # BEFORE THE REST: IT IS THE ONLY PART THAT OWNS OTHER PROCESSES.
-    waking.stop()  # BEFORE THE RECORDER, WHOSE BLOCKS IT IS STILL BEING HANDED.
+    holding.stop()  # BEFORE THE RECORDER, WHICH IT MAY BE PART WAY THROUGH A TAKE ON.
     speaker.close()
     recorder.close()
     log.closed()  # LAST, SO ANYTHING THE REST OF THIS SAID IS IN THERE.
 
 
-def leave(speaker, recorder, waking):
+def leave(speaker, recorder, holding):
     """THE WINDOW ASKED US TO GO, AND THE MAIN THREAD IS SAT WAITING TO BE SPOKEN TO."""
-    shut(speaker, recorder, waking)
+    shut(speaker, recorder, holding)
     os._exit(0)
 
 

@@ -113,12 +113,6 @@ def transcribe(audio_file):
     return heard
 
 
-def quickly(source):
-    """ONE PASS AND NO LANGUAGE HUNTING, FOR WHERE ONLY THE WORDS MATTER AND THE SCRIPT
-    THEY LAND IN DOES NOT. THE GENERAL MODEL IS ALREADY LOADED, SO THIS COSTS ONE DECODE."""
-    return clean(load_model("auto").recognize(str(source)) or "")
-
-
 def settled(audio_file, found):
     """AN INDIAN SCRIPT ON THE PAGE ALREADY SAYS THIS WAS NOT ENGLISH, AND THAT IS THE ONE
     PLACE THE SOUND JUDGES BETTER THAN THE WRITING: ASKED FOR TELUGU WITHOUT BEING TOLD,

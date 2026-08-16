@@ -38,11 +38,6 @@ def transcribe(audio_file, engine=None):
     return part(engine).transcribe(audio_file)
 
 
-def quickly(audio_file, engine=None):
-    """READ ONCE, AS FAST AS THIS ENGINE CAN. FOR A LOOK, NOT FOR AN ANSWER."""
-    return part(engine).quickly(audio_file)
-
-
 def warm(engine=None):
     return part(engine).warm()
 
