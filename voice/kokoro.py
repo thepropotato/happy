@@ -5,6 +5,7 @@ import json
 import numpy as np
 
 import tongue
+from bones import systems
 from memory import settings
 from voice import engines, phonemes
 from voice.clips import resampled, tidied
@@ -108,8 +109,15 @@ def weights():
     if not whole():
         raise VoiceError(GET_THEM)
 
+    # LEFT TO ITSELF ONNXRUNTIME TAKES EVERY CORE THE MACHINE HAS, WHICH ON THIS ONE IS SLOWER
+    # THAN TAKING THE FAST ONES AND ERRATIC ENOUGH THAT THE SAME SENTENCE VARIES THREEFOLD.
+    options = onnxruntime.SessionOptions()
+    options.intra_op_num_threads = systems.cores()
+
     vocab = json.loads(VOCAB.read_text(encoding="utf-8"))
-    session = onnxruntime.InferenceSession(str(MODEL), providers=["CPUExecutionProvider"])
+    session = onnxruntime.InferenceSession(
+        str(MODEL), options, providers=["CPUExecutionProvider"]
+    )
     loaded = (session, vocab)
 
     return loaded

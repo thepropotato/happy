@@ -9,6 +9,9 @@ import sys
 MACOS = "darwin"
 WINDOWS = "win32"
 
+# WHAT A MAC CALLS THE COUNT OF ITS FAST CORES. AN INTEL ONE HAS NO SUCH SPLIT AND NO SUCH KEY.
+FAST_CORES = "hw.perflevel0.logicalcpu"
+
 # WHAT EACH SYSTEM INSTALLS WITH, IN THE ORDER WE WOULD RATHER USE THEM.
 MANAGERS = {
     MACOS: [("brew", ["brew", "install"])],
@@ -41,6 +44,22 @@ def on_mac():
 
 def on_windows():
     return sys.platform == WINDOWS
+
+
+def cores():
+    """HOW MANY CORES TO RUN A MODEL ON: THE FAST ONES WHERE THE MACHINE TELLS THEM APART, AND
+    ALL OF THEM WHERE THEY ARE ALL ALIKE.
+
+    A MAC'S SLOW CORES COUNT AS CORES AND ARE THEN HANDED AN EQUAL SHARE OF EVERY BATCH THE
+    FAST ONES HAVE TO WAIT ON, SO A SESSION GIVEN ALL TWELVE RUNS AT A THIRD OF THE SPEED OF
+    ONE GIVEN THE EIGHT THAT CAN KEEP UP, AND IS ERRATIC WITH IT."""
+    if on_mac():
+        counted = output(["sysctl", "-n", FAST_CORES])
+
+        if counted.isdigit():
+            return int(counted)
+
+    return os.cpu_count() or 1
 
 
 def manager():
