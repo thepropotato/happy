@@ -121,8 +121,16 @@ def open_path(path: str) -> str:
 def open_url(url: str, because: Literal[SEEING, CHECKING]) -> str:
     """Open a web address in the browser the user already uses, exactly as if
     they had clicked the link themselves. Use this for anything on the web that
-    an address alone will reach: a site, a video, a search, a web app. Accepts
-    "youtube.com" or a full address.
+    an address alone will reach: a site, a video, a page, a web app.
+
+    Give it an address you have actually read: one search_web printed beside a
+    result, one a tool handed you, one they said out loud, or a site's own name
+    like "youtube.com". Never write out the rest of an address yourself. You are
+    not told any site's ids, so "youtube.com/watch?v=" and everything after it is
+    something only a search result can tell you, and an address you finish off by
+    hand opens somebody else's page while you tell them it is the one they asked
+    for. To play or show one particular thing, search_web for it first and open
+    the address that came back with it.
 
     "because" takes one of two words and nothing else. Say "show" when they
     asked for the page itself, to watch or read or use, and it lands on their

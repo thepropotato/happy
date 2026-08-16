@@ -194,7 +194,9 @@ def already_open(about: str, because: Literal[SEEING, CHECKING]) -> str:
     of what comes back and leave their screen alone. Asking about something is
     not asking to be shown it.
 
-    If nothing comes back, go and open or search for it as normal."""
+    If nothing comes back, it is not open: search_web for it and open the address
+    that came back with it. Do not go straight to open_url with an address you
+    wrote yourself out of what they called it."""
     if not about.strip():
         return "Say what to look for."
 

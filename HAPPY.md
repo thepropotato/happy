@@ -764,6 +764,28 @@ window signed in to nothing. A Chromium started with no profile flag uses the on
 with and forwards the address to that window when it is already open. Safari, Firefox and
 unknown platforms fall back to the system opener.
 
+**The docstring is where an invented address gets stopped, because the docstring is what
+invited it.** Asked to play a song, the model called `already_open`, found nothing and went
+straight to `youtube.com/watch?v=example` — it has never been told a video's id, so it filled
+the slot with the word that fills slots and then said the song was playing. The prompt said
+twice to search first and it was not read at the moment of the call; what *was* read was this
+tool's own description, which offered **"a video, a search"** and *"accepts a full address"*.
+That is an instruction, the same way `open_app`'s **"Safari"** was. So the description now
+says where an address may come from — a search result, a tool, their own mouth, or a site's
+bare name — and `already_open` ends on *search and open what comes back* rather than "open or
+search for it as normal", which is the fork it took.
+
+**Tried and rejected: checking the address exists first.** A fetch before handing it to the
+browser would catch a made-up id in general rather than one shape of it, and it does not
+work: `youtube.com/watch?v=example` answers **200**. The page is a script shell that only
+says the video is gone once it runs, and this is the same wall `pages.py` documents. **Tried
+and rejected: remembering every address a tool handed over** and refusing any other. It works
+— a search result and the address opened out of it reduce to the same thing — but it is a
+module, a store and a hook in `keep_record` to enforce one sentence, and every tool that ever
+returns a link has to feed it. **Tried and rejected: a list of stand-in words** (`example`,
+`VIDEO_ID`, `xxxx`): that is fitted to the one token this model happened to write, and it
+never catches a plausible id.
+
 **Do not test this on the exit code.** Opera prints `Opening in existing browser session.`
 and exits **24** having done exactly what was asked. A browser that genuinely could not open
 the page says so on stderr, so that is what `released()` in `hands/apps/running.py` checks. A
