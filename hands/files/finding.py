@@ -15,6 +15,8 @@ AVOID = {
 MAX_DEPTH = 4
 MAX_HITS = 12
 
+DOWNLOADS = "Downloads"
+
 
 def home():
     return Path.home()
@@ -104,6 +106,33 @@ def locate(where):
         return hits[0], f"Several matched, reading the first. Others: {listing}"
 
     return hits[0], None
+
+
+def folder(where):
+    """THE FOLDER MEANT BY where, MADE IF NEED BE, AND DOWNLOADS WHEN NOBODY SAID."""
+    said = (where or "").strip() or DOWNLOADS
+    named = Path(said).expanduser()
+
+    if named.is_dir():
+        return named
+
+    # A BARE NAME IS A FOLDER TO GO LOOKING FOR. A PATH IS A PLACE THEY SPELLED OUT, AND
+    # GOING LOOKING FOR THAT IS HOW SOMETHING LANDS SOMEWHERE NOBODY ASKED FOR.
+    if len(named.parts) == 1 and not named.is_absolute():
+        named = home() / named
+
+        if named.is_dir():
+            return named
+
+        hits = dig(said)
+        exact = [each for each in hits if each.name.lower() == said.lower()]
+
+        if hits:
+            return (exact or hits)[0]
+
+    named.mkdir(parents=True, exist_ok=True)
+
+    return named
 
 
 def describe(path):
