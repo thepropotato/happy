@@ -1378,6 +1378,68 @@ end on real UI — Finder and System Settings — including the greyed-out refus
 target, and the honest failure report above. The thin-tree fallback is proven against VS Code.
 **Every Windows path is written and unrun.**
 
+## Which project they are working in
+
+Asked how many commits he had made today, Happy ran `git rev-list --count` in the home folder,
+was told it was not a repository, listed the home folder, and gave up. Told the project was the
+one he was working in, he called `current_activity`, got back **"Code is in front, and the
+window is *Evaluate wakeword vs pus… — happy*"** — the name of the folder sitting right there in
+the title — and then ran `pwd` in the home folder as if that were an answer to where somebody
+works. It took being told *the project inside VS Code, not VS Code* before he found it, and he
+found it by listing Documents, then Desktop, then `Desktop/projects`, one after another in front
+of the person who already knew.
+
+**A window title is a name. It is not a path, and a path is what every other tool needs.** That
+is the whole of what was missing, and it was never a question about code: a PDF open in Preview,
+a letter in Word, a picture in an image viewer are all the same sentence — *send this one*, *read
+this one*, *what is in here* — and all of them die on the same step. So the piece that fills it
+is `hands/files/infront.py` and the tool is **`file_in_front`**, which answers for anything open,
+and the project half is one of its answers rather than its purpose.
+
+**Two ways to find out, and the good one is asking.** macOS will tell you outright: a window's
+`AXDocument` is the `file://` address of what it is showing, so Preview, TextEdit, Word and Pages
+hand over the exact file and nothing is searched for at all. `eyes.attention.document()` is that
+question. Only when it comes back with nothing is the title read instead: split on what an
+application puts between a file, a folder and its own name — the em dash VS Code uses, the en
+dash JetBrains uses, the ` - ` Windows spells it with, brackets, parens, the ● that means unsaved
+— and each piece looked for on the disk. A piece with a suffix is looked for as a file, one
+without as a folder, and a folder holding a `.git` beats one that merely has the right name.
+
+**An Electron window answers `AXDocument` with an empty string**, so every VS Code-shaped editor
+takes the title route no matter what, and **Windows has no such property at all** — there the
+title is the only route. That half is written and unrun.
+
+The last piece of a title is tried first, because that is where VS Code puts the folder, and the
+first is tried next, because that is where JetBrains puts it. Pieces that could not name anything
+never cost a walk round the disk: the application's own name, `(Workspace)`, and above all a
+piece ending in `…`, which is a title bar running out of room and never the name of a real file.
+Only the front window is worth the whole search; the ones behind it are looked up **only when
+their title plainly names a file**, which is what keeps "the PDF behind the editor" cheap and
+stops a browser tab's title being hunted across the disk. Browsers are skipped outright and say
+so: a page is not a file, `already_open` reads tabs and `download` is what puts one on the disk.
+
+**What it adds over what was already there is the exact path and the project.** `read_file` and
+`attach_file` have always taken a bare name and found it themselves through `locate`, so a file
+with a distinctive name was already reachable. What they cannot do is tell two files of the same
+name apart, or name the folder a command has to run in. That is this.
+
+### The name was the whole fight
+
+It was `current_project` first, and asked how many commits were made today it worked five times
+out of five. Widened to cover documents it was renamed `whats_open` — and Happy **stopped calling
+it entirely**. He reached for `current_activity` instead, got the title, and invented
+`~/happy` and `/Users/me/happy` out of it: the original failure, back verbatim, from a rename.
+
+Two things fixed it. The name became `file_in_front`, which says *path* rather than *open* and
+stops colliding with `current_activity` and `already_open`, and **`current_activity`'s own
+docstring now hands off** — it says in as many words that it gives a name and never a location,
+and that working a path out of a title is making one up. That is the one the model actually
+reaches for, so that is where the signpost has to be. Back to three out of three, in two calls.
+
+**A tool nobody picks is worth nothing, and what gets it picked is the name and a handoff from
+the tool it is being confused with.** Not the docstring on the tool itself, which is only read
+once it has already been chosen.
+
 ## The shell tool
 
 `run_command` is the widest thing Happy has and the one holding the knife. A misheard word is
@@ -1388,6 +1450,37 @@ how what it printed comes back. There is no list of dangerous shapes and no gate
 `sudo`, piping the internet into a shell: all of it runs the moment the model asks for it.
 Happy is autonomous by design, and that is the trade the design makes. Do not add a capability
 that assumes something downstream is checking.
+
+**A date written into a command is a fact he was never given.** Asked how many commits were made
+today, he wrote `--since=2024-08-16` — the right day of the right month, two years out, because
+he was working the year out rather than asking for it. `where_we_are` was sitting there and he
+did not call it. Asked afterwards what day it was he called it, said the sixteenth of August
+2026 correctly, and still did not connect the two until he was walked into it.
+
+Getting the year right would not have saved him. **`--since=2026-08-16` returns zero.** git reads
+a bare date as that date *at the current hour*, so at 23:01 it means "since eleven tonight", and
+the answer is a plausible small number for a day with 34 commits in it. A wrong date fails
+loudly; a bare one fails quietly, which is worse. So the rule in the docstring is the general
+one — **you are not told what day it is, so say when you mean in words the command works out for
+itself** — and where a real date cannot be avoided it comes from `where_we_are`.
+
+**What is deliberately not in that docstring.** It briefly listed the git spellings — `--since=
+midnight`, `--since=yesterday`, `--since="1 week ago"` — and named `git rev-list --count HEAD` as
+the way to count, because `git shortlog` and `git log | wc` print nothing at all when they were
+not handed `HEAD` and nothing reads as none. All of it went. Stripped back to the general rule
+and asked the same question three times, he reached for `--since=midnight` himself every time
+and answered 34 every time: the menu was teaching him what he already knew, on every turn, in a
+docstring the model reads whether or not anybody is asking about git. **A docstring is prompt
+paid for on every turn, so a line in one has to fix something the model gets wrong without it.**
+
+What that stripping does cost is the wider question. "This week" comes back right about half the
+time, and when it is wrong it is not git knowledge that failed — he wrote `--since=last%20week`,
+a percent-encoded space that git could not read, so the filter was dropped and every commit in
+the repository was counted. The same slip in the other direction is `directory="$(current_project)"`,
+which he writes on the first try nearly every time, is told there is no folder by that name, and
+recovers from in one call. **Both are the model quoting badly, not the model not knowing git**,
+and neither is worth a shape list in `guard.py` — that file has no list of shapes on purpose and
+this is not the reason to start one.
 
 ## The machine's own settings
 

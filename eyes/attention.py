@@ -148,6 +148,53 @@ def windows():
     return ahead + behind
 
 
+def document(handle=None):
+    """THE FILE A WINDOW IS SHOWING, AS A PATH, ASKED OF THE APPLICATION ITSELF.
+
+    A TITLE IS THE NAME OF A FILE AND NOT WHERE IT IS, SO ANYTHING THAT WANTS TO
+    SEND, READ OR ATTACH WHAT IS OPEN HAS TO GO LOOKING FOR IT ON THE DISK. THIS
+    IS THE ANSWER WITHOUT THE LOOKING, WHEREVER THE APPLICATION WILL GIVE IT.
+    """
+    if handle is None:
+        handle = front()[1]
+
+    if handle is None:
+        return None
+
+    if on_mac():
+        return mac_document(handle)
+
+    # WINDOWS HAS NO PROPERTY FOR THIS. WHAT THE WINDOW IS CALLED IS ALL THERE IS.
+    return None
+
+
+def mac_document(handle):
+    """THE FOCUSED WINDOW'S AXDocument. AN ELECTRON APP HANDS BACK AN EMPTY ONE."""
+    try:
+        from ApplicationServices import AXUIElementCreateApplication
+
+        from eyes.systems import mac_attribute
+    except ImportError:
+        return None
+
+    app = AXUIElementCreateApplication(handle)
+    window = mac_attribute(app, "AXFocusedWindow") or mac_attribute(app, "AXMainWindow")
+
+    return filed(mac_attribute(window, "AXDocument")) if window is not None else None
+
+
+def filed(said):
+    """A file:// ADDRESS AS A PATH ON THIS DISK, OR None WHEN IT IS NEITHER."""
+    from urllib.parse import unquote, urlparse
+
+    said = str(said or "")
+
+    if not said.startswith("file://"):
+        return None
+
+    return unquote(urlparse(said).path) or None
+
+
 def titled(handle, name):
     """THE FRONT WINDOW'S TITLE, ASKED OF THE APPLICATION RATHER THAN OF THE SCREEN."""
     try:

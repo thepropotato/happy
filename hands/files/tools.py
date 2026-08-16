@@ -5,14 +5,83 @@ from pathlib import Path
 from langchain_core.tools import tool
 
 from hands import reasons
+from hands.files import infront
 from hands.files.finding import describe, hunt, locate
 from hands.files.readers import UNREADABLE, extract
 
 MAX_CHARS = 40000
 
+FRONT = "{app} is in front with {what}, at {path}."
+
+BEHIND = "Also open: {app} with {what}, at {path}."
+
+FOLDER = "the project {name}"
+
+INSIDE = " It is in the project {name}, at {project}."
+
+REPO = " It is a git repository."
+
+# HOW MANY OF THE THINGS OPEN BEHIND THE FRONT ONE ARE WORTH NAMING.
+MOST_BEHIND = 2
+
 CUT = "\n\n[...cut. Ask again with start set past here to read on.]"
 
 MAX_ENTRIES = 200
+
+
+@tool
+def file_in_front() -> str:
+    """What this person has open in front of them, as a real path on this
+    computer: the file itself, and the project folder it sits in.
+
+    Call this the moment they say this, that, it, the one I have open, the one
+    I am looking at, or the one I am working on, about anything that lives on
+    the disk. Send this to Ravi, attach it, read it back to me, how many commits
+    have I made today, what has changed in here — all of them are about a thing
+    on the screen that every other tool needs as a path, and the name on a window
+    is not a path.
+
+    A file goes straight to read_file, attach_file or download. A project folder
+    goes to run_command as directory, which otherwise runs in their home folder
+    and answers about nothing. Their editor, their PDF, their document: this is
+    the same question for all of them.
+
+    Never go looking for it yourself. Listing Desktop and Documents one folder
+    after another to guess which one they meant is not looking, it is searching
+    in front of somebody who already knows, and the folder you settle on is a
+    guess you will not mention. When this cannot tell, ask them which one they
+    mean and use the path they say.
+
+    This is where a thing is. current_activity is what they are doing and is
+    the one to use when you were asked a question to answer out loud, not asked
+    to go and do something with the file."""
+    found, complaint = infront.settled()
+
+    if not found:
+        return reasons.no(complaint)
+
+    app, path, project = found[0]
+    whole = path.is_dir()
+    said = FRONT.format(
+        app=app,
+        what=FOLDER.format(name=path.name) if whole else path.name,
+        path=path,
+    )
+
+    # THE FOLDER A FILE SITS IN IS WHAT EVERY COMMAND ABOUT IT NEEDS, AND A TITLE
+    # NEVER SAYS IT.
+    if project is not None and not whole:
+        said += INSIDE.format(name=project.name, project=project)
+
+    if project is not None and (project / ".git").exists():
+        said += REPO
+
+    behind = [
+        BEHIND.format(app=name, what=other.name, path=other)
+        for name, other, _ in found[1:][:MOST_BEHIND]
+    ]
+
+    return "\n".join([said, *behind])
 
 
 @tool
@@ -89,4 +158,4 @@ def list_folder(path: str = "~") -> str:
     return "\n".join(f"{p.name}/" if p.is_dir() else describe(p) for p in shown[:MAX_ENTRIES])
 
 
-TOOLS = [read_file, find_files, list_folder]
+TOOLS = [file_in_front, read_file, find_files, list_folder]

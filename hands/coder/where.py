@@ -2,13 +2,7 @@
 
 from pathlib import Path
 
-from hands.files import finding
-
-# WHAT MAKES A FOLDER SOMEBODY'S PROJECT AND NOT JUST A FOLDER.
-MARKS = [
-    ".git", "package.json", "pyproject.toml", "Cargo.toml", "go.mod",
-    "requirements.txt", "pom.xml", "Gemfile", "CMakeLists.txt", "Makefile",
-]
+from hands.files.projects import pick
 
 NOWHERE = (
     "There is no project called {name} anywhere I looked. If this is new work, ask"
@@ -55,20 +49,3 @@ def made(path):
         return None, f"Could not make {path}. {error}"
 
     return path, None
-
-
-def pick(wanted):
-    """THE LIKELIEST FOLDER OF THAT NAME, OR None IF NOTHING GOES BY IT."""
-    hits = finding.dig(wanted)
-
-    return sorted(hits, key=lambda path: rank(path, wanted))[0] if hits else None
-
-
-def rank(path, wanted):
-    """LOWER IS LIKELIER: A PROJECT BEFORE A FOLDER, THE WHOLE NAME BEFORE A PIECE OF IT."""
-    return (not looks(path), path.name.lower() != wanted.lower(), len(path.parts))
-
-
-def looks(path):
-    """WHETHER ANYONE WOULD CALL THIS FOLDER A PROJECT."""
-    return any((path / mark).exists() for mark in MARKS)

@@ -107,6 +107,12 @@ def current_activity() -> str:
     reads browser tabs, which no window title shows. When a title is too little
     to go on, read_screen next.
 
+    This says what a thing is called and never where it is. A title is a name,
+    not a path, and a name is no use to anything that has to open, read, send or
+    attach the thing, or run a command inside the project it belongs to. The
+    moment that is what you are doing, file_in_front is the one that answers it.
+    Working a path out yourself from a name in a title is making one up.
+
     The title is usually the specific thing: the file, the page, the video, the
     person being written to. Say what it actually is. It often carries a season
     and an episode, or a page and a chapter — that is where they are up to, not

@@ -24,7 +24,19 @@ def run_command(command: str, directory: str = "") -> str:
     Use this for anything the other tools do not already cover: reading files,
     searching, checking what is running, moving things around. Do not use it to
     launch an app, open a folder, or change the volume, brightness, or anything
-    else about the machine's settings, there are tools for those."""
+    else about the machine's settings, there are tools for those.
+
+    Anything about this person's own project or repository has to run in the
+    folder that project lives in, and the home folder this otherwise starts in
+    is never it. Call file_in_front and pass the project it names as directory.
+    Running pwd or cd tells you where this tool starts, never where they are
+    working, and a git command in the wrong folder does not fail quietly, it
+    answers about a different thing.
+
+    Never write a date or a time into a command. You are not told what day it
+    is, so one you worked out yourself is a guess. Say when you mean in the words
+    the command works out for itself, and where it has to be a real date, get it
+    from where_we_are."""
     where = str(Path(directory).expanduser()) if directory else HOME
 
     if not Path(where).is_dir():
