@@ -19,7 +19,6 @@ APPLICATIONS = Path("/Applications")
 APP = APPLICATIONS / f"{NAME}.app"
 
 WINDOW = packages.HAPPY / "face" / "window"
-ELECTRON = WINDOW / "node_modules" / "electron" / "dist" / "Electron.app"
 
 # WITHOUT A REASON WRITTEN DOWN FOR EACH ONE, MACOS KILLS THE APP THE MOMENT IT ASKS.
 REASONS = {
@@ -70,7 +69,9 @@ def build():
 
 def mac():
     """ELECTRON'S OWN BUNDLE, RENAMED AND POINTED AT HAPPY."""
-    if not ELECTRON.is_dir():
+    source = packages.electron()
+
+    if not source.is_dir():
         return None, "the window has no Electron yet"
 
     if not APPLICATIONS.is_dir():
@@ -78,7 +79,7 @@ def mac():
 
     try:
         shutil.rmtree(APP, ignore_errors=True)
-        shutil.copytree(ELECTRON, APP, symlinks=True)
+        shutil.copytree(source, APP, symlinks=True)
     except OSError as error:
         return None, f"could not write into /Applications ({error})"
 
@@ -194,7 +195,12 @@ def sealed(what):
 
 def windows():
     where = menu() / f"{NAME}.lnk"
-    icon = icons.made(packages.HAPPY / "face" / "window" / "assets" / "happy")
+
+    # INTO data/, WHICH GIT ALREADY IGNORES: A BUILT ICON IS NOT SOMETHING TO COMMIT.
+    made = packages.HAPPY / "data"
+    made.mkdir(parents=True, exist_ok=True)
+
+    icon = icons.made(made / "happy")
 
     if icon is None:
         return None, "the icon could not be made"
@@ -223,7 +229,7 @@ def menu():
 
 
 def electron_exe():
-    return WINDOW / "node_modules" / "electron" / "dist" / "electron.exe"
+    return packages.electron()
 
 
 # ── LINUX ──

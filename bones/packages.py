@@ -131,12 +131,24 @@ def install():
     )
 
 
+ELECTRON = WINDOW / "node_modules" / "electron"
+
+
+def electron():
+    """THE ELECTRON THE WINDOW ACTUALLY STARTS, WHICH IS NOT THE SAME AS THE PACKAGE."""
+    binary = "electron.exe" if systems.on_windows() else "Electron.app"
+
+    return ELECTRON / "dist" / binary
+
+
 def window_ready():
-    return (WINDOW / "node_modules" / ".bin").exists()
+    # NOT node_modules, AND NOT THE PACKAGE EITHER: npm HAPPILY LEAVES BOTH OF THOSE
+    # BEHIND WITH AN EMPTY dist, AND AN EMPTY dist IS NO WINDOW AT ALL.
+    return electron().exists()
 
 
 def window():
-    """npm install, IN THE FOLDER THE WINDOW LIVES IN."""
+    """npm install, IN THE FOLDER THE WINDOW LIVES IN, AND THE BINARY IT FORGETS."""
     npm = systems.found("npm")
 
     if not npm:
@@ -149,7 +161,25 @@ def window():
 
     try:
         finished = subprocess.run([npm, "install"], cwd=WINDOW, env=clean, check=False)
-
-        return finished.returncode == 0
     except (OSError, subprocess.SubprocessError):
         return False
+
+    if finished.returncode != 0:
+        return False
+
+    return window_ready() or fetch_electron(clean)
+
+
+def fetch_electron(clean):
+    """THE HUNDRED MEGABYTES OF ELECTRON, WHICH npm SOMETIMES DECIDES NOT TO GO AND GET.
+
+    Its postinstall is what downloads the binary, and a run that skips it still reports
+    success and still leaves node_modules looking finished, with dist empty inside.
+    """
+    node = systems.found("node")
+    getting = ELECTRON / "install.js"
+
+    if not node or not getting.exists():
+        return False
+
+    return systems.run([node, str(getting)], quiet=False) and window_ready()
