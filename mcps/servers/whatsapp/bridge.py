@@ -78,6 +78,15 @@ QR_FIRST = 60
 QR_LATER = 20
 QR_SLACK = 10
 
+# HOW LONG THE SOCKET HAS TO STAY SHUT BEFORE THE RUN COUNTS AS OVER, SINCE A
+# PAIRING SHUTS IT TOO AND COMES BACK LOGGED IN A SECOND OR TWO LATER.
+QR_GRACE = 5
+
+# HOW OFTEN THE CODE ON SCREEN IS CHECKED, AND HOW LONG A HIT ON THE PAGE COUNTS
+# AS SOMEBODY STILL STANDING THERE WITH THEIR PHONE OUT.
+QR_EVERY = 1
+QR_WATCHED = 120
+
 # WHAT A RESTART OPENS WITH, IN THE USER'S OWN FOLDER SO UNLINKING TAKES IT TOO.
 CACHE = "cache.json"
 
@@ -279,6 +288,8 @@ class Session:
         self.qr_data = None
         self.qr_at = 0
         self.qr_life = QR_FIRST
+        self.qr_shut = 0
+        self.qr_seen = 0
 
         self.contacts = []
         self.chats = []
@@ -1442,6 +1453,7 @@ def start_session(session):
     # A NEW RUN, SO THE CODE IT OPENS WITH IS A FIRST ONE AND GETS THE MINUTE.
     session.qr_at = 0
     session.qr_life = QR_FIRST
+    session.qr_shut = 0
     if not os.path.exists(session.db_path):
         logger.info(f"[start_session] user={user} db missing, downloading from S3...")
         t0 = time.monotonic()
@@ -1665,9 +1677,12 @@ def sync_status(username):
 @app.get("/<username>/qr")
 def qr(username):
     s = get_session(username)
+    # THE PANEL POLLS THIS WHILE IT SAYS IT IS WAITING FOR A SCAN, WHICH IS
+    # SOMEBODY WATCHING JUST AS MUCH AS THE PAGE IS.
+    s.qr_seen = time.time()
     if s.authenticated or s.connected:
         return jsonify({"status": "connected", "qr": None})
-    if s.qr_data:
+    if s.qr_data and talking(s):
         return jsonify({"status": "waiting", "qr": s.qr_data})
     return jsonify({"status": "loading", "qr": None})
 
@@ -1692,9 +1707,47 @@ LINKED_BODY = """<h2>WhatsApp is linked</h2>
 <p>You can close this tab and go back to Happy.</p>"""
 
 
+def talking(session):
+    """WHETHER THE SOCKET THAT HANDED OUT THE CODE ON SCREEN IS STILL OPEN."""
+    client = session.client
+
+    if client is None:
+        return False
+
+    try:
+        return bool(client.is_connected)
+    except Exception as e:
+        # A CLIENT THAT CANNOT BE ASKED IS LEFT TO THE CLOCK IN stale(), AND SAYS
+        # SO, BECAUSE FALLING BACK QUIETLY IS HOW THIS WENT UNNOTICED BEFORE.
+        logger.warning(f"[qr] user={session.username} socket could not be asked: {e}")
+
+        return True
+
+
+def shut_for(session):
+    """HOW LONG THE SOCKET HAS BEEN SHUT, TIMED FROM WHEN IT WAS FIRST FOUND SO."""
+    if talking(session):
+        session.qr_shut = 0
+
+        return 0
+
+    if not session.qr_shut:
+        session.qr_shut = time.time()
+
+    return time.time() - session.qr_shut
+
+
 def stale(session):
     """TRUE WHEN THE CODE ON SCREEN IS ONE NOBODY CAN SCAN ANY MORE."""
-    return bool(session.qr_data) and time.time() - session.qr_at > session.qr_life + QR_SLACK
+    if not session.qr_data:
+        return False
+
+    # WHATSAPP SHUTS THE SOCKET THE MOMENT IT GIVES UP ON A RUN, WHICH SAYS THE
+    # CODES ARE DEAD SOONER AND SURER THAN ANY GUESS OFF THE CLOCK.
+    if shut_for(session) > QR_GRACE:
+        return True
+
+    return time.time() - session.qr_at > session.qr_life + QR_SLACK
 
 
 def renew(session):
@@ -1711,10 +1764,32 @@ def renew(session):
         start_session(session)
 
 
+def scannable():
+    """THE RUN KEPT ALIVE WHILE SOMEBODY IS WATCHING, WHATEVER THEIR TAB IS DOING."""
+    # A BACKGROUNDED TAB HAS ITS META REFRESH THROTTLED TO A MINUTE OR MORE, AND
+    # RENEWING ONLY WHEN THE PAGE ASKED LEFT A DEAD CODE UP FOR ALL OF IT.
+    while True:
+        time.sleep(QR_EVERY)
+
+        for session in list(sessions.values()):
+            try:
+                if time.time() - session.qr_seen > QR_WATCHED:
+                    continue
+
+                if session.authenticated or session.connected:
+                    continue
+
+                if stale(session):
+                    renew(session)
+            except Exception as e:
+                logger.warning(f"[qr] user={session.username} could not be renewed: {e}")
+
+
 @app.get("/<username>/scan")
 def scan(username):
     """THE QR AS A PAGE, FOR A BROWSER RATHER THAN FOR THE PANEL."""
     s = get_session(username)
+    s.qr_seen = time.time()
 
     if s.authenticated or s.connected:
         return SCAN_PAGE.format(refresh="", body=LINKED_BODY)
@@ -1724,7 +1799,9 @@ def scan(username):
     elif not (s.client and s.connect_thread and s.connect_thread.is_alive()):
         start_session(s)
 
-    body = WAITING_BODY.format(qr=s.qr_data) if s.qr_data else STARTING_BODY
+    # A CODE WHOSE SOCKET HAS GONE IS TAKEN OFF THE PAGE THE SECOND IT DIES,
+    # RATHER THAN LEFT UP FOR THE GRACE renew() SPENDS MAKING SURE.
+    body = WAITING_BODY.format(qr=s.qr_data) if s.qr_data and talking(s) else STARTING_BODY
 
     return SCAN_PAGE.format(refresh='<meta http-equiv="refresh" content="2">', body=body)
 
@@ -2581,5 +2658,6 @@ if __name__ == "__main__":
 
     cleanup_stale_files()
     threading.Thread(target=periodic_persist, daemon=True).start()
+    threading.Thread(target=scannable, daemon=True).start()
     pass
     app.run(host="127.0.0.1", port=PORT, threaded=True)
