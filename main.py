@@ -8,7 +8,7 @@ from pathlib import Path
 from face import silence
 
 SERVE = "--serve"  # THE WINDOW PASSES THIS TO THE HAPPY IT STARTS.
-TERMINAL = "--terminal"  # NO WINDOW AT ALL: SAY HIS NAME AT A PROMPT.
+TERMINAL = "--terminal"  # NO WINDOW AT ALL: HOLD THE KEY AT A PROMPT.
 
 WINDOW = Path(__file__).resolve().parent / "face" / "window"
 

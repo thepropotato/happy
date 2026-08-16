@@ -23,7 +23,7 @@ When a design choice is genuinely close, pick the one Happy would make.
 
 ## What this is
 
-A voice assistant that operates this computer. Say his name, say what you want, it happens.
+A voice assistant that operates this computer. Hold the key, say what you want, it happens.
 It runs entirely on your machine — the speech recognition, the model, the tools. Nothing
 leaves the box.
 
@@ -33,7 +33,7 @@ not finished.
 ## How one turn works
 
 ```
-  say his name ─► record ─► transcribe ─► think ─► speak
+  hold the key ─► record ─► transcribe ─► think ─► speak
       ears          ears        ears       brain    voice
                                              │
                                              ▼
@@ -41,14 +41,14 @@ not finished.
                                       (tools it calls)
 ```
 
-1. `ears/waking.py` listens to the room the whole time. Loudness decides where an utterance
-   starts and stops; the speech model that is already loaded reads it and decides whose it
-   was. Everything not addressed to Happy by name is transcribed, thrown away and deleted.
-   Nothing is listened to while Happy is talking — the microphone hears the speakers.
-2. `ears/microphone.py` keeps the microphone stream open for the life of the process and only
-   gates whether it *keeps* what it hears. Opening a device costs about a tenth of a second,
-   which is enough to swallow your first word. Each take is padded at both ends because
-   loudness only notices a voice once it is already under way.
+1. `ears/trigger.py` watches one modifier key from any window, and `ears/holding.py` turns a
+   press into a take: record while it is down, read what was said into it, hand it on. Nothing
+   is matched against a name, because holding a key is already somebody saying who they are
+   talking to.
+2. `ears/microphone.py` opens the device on the press and shuts it on the release. Between
+   takes there is no stream at all — no blocks arriving, no battery going on them, and the
+   system's own microphone light off, which is the honest answer to "is it listening". The
+   take is padded at the end only, since the front of it is the moment the key went down.
 3. `ears/transcribing.py` runs Parakeet locally through `onnx-asr`. The model is loaded and
    warmed at startup so the first take isn't the one that pays for it.
 4. `brain/thinking.py` runs the transcribed speech through the graph. The model may call
@@ -68,15 +68,16 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 
 | Folder | What it owns |
 | --- | --- |
-| `main.py` | The loop. His name, what was asked, an answer. Nothing else. |
+| `main.py` | The loop. The key, what was asked, an answer. Nothing else. |
 | `brain/thinking.py` | The graph. Speech in, spoken answer out, tools called along the way. |
 | `brain/wrapping.py` | What wraps every call: what goes in, what is kept, how long it took. |
 | `brain/model.py` | Which model, at which URL, with which settings. |
 | `brain/prompt.py` | What the model is told before it hears anything, read once from `prompt.md`. |
 | `prompt.md` | The wording itself, one section per block, editable without reading Python. |
 | `brain/providers.py` | The backends. One entry each, and the only file that knows a server's habits. |
-| `ears/waking.py` | The room, listened to, and the part of it that said his name. |
-| `ears/microphone.py` | Microphone capture, one WAV per take. |
+| `ears/trigger.py` | The hold to talk key, watched from any window. |
+| `ears/holding.py` | One press: record while it is down, read it, hand it on. |
+| `ears/microphone.py` | Microphone capture, one WAV per take, device open only while held. |
 | `ears/transcribing.py` | Speech to text. |
 | `voice/engines.py` | Which engine speaks, and loading only that one. |
 | `voice/kokoro.py` | The voice model itself. |
@@ -452,44 +453,40 @@ trimmed away. That orphan is an API error, not a degradation.
 
 ## The ears
 
-**He wakes to his name, and there is no second model for it.** A wake word engine would be one
-more thing to download and one more thing to be wrong about a language, and the speech model is
-loaded and warm anyway. So loudness decides where an utterance starts and stops and the speech
-model decides whose it was: `ears/waking.py` captures every run of sound in the room, transcribes
-it, and deletes the recording again unless the name was in it. `ears.level` is the line between
-the room and somebody talking, `ears.gap` is the silence that ends a take, and a take is capped
-at twenty seconds so a television left on is not an utterance.
-
-**The name is matched word by word, and the last word strictest of all.** Whisper writes "Hey,
-Happy." and returns "hay happy" as readily as "hey happy", so nothing is compared letter for
-letter. The front of the phrase is a greeting and is allowed to be well out; the end of it is the
-name, and it is the only part that says the phrase was meant for him — "make me happy" scores
-well against "hey happy" added up, and nobody in it said his name. Say the name with nothing
-after it and he waits `ears.after` seconds for the question rather than answering the greeting.
-
-**Nothing is listened to while Happy is talking.** The microphone hears the speakers, and with no
-echo cancelling the alternative is Happy waking himself on his own answer and transcribing it
-back. That is the whole cost of the wake word: cutting him off by voice is gone, and stop is the
-button in the window.
-
-**The key is the other way in, and it needs no name at all.** `ears/trigger.py` watches one
+**The key is the only way in, and it needs no name at all.** `ears/trigger.py` watches one
 modifier globally — `ears.key`, Right Option by default, and every option is a modifier so
 holding it never types anything. Held, it records; released, it transcribes and hands the whole
 take over without matching a name, because holding a key down is already somebody saying who
-they are talking to. It is what still works in a room too loud for the level to mean anything,
-and what a person reaches for when they do not want to say his name out loud. The key and the
-room share the one device under a lock, and the room stands down while the key is held. On macOS
-the permission belongs to whatever started Python, and an untrusted listener is handed only this
-process's own keys — which looks exactly like push to talk working until you click another
-window — so `ears.DEAF` says so on startup.
+they are talking to. On macOS the permission belongs to whatever started Python, and an untrusted
+listener is handed only this process's own keys — which looks exactly like push to talk working
+until you click another window — so `ears.DEAF` says so on startup.
 
-**A dead microphone is not a quiet room, and only the code can tell them apart.** A device that
-has stopped hearing still hands over blocks on time, all of them zero — AirPods take the default
-input the moment they connect and some hand over nothing at all. Loudness alone reads that as
-silence forever and never complains. So `Recorder` counts how long it has been handed nothing
-but zeros, and after `DEAF_SECONDS` Happy says which device is doing it. `ears.microphone` pins
-one by name so a headset connecting cannot take the ears away again; empty means whatever the
-system picks.
+**There was a wake word and it is gone.** "Hey happy" worked by keeping the microphone open,
+capturing every run of sound in the room, transcribing all of it, and throwing away everything
+that did not have his name in it. That is a speech model decode per utterance anybody nearby
+makes, plus a second early decode purely so the window could react before the take had ended,
+all of it to save reaching for a key. It also could not be trusted: it failed silently on a
+headset that handed over digital silence, it needed a matcher tolerant enough to read "hay
+happy" as his name and therefore loose enough to answer things that were not, and a whole layer
+existed to guess whether a sentence that stopped mid-thought was finished. The key has none of
+those questions in it. Do not bring the wake word back without an answer to the battery.
+
+**Nothing is heard between takes.** The device opens on the press and shuts on the release, so
+there is no stream running while nobody is talking to him — no blocks arriving, nothing decoded,
+and the system's own microphone light off. That light is the only thing a person can check, and
+it should mean what it says.
+
+**Barge-in is the key.** Pressing it reaches `Speaker.stop()` from the listener's own thread,
+before any device opens, so cutting Happy off mid-sentence is the same gesture as asking him the
+next thing. The window's stop button does it too.
+
+**A dead microphone is not somebody who said nothing, and only the code can tell them apart.** A
+device that has stopped hearing still hands over blocks on time, all of them zero — AirPods take
+the default input the moment they connect and some hand over nothing at all. So a take that came
+back with no words in it is checked for being pure zeros, and Happy says which device is doing
+it. Only an empty take is ever a reason to look, which is why this cannot cry wolf about a press
+that really was silence. `ears.microphone` pins one device by name so a headset connecting cannot
+take the ears away again; empty means whatever the system picks.
 
 **Parakeet TDT 0.6B v2**, int8, through `onnx-asr`. Measured on this machine over the fifty takes
 in `recordings/`: **232.8 s of speech in 4.5 s — 51.8x realtime**, against WhisperX medium's 2.9x.
@@ -614,17 +611,16 @@ live in `voice/speaker.py`.
 - **Abbreviations are not sentence ends.** That short first-sentence floor makes "Mr. Stark
   is on the phone" likely to break in half, so `SHORTENED` and the single-initial rule catch
   it. Decimals are already safe — the split needs whitespace after the full stop.
-- **Barge-in is `Speaker.stop()`**, and with a wake word there is no longer a way to reach it
-  by voice. `ears/waking.py` ignores the room while Happy is talking, because without echo
-  cancelling the microphone hears the speakers and he would wake himself on his own answer.
-  Stop is the button in the window and the next thing said once he has finished. Everything
-  queued is dropped and playback is cut.
+- **Barge-in is `Speaker.stop()`**, reached from the key's own listener thread the instant it
+  goes down, before any microphone opens. So cutting him off is the same gesture as asking the
+  next thing, and the window's stop button does it too. Everything queued is dropped and
+  playback is cut.
 - **In-flight work is cancelled by an era counter**, not by trying to kill a thread. `stop()`
   bumps it; work stamped with an older era is thrown away when it surfaces.
 - **The count of what is still to be said is stamped with an era too**, and `settle()` ignores
   anything older. Without that, a sentence cut off mid-synthesis would take its count off
   whatever was being said *instead* when it finally surfaced, and Happy read as finished while
-  still talking — which is what `ears/waking.py` asks about before it listens to the room.
+  still talking.
 
 ## Searching the web, and reading a result
 
@@ -979,9 +975,9 @@ so the panel goes quiet when the last clip ends and not when the last word arriv
 the moment there is, which is 250 pixels won back for the conversation. What it was saying
 carries on beside his name. Tapping the small one brings the big one back.
 
-**The name he wakes to is under the orb**, in the hint, and the orb itself moves with the room
-whenever a take is running. There is nothing to press any more, so the only proof he is
-listening at all is that he visibly reacts to being talked near.
+**The key he wakes to is under the orb**, in the hint, named as the key you actually press, and
+the orb itself moves with the room whenever a take is running. The hint is sent again whenever a
+knob moves, because a hint still naming the old key is a hint that is wrong.
 
 **The controls are the whole panel**, not a drawer over part of one, and they are six sections
 that fold open where they sit rather than six tabs over fifty knobs. A shut section still says
@@ -991,7 +987,7 @@ set once and never again is marked `rare` in the catalogue and sits behind one m
 ### He comes up when he is spoken to
 
 A panel that hides when it loses focus is a panel that is never on the screen at the moment it
-matters: you say his name with another application in front, and nothing anywhere moves. So
+matters: you hold the key with another application in front, and nothing anywhere moves. So
 a turn nobody opened the window for brings the window up on its own — `showInactive()`, never
 `show()`, because taking the focus would pull the caret out of whatever sentence somebody is in
 the middle of typing. It goes away again five seconds after the turn ends, unless it was pinned,
@@ -1144,7 +1140,7 @@ rules carry it instead: the third-person phrasing a chat actually uses ("what is
 model reads as somebody else's business.
 
 The other half was that he looked and saw himself. His panel comes up over everything the second
-his name is said and stays the active application while anybody types into it, so the system's
+the key goes down and stays the active application while anybody types into it, so the system's
 honest answer to *what is in front* was "Electron" — and that is what he told somebody. He is
 skipped now: `attention.pile()` walks the windows front to back, past his own process and its
 parent, past the menu bar and every other floating thing, and the first ordinary window left is
@@ -1505,7 +1501,7 @@ cd face/window && npm install         # once, for the window
 
 .venv/bin/python main.py              # the real thing: an icon in the menu bar
 .venv/bin/python main.py --open       # the same, with the panel already down
-.venv/bin/python main.py --terminal   # no window: say "hey happy" at a prompt
+.venv/bin/python main.py --terminal   # no window: hold the key at a prompt
 
 cd face/window && npm start           # the same window, from where the window lives
 cd face/window && npm start -- --open
