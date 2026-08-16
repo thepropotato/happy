@@ -1,7 +1,7 @@
 const node = (id) => document.getElementById(id)
 
-const WAKE = 'Say <b>{wake}</b> to talk'
-const HOLD = 'Say <b>{wake}</b> or hold <b>{key}</b> to talk'
+const HOLD = 'Hold <b>{key}</b> to talk'
+const DEAF = 'No key to talk on, so type to him' // THE OS WOULD NOT HAND ONE OVER.
 
 // SOUND OUTLIVES THE WORDS, SO GOING QUIET WAITS FOR THE LAST CLIP.
 const TAIL_MS = 120
@@ -204,10 +204,7 @@ function hear(word) {
 }
 
 function ready(word) {
-  const wake = word.wake || 'his name'
-  const said = word.key ? HOLD.replace('{key}', word.key) : WAKE
-
-  node('hint').innerHTML = said.replace('{wake}', wake)
+  node('hint').innerHTML = word.key ? HOLD.replace('{key}', word.key) : DEAF
 
   amiss(word.amiss || '')
 }
@@ -322,7 +319,8 @@ function boot() {
   Prose.away(node('stream'))
   Knobs.start(node('rows'), ask)
 
-  Talk.quiet('Nothing yet. Say his name and talk, or type below.')
+  // WHICH KEY IS NOT KNOWN YET AT BOOT, AND THE HINT UNDER THE ORB NAMES IT ANYWAY.
+  Talk.quiet('Nothing yet. Hold the key and talk, or type below.')
 
   composer()
   buttons()

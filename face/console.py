@@ -46,7 +46,7 @@ def begin():
 
 
 def listening():
-    """HIS NAME LANDED ON ITS OWN AND THE QUESTION HAS NOT COME YET."""
+    """THE KEY IS DOWN AND WHATEVER IS BEING SAID INTO IT IS BEING KEPT."""
     global waiting
 
     waiting = True

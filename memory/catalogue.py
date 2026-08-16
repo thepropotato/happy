@@ -43,12 +43,6 @@ FOREVER = "0 keeps everything."
 
 RESIDENT = "0 keeps it loaded. Answers come back faster while it is."
 
-# WHAT WAKES HIM IS READ BY THE SAME SPEECH MODEL THAT READS EVERYTHING ELSE, SO IT CAN BE
-# ANY WORDS AT ALL.
-WAKE = "Separate several with commas. A name of one word only counts said first."
-
-MORE = "When you stop on a word like and or the, how long he waits for the rest."
-
 # HEADSETS TAKE THIS OVER THE MOMENT THEY CONNECT, AND SOME OF THEM HAND OVER NOTHING AT ALL.
 MICROPHONE = "Which device does the hearing."
 
@@ -83,9 +77,8 @@ BRAIN = [
 ]
 
 EARS = [
-    text("ears.wake", "Wakes to", "hey happy, happy", WAKE, "hey happy, happy"),
     choice("ears.key", "Hold to talk", TALK_KEYS, "alt_r",
-           "Held from any window, not just this. Nothing has to be said to him first."),
+           "Held from any window, not just this. The microphone opens for as long as it is down."),
     choice("ears.microphone", "Microphone", [], "", MICROPHONE, source="microphones"),
     choice("ears.device", "Runs on", DEVICES, "cpu", "CPU is the sure one."),
     choice("ears.engine", "Engine", EARS_ENGINES, "whisper",
@@ -93,18 +86,9 @@ EARS = [
     choice("ears.language", "Language", EARS_LANGUAGES, "auto",
             "Set one code like hi to skip detection when your language never changes.",
             rare=True),
-    number("ears.after", "Waits for you", 2, 20, 1, 6, "After his name on its own.", "sec",
-           whole=True),
-    number("ears.more", "Waits mid sentence", 0.5, 10, 0.5, 2.5, MORE, "sec"),
-    number("ears.level", "Hears you over", 0.002, 0.08, 0.002, 0.015,
-           "Quieter than this is the room, not somebody talking.", rare=True),
-    number("ears.gap", "Ends a take", 0.2, 3, 0.1, 0.8, "Silence that means you have paused.",
-           "sec"),
-    number("ears.hold", "Shortest take", 0.05, 2, 0.05, 0.25, "Briefer was a noise.", "sec",
-           rare=True),
-    number("ears.preroll", "Lead in", 0, 1.5, 0.05, 0.3, "Kept from before you were noticed.",
+    number("ears.hold", "Shortest take", 0.05, 2, 0.05, 0.25, "Briefer was the key brushed.",
            "sec", rare=True),
-    number("ears.tail", "Lead out", 0, 1.5, 0.05, 0.2, "Kept after you stop.", "sec", rare=True),
+    number("ears.tail", "Lead out", 0, 1.5, 0.05, 0.2, "Kept after you let go.", "sec", rare=True),
 ]
 
 VOICE = [
@@ -143,7 +127,7 @@ ALLOWING = []
 GROUPS = [
     group("brain", "Brain", "What does the thinking.", BRAIN,
           ["brain.model", "brain.effort", "brain.persona"]),
-    group("ears", "Ears", "Hearing you, and when.", EARS, ["ears.wake", "ears.key"]),
+    group("ears", "Ears", "Hearing you, and when.", EARS, ["ears.key", "ears.microphone"]),
     group("voice", "Voice", "How Happy sounds.", VOICE, ["voice.name", "voice.muted"]),
     group("eyes", "Eyes", "Looking at the screen.", EYES, ["eyes.model"]),
     group("mcps", "Connections", "Services that are not this computer.", CONNECTIONS),

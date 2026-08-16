@@ -70,12 +70,12 @@ def begin():
 
 
 def listening():
-    """HIS NAME LANDED ON ITS OWN."""
+    """THE KEY IS DOWN."""
     state(LISTENING)
 
 
 def idle():
-    """HE WAITED AND NOBODY SAID THE REST."""
+    """THE KEY WAS BRUSHED, OR NOTHING WAS SAID INTO IT."""
     if showing == LISTENING:
         state(IDLE)
 
