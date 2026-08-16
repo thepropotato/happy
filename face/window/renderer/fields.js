@@ -129,6 +129,7 @@ const Fields = (() => {
   }
 
   function control(entry, value, now) {
+    if (entry.kind === 'state') return element('span', 'now', entry.saying)
     if (entry.kind === 'action') return doer(entry)
     if (entry.kind === 'toggle') return switcher(entry, value)
     if (entry.kind === 'number') return slider(entry, value, now)

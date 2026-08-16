@@ -3,6 +3,7 @@
 ACTION = "action"
 CHOICE = "choice"
 NUMBER = "number"
+STATE = "state"
 TEXT = "text"
 TOGGLE = "toggle"
 
@@ -44,6 +45,12 @@ def toggle(key, label, default=False, hint=None, rare=False):
 def action(key, label, verb, wording, hint=None, instant=False):
     """A BUTTON, NOT A SETTING."""
     return knob(key, label, ACTION, None, hint, verb=verb, wording=wording, instant=instant)
+
+
+def state(key, label, saying, hint=None):
+    """SOMETHING TRUE THAT NOBODY CAN CHANGE FROM HERE. A BUTTON WOULD ONLY INVITE A PRESS
+    THAT DOES NOTHING, SO IT IS THE WORD ON ITS OWN."""
+    return knob(key, label, STATE, None, hint, saying=saying)
 
 
 def knob(key, label, kind, default, hint, rare=False, **extra):
@@ -113,7 +120,7 @@ def settle(entry, value):
     """A VALUE THAT CAME FROM OUTSIDE, MADE INTO ONE THIS SETTING CAN HOLD."""
     kind = entry["kind"]
 
-    if kind == ACTION:
+    if kind in (ACTION, STATE):
         return None
 
     if kind == TOGGLE:

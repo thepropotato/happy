@@ -18,7 +18,8 @@ const Knobs = (() => {
   }
 
   function knob(entry) {
-    const flat = entry.kind === 'toggle' // A SWITCH NEEDS NO ROOM UNDER ITS NAME.
+    // A SWITCH NEEDS NO ROOM UNDER ITS NAME, AND NOR DOES A BARE WORD.
+    const flat = entry.kind === 'toggle' || entry.kind === 'state'
     const row = element('div', flat ? 'knob flat' : 'knob')
     const top = element('div', 'top')
     const now = element('span', 'now', Fields.reading(entry, values[entry.key]))

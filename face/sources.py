@@ -8,6 +8,7 @@ from memory import settings
 SOURCE_SECONDS = 30
 
 CONNECTIONS = "mcps"
+PERMISSIONS = "allowing"
 
 found = {}
 
@@ -18,12 +19,26 @@ def clear(name=None):
 
 
 def drawn(reach=None):
-    return [{**group, "settings": controls(group, reach)} for group in settings.groups()]
+    made = [{**group, "settings": controls(group, reach)} for group in settings.groups()]
+
+    # A GROUP THAT FILLS ITSELF IN AND COMES BACK WITH NOTHING IS A HEADING OVER AN EMPTY
+    # SPACE, WHICH READS WORSE THAN NO SECTION AT ALL.
+    return [group for group in made if group["settings"]]
 
 
 def controls(group, reach):
     """A GROUP'S CONTROLS."""
     filled = [fill(entry) for entry in group["settings"]]
+
+    # WHAT THE SYSTEM IS WITHHOLDING IS READ AT THE MOMENT THE SHEET IS DRAWN, SO A SWITCH
+    # FLIPPED IN SYSTEM SETTINGS SHOWS UP HERE THE NEXT TIME IT IS OPENED.
+    if group["key"] == PERMISSIONS:
+        from face import allowing
+
+        try:
+            return allowing.drawn()
+        except Exception:
+            return filled
 
     if group["key"] != CONNECTIONS or reach is None:
         return filled

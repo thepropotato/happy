@@ -48,7 +48,7 @@ import ears
 import mcps
 import memory
 import voice
-from face import console, handing, log, requests, show, telling
+from face import allowing, console, handing, log, requests, show, telling
 from mcps.servers.whatsapp import chatting
 
 # ONE TURN AT A TIME. A LINE TYPED INTO THE WINDOW ARRIVES ON ITS OWN THREAD.
@@ -66,6 +66,9 @@ def main():
     show.attach(telling if windowed else console)
     show.attach(log)  # THE ONE FACE THAT IS STILL THERE TOMORROW.
     show.state(telling.LOADING)
+
+    # BEFORE THE MODELS, SO THE DIALOGS ARE ANSWERED WHILE THE LOADING HAPPENS ANYWAY.
+    allowing.asked()
 
     happy, speaker = start()
 
@@ -146,13 +149,23 @@ def attend(happy, speaker, recorder, waking):
 
 
 def blocked():
-    """THE ONE THING WORTH A BANNER: A PERMISSION HAPPY IS STILL WAITING ON."""
-    from eyes import attention
+    """WHAT THE SYSTEM IS STILL WITHHOLDING, IN ONE LINE, FOR THE BANNER."""
+    from face import allowing
 
-    if not (attention.on_mac() or attention.on_windows()):
+    short = allowing.missing()
+
+    if not short:
         return ""
 
-    return attention.allowed() or ""
+    return f"{joined(short)} still to allow. Settings, Permissions."
+
+
+def joined(names):
+    """a, b and c."""
+    if len(names) == 1:
+        return names[0]
+
+    return f"{', '.join(names[:-1])} and {names[-1]}"
 
 
 def start():

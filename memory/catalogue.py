@@ -127,6 +127,10 @@ REMEMBERING = [
     action("memory.logs", "Full logs", "logs", "Open", LOGS, instant=True),
 ]
 
+# EVERY ROW IN HERE IS FILLED IN BY THE RUNNING MACHINE, BECAUSE WHAT THE SYSTEM IS
+# WITHHOLDING TODAY IS NOT SOMETHING A CATALOGUE CAN BE WRITTEN DOWN KNOWING.
+ALLOWING = []
+
 GROUPS = [
     group("brain", "Brain", "What does the thinking.", BRAIN,
           ["brain.model", "brain.effort", "brain.persona"]),
@@ -134,6 +138,7 @@ GROUPS = [
     group("voice", "Voice", "How Happy sounds.", VOICE, ["voice.name", "voice.muted"]),
     group("eyes", "Eyes", "Looking at the screen.", EYES, ["eyes.model"]),
     group("mcps", "Connections", "Services that are not this computer.", CONNECTIONS),
+    group("allowing", "Permissions", "What this computer lets Happy do.", ALLOWING),
     group("memory", "Memory", "What is kept, and how long.", REMEMBERING),
 ]
 

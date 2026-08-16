@@ -86,6 +86,8 @@ def carry(order):
         recall(order.get("limit", RECENT_MESSAGES))
     elif asked == "logs":
         logs()
+    elif asked == "allow":
+        granting(order.get("name"))
     elif asked == "say":
         call("say", order.get("text", ""))
     else:
@@ -130,6 +132,19 @@ def reaching(asked, name):
         telling.trouble(error)
 
     describe()
+
+
+def granting(name):
+    """ASK THE SYSTEM FOR ONE PERMISSION, THEN REDRAW: THE ANSWER MAY ALREADY BE IN."""
+    from face import allowing
+
+    try:
+        allowing.grant(name)
+    except Exception as error:
+        telling.trouble(error)
+
+    describe()
+    call("ready")  # THE BANNER NAMES WHAT IS STILL MISSING.
 
 
 def connections():
