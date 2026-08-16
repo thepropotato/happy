@@ -243,8 +243,7 @@ body {
   transition: height var(--pane), opacity var(--pane);
 }
 
-.glass.busy .hero,
-.glass.talking .hero {
+.glass.tucked .hero {
   height: 0;
   opacity: 0;
 }
@@ -290,8 +289,7 @@ body {
   transition: width var(--pane), opacity var(--pane), margin var(--pane);
 }
 
-.glass.busy .puck,
-.glass.talking .puck {
+.glass.tucked .puck {
   width: 26px;
   margin-left: 0;
   opacity: 1;

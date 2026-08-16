@@ -13,6 +13,10 @@ let allowed = false // ASKED FOR ALREADY; ONLY A RESTART TAKES IT.
 let actionMode = 'disabled'
 let easing = null
 
+let working = false // HAPPY IS MID TURN.
+let reading = false // SOMETHING HAS ARRIVED WORTH THE ROOM.
+let chosen = null // 'out' OR 'tucked' ONCE THE PERSON HAS SAID, AND NOTHING UNSAYS IT.
+
 // WHAT THERE IS TO STOP: HAPPY WORKING ON A TURN, OR A CLIP STILL PLAYING. NOT
 // listening — HE IS WAITING ON YOU THERE, AND THERE IS NOTHING TO INTERRUPT.
 const WORKING = { hearing: true, thinking: true, speaking: true }
@@ -42,7 +46,8 @@ function feel(name) {
   Aurora.mood(name)
   Orb.mood(name)
 
-  node('glass').classList.toggle('busy', name !== 'idle' && name !== 'gone')
+  working = name !== 'idle' && name !== 'gone'
+  tucking()
 
   Talk.doing(name, found.word)
 
@@ -91,8 +96,18 @@ function quiet() {
   refresh()
 }
 
+// THREE THINGS WOULD MOVE THE ORB: HAPPY IS MID TURN, SOMETHING ARRIVED TO READ,
+// OR THE PERSON SAID SO. THE PERSON WINS, AND GOES ON WINNING UNTIL THEY SAY
+// OTHERWISE — A CHOICE UNDONE BY THE NEXT THING HAPPY DOES WAS NEVER A CHOICE.
+function tucking() {
+  const tucked = chosen ? chosen === 'tucked' : working || reading
+
+  node('glass').classList.toggle('tucked', tucked)
+}
+
 function showing() {
-  node('glass').classList.add('talking')
+  reading = true
+  tucking()
 }
 
 function modeFromContext() {
@@ -280,10 +295,17 @@ function buttons() {
   node('back').onclick = () => visiting(false)
   node('amissfix').onclick = () => fixing()
 
-  // THE TWO HALVES OF ONE TOGGLE. WITHOUT THE SECOND, THE BIG ORB IS A ONE WAY TRIP:
-  // ONLY SOMETHING NEW BEING SAID WOULD EVER PUT IT BACK IN THE CORNER.
-  node('puck').onclick = () => node('glass').classList.remove('talking')
-  node('orb').onclick = () => node('glass').classList.add('talking')
+  // THE TWO HALVES OF ONE TOGGLE, AND EITHER ONE IS THE PERSON SAYING WHERE THE
+  // ORB BELONGS FROM NOW ON.
+  node('puck').onclick = () => {
+    chosen = 'out'
+    tucking()
+  }
+
+  node('orb').onclick = () => {
+    chosen = 'tucked'
+    tucking()
+  }
 
   addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return
