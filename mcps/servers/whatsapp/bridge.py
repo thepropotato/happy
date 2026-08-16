@@ -10,7 +10,6 @@ import shutil
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 
@@ -327,7 +326,6 @@ class Session:
         self.offline_msgs_received = 0
         self.stop_event = threading.Event()
         self.deleted = False
-        self.upload_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=f"upload-{username}")
 
         # BEFORE ANYTHING CONNECTS.
         remembered(self)
@@ -1454,10 +1452,9 @@ def start_session(session):
     session.qr_at = 0
     session.qr_life = QR_FIRST
     session.qr_shut = 0
+    # NO STORE MEANS NO DEVICE TO LOG BACK IN AS, SO THIS RUN PAIRS OFF A QR.
     if not os.path.exists(session.db_path):
-        logger.info(f"[start_session] user={user} db missing, downloading from S3...")
-        t0 = time.monotonic()
-        logger.info(f"[start_session] user={user} download_db done in {time.monotonic()-t0:.2f}s")
+        logger.info(f"[start_session] user={user} no store yet, this run pairs off a QR")
     session.stop_event.clear()
     try:
         import sqlite3
@@ -1642,9 +1639,8 @@ def list_sessions():
 @app.get("/<username>/status")
 def status(username):
     s = get_session(username)
-    has_local_db = os.path.exists(s.db_path)
-    has_s3_db = False
-    configured = has_local_db or has_s3_db
+    # THE STORE ON DISK IS THE WHOLE ANSWER TO WHETHER THIS ACCOUNT IS SET UP.
+    configured = os.path.exists(s.db_path)
     return jsonify({"connected": s.connected, "authenticated": s.authenticated or configured, "configured": configured, "phone": s.phone, "name": s.name})
 
 
@@ -1829,8 +1825,7 @@ def disconnect(username):
     with sessions_lock:
         s = sessions.pop(username, None)
     if s:
-        s.deleted = True  # STOPS NEW UPLOADS BEING SUBMITTED.
-        s.upload_executor.shutdown(wait=True, cancel_futures=True)
+        s.deleted = True  # STOPS A RECONNECT TIMER FROM STARTING IT BACK UP.
         s.stop_event.set()
         s.connected = False
         s.authenticated = False
@@ -2631,11 +2626,6 @@ def flush_all_sessions():
                 s.persist_timer = None
             persist(s)
         except Exception as e:
-            pass
-    for s in active:
-        try:
-            s.upload_executor.shutdown(wait=True, cancel_futures=False)
-        except Exception:
             pass
 
 
