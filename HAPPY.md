@@ -1415,10 +1415,14 @@ pip install python-magic-bin                    # Windows, which carries the DLL
 .venv/bin/python -m voice --voices    # which voice files are installed
 
 cd face/window && npm install         # once, for the window
-cd face/window && npm start           # the real thing: an icon in the menu bar
-cd face/window && npm start -- --open # the same, with the panel already down
 
-.venv/bin/python main.py              # no window: say "hey happy" at a terminal
+.venv/bin/python main.py              # the real thing: an icon in the menu bar
+.venv/bin/python main.py --open       # the same, with the panel already down
+.venv/bin/python main.py --terminal   # no window: say "hey happy" at a prompt
+
+cd face/window && npm start           # the same window, from where the window lives
+cd face/window && npm start -- --open
+
 .venv/bin/python -m brain             # the same brain, typed at instead of spoken to
 .venv/bin/python -m voice "say this out loud"        # just the voice
 .venv/bin/python -m eyes shot.png [--thorough]       # read a picture, or compare recipes
@@ -1457,7 +1461,15 @@ gets it, so the button turns into **Restart**.
 A terminal that lives inside an Electron app — VS Code's — exports `ELECTRON_RUN_AS_NODE=1` to
 everything it starts. Inherit it and Electron comes up as plain Node, where there is no window
 and no `app`, only a confusing crash. `face/window/start.js` exists to strip it back off, which
-is why `npm start` runs that rather than `electron .`.
+is why `npm start` runs that rather than `electron .`. `main.py` strips the same variable for the
+same reason before it spawns Electron.
+
+**`main.py` is both ends of the same pair.** Run by hand it is only a launcher: it checks `argv`
+before the heavy imports, spawns Electron and waits. Electron then finds the virtual environment
+and starts `main.py --serve`, and *that* process is Happy. The argument check has to come first —
+importing `brain`, `ears` and `mcps` opens an ONNX session, and the launcher would pay for it
+once itself and again in the child it started. `--terminal` is the way past the launcher without
+a window, and it is the only way left to reach `face/console.py`.
 
 Pointing at a different model or a hosted one is the **Brain** group in the panel, or a row in
 the `settings` table. Ollama, LM Studio, llama.cpp, vLLM and the hosted providers all speak the

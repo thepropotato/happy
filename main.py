@@ -1,11 +1,46 @@
 """COMPLETELY LOCAL VOICE ASSISTANT."""
 
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 from face import silence
+
+SERVE = "--serve"  # THE WINDOW PASSES THIS TO THE HAPPY IT STARTS.
+TERMINAL = "--terminal"  # NO WINDOW AT ALL: SAY HIS NAME AT A PROMPT.
+
+WINDOW = Path(__file__).resolve().parent / "face" / "window"
+
+# npm WRITES A .cmd SHIM ON WINDOWS AND A PLAIN LINK EVERYWHERE ELSE.
+ELECTRON = "electron.cmd" if os.name == "nt" else "electron"
+
+MISSING = """The window has no dependencies yet. Once, then this will work:
+
+    cd face/window && npm install
+"""
+
+
+# SPAWNS THE WINDOW AND WAITS ON IT, AND IT COMES BACK FOR THIS FILE WITH --serve.
+def launch():
+    electron = WINDOW / "node_modules" / ".bin" / ELECTRON
+
+    if not electron.exists():
+        sys.exit(MISSING)
+
+    # VS CODE'S TERMINAL EXPORTS ELECTRON_RUN_AS_NODE=1, AND INHERITING IT WOULD START
+    # ELECTRON AS PLAIN NODE WITH NO WINDOW — THE STRIP face/window/start.js ALSO DOES.
+    clean = {name: value for name, value in os.environ.items() if name != "ELECTRON_RUN_AS_NODE"}
+
+    return subprocess.call([str(electron), ".", *sys.argv[1:]], cwd=WINDOW, env=clean)
+
+
+# STARTED BY HAND THIS IS ONLY THE LAUNCHER, AND IT MUST NOT PAY FOR THE IMPORTS BELOW.
+if SERVE not in sys.argv and TERMINAL not in sys.argv:
+    raise SystemExit(launch())
 
 silence.configure()  # MUST RUN BEFORE THE IMPORTS BELOW OPEN AN ONNX SESSION.
 
-import os
-import sys
 import threading
 
 import brain
@@ -15,8 +50,6 @@ import memory
 import voice
 from face import console, handing, log, requests, show, telling
 from mcps.servers.whatsapp import chatting
-
-SERVE = "--serve"
 
 # ONE TURN AT A TIME. A LINE TYPED INTO THE WINDOW ARRIVES ON ITS OWN THREAD.
 taking = threading.Lock()
