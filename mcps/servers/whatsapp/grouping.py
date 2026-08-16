@@ -3,7 +3,7 @@
 import re
 import time
 
-from face import show
+from face import picture, show
 from mcps.servers.whatsapp import talking
 
 # WHAT THE GROUP IS CALLED WHEN HAPPY MAKES IT, AND THE ONLY NAME HE ANSWERS TO.
@@ -57,7 +57,23 @@ def made():
     if not isinstance(fresh, dict) or not fresh.get("id"):
         raise RuntimeError((fresh or {}).get("error") or "the group could not be made")
 
+    faced(fresh["id"])
+
     return fresh["id"], fresh.get("name") or NAME
+
+
+def faced(where):
+    """HIS ICON PUT ON THE GROUP HE JUST MADE. ONLY EVER ON THE ONE HE MADE."""
+    try:
+        photo = picture.jpeg()
+
+        amiss = talking.facing(where, photo) if photo else "his icon is not there"
+    except Exception as error:
+        amiss = str(error)
+
+    # A GROUP WITH THE WRONG PICTURE STILL ANSWERS, SO THIS NEVER STOPS THE MAKING.
+    if amiss:
+        show.trouble(f"No picture on his group ({amiss})")
 
 
 def called(name):

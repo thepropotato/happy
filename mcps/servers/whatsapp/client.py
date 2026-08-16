@@ -1,5 +1,6 @@
 """THE MCP SIDE'S WAY OF ASKING THE BRIDGE THINGS."""
 import asyncio
+import base64
 import os
 import re
 import sys
@@ -428,6 +429,13 @@ class WhatsAppClient:
     async def create_group(self, name: str) -> dict[str, Any]:
         try:
             return await self.post("/create-group", {"name": name}, timeout=30.0)
+        except Exception as e:
+            return {"error": str(e)}
+
+    async def set_group_photo(self, group: str, photo: bytes) -> dict[str, Any]:
+        try:
+            body = {"group": group, "photo": base64.b64encode(photo).decode()}
+            return await self.post("/set-group-photo", body, timeout=30.0)
         except Exception as e:
             return {"error": str(e)}
 

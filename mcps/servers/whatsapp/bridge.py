@@ -2238,6 +2238,28 @@ def create_group(username):
     return jsonify({"id": gid, "name": clean(name)})
 
 
+@app.post("/<username>/set-group-photo")
+def set_group_photo(username):
+    """Put a picture on a group. The photo comes as base64 of a JPEG."""
+    body = request.json or {}
+    group = (body.get("group") or "").strip()
+    photo = body.get("photo") or ""
+    s = get_session(username)
+
+    if not group or not photo:
+        return jsonify({"error": "group and photo are required"}), 400
+
+    if not s.client or not s.connected:
+        return jsonify({"error": "Not connected"}), 503
+
+    try:
+        s.client.set_group_photo(make_jid(group), base64.b64decode(photo))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"id": group})
+
+
 @app.get("/<username>/pushed")
 def pushed(username):
     """The chats this device has sent something into since a given moment."""

@@ -65,6 +65,11 @@ def shown(chat, where):
         Path(where).unlink(missing_ok=True)
 
 
+def facing(chat, photo):
+    """A PICTURE PUT ON A GROUP. GIVES BACK WHAT WENT WRONG, OR None."""
+    return (asked(client().set_group_photo(chat, photo)) or {}).get("error")
+
+
 def client():
     global reaching
 
