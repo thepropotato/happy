@@ -5,9 +5,15 @@ import importlib
 from memory import settings
 from voice.mute import Mute
 
+KOKORO = "kokoro"
 PIPER = "piper"
 
-ENGINES = {PIPER: "voice.piper"}
+ENGINES = {KOKORO: "voice.kokoro", PIPER: "voice.piper"}
+
+# KOKORO HAS NO TELUGU VOICE, AND ITS HINDI ONES READ TELUGU'S SOUNDS AS NONSENSE HOWEVER
+# WELL THEY SURVIVE ITS ALPHABET, SO THAT ONE LANGUAGE IS READ BY PIPER. THIS IS A NAMED
+# EXCEPTION FOR A LANGUAGE, NOT A FALLBACK PATH FOR WHATEVER GOES WRONG.
+ELSEWHERE = {"te": PIPER}
 
 SETTING = "voice.engine"
 
@@ -17,7 +23,7 @@ class VoiceError(Exception):
 
 
 def chosen():
-    return settings.get(SETTING) or PIPER
+    return settings.get(SETTING) or KOKORO
 
 
 def part(engine=None):
@@ -48,6 +54,11 @@ def installed(engine=None):
         return part(engine).installed()
     except Exception:
         return []
+
+
+def target_language():
+    """THE LANGUAGE THIS MACHINE IS SET TO, WHICH IS THE ONE A VOICE IS FETCHED FOR."""
+    return (settings.get("ears.language") or "auto").strip().lower()
 
 
 def names():

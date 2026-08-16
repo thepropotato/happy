@@ -1,13 +1,12 @@
 """THE VOICE ITSELF."""
 
-import threading
 from pathlib import Path
 
 import numpy as np
 
 import tongue
-from face import show
 from memory import settings
+from voice.collecting import collect
 from voice.engines import VoiceError
 
 MODELS = Path(__file__).resolve().parent.parent / "models" / "piper"
@@ -18,9 +17,6 @@ VOICES_BY_LANGUAGE = {
     "hi": "hi_IN-pratham-medium",
     "te": "te_IN-venkatesh-medium",
 }
-
-# ONE ATTEMPT EACH PER RUN. A FAILED DOWNLOAD SHOULD NOT RETRY ON EVERY SENTENCE.
-getting = set()
 
 GET_THEM = f"No voice in {MODELS}. Get one with:\n  python -m voice --get"
 
@@ -80,10 +76,6 @@ def language(path):
     return prefix.split("_", 1)[0]
 
 
-def target_language():
-    return (settings.get("ears.language") or "auto").strip().lower()
-
-
 def voices():
     if not MODELS.is_dir():
         return []
@@ -91,7 +83,8 @@ def voices():
     return [path for path in sorted(MODELS.glob(SUFFIX)) if whole(path)]
 
 
-def has_language(wanted):
+def holds(wanted):
+    """WHETHER A VOICE FOR THIS LANGUAGE IS ALREADY ON THE DISK."""
     return any(language(path) == wanted for path in voices())
 
 
@@ -104,7 +97,7 @@ def ranked(found, target):
 
 def installed(text=""):
     """EVERY VOICE ON THIS MACHINE, BY NAME, FOR SOMETHING DRAWING A LIST."""
-    return [path.stem for path in ranked(voices(), tongue.language(text))]
+    return [path.stem for path in ranked(voices(), tongue.reading(text))]
 
 
 def find(text=""):
@@ -114,14 +107,14 @@ def find(text=""):
     if not found:
         raise VoiceError(GET_THEM)
 
-    # A MIXED SENTENCE IS READ BY WHICHEVER LANGUAGE MOST OF IT IS IN. NO VOICE SPEAKS TWO.
-    target = tongue.language(text)
+    # A MIXED SENTENCE GOES TO THE VOICE THAT CAN READ ITS HARDEST SCRIPT, NOT ITS COMMONEST.
+    target = tongue.reading(text)
     preferred = ranked(found, target)
 
     if preferred and language(preferred[0]) == target:
         return preferred[0]
 
-    collect(target)
+    collect(target, VOICES_BY_LANGUAGE, fetch)
 
     chosen = settings.get("voice.name")
 
@@ -158,22 +151,3 @@ def fetch(language=None):
         shutil.copyfile(got, MODELS / f"{chosen}.{suffix}")
 
     return MODELS
-
-
-def collect(wanted):
-    """GET A MISSING VOICE BEHIND THE CONVERSATION, SO THIS REPLY IS NOT HELD UP BY IT."""
-    if wanted in getting or wanted not in VOICES_BY_LANGUAGE:
-        return
-
-    getting.add(wanted)
-    show.note(f"Getting the {wanted} voice. This reply is spoken in the one already here.")
-
-    threading.Thread(target=bring, args=(wanted,), daemon=True).start()
-
-
-def bring(wanted):
-    try:
-        fetch(wanted)
-        show.note(f"The {wanted} voice is ready.")
-    except Exception as error:
-        show.trouble(f"Could not get the {wanted} voice ({error})")

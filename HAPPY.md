@@ -79,7 +79,12 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `ears/microphone.py` | Microphone capture, one WAV per take. |
 | `ears/transcribing.py` | Speech to text. |
 | `voice/engines.py` | Which engine speaks, and loading only that one. |
-| `voice/piper.py` | The voice model itself. |
+| `voice/kokoro.py` | The voice model itself. |
+| `voice/styles.py` | The voice files: what is here, which one speaks, and getting more. |
+| `voice/piper.py` | The Telugu voice, and nothing else now. |
+| `voice/phonemes.py` | Words turned into the sounds they are made of. |
+| `voice/clips.py` | Sound tidied at its edges, so one piece runs into the next. |
+| `voice/collecting.py` | Fetching a missing voice behind the conversation. |
 | `voice/mute.py` | The stand-in when no voice will load. |
 | `voice/sentences.py` | Where one spoken sentence ends and the next begins. |
 | `voice/speaker.py` | Saying it out loud: synthesis, playback, barge-in. |
@@ -512,30 +517,67 @@ Nothing imports torch, which is 55 packages and a gigabyte not installed.
 
 ## The voice
 
-**Piper**, and nothing else speaks today. `voice/engines.py` names the engines and imports only
-the one chosen, so an engine nobody picked costs nothing; adding one is a module, a dict entry
-and a label. That seam is deliberately thin, because the last two candidates both lost on speed
-and the register exists to make the next one cheap to try, not to invite it.
+**Kokoro** speaks everything except Telugu, which **Piper** reads. One engine and one named
+exception — not a fallback layer. `voice/engines.py` names both and imports only what is asked
+for; `ELSEWHERE` there is the whole of the exception, and it has one entry.
 
-Measured on this machine, warmed: **15 ms to first word**, 56x realtime, ~60 MB on disk. It
-sounds less like a person than the heavier options, and that is the trade taken on purpose. A
-reply that starts instantly and keeps up reads as someone who knows the answer; one that drags
-reads as someone who does not, whatever the timbre.
+*This reverses an earlier decision, on purpose.* Piper was picked first on speed and Kokoro was
+rejected for being slow, and the numbers were right — measured on this machine, warmed, Piper is
+**20 ms to first word** and 54x realtime, Kokoro is **234 ms** and 4.4x. What that reasoning got
+wrong is what the slowness costs. Piper is intelligible and metallic, and a person asked to
+listen to it all day hears a machine every time; the quarter second before Happy starts talking
+is roughly the pause a person leaves before answering anyway, and 4.4x realtime is still four
+times faster than the mouth it is feeding. Speed only reads as competence while the voice is one
+somebody wants to keep listening to.
 
-*Two engines were tried and rejected; do not reach for either again.* **Kokoro** sounds markedly
-better in isolation and lost anyway — 264 ms to first word against Piper's 15 ms, 7x realtime
-against 56x, which in use is the difference between an assistant and a demo. **macOS `say`**,
-asked to write a WAV so the speaker keeps barge-in, is 330 ms warmed and flat at that whatever
-the sentence. Its fast path, `AVSpeechSynthesizer` at 12 ms, cannot be used: the callback only
-fires on the main thread's runloop, while sentences are synthesised on a daemon thread and the
-main thread sits blocked waiting to be spoken to. Windows SAPI was never measured, since the
-macOS half already failed.
+**macOS `say` was tried and rejected; do not reach for it again.** Asked to write a WAV so the
+speaker keeps barge-in, it is 330 ms warmed and flat at that whatever the sentence. Its fast
+path, `AVSpeechSynthesizer` at 12 ms, cannot be used: the callback only fires on the main
+thread's runloop, while sentences are synthesised on a daemon thread and the main thread sits
+blocked waiting to be spoken to. Windows SAPI was never measured, since the macOS half already
+failed.
 
-Phonemes come from an espeak-ng that ships inside the package, so there is nothing to install
-besides the voice file and it behaves the same on Windows. Any Piper voice works; drop it in
-`models/piper/` and it is picked up. A voice is **two files** — the `.onnx` and its `.onnx.json`
-— and half a download is not a voice, so `find()` requires both rather than failing later with
-a confusing traceback.
+Phonemes come from an espeak-ng that ships inside a wheel, so there is nothing to install by hand
+and it behaves the same on Windows.
+
+It is **one 326 MB model** plus a half-megabyte style per voice, so a voice costs almost nothing
+once the model is down. The style is a table indexed by how many sounds are in the sentence,
+which is why `sound()` picks its row off the token count rather than loading anything, and why
+the model is loaded once per run and shared by every voice rather than per voice.
+
+**Telugu is Piper's, and the reason is worth writing down because the obvious test lied.**
+Kokoro has no Telugu voice. Its Hindi voices look like they could stand in: espeak spells Telugu
+into sounds, and **100% of them survive Kokoro's alphabet** — nothing is dropped, so on paper it
+reads. It does not. A symbol being *in* the alphabet is not the model having been *trained* on
+it in that position, and Telugu's palatal `c`, its `ʋ` and its vowel runs are not things the
+Hindi voices ever saw. What comes out is fluent-sounding nonsense.
+
+*Do not re-test this with speech recognition.* Synthesising Telugu and reading it back with
+Happy's own Telugu ear scored **0.90 / 0.93 / 0.98** against Piper's 0.94 / 0.96 / 0.98, which
+says the two are equivalent. They are not, and the number is an artefact: Whisper carries a
+language model strong enough to reconstruct the intended sentence out of mangled sound. It was
+measuring its own guessing, not Kokoro's speaking. A person listening heard gibberish
+immediately. **For "is this intelligible", the ear is the instrument.**
+
+**A voice handed a script it cannot read says the name of the language out loud, once before
+every letter.** This is espeak's behaviour, not a bug in anything here, and it is the single
+worst-sounding failure in the voice: `"Downloads folder తెరిచాను."` came out as *"telugu, telugu,
+telugu…"* for fifteen seconds. It happened because the language of a sentence was picked by
+`tongue.language()`, which answers *which language most of it is in* — and two English words beat
+one Telugu word, so the sentence went to an English voice that could not read a third of it.
+
+Choosing a **voice** is not the same question as identifying a language. `tongue.reading()` is
+the one to use: the language whose voice can read *all* of this, hardest script first. One
+Telugu word in an otherwise English sentence makes the whole sentence Telugu's, because an
+Indian voice reads an embedded English word perfectly well and the reverse is a catastrophe.
+Mixed sentences also make espeak switch languages mid-way and mark where it did; those marks are
+sound if left in, so `phonemes.sounds()` asks for them removed while keeping the words.
+
+So `ELSEWHERE = {"te": PIPER}`, and Kokoro's `say()` hands a Telugu sentence to a Piper voice
+built the first time one arrives. Piper runs at 22050 against Kokoro's 24000, and rather than
+teach the player about two rates, `clips.resampled()` puts Piper's output on Kokoro's rate on
+the way out — so there is exactly one sample rate in the system and `Speaker` never learns that
+any of this happened.
 
 If no voice is there, `voice.create()` returns a `Mute` voice and the reason. Happy carries on
 answering in writing, and nothing downstream has to check whether there is a voice.
@@ -1410,9 +1452,10 @@ pip install python-magic-bin                    # Windows, which carries the DLL
 .venv/bin/python -m ears --get
 .venv/bin/python -m ears               # transcribe everything in recordings/, with timings
 
-# the voice. any piper voice works, this one is a plain American man.
-.venv/bin/python -m piper.download_voices en_US-hfc_male-medium --download-dir models/piper
-.venv/bin/python -m voice --voices    # which voice files are installed
+# the voice. 326 MB of model into models/kokoro, plus a style per voice.
+.venv/bin/python -m voice --get       # english; --get hi for the hindi voices too
+.venv/bin/python -m voice --voices    # which voices are installed
+.venv/bin/python -m voice "say this"  # hear it without the rest of Happy
 
 cd face/window && npm install         # once, for the window
 

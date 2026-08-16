@@ -192,9 +192,9 @@ def start():
     ears.warm()
 
     speech = voice.engines.part()
-    spoken = speech.target_language()
+    spoken = voice.engines.target_language()
 
-    if spoken != "auto" and not speech.has_language(spoken):
+    if spoken != "auto" and not speech.holds(spoken):
         show.note("Downloading voice model, this may take a few minutes...")
         speech.fetch(spoken)
         show.note("Done.")

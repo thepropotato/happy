@@ -9,7 +9,7 @@ LOOKING = ("qwen3-vl", "6 GB")
 # EACH ONE KNOWS HOW TO GET ITSELF, AND SAYS SO THE SAME WAY.
 FETCHES = (
     ("Speech model", "ears", "1 GB"),
-    ("Voice model", "voice", "60 MB"),
+    ("Voice model", "voice", "330 MB"),
     ("Language detector", "tongue", "85 MB"),
 )
 

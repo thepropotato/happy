@@ -7,10 +7,12 @@ delete the line when it stops being interesting.
 
 models/ is gitignored, so these download automatically the first time
 they're needed (Ears engine must be set to "Whisper" — Parakeet doesn't
-support these). The speech model and the Piper voice both arrive on their
-own, in the background, the first time a language is actually heard or
-spoken. That take is served by whatever is already on disk, so nobody
-waits mid sentence for a download.
+support these). The speech model and the voice both arrive on their own,
+in the background, the first time a language is actually heard or spoken.
+That take is served by whatever is already on disk, so nobody waits mid
+sentence for a download. Kokoro has no Telugu and its Hindi voices read it
+as nonsense, so Telugu alone is spoken by Piper — `ELSEWHERE` in
+`voice/engines.py` is the whole of that exception.
 
 Language detection is local and needs no key. Whisper is asked first: on
 English it answers in under a second and `tongue` reads the language off
@@ -69,7 +71,7 @@ English, which is the one place it is worth trusting.
         there, unused, waiting for it.
       - `conversation.add(unprompted=True)` is still in the schema and nothing sets it.
 - [ ] **Setup script** — there is no one-time installer any more. It should get Ollama and
-      the models, the ears' weights, a Piper voice, Tesseract, and say what it could not do.
+      the models, the ears' weights, a voice, Tesseract, and say what it could not do.
 
 ## Controls that are not built yet
 

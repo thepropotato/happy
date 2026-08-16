@@ -1,5 +1,5 @@
 """HEAR IT WITHOUT THE REST OF HAPPY: python -m voice [--engine name] "say this" GET A VOICE:
-python -m voice --get [hi | te]"""
+python -m voice --get [hi | te]. TELUGU AND HINDI ARE THE SAME VOICES."""
 
 import sys
 
