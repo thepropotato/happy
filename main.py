@@ -41,6 +41,10 @@ if SERVE not in sys.argv and TERMINAL not in sys.argv:
 
 silence.configure()  # MUST RUN BEFORE THE IMPORTS BELOW OPEN AN ONNX SESSION.
 
+from bones import systems
+
+systems.heal()  # BEFORE ANYTHING GOES LOOKING FOR A PROGRAM, AND THE WINDOW STARTS HIM WITH ALMOST NO PATH.
+
 import threading
 
 import brain

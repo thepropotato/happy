@@ -1,6 +1,7 @@
-"""WHICH MACHINE THIS IS, AND HOW IT INSTALLS THINGS."""
+"""WHICH MACHINE THIS IS, WHAT IT HAS ON ITS PATH, AND HOW IT INSTALLS THINGS."""
 
 import os
+from pathlib import Path
 import shutil
 import subprocess
 import sys
@@ -117,3 +118,62 @@ def install(package):
         return False
 
     return run([*picked[1], package], quiet=False)
+
+
+# AN rc FILE THAT PRINTS A BANNER PRINTS IT BEFORE THIS, SO THE PATH IS WHATEVER FOLLOWS.
+MARK = "<<happy>>"
+
+# THE FOLDERS AN INSTALLER WRITES INTO WITHOUT TELLING ANY SHELL, FOR WHEN THE SHELL WILL NOT SAY.
+BINS = {
+    MACOS: ["/opt/homebrew/bin", "/usr/local/bin", "~/.local/bin", "~/bin", "~/.bun/bin",
+            "~/.cargo/bin", "~/.volta/bin", "~/.npm-global/bin"],
+    WINDOWS: [r"%APPDATA%\npm", r"%LOCALAPPDATA%\Microsoft\WindowsApps",
+              r"%USERPROFILE%\.local\bin", r"%USERPROFILE%\.bun\bin", r"%USERPROFILE%\.cargo\bin"],
+}
+
+BINS_LINUX = ["~/.local/bin", "~/bin", "/usr/local/bin", "/home/linuxbrew/.linuxbrew/bin",
+              "~/.bun/bin", "~/.cargo/bin", "~/.volta/bin", "~/.npm-global/bin"]
+
+healed = False
+
+
+def heal():
+    """THE PATH WIDENED TO THE ONE A PERSON INSTALLS INTO. CLICKED FROM THE DOCK HE HAS FOUR
+    SYSTEM FOLDERS AND NOTHING ELSE, SO EVERY CODER AND TOOL THEY HAVE IS INVISIBLE."""
+    global healed
+
+    if healed:
+        return os.environ["PATH"]
+
+    healed = True
+    given = (os.environ.get("PATH") or "").split(os.pathsep)
+    os.environ["PATH"] = os.pathsep.join(once([*given, *login(), *BINS.get(sys.platform, BINS_LINUX)]))
+
+    return os.environ["PATH"]
+
+
+def login():
+    """WHAT A LOGIN SHELL SAYS ITS PATH IS, BECAUSE THAT IS THE ONE A PERSON ACTUALLY USES."""
+    if on_windows():  # NO LOGIN SHELL DECIDES IT THERE, THE REGISTRY DOES.
+        return []
+
+    shell = os.environ.get("SHELL") or "/bin/sh"
+    said = output([shell, "-lc", f'printf "%s%s" "{MARK}" "$PATH"'], timeout=5)
+
+    return said.rsplit(MARK, 1)[1].split(os.pathsep) if MARK in said else []
+
+
+def once(folders):
+    """EACH REAL FOLDER ONE TIME, IN THE ORDER IT WAS FIRST NAMED."""
+    seen, order = set(), []
+
+    for folder in folders:
+        full = str(Path(os.path.expandvars(folder.strip())).expanduser())
+
+        if not folder.strip() or full in seen or not os.path.isdir(full):
+            continue
+
+        seen.add(full)
+        order.append(full)
+
+    return order
