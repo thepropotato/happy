@@ -19,6 +19,7 @@ from brain.wrapping import (
     amiss,
     fresh,
     keep_count,
+    keep_going,
     keep_recent,
     keep_record,
     keep_trying,
@@ -92,6 +93,7 @@ class Happy:
                 keep_recent,
                 keep_count,
                 keep_record,
+                keep_going,
                 ModelCallLimitMiddleware(run_limit=settings.get("brain.calls")),
                 # LAST, SO IT SITS CLOSEST TO THE MODEL: A GO THROWN AWAY OVER BAD
                 # JSON IS NOT A ROUND ANYBODY ASKED FOR AND IS NOT COUNTED AS ONE.

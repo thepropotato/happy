@@ -3,7 +3,7 @@
 import time
 
 from langchain.agents.middleware import wrap_model_call, wrap_tool_call
-from langchain_core.messages import HumanMessage, trim_messages
+from langchain_core.messages import HumanMessage, ToolMessage, trim_messages
 
 import memory
 from hands import reasons
@@ -41,6 +41,12 @@ AGAIN = (
     "finished JSON values and never expressions — write the whole string out in "
     'full instead of anything like "hello" * 100 or "a" + "b". Make the call again.'
 )
+
+# WHAT A CALL IS TOLD WHEN THE TOOL BEHIND IT THREW INSTEAD OF ANSWERING.
+BROKEN = "That tool did not run: {trouble}"
+
+# WHAT A CALL IS TOLD WHEN THE RUN THAT ASKED FOR IT STOPPED BEFORE IT CAME BACK.
+UNFINISHED = "That call was never finished."
 
 report = None
 
@@ -194,7 +200,11 @@ def keep_record(request, handler):
         memory.used(name, args, str(error), taken, why, failed=True, spent=cost)
         tell(TOOL, name, taken, gone)
 
-        raise
+        missed += 1
+
+        # A TOOL THAT THREW IS A TOOL THAT SAID NO, NOT THE END OF THE TURN: THE CALL
+        # STILL GETS ITS REPLY, BECAUSE ONE LEFT UNANSWERED BREAKS EVERY TURN AFTER IT.
+        return crashed(call, name, str(error))
 
     taken = time.perf_counter() - started
 
@@ -216,10 +226,28 @@ def keep_record(request, handler):
          "failed": nope, "spent": cost},
     )
 
+    return plainly(result, said, nope)
+
+
+@wrap_model_call
+def keep_going(request, handler):
+    """ENOUGH TOOLS IN A ROW SAID NO, SO THE TURN ENDS BEFORE THE MODEL IS ASKED FOR ANOTHER
+    ONE. STOPPING HERE AND NOT PART WAY THROUGH A TOOL IS WHAT LEAVES THE CALL ALREADY MADE
+    WITH THE REPLY THE CONVERSATION NEEDS IT TO HAVE."""
     if missed >= ENOUGH:
         raise Stuck(NOWHERE)
 
-    return plainly(result, said, nope)
+    return handler(request)
+
+
+def crashed(call, name, trouble):
+    """THE REPLY THAT STANDS IN FOR A TOOL THAT THREW."""
+    return ToolMessage(
+        content=BROKEN.format(trouble=trouble),
+        name=name,
+        tool_call_id=call.get("id") or "",
+        status="error",
+    )
 
 
 def plainly(result, said, nope):
@@ -255,7 +283,36 @@ def recent(messages):
     """THE BACKCHAT BEHIND THIS TURN, CUT DOWN, AND THIS TURN WHOLE."""
     began = opened(messages)
 
-    return settled(messages[:began]) + messages[began:]
+    return answered(settled(messages[:began]) + messages[began:])
+
+
+def answered(messages):
+    """EVERY TOOL CALL WITH A REPLY BEHIND IT. A RUN THAT STOPPED BETWEEN ASKING FOR A TOOL
+    AND HEARING BACK LEAVES ONE WITHOUT, AND A BACKEND REFUSES THE WHOLE CONVERSATION OVER
+    IT — NOT JUST THAT TURN BUT EVERY TURN AFTER IT."""
+    whole = []
+
+    for index, message in enumerate(messages):
+        whole.append(message)
+
+        whole += [
+            ToolMessage(content=UNFINISHED, tool_call_id=each)
+            for each in unreplied(message, messages[index + 1:])
+        ]
+
+    return whole
+
+
+def unreplied(message, after):
+    """THE CALLS THIS MESSAGE ASKED FOR THAT NOTHING AFTER IT ANSWERS."""
+    wanted = [each.get("id") for each in getattr(message, "tool_calls", None) or []]
+
+    if not wanted:
+        return []
+
+    replied = {getattr(each, "tool_call_id", None) for each in after}
+
+    return [each for each in wanted if each and each not in replied]
 
 
 def opened(messages):
