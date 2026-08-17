@@ -5,7 +5,7 @@ from pathlib import Path
 from langchain_core.tools import tool
 
 from hands import reasons
-from hands.files import infront
+from hands.files import infront, trashing
 from hands.files.finding import describe, hunt, locate
 from hands.files.readers import UNREADABLE, extract
 
@@ -158,4 +158,53 @@ def list_folder(path: str = "~") -> str:
     return "\n".join(f"{p.name}/" if p.is_dir() else describe(p) for p in shown[:MAX_ENTRIES])
 
 
-TOOLS = [file_in_front, read_file, find_files, list_folder]
+@tool
+def move_to_trash(path: str) -> str:
+    """Delete a file or a folder by moving it to the Trash. This is how you delete
+    anything on this computer. Accepts a full path like "~/Desktop/old notes", or a
+    name like "screenshot 3", in which case it finds it first.
+
+    Use this whenever you are asked to delete, remove, get rid of, bin, throw away
+    or clear out something on the disk. Never delete with run_command. rm, rmdir,
+    del and Remove-Item destroy the thing outright and nothing on this computer can
+    bring it back, so they are not how you delete and not a fallback when this
+    refuses. This is the only tool that deletes.
+
+    What it moves is still there, in the Trash, and the person can put it back
+    themselves. Say that when you report it, so they know they have not lost it.
+
+    It moves one thing per call. Asked to clear out several, call it once for each
+    and name each one.
+
+    When it says several things share that name, do not guess and do not call it
+    again with the same name. Read the paths out and ask which one they mean."""
+    if not trashing.supported():
+        return reasons.no(trashing.UNSUPPORTED)
+
+    found, complaint = trashing.meant(path)
+
+    if found is None:
+        return reasons.no(complaint)
+
+    refused = trashing.allowed(found)
+
+    if refused:
+        return reasons.no(refused)
+
+    # ASKED LAST, BECAUSE IT IS THE SLOW ONE: IT ADDS UP A WHOLE FOLDER BEFORE IT CAN ANSWER.
+    vanishing = trashing.recoverable(found)
+
+    if vanishing:
+        return reasons.no(trashing.WOULD_VANISH.format(name=found.name, why=vanishing))
+
+    # COUNTED BEFORE IT GOES, BECAUSE ONCE IT HAS MOVED THERE IS NOTHING LEFT TO COUNT.
+    what, held = trashing.named(found)
+    trouble = trashing.trash(found)
+
+    if trouble:
+        return reasons.no(trashing.FAILED.format(what=what, trouble=trouble))
+
+    return trashing.DONE.format(what=what, held=held)
+
+
+TOOLS = [file_in_front, read_file, find_files, list_folder, move_to_trash]

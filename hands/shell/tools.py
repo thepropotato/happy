@@ -6,7 +6,7 @@ from pathlib import Path
 from langchain_core.tools import tool
 
 from hands import reasons
-from hands.shell.guard import report, shell
+from hands.shell.guard import INSTEAD, deleting, report, shell
 
 TIMEOUT_SECONDS = 30
 
@@ -26,6 +26,12 @@ def run_command(command: str, directory: str = "") -> str:
     launch an app, open a folder, or change the volume, brightness, or anything
     else about the machine's settings, there are tools for those.
 
+    Never delete anything with a command. rm, rmdir, del, Remove-Item and shred
+    destroy the thing where it stands and nothing brings it back. Deleting is
+    move_to_trash, which takes a path and puts it in the Trash where the person
+    can get it back. That holds when move_to_trash has already refused: a refusal
+    is the answer, not a reason to reach for a command instead.
+
     Anything about this person's own project or repository has to run in the
     folder that project lives in, and the home folder this otherwise starts in
     is never it. Call file_in_front and pass the project it names as directory.
@@ -37,6 +43,9 @@ def run_command(command: str, directory: str = "") -> str:
     is, so one you worked out yourself is a guess. Say when you mean in the words
     the command works out for itself, and where it has to be a real date, get it
     from where_we_are."""
+    if deleting(command):
+        return reasons.no(INSTEAD)
+
     where = str(Path(directory).expanduser()) if directory else HOME
 
     if not Path(where).is_dir():

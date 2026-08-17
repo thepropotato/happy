@@ -1448,11 +1448,81 @@ once it has already been chosen.
 `run_command` is the widest thing Happy has and the one holding the knife. A misheard word is
 a different command, and it runs anyway: **nothing asks.**
 
-`hands/shell/guard.py` is only the plumbing now — which shell the command is handed to, and
-how what it printed comes back. There is no list of dangerous shapes and no gate. Deletes,
-`sudo`, piping the internet into a shell: all of it runs the moment the model asks for it.
-Happy is autonomous by design, and that is the trade the design makes. Do not add a capability
-that assumes something downstream is checking.
+`hands/shell/guard.py` is the plumbing — which shell the command is handed to, and how what it
+printed comes back — plus one steer, `deleting()`, described below. There is no list of dangerous
+shapes and no gate. `sudo`, piping the internet into a shell: all of it runs the moment the model
+asks for it. Happy is autonomous by design, and that is the trade the design makes. Do not add a
+capability that assumes something downstream is checking.
+
+## Deleting
+
+**Nothing waits on a yes, and deleting is not the exception.** A spoken *"shall I?"* gets a
+reflexive yes, which is a turn-taking noise and not a decision, and reading a command back to
+somebody who cannot hear a path is not a check. Confirmation also guards the wrong failure: the
+common case is not that Happy misheard, it is that the person meant it and wanted it back an
+hour later.
+
+**So the guardrail is reversibility, not permission.** `move_to_trash` in `hands/files/` is the
+only tool that deletes, and it does not delete: it moves the thing to the Trash, where the person
+puts it back themselves without Happy. Nothing asks, nothing waits, and the mistake stays fixable.
+`hands/files/trashing.py` is the mechanism — `NSFileManager.trashItemAtURL_` on a Mac, which asks
+nobody and leaves Put Back working, the Recycle Bin through `Microsoft.VisualBasic` on Windows,
+and the freedesktop `.trashinfo` folder on Linux.
+
+**Windows asks for the Recycle Bin and is not told when it does not get one.** There are four
+ways a delete that requested recycling is carried out as a permanent one instead: the item is
+**larger than that drive's bin**, the drive has **`NukeOnDelete`** set, the item is on a
+**network** drive or **removable** media (neither keeps a bin), or the machine has the
+**`NoRecycleFiles`** policy on. In every one of them Windows destroys the thing, warns nobody,
+and returns success. `Microsoft.VisualBasic` cannot see any of it.
+
+`FOF_WANTNUKEWARNING` on the raw shell call is Microsoft's answer to exactly this, and it is the
+wrong one here: it warns by putting a modal dialog on the screen, which is a yes to wait on, in
+front of somebody who may not be at the machine.
+
+**So `recoverable()` asks first, and the answer decides.** One PowerShell script, one word back:
+drive type, the `NoRecycleFiles` policy, the volume's `NukeOnDelete`, then the item's total size
+against `MaxCapacity` — falling back to Windows' own default of a tenth of the first 40 GB plus a
+twentieth of the rest when nobody has set one. Anything but `SAFE` and the thing is not touched.
+
+**Unknown counts as unsafe.** A missing volume GUID, a script that threw, a timeout, an empty
+answer, output that does not parse — all of them land on the same refusal as a definite no. The
+one direction this must never fail in is *proceeding while unsure*, so the default is refusal and
+the `catch` at the bottom of the script prints `UNKNOWN` rather than letting the run die quietly.
+An absent `BitBucket` key is not an unknown, though: it is the ordinary case, and it means nobody
+ever changed the settings.
+
+**It is the slowest check, so it runs last** — after `meant()` and `allowed()` — because it adds
+up every file in a folder before it can answer. It gets 90 seconds rather than the usual 15.
+
+**A link is not the thing it points at.** Nothing here calls `resolve()` on the way to a delete;
+`whole()` makes a path absolute without following it. `resolve()` hands back the *target*, so a
+shortcut given to it comes back as somebody's real folder, which is then what gets trashed while
+the shortcut sits on the desktop untouched. That is the quietest way this could destroy
+something, and `named()` keeps the same rule one layer up: a link is *the shortcut*, never *the
+folder, it had 30 things in it*, because none of the thirty are going anywhere.
+
+**Where the refusals are is the whole point.** They live in the tool that holds a *path*, never in
+the one that holds a *command string*. `allowed()` turns down three things and nothing else: home
+itself, anything outside home, and the folders a home is built around (`Documents`, `Desktop`,
+`Library`…). Those are not "delete a folder", they are a different act wearing the same words.
+Everything else goes, unasked.
+
+**It never guesses which one.** `read_file` picks the first of several matches and says so, because
+reading the wrong file costs a wasted sentence. `meant()` refuses and reads the paths out instead,
+because trashing the wrong one costs somebody's work. The docstring closes the loop that would
+undo this — *do not call it again with the same name* — since a model told "several matched" will
+otherwise retry verbatim.
+
+**It counts the folder before it moves it.** The count is the only warning anybody gets that more
+went than they pictured, and it cannot be taken afterwards.
+
+**`deleting()` in the shell guard is a steer, not a wall, and the comment there says so.** `rm`
+has endless spellings — `find -delete`, a two-line Python, a `mv` over the top — and a blocklist
+over a shell is theatre. It exists to turn a model that reached past `move_to_trash` back towards
+it, which is the same move as the `find_files` → `read_file` handoff above: what gets a tool
+picked is the name and a handoff from the tool it is being confused with. Nothing downstream may
+assume it checked.
 
 **A date written into a command is a fact he was never given.** Asked how many commits were made
 today, he wrote `--since=2024-08-16` — the right day of the right month, two years out, because

@@ -8,6 +8,21 @@ WINDOWS = "win32"
 MAX_OUTPUT_CHARS = 4000
 MIDDLE = "\n... [cut] ...\n"
 
+# A STEER, NOT A WALL. THERE ARE ENDLESS WAYS TO SPELL A DELETE IN A SHELL AND THIS CATCHES
+# ONE OF THEM, SO IT IS HERE TO TURN A MODEL THAT REACHED PAST move_to_trash BACK TOWARDS IT,
+# NOT TO STOP A SHELL FROM BEING A SHELL. NOTHING DOWNSTREAM MAY ASSUME THIS CHECKED.
+DELETERS = {"rm", "rmdir", "del", "erase", "unlink", "remove-item", "ri", "rd", "shred"}
+
+# WHAT SEPARATES ONE COMMAND FROM THE NEXT, SO A DELETE HIDING BEHIND A cd IS STILL SEEN.
+JOINS = ["&&", "||", "|", ";", "\n"]
+
+SKIPPED = {"sudo", "doas", "time", "nohup", "command"}
+
+INSTEAD = (
+    "Deleting with a command cannot be undone. Use move_to_trash with the path, which puts "
+    "it in the Trash where they can get it back."
+)
+
 
 def shell(command):
     """THE ARGV THAT RUNS command, WITHOUT HANDING IT TO A SECOND SHELL."""
@@ -17,6 +32,26 @@ def shell(command):
     runner = "/bin/bash" if Path("/bin/bash").exists() else "/bin/sh"
 
     return [runner, "-c", command]
+
+
+def deleting(command):
+    """WHETHER THE COMMAND IS PLAINLY A DELETE, WHICH IS THE ONE ACT WITH A TOOL OF ITS OWN."""
+    whole = command
+
+    for join in JOINS:
+        whole = whole.replace(join, ";")
+
+    for piece in whole.split(";"):
+        words = [word for word in piece.strip().split() if not word.startswith("-")]
+
+        while words and words[0].lower() in SKIPPED:
+            words = words[1:]
+
+        # A PATH ENDING IN THE NAME IS STILL THE PROGRAM: /bin/rm AND rm ARE ONE THING.
+        if words and words[0].rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower() in DELETERS:
+            return True
+
+    return False
 
 
 def clip(text):
