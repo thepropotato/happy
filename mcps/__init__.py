@@ -2,16 +2,12 @@
 
 import time
 
-from langchain_core.tools import tool
 from mcp.types import Tool
 
 from mcps import binding, bridging, loop, pool, registry, store
 from mcps.bridging import whenever
 from mcps.joining import connect, disconnect, paste, stir
-
-TOOLS = []
-
-NOTHING = "Nothing is connected."
+from mcps.tools import TOOLS
 
 # NOBODY IS WAITING ON A NAME FOR LONGER THAN THIS, HOWEVER MANY SERVICES ARE ASKED.
 PATIENCE = 4
@@ -48,7 +44,7 @@ def offering():
         taken.update(each.name for each in built)
         found.extend(built)
 
-    return found + [connections] if found else found
+    return found
 
 
 def remembered(kept):
@@ -125,18 +121,6 @@ def gathered(sent, ends):
             found.append((row, ""))
 
     return found
-
-
-@tool
-def connections() -> str:
-    """Say which outside services are connected right now, such as Notion or Google.
-
-    Use this when you are asked what you can reach, or when a service someone
-    named does not seem to be there. It says nothing about this computer.
-    """
-    on = [registry.label(row["name"]) for row in store.every() if row["tools"]]
-
-    return ", ".join(on) if on else NOTHING
 
 
 def drawn(behind=()):
