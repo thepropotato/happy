@@ -132,6 +132,7 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `mcps/__init__.py` | Services that are not this computer. What is connected, and its tools. |
 | `mcps/registry.py` | Every service Happy ships, and what each one costs to connect. |
 | `mcps/joining.py` | Signing in, signing out, pasting something in. Never reached by a tool. |
+| `mcps/tools.py` | The one tool: where every service stands, in words. It changes nothing. |
 | `mcps/session.py` | One running server, held open, and got back when it dies. |
 | `mcps/pool.py` | Every connected server, started in the background, never blocking a start. |
 | `mcps/loop.py` | The one event loop the servers live on. The async side of the wall. |
@@ -208,7 +209,9 @@ cannot say what it is about to do.
 The costs are real and paid for deliberately: a tool that takes a second instead of a
 millisecond, a wall of JSON that must be cut down before it can be spoken, and credentials on
 disk. **Nothing is connected until somebody connects it** — a person who never opens the panel
-has exactly the tools this machine always had.
+has exactly the tools this machine always had, and `mcps/tools.py` is how they hear about the
+rest: Happy can say what is connected, what is not, and the one thing somebody presses for
+each, without being able to press any of it himself.
 
 ### WhatsApp reads over the bridge and writes on the screen
 
@@ -1561,9 +1564,24 @@ the panel says so. *The system keychain was tried and taken back out; do not rea
 Writes failed silently for a process nobody was sitting in front of, macOS allowed two items
 under one name, and a read and a write could land on different copies, so a connection's state
 disagreed with itself. One store Happy can see beats a safer one it cannot; guard the database
-instead. It holds no passwords and no cookies. Signing in is only ever started by a person, from
-the panel or `python -m mcps connect`: no tool can reach it, because a browser window opening
-in the middle of a spoken answer is not an answer.
+instead. It holds no passwords and no cookies.
+
+**Connecting and disconnecting are a person's, and no tool of Happy's does either.** Both were
+written — a tool that opened the consent screen, a tool that took a token read out loud — and
+both were taken back out. A browser window opening in the middle of a spoken answer is not an
+answer, a misheard word costs a token pulled out of the database and, for Google, another trip
+to the Cloud console, and nothing waits on a yes to catch it. The panel already has the button
+for both, one press, in the service's own row. So signing in and out stay where they were: the
+panel, `python -m mcps connect` and `python -m mcps disconnect`.
+
+What Happy has instead is words. `mcps/tools.py` ships one tool, `connections`, and it changes
+nothing: it says how many services are connected and which, how many are not and which, and for
+each one the single thing somebody presses — Connect, Sign out, scan the QR, or make a token at
+the page that service wants and paste it into the box in its row. It writes those lines from the
+same store and the same registry the panel draws itself from, so the sentence Happy says and the
+row somebody is looking at can never disagree. Asked to connect or
+disconnect something, Happy answers with where it is done rather than a bare no — a no on its
+own only makes somebody ask how.
 
 ## Running it
 
