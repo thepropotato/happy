@@ -28,6 +28,9 @@ KNOWN = [
         "label": "Google",
         "folder": "google",
         "kind": OAUTH,
+        # WHERE SOMEBODY GOES TO MAKE WHAT THIS SERVICE WANTS OF THEM.
+        "where": "https://console.cloud.google.com/apis/credentials",
+        "also": ["gmail", "mail", "email", "calendar", "googlecalendar", "drive", "googledrive"],
         # ONE SIGN IN FOR MAIL, CALENDAR AND DRIVE: THEY ARE ONE ACCOUNT SAYING YES ONCE.
         "authorize": "https://accounts.google.com/o/oauth2/v2/auth",
         "token": "https://oauth2.googleapis.com/token",
@@ -43,6 +46,7 @@ KNOWN = [
         "label": "WhatsApp",
         "folder": "whatsapp",
         "kind": NONE,
+        "also": ["wa", "whatsappweb"],
         # THE SERVER OFFERS EVERY TOOL WHETHER OR NOT THE QR WAS SCANNED, SO THE
         # PANEL NEEDS TELLING THAT STARTED AND LINKED ARE NOT THE SAME THING.
         "scan": True,
@@ -60,6 +64,7 @@ KNOWN = [
         "folder": "weather",
         # NOTHING TO SIGN INTO.
         "kind": NONE,
+        "also": ["forecast", "openmeteo"],
         "hint": "Forecasts from Open-Meteo, which wants no account and no key. Connect it and "
         "it works. Ask about anywhere by name; nothing here knows where you are.",
     },
@@ -68,6 +73,8 @@ KNOWN = [
         "label": "Instagram",
         "folder": "instagram",
         "kind": TOKEN,
+        "where": "https://developers.facebook.com/apps",
+        "also": ["ig", "insta"],
         "hint": "Needs an Instagram access token from a Meta app of your own, at "
         "developers.facebook.com. Instagram only ever hands over the account's own posts and "
         "the comments under them, so this reads those and can reply to one, asking first.",
@@ -77,6 +84,7 @@ KNOWN = [
         "label": "Notion",
         "folder": "notion",
         "kind": TOKEN,
+        "where": "https://notion.so/my-integrations",
         "hint": "Needs an internal integration token from notion.so/my-integrations. Notion "
         "shows an integration nothing at all until you share a page with it, so share the "
         "top of your workspace with it once it exists.",
@@ -86,6 +94,8 @@ KNOWN = [
         "label": "GitHub",
         "folder": "github",
         "kind": TOKEN,
+        "where": "https://github.com/settings/tokens",
+        "also": ["gh"],
         "hint": "Needs a personal access token from github.com/settings/tokens. A fine "
         "grained one only reaches the repositories you tick.",
     },
@@ -94,6 +104,7 @@ KNOWN = [
         "label": "Slack",
         "folder": "slack",
         "kind": TOKEN,
+        "where": "https://api.slack.com/apps",
         "hint": "Needs a user token, the one starting xoxp, from a Slack app of your own. "
         "Somebody who runs the workspace may have to approve the app first.",
     },
@@ -112,6 +123,36 @@ def names():
 
 def one(name):
     return BY_NAME.get(name)
+
+
+def matched(said):
+    """THE SERVICE SOMEBODY MEANT, OUT OF WHATEVER THEY HAPPENED TO CALL IT."""
+    wanted = plain(said)
+
+    if not wanted:
+        return None
+
+    for known in KNOWN:
+        if wanted in {known["name"], plain(known["label"]), *known.get("also", ())}:
+            return known
+
+    # A SERVICE IS RARELY NAMED ON ITS OWN: "MY GMAIL ACCOUNT" IS STILL GOOGLE. ONLY
+    # THE LONGER NAMES ARE LOOKED FOR INSIDE A SENTENCE, BECAUSE "ig" IS IN "configure".
+    for known in KNOWN:
+        if any(each in wanted for each in inside(known)):
+            return known
+
+    return None
+
+
+def inside(known):
+    """THE NAMES FOR THIS SERVICE LONG ENOUGH TO BE SAFE TO FIND INSIDE ANOTHER WORD."""
+    return {known["name"]} | {each for each in known.get("also", ()) if len(each) > 3}
+
+
+def plain(said):
+    """A NAME WITH THE SPACES, CAPITALS AND PUNCTUATION TAKEN OFF IT."""
+    return "".join(each for each in str(said or "").lower() if each.isalnum())
 
 
 def label(name):
