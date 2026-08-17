@@ -216,10 +216,18 @@ def keep_record(request, handler):
          "failed": nope, "spent": cost},
     )
 
+    return plainly(result, said, nope)
+
+
+@wrap_model_call
+def keep_going(request, handler):
+    """THREE TOOLS IN A ROW SAID NO. STOP BEFORE ASKING THE MODEL FOR A FOURTH, NOT DURING
+    THE THIRD — RAISING MID TOOL CALL LEAVES THAT CALL WITHOUT THE REPLY THE CONVERSATION
+    NEEDS IT TO HAVE, AND EVERY TURN AFTER IT FAILS FOR GOOD BECAUSE OF IT."""
     if missed >= ENOUGH:
         raise Stuck(NOWHERE)
 
-    return plainly(result, said, nope)
+    return handler(request)
 
 
 def plainly(result, said, nope):
