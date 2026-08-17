@@ -251,7 +251,15 @@ function composer() {
   refresh()
 
   box.addEventListener('input', () => {
+    grown(box)
     refresh()
+  })
+
+  box.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return
+
+    event.preventDefault()
+    form.requestSubmit()
   })
 
   action.onclick = (event) => {
@@ -274,8 +282,17 @@ function composer() {
 
     ask({ do: 'say', text: words })
     box.value = ''
+    grown(box)
     refresh()
   }
+}
+
+function grown(box) {
+  const style = getComputedStyle(box)
+  const edges = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth)
+
+  box.style.height = 'auto'
+  box.style.height = `${box.scrollHeight + edges}px`
 }
 
 function buttons() {

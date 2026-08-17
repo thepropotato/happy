@@ -480,29 +480,46 @@
 
 .composer {
   display: flex;
+  align-items: flex-end;
   gap: 8px;
   padding: 10px 16px 15px;
   flex: 0 0 auto;
 }
 
-.composer input {
+.composer textarea {
   flex: 1;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   background: rgba(255, 255, 255, 0.04);
   color: var(--ink);
   font: inherit;
+  line-height: 17px;
   padding: 9px 12px;
+  min-height: 37px;
+  max-height: calc(37px + 7 * 17px);
+  resize: none;
+  overflow-y: auto;
   outline: none;
   user-select: text;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
   transition: border-color 180ms, background 180ms, box-shadow 180ms;
 }
 
-.composer input::placeholder {
+.composer textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.composer textarea::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.composer textarea::placeholder {
   color: var(--faint);
 }
 
-.composer input:focus {
+.composer textarea:focus {
   border-color: var(--glow-soft);
   background: rgba(255, 255, 255, 0.06);
   box-shadow: 0 0 0 3px rgba(124, 92, 245, 0.12);

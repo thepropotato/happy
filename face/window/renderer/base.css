@@ -189,6 +189,8 @@ body {
 
 .composer-action {
   width: 36px;
+  height: 37px;
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
   border: 1px solid var(--line);
