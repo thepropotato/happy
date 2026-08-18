@@ -2,10 +2,12 @@
 
 import eyes
 import mcps
-from hands import apps, browser, coder, controls, desktop, files, memory, owner, reasons, shell, web
+from hands import apps, browser, coder, controls, desktop, files, memory, owner, reasons, shell, web, wording
 
 # EVERY MODULE, EVERY TURN.
-MODULES = [apps, controls, files, memory, owner, mcps, web, eyes, desktop, browser, coder, shell]
+MODULES = [
+    apps, controls, files, memory, owner, mcps, web, eyes, desktop, browser, coder, shell, wording,
+]
 
 
 def tools():

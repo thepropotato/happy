@@ -87,6 +87,24 @@ def read_screen() -> str:
 
 
 @tool
+def read_selection() -> str:
+    """The exact text currently highlighted, in whichever window has focus.
+
+    Use this whenever they have selected or highlighted something and ask what
+    it is, what it says, what it means, to explain it, translate it or
+    summarise it, or say "this" or "that" while something is plainly selected.
+    Prefer this over read_screen and look_at_screen for that: it reads exactly
+    what they picked out rather than everything else on screen with it. If
+    nothing is selected, say so and ask what they meant instead of guessing
+    from the rest of the screen."""
+    from hands.controls import clipboard  # LATE: hands.controls REACHES BACK INTO eyes.
+
+    said = clipboard.selection()
+
+    return said if said else reasons.no(clipboard.NOTHING_SELECTED)
+
+
+@tool
 def current_activity() -> str:
     """What this person is doing right now: the application in front of them and
     the title of its window.
@@ -286,6 +304,7 @@ def show_screen() -> str:
 TOOLS = [
     read_image,
     read_screen,
+    read_selection,
     current_activity,
     already_open,
     list_open_windows,
