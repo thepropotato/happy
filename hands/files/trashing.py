@@ -1,10 +1,11 @@
 """PUTTING SOMETHING IN THE TRASH, WHERE THE PERSON CAN TAKE IT BACK OUT AGAIN."""
 
 import os
+import struct
 import sys
 import time
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from hands.controls.commands import on_mac, on_windows, osascript, powershell, run
 from hands.files.finding import dig, hunt
@@ -47,13 +48,21 @@ SEVERAL = "Several things are called {name}: {listing}. Say which one and I will
 
 NOTHING = "There is nothing called {name}."
 
+NOT_IN_TRASH = "There is nothing in the Trash called {name}."
+
+SEVERAL_IN_TRASH = "Several trashed things are called {name}: {listing}. Say which one and I will restore that one."
+
 DONE = "Moved {what} to the Trash.{held} It is still there if you want it back."
+
+RESTORED = "Restored {what} from the Trash to {where}."
 
 HELD = " It had {count} things in it."
 
 ONE_THING = " It had one thing in it."
 
 FAILED = "Could not move {what} to the Trash: {trouble}"
+
+RESTORE_FAILED = "Could not restore {what} from the Trash: {trouble}"
 
 UNSUPPORTED = "I do not know where the Trash is on this computer, so I have not moved anything."
 
@@ -357,3 +366,291 @@ def free(folder, name):
 
 def supported():
     return on_mac() or on_windows() or sys.platform.startswith("linux")
+
+
+def forgotten(where):
+    """THE ONE THING IN THE TRASH where NAMES, OR NOTHING AT ALL."""
+    said = (where or "").strip()
+
+    if not said:
+        return None, NOT_IN_TRASH.format(name="nothing")
+
+    everything = trashed()
+
+    if not everything:
+        return None, NOT_IN_TRASH.format(name=said)
+
+    wanted = said.lower()
+    wanted_whole = whole(said).lower()
+
+    exact = [
+        row for row in everything
+        if row["name"].lower() == wanted
+        or row["trash"].name.lower() == wanted
+        or str(row["trash"]).lower() == wanted_whole
+        or (row.get("original") and str(row["original"]).lower() == wanted_whole)
+    ]
+
+    found = exact or [
+        row for row in everything
+        if wanted in row["name"].lower()
+        or wanted in row["trash"].name.lower()
+        or (row.get("original") and wanted in str(row["original"]).lower())
+    ]
+
+    if not found:
+        return None, NOT_IN_TRASH.format(name=said)
+
+    if len(found) > 1:
+        listing = ", ".join(pointing(row) for row in found[:5])
+
+        return None, SEVERAL_IN_TRASH.format(name=said, listing=listing)
+
+    return found[0], None
+
+
+def pointing(row):
+    """HOW TO NAME A TRASHED THING SO A PERSON CAN PICK THE RIGHT ONE."""
+    origin = row.get("original")
+
+    if origin:
+        return f"{row['name']} (from {origin})"
+
+    return f"{row['name']} (in {row['trash']})"
+
+
+def trashed():
+    """EVERY TRASHED THING THIS SYSTEM CAN SEE, WITH ENOUGH TO RESTORE IT."""
+    if on_mac():
+        return mac_trashed()
+
+    if on_windows():
+        return windows_trashed()
+
+    return linux_trashed()
+
+
+def restore(row):
+    """MOVE ONE TRASHED THING BACK. RETURNS (trouble, restored_path)."""
+    if on_mac():
+        trouble = mac_restore(row)
+
+        if trouble:
+            return trouble, None
+
+        return None, row["what"]
+
+    target = row.get("original")
+
+    if not target:
+        return "its original location is unknown on this system", None
+
+    landing = Path(target)
+
+    try:
+        landing.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as trouble:
+        return str(trouble), None
+
+    if landing.exists():
+        landing = free(landing.parent, landing.name)
+
+    try:
+        os.rename(row["trash"], landing)
+    except OSError as trouble:
+        return str(trouble), None
+
+    note = row.get("note")
+
+    if note:
+        try:
+            note.unlink()
+        except OSError:
+            pass
+
+    return None, str(landing)
+
+
+def mac_trashed():
+    """THE THINGS IN ~/.Trash. FINDER KNOWS WHERE THEY CAME FROM WHEN IT CAN PUT BACK."""
+    folder = Path.home() / ".Trash"
+
+    try:
+        entries = [
+            row for row in folder.iterdir()
+            if not row.name.startswith(".")
+        ]
+    except OSError:
+        return []
+
+    return [
+        {
+            "name": row.name,
+            "what": f"the folder {row.name}" if row.is_dir() else row.name,
+            "trash": row,
+            "original": None,
+            "note": None,
+        }
+        for row in entries
+    ]
+
+
+def mac_restore(row):
+    """ASK FINDER TO PUT BACK THE EXACT ITEM IN THE TRASH."""
+    path = whole(row["trash"]).replace('"', '\\"')
+    said = osascript(
+        "set gone to POSIX file \"%s\"\n"
+        "tell application \"Finder\"\n"
+        "  put back gone\n"
+        "end tell" % path
+    )
+
+    return None if said is not None else "Finder could not put it back"
+
+
+def linux_trashed():
+    """THINGS IN THE FREEDESKTOP TRASH, USING .trashinfo FOR ORIGINAL PATHS."""
+    home = Path.home()
+    files = home / TRASH / "files"
+    notes = home / TRASH / "info"
+
+    try:
+        note_files = list(notes.glob("*.trashinfo"))
+    except OSError:
+        return []
+
+    found = []
+
+    for note in note_files:
+        data = files / note.stem
+
+        if not data.exists():
+            continue
+
+        original = linux_origin(note)
+        name = Path(original).name if original else data.name
+
+        found.append({
+            "name": name,
+            "what": f"the folder {name}" if data.is_dir() else name,
+            "trash": data,
+            "original": Path(original) if original else None,
+            "note": note,
+        })
+
+    return found
+
+
+def linux_origin(note):
+    """THE ORIGINAL PATH RECORDED IN ONE .trashinfo FILE, OR None."""
+    try:
+        text = note.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
+
+    for line in text.splitlines():
+        if line.startswith("Path="):
+            return unquote(line.split("=", 1)[1])
+
+    return None
+
+
+def windows_trashed():
+    """THINGS IN THE RECYCLE BIN, READ FROM $I METADATA FILES."""
+    found = []
+
+    for root in recycle_roots():
+        try:
+            sids = [row for row in root.iterdir() if row.is_dir()]
+        except OSError:
+            continue
+
+        for sid in sids:
+            try:
+                notes = list(sid.glob("$I*"))
+            except OSError:
+                continue
+
+            for note in notes:
+                row = windows_row(note)
+
+                if row:
+                    found.append(row)
+
+    return found
+
+
+def recycle_roots():
+    """EVERY DRIVE ROOT THAT HAS A RECYCLE BIN."""
+    roots = []
+
+    for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+        root = Path(f"{letter}:\\")
+
+        if not root.exists():
+            continue
+
+        recycle = root / "$Recycle.Bin"
+
+        if recycle.exists():
+            roots.append(recycle)
+
+    return roots
+
+
+def windows_row(note):
+    """ONE RECYCLE BIN ENTRY FROM ONE $I FILE, OR None."""
+    try:
+        raw = note.read_bytes()
+    except OSError:
+        return None
+
+    if len(raw) < 28:
+        return None
+
+    original = windows_original(raw)
+
+    if not original:
+        return None
+
+    data = note.with_name("$R" + note.name[2:])
+
+    if not data.exists():
+        return None
+
+    name = Path(original).name or data.name
+
+    return {
+        "name": name,
+        "what": f"the folder {name}" if data.is_dir() else name,
+        "trash": data,
+        "original": Path(original),
+        "note": note,
+    }
+
+
+def windows_original(raw):
+    """THE ORIGINAL PATH RECORDED BY WINDOWS IN A $I FILE, OR None.
+
+    THE FOUR BYTES AT OFFSET 24 ARE THE PATH'S LENGTH IN UTF-16 CHARACTERS, COUNTING ITS OWN
+    NULL TERMINATOR. READ AS A NUMBER AND SLICED TO EXACTLY THAT MANY CHARACTERS FROM OFFSET
+    28 ON, THIS NEVER HAS TO GUESS WHERE THE STRING ENDS. SCANNING FOR A DOUBLE NULL BYTE
+    INSTEAD, WHICH THIS ONCE DID, CUT THE LAST CHARACTER OFF EVERY ASCII NAME: THAT
+    CHARACTER'S OWN HIGH BYTE IS ALSO ZERO, WHICH LOOKS EXACTLY LIKE THE START OF THE
+    TERMINATOR ONE BYTE EARLY."""
+    if len(raw) < 28:
+        return None
+
+    length = struct.unpack_from("<i", raw, 24)[0]
+
+    if length <= 0:
+        return None
+
+    text = raw[28 : 28 + length * 2]
+
+    try:
+        original = text.decode("utf-16-le", errors="ignore").rstrip("\x00")
+    except Exception:
+        return None
+
+    return original or None

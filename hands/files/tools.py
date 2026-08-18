@@ -6,7 +6,7 @@ from langchain_core.tools import tool
 
 from hands import reasons
 from hands.files import infront, trashing
-from hands.files.finding import describe, hunt, locate
+from hands.files.finding import describe, dig, hunt, locate
 from hands.files.readers import UNREADABLE, extract
 
 MAX_CHARS = 40000
@@ -127,11 +127,14 @@ def read_file(path: str, start: int = 0) -> str:
 
 @tool
 def find_files(name: str) -> str:
-    """Find files by name anywhere in the usual places: Desktop, Documents,
-    Downloads, Pictures and the home folder. Give the part of the name you know,
-    like "resume", "tax", or "invoice 2026". Use this when you need a file's real
-    path, or when the user is vague about where something is."""
-    hits = hunt(name)
+    """Find a file or a folder by name anywhere in the usual places: Desktop,
+    Documents, Downloads, Pictures and the home folder. Give the whole name as
+    they said it, not a shortened or guessed-at version of it — "website for
+    venu" and "tax invoice 2026" both work as given, and shortening one to
+    "website" or "invoice" only turns up other things that happen to share the
+    shorter word. Use this when you need a file or folder's real path, or when
+    the user is vague about where something is."""
+    hits = hunt(name) + dig(name)
 
     if not hits:
         return reasons.no(f"Nothing found matching {name}.")
@@ -162,7 +165,9 @@ def list_folder(path: str = "~") -> str:
 def move_to_trash(path: str) -> str:
     """Delete a file or a folder by moving it to the Trash. This is how you delete
     anything on this computer. Accepts a full path like "~/Desktop/old notes", or a
-    name like "screenshot 3", in which case it finds it first.
+    name like "screenshot 3", in which case it finds it first. Give the name exactly
+    as they said it — do not shorten it or guess at the path yourself; a shortened or
+    guessed path is not the thing they meant and will not be found.
 
     Use this whenever you are asked to delete, remove, get rid of, bin, throw away
     or clear out something on the disk. Never delete with run_command. rm, rmdir,
@@ -170,8 +175,8 @@ def move_to_trash(path: str) -> str:
     bring it back, so they are not how you delete and not a fallback when this
     refuses. This is the only tool that deletes.
 
-    What it moves is still there, in the Trash, and the person can put it back
-    themselves. Say that when you report it, so they know they have not lost it.
+    What it moves is still there, in the Trash, and restore_from_trash can put it
+    back. Say that when you report it, so they know they have not lost it.
 
     It moves one thing per call. Asked to clear out several, call it once for each
     and name each one.
@@ -207,4 +212,30 @@ def move_to_trash(path: str) -> str:
     return trashing.DONE.format(what=what, held=held)
 
 
-TOOLS = [file_in_front, read_file, find_files, list_folder, move_to_trash]
+@tool
+def restore_from_trash(path: str) -> str:
+    """Restore one file or folder from the Trash back to where it came from.
+
+    Accepts the original name, a full original path, or the name it has inside
+    the Trash. Use this whenever you are asked to undo a delete, bring something
+    back, recover it, or restore it from Trash/Recycle Bin.
+
+    It restores one thing per call. If several trashed things match that name,
+    this refuses and lists a few so you can ask which one they mean."""
+    if not trashing.supported():
+        return reasons.no(trashing.UNSUPPORTED)
+
+    found, complaint = trashing.forgotten(path)
+
+    if found is None:
+        return reasons.no(complaint)
+
+    trouble, restored_to = trashing.restore(found)
+
+    if trouble:
+        return reasons.no(trashing.RESTORE_FAILED.format(what=found["what"], trouble=trouble))
+
+    return trashing.RESTORED.format(what=found["what"], where=restored_to)
+
+
+TOOLS = [file_in_front, read_file, find_files, list_folder, move_to_trash, restore_from_trash]
