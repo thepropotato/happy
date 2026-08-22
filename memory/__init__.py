@@ -1,6 +1,6 @@
 """WHAT HAPPY REMEMBERS BETWEEN SESSIONS, AND HOW HE IS SET UP."""
 
-from memory import settings
+from memory import routines, settings
 from memory.conversation import (
     begin,
     brief,
@@ -28,6 +28,7 @@ __all__ = [
     "progress",
     "prune",
     "put",
+    "routines",
     "search",
     "settings",
     "show",

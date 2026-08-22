@@ -28,6 +28,18 @@ CREATE TABLE IF NOT EXISTS settings (
     value TEXT NOT NULL,
     at    TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS routines (
+    name        TEXT PRIMARY KEY,
+    description TEXT NOT NULL DEFAULT '',
+    steps       TEXT NOT NULL DEFAULT '',
+    tools       TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(tools)),
+    examples    TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(examples)),
+    result      TEXT NOT NULL DEFAULT '',
+    asked       TEXT NOT NULL DEFAULT '',
+    at          TEXT NOT NULL,
+    runs        INTEGER NOT NULL DEFAULT 0
+);
 """
 
 # WHAT AN OLDER HAPPY LEFT BEHIND. A NO-OP ON A DATABASE THAT NEVER HAD IT.
@@ -44,11 +56,23 @@ BEFORE = "who"
 SHAPE = "PRAGMA table_info(messages)"
 DROP = "DROP TABLE IF EXISTS messages"
 
+# A COLUMN ADDED TO A TABLE THAT ALREADY EXISTS, WHICH CREATE TABLE IF NOT EXISTS WILL NOT DO.
+WIDER = [("routines", "asked", "TEXT NOT NULL DEFAULT ''")]
+
 
 def reshape(handle):
     """CLEAR OUT A messages FROM BEFORE A ROW MEANT A WHOLE EXCHANGE."""
     if BEFORE in {row["name"] for row in handle.execute(SHAPE)}:
         handle.execute(DROP)
+
+
+def widen(handle):
+    """WHAT A LATER HAPPY WANTS THAT AN EARLIER ONE'S TABLE HAS NOT GOT."""
+    for table, column, kind in WIDER:
+        here = {row["name"] for row in handle.execute(f"PRAGMA table_info({table})")}
+
+        if column not in here:
+            handle.execute(f"ALTER TABLE {table} ADD COLUMN {column} {kind}")
 
 local = threading.local()
 built = set()
@@ -79,6 +103,7 @@ def connect():
         reshape(handle)  # BEFORE THE SCHEMA, SO THE NEW TABLE IS THE ONE CREATED.
         handle.executescript(SCHEMA)
         handle.executescript(TIDY)
+        widen(handle)  # AFTER THE SCHEMA: A COLUMN NEEDS ITS TABLE THERE FIRST.
         handle.commit()
         built.add(FILE)
 
