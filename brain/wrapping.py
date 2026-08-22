@@ -57,6 +57,9 @@ report = None
 # HOW THE FACE IS SHOWN THE RAW DETAIL OF A FAILURE HAPPY WILL ONLY SUMMARISE ALOUD.
 shown = None
 
+# AND HOW IT IS TOLD WHAT IS BEING STARTED, IN TIME TO SAY SO ABOVE IT.
+noted = None
+
 # HOW MANY TOOLS IN A ROW HAVE SAID NO.
 missed = 0
 
@@ -98,6 +101,18 @@ def troubles(handler):
 def amiss(said):
     if shown:
         shown(said)
+
+
+def doings(handler):
+    """BE TOLD WHAT IS BEING STARTED, FOR PUTTING A LINE OVER THE TOOLS IT IS ABOUT TO USE."""
+    global noted
+
+    noted = handler
+
+
+def doing(said):
+    if noted:
+        noted(said)
 
 
 @wrap_model_call

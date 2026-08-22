@@ -1,9 +1,9 @@
 """WHERE THE THINKING HAPPENS."""
 
 from brain.model import LLMError
-from brain.thinking import Happy, troubles, watches
+from brain.thinking import Happy, doings, troubles, watches
 
-__all__ = ["Happy", "LLMError", "caveat", "create", "troubles", "watches"]
+__all__ = ["Happy", "LLMError", "caveat", "create", "doings", "troubles", "watches"]
 
 
 def create(**kwargs):

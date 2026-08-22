@@ -9,7 +9,9 @@ import mcps
 from brain import model as brain, persona
 from brain.prompt import STANDING
 from brain.wording import written
-from brain.wrapping import LIMIT, Stuck, keep_count, keep_record, keep_going, keep_trying
+from brain.wrapping import (
+    LIMIT, Stuck, doing, keep_count, keep_going, keep_record, keep_trying,
+)
 from hands.routines import picking
 from memory import routines, settings
 
@@ -24,6 +26,10 @@ CEILING = 30
 RAN_OUT = 'I got partway through "{name}" and ran out of steps before it was finished.'
 
 NOTHING = 'I ran "{name}" but never got an answer out of it.'
+
+# SHOWN OVER THE TOOLS A ROUTINE IS ABOUT TO USE, SO WHICH ROUTINE PICKED THEM UP IS NOT
+# SOMETHING TO WORK OUT FROM THE CALLS THEMSELVES. SHOWN AND NEVER SAID.
+STARTING = 'Running "{name}"'
 
 # A ROUTINE THAT NAMED TOOLS AND THEN TOUCHED NONE OF THEM DID NOT RUN, WHATEVER IT WROTE.
 # USUALLY IT WAS SAVED OFF PART OF A JOB AND SO STARTS FROM SOMETHING IT HAS NOT GOT.
@@ -64,6 +70,8 @@ def run(found, said):
 
     if missing:
         return unavailable(found, missing)
+
+    doing(STARTING.format(name=found["name"]))
 
     graph = create_agent(
         model=talker(),

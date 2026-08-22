@@ -86,6 +86,7 @@ def main():
 
     brain.watches(show.step)
     brain.troubles(show.trouble)
+    brain.doings(show.working)
 
     chatting.listen(lambda text, context=None: distant(happy, text, context))
 
