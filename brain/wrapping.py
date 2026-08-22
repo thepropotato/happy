@@ -23,6 +23,10 @@ SPENT = "spent"
 # THREE IN A ROW GETTING NOWHERE.
 ENOUGH = 3
 
+# HOW THE CALL LIMIT SAYS SO, IN ITS OWN WORDS: "Model call limits exceeded: run
+# limit (14/14)". EVERY WORD OF A REPLY IS READ OUT LOUD, AND THAT IS A COUNTER.
+LIMIT = "Model call limits exceeded"
+
 NOWHERE = (
     "That is not getting anywhere — three goes in a row came back with nothing. "
     "Tell me a bit more about what you are after and I will try it another way."
