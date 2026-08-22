@@ -47,6 +47,18 @@ def offering():
     return found
 
 
+def whose(name):
+    """THE SERVICE A TOOL NAME BELONGS TO, OUT OF THE PREFIX EVERY BOUND TOOL CARRIES.
+
+    FOR SAYING WHY SOMETHING IS NOT THERE. A TOOL NAME IS NEVER READ OUT LOUD, SO WHAT IS
+    MISSING HAS TO BE NAMED AS THE SERVICE A PERSON WOULD RECOGNISE."""
+    for known in registry.known():
+        if str(name).startswith(binding.tidy(known["label"]) + "_"):
+            return known["label"]
+
+    return None
+
+
 def remembered(kept):
     """THE STORED TOOL LISTS BACK AS TOOLS. ONE THAT NO LONGER PARSES IS DROPPED."""
     found = []

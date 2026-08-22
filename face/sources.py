@@ -9,6 +9,7 @@ SOURCE_SECONDS = 30
 
 CONNECTIONS = "mcps"
 PERMISSIONS = "allowing"
+ROUTINES = "routines"
 
 found = {}
 
@@ -32,6 +33,14 @@ def controls(group, reach):
 
     # WHAT THE SYSTEM IS WITHHOLDING IS READ AT THE MOMENT THE SHEET IS DRAWN, SO A SWITCH
     # FLIPPED IN SYSTEM SETTINGS SHOWS UP HERE THE NEXT TIME IT IS OPENED.
+    if group["key"] == ROUTINES:
+        from hands.routines import panel
+
+        try:
+            return panel.rows()
+        except Exception:
+            return filled
+
     if group["key"] == PERMISSIONS:
         from face import allowing
 

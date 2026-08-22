@@ -132,6 +132,7 @@ GROUPS = [
     group("eyes", "Eyes", "Looking at the screen.", EYES, ["eyes.model"]),
     group("mcps", "Connections", "Services that are not this computer.", CONNECTIONS),
     group("allowing", "Permissions", "What this computer lets Happy do.", ALLOWING),
+    group("routines", "Routines", "Ways of doing one thing, saved by name.", []),
     group("memory", "Memory", "What is kept, and how long.", REMEMBERING),
 ]
 

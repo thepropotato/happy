@@ -31,6 +31,9 @@ def serve(**handlers):
     if reach is not None:
         reach.whenever(describe)
 
+    # AND A ROUTINE SAVED BY SAYING SO IS THE OTHER ONE.
+    memory.routines.whenever(describe)
+
     reader = threading.Thread(target=listen, daemon=True)
     reader.start()
 
@@ -88,6 +91,8 @@ def carry(order):
         logs()
     elif asked == "allow":
         granting(order.get("name"))
+    elif asked == "forget":
+        forgetting(order.get("name"))
     elif asked == "say":
         call("say", order.get("text", ""))
     elif asked == "preview":
@@ -131,6 +136,18 @@ def reaching(asked, name):
             reach.connect(name)
         else:
             reach.disconnect(name)
+    except Exception as error:
+        telling.trouble(error)
+
+    describe()
+
+
+def forgetting(name):
+    """A ROUTINE DROPPED FROM THE PANEL, WHICH IS THE ONE THING THERE IS NO SAYING IT FOR."""
+    from hands.routines import panel
+
+    try:
+        panel.forget(name)
     except Exception as error:
         telling.trouble(error)
 
