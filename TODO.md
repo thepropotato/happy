@@ -88,6 +88,41 @@ English, which is the one place it is worth trusting.
 
 ## Known rough edges
 
+- [ ] **Where a routine begins is worked out by following its arguments, and that is a
+      guess with a bias.** An argument a tool was handed that came out of an earlier tool's
+      answer pulls that turn in, and the parts of a value are looked for as well as the whole
+      of it, because a path is often a folder from one answer and a filename from another. A
+      part matching by coincidence drags in a turn that was not wanted and the routine does a
+      little more than it had to; missing one leaves it unable to run at all. It leans the
+      second way on purpose. Six turns is the ceiling and nothing walks past it.
+- [ ] **A routine can be renamed and forgotten, and nothing else.** There is no saying "add a
+      step to that one" or "drop the calendar bit" — the only way to change what a routine
+      does is to run the job again and save over it with `replace`. Editing by voice is the
+      obvious next thing and it is not built. The panel shows a routine and will delete it;
+      it does not let anything be typed into one either, so there is no way round it.
+- [ ] **Only the plainly named form is guaranteed to run.** "Run my morning brief", "do the
+      morning brief", or the name on its own go straight to the routine before the model is
+      asked anything, and that is what makes it reliable. Everything vaguer than that —
+      asking for the job in other words and hoping the description matches — is left to the
+      model off the listing in the standing prompt, and it often does the job itself instead.
+      Measured: with a fresh conversation and a routine called *where check*, "run the where
+      check" got the routine every time through the plain path and never once through the
+      model's own choosing. The listing is worth keeping for the near misses, but it is not
+      the thing to lean on.
+- [ ] **A routine cannot call another routine.** Playbooks have `${PLAYBOOK: name}` for this
+      and it is the natural way to build a long one out of short ones. Nothing here does it.
+- [ ] **A routine never starts itself.** Asking for one by name runs it, every time and
+      without the model getting a say — that is the whole guarantee and it works. What is
+      missing is a routine going off with nobody there to ask: at eight every morning, on
+      waking, when the headphones connect. That is the other half of what Alexa calls a
+      routine and it is a separate feature, not a missing corner of this one.
+- [ ] **The standing prompt grew by about two thousand characters** for the ROUTINES section,
+      and by a line for every routine saved. `brain/prompt.py` caps nothing, so a person with
+      fifty routines pays for fifty lines on every single turn. Twenty is fine; there should
+      be a ceiling before it is not.
+- [ ] **`brain/thinking.py` is 326 lines** and was already 295 before the two short methods
+      that dispatch a routine went in. It wants splitting either way.
+
 - [ ] **`list_controls` hides things behind "and 17 more".** `MAX_PER_KIND` is 12 and
       `MAX_CHARS` 1400, and the chat being asked for was cut by both, so the model chose from
       a list the answer was not in. Cutting is right, cutting silently is not: it should say
