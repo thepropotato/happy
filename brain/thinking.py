@@ -14,6 +14,7 @@ from brain import model as brain, persona
 from brain.model import LLMError
 from brain.prompt import system_prompt
 from brain.wrapping import (
+    LIMIT,
     MODEL,
     Stuck,
     amiss,
@@ -27,7 +28,7 @@ from brain.wrapping import (
     troubles,
     watches,
 )
-from memory import settings
+from memory import routines, settings
 
 MODEL_NODE = "model"
 
@@ -35,10 +36,6 @@ MODEL_NODE = "model"
 GROUPS = ("brain", "mcps")
 
 THREAD = "happy"
-
-# HOW THE CALL LIMIT SAYS SO, IN ITS OWN WORDS: "Model call limits exceeded: run
-# limit (14/14)". EVERY WORD HERE IS READ OUT LOUD, AND THAT IS A COUNTER.
-LIMIT = "Model call limits exceeded"
 
 RAN_OUT = (
     "I ran out of steps before I got that finished. Ask me again and I will carry "
@@ -57,7 +54,7 @@ BROKE = "Something went wrong at my end on that one, so I did not get it done."
 
 def stamp():
     """WHERE EVERY GROUP THE GRAPH IS MADE OF STANDS RIGHT NOW."""
-    return tuple(settings.version(each) for each in GROUPS)
+    return (*(settings.version(each) for each in GROUPS), routines.version())
 
 
 class Happy:
@@ -149,6 +146,14 @@ class Happy:
         fresh()
         started = time.perf_counter()
 
+        straight = self.direct(speech, context)
+
+        if straight is not None:
+            memory.close(straight, time.perf_counter() - started)
+            self.carry(speech, straight)
+
+            return straight
+
         try:
             done = graph.invoke(self.turn(speech, context), self.config())
         except Stuck as stuck:
@@ -170,6 +175,16 @@ class Happy:
         fresh()
         reply = ""
         started = time.perf_counter()
+
+        straight = self.direct(speech, context)
+
+        if straight is not None:
+            memory.close(straight, time.perf_counter() - started)
+            self.carry(speech, straight)
+
+            yield straight
+
+            return
 
         try:
             for chunk, note in graph.stream(
@@ -216,6 +231,22 @@ class Happy:
 
             memory.close(said or None, taken)
             self.settle(said)
+
+    def direct(self, speech, context=None):
+        """A ROUTINE ASKED FOR BY NAME, RUN WITHOUT THE MODEL DECIDING WHETHER TO."""
+        from brain import running
+
+        return None if context is not None else running.plainly(speech)
+
+    def carry(self, speech, said):
+        """A TURN THE GRAPH NEVER RAN, PUT ON THE CONVERSATION ANYWAY, SO "RENAME THAT" AND
+        "RUN IT AGAIN" STILL HAVE SOMETHING BEHIND THEM."""
+        try:
+            self.graph.update_state(
+                self.config(), {"messages": [HumanMessage(speech), AIMessage(said)]}
+            )
+        except Exception:
+            pass
 
     def settle(self, said):
         """WHAT WAS ANSWERED GOES ON THE CONVERSATION EVEN WHEN THE RUN NEVER PUT IT THERE,

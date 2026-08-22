@@ -6,7 +6,7 @@ from pathlib import Path
 import mcps
 from brain import persona
 from hands import apps
-from memory import settings
+from memory import routines, settings
 
 WORDS = Path(__file__).resolve().parent.parent / "prompt.md"
 
@@ -15,7 +15,7 @@ HEADING = re.compile(r"^## +([A-Z]+) *$", re.M)
 COMMENT = re.compile(r"<!--.*?-->\s*", re.S)
 
 # WHAT FOLLOWS THE STANDING RULES, IN THE ORDER IT IS SAID.
-FINISHING_ORDER = ("CORE", "MESSAGING", "BROWSING", "REMEMBERING", "CONTACTS")
+FINISHING_ORDER = ("CORE", "MESSAGING", "BROWSING", "ROUTINES", "REMEMBERING", "CONTACTS")
 
 
 def written():
@@ -48,16 +48,19 @@ def system_prompt():
     """THE STANDING PROMPT PLUS THE FACTS ONLY THIS MACHINE CAN SUPPLY."""
     global composed, out_of
 
-    facts = (mcps.mention(), apps.listing(), settings.get("brain.persona"))
+    facts = (mcps.mention(), routines.listing(), apps.listing(), settings.get("brain.persona"))
 
     if composed is not None and facts == out_of:
         return composed
 
-    remote, installed, tone = facts
+    remote, saved, installed, tone = facts
     parts = [STANDING, FINISHING]
 
     if remote:
         parts.append(remote)
+
+    if saved:
+        parts.append(saved)
 
     if installed:
         parts.append(f"{MACHINE}\n\n{installed}")
