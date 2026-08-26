@@ -110,7 +110,12 @@ function relay(word) {
 // HOLDING THE KEY IS NOT SOMEBODY ASKING TO SEE HIM. WHAT COMES UP UNASKED IS
 // THE CAPSULE; THE PANEL ONLY EVER OPENS BECAUSE THIS PERSON OPENED IT.
 function overheard(word) {
-  if (!bloom || word.is !== 'state') return
+  if (!bloom) return
+
+  // NOBODY ASKED FOR THIS AND NOBODY SPOKE, SO THERE IS NO STATE TO COME UP ON.
+  if (word.is === 'message' && word.unprompted) return rise()
+
+  if (word.is !== 'state') return
 
   if (WOKEN[word.state]) rise()
   else if (word.state === IDLE) fade()

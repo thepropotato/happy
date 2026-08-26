@@ -61,12 +61,20 @@ def state(name):
 
 
 def begin():
+    waking()
+    state(HEARING)
+
+
+def waking():
+    """A TURN NOBODY ASKED FOR — A REMINDER COMING ROUND.
+
+    IT OPENS THE TURN BUT SETS NO STATE: HEARING WOULD SAY SOMEBODY HAD SPOKEN WHEN NOBODY
+    DID, AND THE WINDOW CHANGES STATE ONLY FOR WHAT THE PERSON ACTUALLY DID. THE CAPSULE
+    COMES UP OFF THE UNPROMPTED MESSAGE ITSELF INSTEAD."""
     global turn, reply
 
     turn = Turn()
     reply = ""
-
-    state(HEARING)
 
 
 def listening():

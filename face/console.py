@@ -125,6 +125,11 @@ def working(text):
     print(f"{DIM}{'':<{LABEL}}{text}{OFF}")
 
 
+def waking():
+    """A TURN NOBODY ASKED FOR STARTS THE SAME WAY HERE AS ANY OTHER."""
+    begin()
+
+
 def unprompted(text):
     """WORK THAT FINISHED ON ITS OWN GETS ITS OWN BLOCK, NOT SOMEONE ELSE'S."""
     stamp = datetime.now().strftime("%H:%M:%S")

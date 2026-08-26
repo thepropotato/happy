@@ -139,6 +139,11 @@ def step(kind, name, seconds, about=None):
     line(kind, f"{name} {clock(seconds)}{cost}" + (f" — {why}" if why else ""))
 
 
+def waking():
+    """A TURN NOBODY ASKED FOR STARTS THE SAME WAY HERE AS ANY OTHER."""
+    begin()
+
+
 def unprompted(text):
     line("happy", f"(unprompted) {text}")
 

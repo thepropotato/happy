@@ -49,6 +49,7 @@ import threading
 
 import brain
 import ears
+import heart
 import mcps
 import memory
 import voice
@@ -89,6 +90,9 @@ def main():
     brain.doings(show.working)
 
     chatting.listen(lambda text, context=None: distant(happy, text, context))
+
+    # THE ONE THING ONLY THIS FILE CAN HAND OVER: SPEAKING WHEN NOBODY ASKED.
+    heart.start(lambda text: aloud(speaker, text))
 
     thrown = memory.prune(recorder.recordings)  # ONLY IF A SETTING SAYS TO.
 
@@ -279,6 +283,32 @@ def typed(happy, speaker, text):
         show.end()
 
 
+def aloud(speaker, text):
+    """SOMETHING HAPPY SAYS THAT NOBODY ASKED FOR — A REMINDER COMING ROUND.
+
+    IT TAKES THE SAME LOCK A TURN DOES, SO IT WAITS ITS GO RATHER THAN TALKING OVER ONE."""
+    said = (text or "").strip()
+
+    if not said:
+        return
+
+    with taking:
+        speaker.refit()
+        show.waking()
+        show.unprompted(said)  # THE CAPSULE COMES UP OFF THIS.
+        memory.begin(unprompted=True)
+        show.state(telling.SPEAKING)
+
+        try:
+            for piece in speaker.say([said]):
+                pass
+
+            speaker.wait()
+        finally:
+            memory.close(said)
+            show.end()
+
+
 def typed_soon(happy, speaker, text):
     threading.Thread(target=typed, args=(happy, speaker, text), daemon=True).start()
 
@@ -335,6 +365,7 @@ def respond(happy, speaker, speech, audio=None):
 
 
 def shut(speaker, recorder, holding):
+    heart.stop()  # BEFORE THE SPEAKER, WHICH IT MAY BE PART WAY THROUGH SAYING SOMETHING ON.
     mcps.stop()  # BEFORE THE REST: IT IS THE ONLY PART THAT OWNS OTHER PROCESSES.
     holding.stop()  # BEFORE THE RECORDER, WHICH IT MAY BE PART WAY THROUGH A TAKE ON.
     speaker.close()

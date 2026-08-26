@@ -34,6 +34,11 @@ def begin():
     tell("begin")
 
 
+def waking():
+    """A TURN THAT STARTED WITHOUT ANYBODY ASKING FOR ONE."""
+    tell("waking")
+
+
 def listening():
     tell("listening")
 
