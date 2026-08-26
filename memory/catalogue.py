@@ -133,6 +133,7 @@ GROUPS = [
     group("mcps", "Connections", "Services that are not this computer.", CONNECTIONS),
     group("allowing", "Permissions", "What this computer lets Happy do.", ALLOWING),
     group("routines", "Routines", "Ways of doing one thing, saved by name.", []),
+    group("reminders", "Reminders", "What to be told about, and when.", []),
     group("memory", "Memory", "What is kept, and how long.", REMEMBERING),
 ]
 

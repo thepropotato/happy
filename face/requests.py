@@ -31,8 +31,10 @@ def serve(**handlers):
     if reach is not None:
         reach.whenever(describe)
 
-    # AND A ROUTINE SAVED BY SAYING SO IS THE OTHER ONE.
+    # AND A ROUTINE SAVED BY SAYING SO IS THE OTHER ONE, AND A REMINDER THE THIRD — ONE
+    # THAT GOES OFF ON ITS OWN HAS NOBODY AT THE PANEL TO HAVE ASKED FOR IT.
     memory.routines.whenever(describe)
+    memory.reminders.whenever(describe)
 
     reader = threading.Thread(target=listen, daemon=True)
     reader.start()
@@ -93,6 +95,10 @@ def carry(order):
         granting(order.get("name"))
     elif asked == "forget":
         forgetting(order.get("name"))
+    elif asked == "drop":
+        dropping(order.get("name"))
+    elif asked == "sweep":
+        sweeping()
     elif asked == "say":
         call("say", order.get("text", ""))
     elif asked == "preview":
@@ -148,6 +154,30 @@ def forgetting(name):
 
     try:
         panel.forget(name)
+    except Exception as error:
+        telling.trouble(error)
+
+    describe()
+
+
+def dropping(name):
+    """A REMINDER DROPPED FROM THE PANEL, WHICH IS QUICKER THAN SAYING WHICH ONE."""
+    from hands.reminders import panel
+
+    try:
+        panel.forget(name)
+    except Exception as error:
+        telling.trouble(error)
+
+    describe()
+
+
+def sweeping():
+    """EVERY FINISHED REMINDER AT ONCE, SO THE LIST IS THE THINGS STILL TO COME."""
+    from hands.reminders import panel
+
+    try:
+        panel.clear()
     except Exception as error:
         telling.trouble(error)
 

@@ -11,6 +11,8 @@ CONNECTIONS = "mcps"
 PERMISSIONS = "allowing"
 ROUTINES = "routines"
 
+REMINDERS = "reminders"
+
 found = {}
 
 
@@ -35,6 +37,14 @@ def controls(group, reach):
     # FLIPPED IN SYSTEM SETTINGS SHOWS UP HERE THE NEXT TIME IT IS OPENED.
     if group["key"] == ROUTINES:
         from hands.routines import panel
+
+        try:
+            return panel.rows()
+        except Exception:
+            return filled
+
+    if group["key"] == REMINDERS:
+        from hands.reminders import panel
 
         try:
             return panel.rows()
