@@ -166,7 +166,7 @@ safety net, so it is not something to trim.
       a list the answer was not in. Cutting is right, cutting silently is not: it should say
       what kind of thing it dropped, or drop the least useful rather than the last.
 - [ ] **Nothing says which conversation is open.** The tree holds a group called *Messages in
-      chat with Aunty* and the heading never mentions it, so the model clicks to open a chat
+      chat with Priya* and the heading never mentions it, so the model clicks to open a chat
       that is already open. The heading has room for the context, not just the app name.
 - [ ] **OCR reads the whole screen, not the front window.** `eyes.spot` searches the entire
       screenshot, so a word in a window sitting behind can be found and clicked. The tree is
@@ -206,7 +206,7 @@ safety net, so it is not something to trim.
       Sending, deleting, buying, installing, quitting and shutting down were all unreachable
       through the window from the day it was built. The console path never had it.
 - [x] **Two things with one name.** WhatsApp calls both the chat in the list and the forty
-      pixel chip above the conversation "Aunty", they scored the same, and the tie went to
+      pixel chip above the conversation "Priya", they scored the same, and the tie went to
       whichever was a button — the chip, which leaves the chat for the contact's settings.
       A tie is now read as one thing described twice only when the boxes overlap. Apart, it
       is two things, the bigger one is the row being pointed at, and the other is named out
