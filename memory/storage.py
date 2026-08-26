@@ -40,6 +40,20 @@ CREATE TABLE IF NOT EXISTS routines (
     at          TEXT NOT NULL,
     runs        INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS reminders (
+    id     INTEGER PRIMARY KEY,
+    what   TEXT    NOT NULL,
+    kind   TEXT    NOT NULL DEFAULT 'say',
+    said   TEXT    NOT NULL DEFAULT '',
+    rule   TEXT    NOT NULL DEFAULT '',
+    due    REAL    NOT NULL,
+    at     TEXT    NOT NULL,
+    fired  INTEGER NOT NULL DEFAULT 0,
+    done   INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS reminders_due ON reminders(due);
 """
 
 # WHAT AN OLDER HAPPY LEFT BEHIND. A NO-OP ON A DATABASE THAT NEVER HAD IT.
