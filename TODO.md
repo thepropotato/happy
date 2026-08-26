@@ -73,6 +73,44 @@ English, which is the one place it is worth trusting.
 - [ ] **Setup script** — there is no one-time installer any more. It should get Ollama and
       the models, the ears' weights, a voice, Tesseract, and say what it could not do.
 
+## Reminders
+
+`heart/` keeps the time and `hands/reminders/` is how it is asked. The clock is polled
+every twenty seconds rather than slept on, because a timer set for three hours does not
+survive the lid going down. `due` is an epoch; a recurrence is stored in wall clock so
+eight in the morning stays eight in the morning the week the clocks go. `python -m heart`
+checks forty two phrases against a fixed Wednesday lunchtime and is the only test in here.
+
+A time is worked out one way and one way only: **the soonest future moment the words could
+mean.** "At four" at one o'clock is four this afternoon; at five o'clock it is four
+tomorrow morning; "on May 21" is midnight on the twenty first. Nothing is ever asked back
+and nothing is ever left half set — the answer says the time in full and invites a
+correction, and `change_reminder` is how the correction lands. That say-back is the whole
+safety net, so it is not something to trim.
+
+- [ ] **Only the parser is tested.** Firing, rolling and the catch-up were run by hand
+      against a throwaway database and are right, but nothing checks them tomorrow. They
+      want the same table treatment `python -m heart` gives the phrases.
+- [ ] **Nothing understands "next Friday", "a quarter past" or "after lunch"** and it
+      refuses them rather than guessing. `BEYOND` in `heart/words.py` is that list, and it
+      is deliberately short — anything added to it should be a word that genuinely means
+      different things to different people, not one nobody got round to parsing.
+- [ ] **A reminder only goes off while Happy is running.** Nothing wakes the machine and
+      nothing starts him at login. What was missed while he was off is accounted for in one
+      breath when he comes back, and a repeating one just resumes — but neither is the same
+      thing as it having happened. Launching at login is the real fix and it needs the
+      packaged app that does not exist yet.
+- [ ] **`my_reminders` never mentions the finished ones.** It answers with what is still to
+      come, which is nearly always the question. "Did you remind me to take my tablets this
+      morning" has no answer but the panel.
+- [ ] **The routine a reminder runs cannot be changed.** `change_reminder` moves the time
+      and rewords the text; swapping which routine it runs means forgetting it and setting
+      it again. The name is at least checked when it is set rather than at seven in the
+      morning.
+- [ ] **Clearing the finished ones is a button and not a sentence.** Deliberate — it is
+      tidying, and tidying is what a panel is for — but "get rid of the old reminders" is a
+      thing somebody will say out loud eventually.
+
 ## Controls that are not built yet
 
 - [ ] **Bluetooth** — macOS needs `blueutil` from Homebrew, Windows needs the radio APIs.
@@ -109,13 +147,13 @@ English, which is the one place it is worth trusting.
       check" got the routine every time through the plain path and never once through the
       model's own choosing. The listing is worth keeping for the near misses, but it is not
       the thing to lean on.
-- [ ] **A routine cannot call another routine.** Playbooks have `${PLAYBOOK: name}` for this
+- [ ] **A routine still cannot call another routine.** Playbooks have `${PLAYBOOK: name}` for this
       and it is the natural way to build a long one out of short ones. Nothing here does it.
-- [ ] **A routine never starts itself.** Asking for one by name runs it, every time and
-      without the model getting a say — that is the whole guarantee and it works. What is
-      missing is a routine going off with nobody there to ask: at eight every morning, on
-      waking, when the headphones connect. That is the other half of what Alexa calls a
-      routine and it is a separate feature, not a missing corner of this one.
+- [x] **A routine never starts itself.** Half of this is done: `heart/` keeps time, and
+      `remind_me` with a `routine` name set makes one go off on a clock — at eight every
+      morning, every weekday at nine. The other triggers are still missing: on waking, when
+      the headphones connect. Those are a second kind of trigger into the same firing path,
+      not a second feature.
 - [ ] **The standing prompt grew by about two thousand characters** for the ROUTINES section,
       and by a line for every routine saved. `brain/prompt.py` caps nothing, so a person with
       fifty routines pays for fifty lines on every single turn. Twenty is fine; there should
