@@ -24,14 +24,12 @@ delete the line when it stops being interesting.
       renders itself in the browser comes back as "it wants a real browser" and the model
       reads the next result instead. That is the honest answer and usually the right one.
       The day it is not, the fallback is the browser errand, not a second fetcher.
-- [ ] **Rebuild the browser agent** — `hands/browser/` is blank. It owned the multi-step web
-      errand in its own process. Two things went with it and need putting back if the new one
-      works the same way:
-      - `main.py` no longer wires up unprompted speech. `face.console.unprompted()` is still
-        there, unused, waiting for it.
-      - `conversation.add(unprompted=True)` is still in the schema and nothing sets it.
-- [ ] **Setup script** — there is no one-time installer any more. It should get Ollama and
-      the models, the ears' weights, a voice, Tesseract, and say what it could not do.
+- [ ] **Nothing does a multi-step web errand.** `hands/browser/` came back as two tools —
+      `bring_to_front` and `play_pause` — which is a page already open, not a job worked
+      through in a browser. Filling a form, going through a checkout or reading down a list
+      of results and following one is still nobody's. The unprompted plumbing the old agent
+      needed is back and in use: `main.py` speaks off `show.unprompted()` and
+      `memory.begin(unprompted=True)` sets the row.
 
 ## Reminders
 
@@ -109,17 +107,18 @@ safety net, so it is not something to trim.
       the thing to lean on.
 - [ ] **A routine still cannot call another routine.** Playbooks have `${PLAYBOOK: name}` for this
       and it is the natural way to build a long one out of short ones. Nothing here does it.
-- [x] **A routine never starts itself.** Half of this is done: `heart/` keeps time, and
-      `remind_me` with a `routine` name set makes one go off on a clock — at eight every
-      morning, every weekday at nine. The other triggers are still missing: on waking, when
-      the headphones connect. Those are a second kind of trigger into the same firing path,
-      not a second feature.
+- [ ] **A routine only starts itself on a clock.** `heart/` keeps time and `remind_me` with a
+      `routine` name set makes one go off — at eight every morning, every weekday at nine. The
+      other triggers are still missing: on waking, when the headphones connect. Those are a
+      second kind of trigger into the same firing path, not a second feature.
 - [ ] **The standing prompt grew by about two thousand characters** for the ROUTINES section,
-      and by a line for every routine saved. `brain/prompt.py` caps nothing, so a person with
-      fifty routines pays for fifty lines on every single turn. Twenty is fine; there should
-      be a ceiling before it is not.
-- [ ] **`brain/thinking.py` is 326 lines** and was already 295 before the two short methods
-      that dispatch a routine went in. It wants splitting either way.
+      and by a line for every routine saved. `routines.listing()` writes one line per routine
+      and caps nothing, so a person with fifty routines pays for fifty lines on every single
+      turn. Twenty is fine; there should be a ceiling before it is not.
+- [ ] **`brain/thinking.py` is 333 lines** and `brain/wrapping.py` 359, both well past the
+      200 the rule in `AGENTS.md` asks for. They want splitting. `eyes/attention.py` at 380,
+      `main.py` at 377, `voice/speaker.py` at 364 and `mcps/bridging.py` at 349 are the same
+      story; `mcps/servers/whatsapp/bridge.py` at 2653 is somebody else's code and is not.
 
 - [ ] **`list_controls` hides things behind "and 17 more".** `MAX_PER_KIND` is 12 and
       `MAX_CHARS` 1400, and the chat being asked for was cut by both, so the model chose from
@@ -135,31 +134,66 @@ safety net, so it is not something to trim.
 - [ ] **A target that is only part of a two word label scores badly.** "Send" against a button
       labelled *Send message* comes to exactly 0.5 and so does not clear the cutoff, because
       coverage is counted in characters. Counting it in words would be the honest fix.
-- [ ] **`brain.calls` is 14 rounds**, and an errand that clicks its way through an app can
-      spend them all and be cut off mid task, which reads as Happy giving up. Fewer round
-      trips is the better answer than a bigger number.
+- [ ] **`brain.calls` is 40 rounds** — raised from 14 because an errand that clicks its way
+      through an app spent them all and was cut off mid task, which reads as Happy giving up.
+      The number is not the fix. Fewer round trips is, and a routine already gets a budget cut
+      to its own steps rather than an errand's open ended one.
 - [ ] `hands/controls/` is only tested on macOS. Every Windows path is written and unrun.
 - [ ] The window is only run on macOS. The tray, the placing and the icons are written for
       Windows and unrun there. On macOS a menu bar with no room left hides the icon and then
       reports nonsense bounds for it, so the panel falls back to the top right corner.
-- [ ] There is no packaged app yet — no `electron-builder`, no `.app`, no `.exe`. It is
-      `npm start` from the repo, so it cannot be launched at login the way it should be.
+- [ ] **Launching at login.** There is a clickable app now — `bones/bundling.py` writes a
+      signed `Happy.app` into `/Applications` on a Mac, a shortcut on Windows, a `.desktop`
+      entry on Linux — but every one of them points back at the checkout rather than carrying
+      it, and nothing registers any of them to start when the machine does. That is what a
+      reminder needs to go off while nobody has opened him.
 - [ ] `data/happy.db` prunes only if `memory.messages` says how many days to keep. No export.
 - [ ] `recordings/` the same, under `memory.recordings`. Both ship keeping everything.
-- [ ] No tests anywhere.
-- [ ] `requirements.txt` is still a frozen dump. The WhisperX half is gone, but the packages
-      only the old browser agent needed are still in it — `browser-use` and friends are pinned
-      and nothing imports them.
-- [ ] Parakeet's own docs put the ceiling at 20-30 seconds a call and suggest VAD past that.
-      A 14-second take is the longest tried and it was fine. `model.with_vad(load_vad("silero"))`
-      is the fix if a long ramble ever comes back cut short.
+- [ ] Almost no tests. `python -m heart` checks forty two time phrases and is the only one.
+      `.github/workflows/checks.yml` byte-compiles every module on macOS and Windows and lists
+      the files over 200 lines, which catches a file that does not parse and nothing else.
+      The line check is advisory on purpose: nineteen files are already over it.
+- [ ] `requirements.txt` is still a frozen dump, 13 KB of pins. `browser-use==0.13.6` and
+      `browser-use-sdk==3.4.2` are the old browser agent's and nothing imports them; the
+      Kokoro, Piper and Qwen halves went the same way the voices did and want the same check.
+- [ ] Parakeet is no longer what ships — `ears.engine` defaults to `whisper` — but it is still
+      an engine somebody can pick, and its own docs put the ceiling at 20-30 seconds a call and
+      suggest VAD past that. A 14-second take is the longest tried and it was fine.
+      `model.with_vad(load_vad("silero"))` is the fix if a long ramble comes back cut short.
 - [ ] `ears.device = auto` lets onnxruntime pick CoreML. Never measured against the pinned CPU
       it ships with, and a 650 MB encoder is not an obvious win to compile.
-- [ ] One take in `recordings/` that WhisperX heard — "It looks familiar." — comes back empty
-      now. It is the quietest of the fifty at peak 0.08, and gain does not recover it.
+- [ ] One take in `recordings/` that WhisperX heard — "It looks familiar." — came back empty
+      off Parakeet. It is the quietest of the fifty at peak 0.08, and gain does not recover it.
+      Worth running the fifty again now the default ear is Whisper, to see which of these
+      are still true of what ships.
 
 ## Done
 
+- [x] **The voice, three times over.** Piper went, Kokoro measured robotic and is now the
+      second choice, and Supertonic is what ships — pure ONNX, faster and more expressive,
+      four diffusion steps, and never two. Qwen
+      was tried and dropped: fast only on MLX or CUDA, about ten times slower on Windows than
+      the voice it would have replaced. A number is now read as the words it is said as, an em
+      dash is a pause rather than a character off an ASCII table, and a sentence too long for
+      one read breaks where a clause ends rather than at the last space.
+- [x] **One line installs him.** `install.sh` clones into `~/.happy` and hands over to
+      `setup.sh`, which finds a Python and hands over to `bones/` — Node, Tesseract, the model
+      server, the dependencies, the window, the weights and a voice, each one skipped if it is
+      already there and named at the end if it could not be done. The last step is a signed
+      `Happy.app` in `/Applications` pointing back at the checkout, so updating is a git pull.
+- [x] **Reminders.** `heart/` keeps the time, a phrase comes to the soonest future moment it
+      could mean, and a reminder can run a saved routine rather than say a line back. Every one
+      has a row in the panel that folds open, and the panel is told the moment one is set,
+      moved, fired or forgotten.
+- [x] **Routines.** A job taught once and asked for by name, taken off a run that already
+      worked rather than written out of imagination, run in a context with only the tools it
+      named bound to it. Asking for one by name runs it before the model is asked anything.
+- [x] **Something Happy says that nobody asked for** takes the same lock a turn does, so a
+      reminder waits its go rather than talking over one, and it opens a turn without putting
+      the window into hearing. The `unprompted` row the schema has had since the browser agent
+      went is finally set by something.
+- [x] **The repository is readable by a stranger** — README, CONTRIBUTING, SECURITY, a code of
+      conduct, a licence and issue templates, because somebody who finds it cannot ask.
 - [x] **Every request for approval crashed in the window.** `panel.send` took its line kind as
       `what`, and the confirm line carries a field of its own called `what`, so asking about
       anything guarded raised `got multiple values for argument 'what'` instead of asking.
