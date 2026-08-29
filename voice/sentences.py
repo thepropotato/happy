@@ -19,6 +19,10 @@ SHORTENED = {
 
 INITIAL = 1  # ONE LETTER AND A DOT IS NEVER A SENTENCE.
 
+# WHERE A SENTENCE TOO LONG TO READ IN ONE GO IS BROKEN: A CLAUSE ENDS AT ONE OF THESE, AND
+# THE VOICE ALREADY PAUSES THERE, SO THE BREAK IS HEARD AS THE WRITING RATHER THAN AS A FAULT.
+CLAUSE = re.compile(r"[,;:][\"')\]]*\s")
+
 BEFORE = re.compile(r"([A-Za-z]+)\.[\"')\]]*\s*$")
 
 
@@ -67,6 +71,13 @@ class Sentences:
 
         if len(self.buffer) < MAX_CHARS:
             return None
+
+        # A CLAUSE END IS WHERE A PERSON WOULD HAVE BREATHED ANYWAY. CUTTING AT THE LAST
+        # SPACE INSTEAD PUTS A FULL STOP'S WORTH OF SILENCE INSIDE A PHRASE.
+        clause = [found.end() for found in CLAUSE.finditer(self.buffer, 0, MAX_CHARS)]
+
+        if clause and clause[-1] >= least:
+            return clause[-1]
 
         space = self.buffer.rfind(" ", 0, MAX_CHARS)  # NEVER CUT A WORD IN HALF.
 
