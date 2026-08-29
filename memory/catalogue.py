@@ -91,7 +91,7 @@ VOICE = [
            "The voice Happy speaks with."),
     choice("voice.name", "Voice", [], "", VOICES, source="voices", preview="preview"),
     toggle("voice.muted", "Mute", False, "Happy still answers, in writing."),
-    number("voice.pace", "Pace", 0.6, 1.6, 0.05, 0.95, "Below one is faster speech."),
+    number("voice.pace", "Pace", 0.6, 1.6, 0.05, 0.8, "Below one is faster speech."),
 ]
 
 EYES = [
