@@ -7,8 +7,13 @@ from voice.mute import Mute
 
 KOKORO = "kokoro"
 PIPER = "piper"
+EXPRESSIVE = "expressive"
 
-ENGINES = {KOKORO: "voice.kokoro", PIPER: "voice.piper"}
+ENGINES = {KOKORO: "voice.kokoro", PIPER: "voice.piper", EXPRESSIVE: "voice.expressive"}
+
+# THE ONE THAT NEEDS NOTHING BUT THE FILES ALREADY HERE, SO IT IS WHAT SPEAKS WHEN THE PICKED
+# ENGINE CANNOT.
+FALLBACK = KOKORO
 
 SETTING = "voice.engine"
 
@@ -36,10 +41,17 @@ def build(engine=None, **kwargs):
 
 
 def attempt(engine=None, **kwargs):
-    """A VOICE, PLUS THE REASON IT IS MUTE WHEN IT IS."""
+    """A VOICE, PLUS THE REASON IT IS NOT THE ONE THAT WAS ASKED FOR."""
     try:
         return build(engine, **kwargs), None
     except Exception as error:
+        # A VOICE THAT WILL NOT LOAD IS NOT A REASON TO GO SILENT WHILE ANOTHER ONE WORKS.
+        if (engine or chosen()) != FALLBACK:
+            try:
+                return build(FALLBACK, **kwargs), f"{error} Speaking with the {FALLBACK} voice."
+            except Exception:
+                pass
+
         return Mute(), f"{error}"
 
 

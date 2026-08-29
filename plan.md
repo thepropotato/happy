@@ -216,6 +216,87 @@ Ordered by damage done, not by effort.
    row stored NULL.
 8. **Duplicate tool call (676).** Same tool, same arguments, twice in one turn.
 
+## #5 reopened: the voice is still robotic
+
+He played `~/Downloads/audio.wav`, made by Qwen3-TTS, and asked for that. Measured
+both saying the same line — "It's in the top drawer. Wait, it's empty? No way, that's
+impossible. I'm sure I put it there."
+
+| | Qwen3 (wanted) | Kokoro bm_fable | Kokoro af_heart |
+|---|---|---|---|
+| length | 7.42s | 5.20s | 5.48s |
+| voiced | 60.8% | **95.4%** | 76.2% |
+| pauses over 100ms | **7** (to 0.66s) | **0** | 3 (to 0.38s) |
+| pitch range | **225 Hz** | 106 Hz | 121 Hz |
+
+Two things, and neither is a setting:
+- **It never stops talking.** 95.4% voiced, no pause anywhere. Qwen speaks 60% of the
+  time and leaves three pauses over half a second.
+- **It barely changes pitch.** Half Qwen's melodic range.
+
+Things ruled out by measuring, not by guessing:
+- **The pauses are not in `clips.py`.** Taking the fixed 90 ms tail out entirely moves
+  the line from 5.24s to 5.06s. The missing 2.2 seconds are inside the model's own
+  speech, not between sentences.
+- **Pace cannot reach it.** It stretches vowels evenly; it does not put a pause where a
+  clause turns.
+- **Kokoro has no other knob.** `sound()` passes `input_ids`, `style` and `speed` and
+  that is the whole interface. The style row is picked by phoneme count alone, so
+  prosody is a deterministic function of length — the same words always get the same
+  tune.
+
+So this is architecture, not configuration. Kokoro is 82M parameters and reads a
+sentence; Qwen3-TTS is an autoregressive model that works out from the words where to
+breathe and what to lean on. No amount of tuning gets one to do the other. Replacing
+the engine is the only honest answer, and it costs latency: Kokoro runs at 9x realtime
+with ~400 ms to first audio, and autoregressive models are far slower.
+
+Constraint worth remembering: the venv has **no torch and no MLX** today — the whole
+stack is onnxruntime and numpy, 1.4 GB. Any autoregressive engine brings a large new
+dependency with it.
+
+**Found and fixed while measuring:** `Voice(pace=...)` was silently ignored —
+`refit()` called `load(wanted)` with no pace, so the setting overwrote it on the first
+call. A pinned pace is now held the way a pinned name is.
+
+### Fixed: a voice that means it
+
+Qwen3-TTS turned out to be open weights (Apache 2.0, opened 22 Jan 2026) and to run
+on this Mac through MLX. Installed, measured, wired in as a third engine.
+
+**It is faster to start speaking than Kokoro, not slower.** Measured here:
+
+| | first audio | whole sentence |
+|---|---|---|
+| expressive (Qwen3 0.6B, 8-bit) | **0.23s** | 0.91s |
+| kokoro | 0.36s | 0.36s |
+
+Kokoro has to finish a sentence before a sample plays; this one streams while it
+talks, so the wait to hear something is shorter even though it works harder. That
+kills the tradeoff I expected to have to explain.
+
+And it does the thing he actually asked for, on the same line he sent:
+
+| | his Qwen file | ours, local | kokoro |
+|---|---|---|---|
+| pauses over 100ms | 7 | **7** | 0 |
+| pitch range | 225 Hz | **281 Hz** | 106 Hz |
+| voiced | 60.8% | 74.8% | 95.4% |
+
+- `voice/expressive.py` — the engine. Mac only, and it says so on Windows rather than
+  failing; `bones.systems.on_mac` guards it.
+- `voice.engine` **is now a real setting**. It was in no catalogue before, so
+  `settings.put` refused it and `chosen()` could only ever answer kokoro — every
+  engine-switch path in the code was unreachable. Default is now `expressive`.
+- `voice.manner` is new: how it should sound, in words ("Speak warmly and calmly").
+  The model takes it per utterance and it costs no time.
+- `engines.attempt` used to fall back to **silence**. It now falls back to kokoro,
+  which needs nothing but the files already here.
+- `mlx-audio` is pinned in requirements behind `sys_platform == "darwin"`.
+
+Left alone on purpose: kokoro stays, as the fallback and as the Windows voice, and
+piper stays for Telugu.
+
 ## Rules to keep in view while fixing
 
 - Every control needs its Windows half beside the macOS one (AGENTS.md).
