@@ -6,10 +6,8 @@ from memory import settings
 from voice.mute import Mute
 
 KOKORO = "kokoro"
-PIPER = "piper"
-EXPRESSIVE = "expressive"
 
-ENGINES = {KOKORO: "voice.kokoro", PIPER: "voice.piper", EXPRESSIVE: "voice.expressive"}
+ENGINES = {KOKORO: "voice.kokoro"}
 
 # THE ONE THAT NEEDS NOTHING BUT THE FILES ALREADY HERE, SO IT IS WHAT SPEAKS WHEN THE PICKED
 # ENGINE CANNOT.

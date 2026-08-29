@@ -82,7 +82,6 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `voice/engines.py` | Which engine speaks, and loading only that one. |
 | `voice/kokoro.py` | The voice model itself. |
 | `voice/styles.py` | The voice files: what is here, which one speaks, and getting more. |
-| `voice/piper.py` | The other voice engine, kept as an alternative to Kokoro. |
 | `voice/phonemes.py` | Words turned into the sounds they are made of. |
 | `voice/clips.py` | Sound tidied at its edges, so one piece runs into the next. |
 | `voice/mute.py` | The stand-in when no voice will load. |

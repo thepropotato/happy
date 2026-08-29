@@ -86,7 +86,6 @@ oauthlib==3.3.1
 ollama==0.6.1
 onnx-asr==0.12.0
 onnxruntime==1.28.0
-mlx-audio==0.5.0; sys_platform == "darwin"
 openai==2.16.0
 opencv-python-headless==5.0.0.93
 openpyxl==3.1.5
@@ -105,7 +104,6 @@ pathvalidate==3.3.1
 pfzy==0.3.4
 phonemizer-fork==3.3.2
 pillow==12.2.0
-piper-tts==1.6.0
 portalocker==3.2.0
 posthog==7.7.0
 prompt_toolkit==3.0.52

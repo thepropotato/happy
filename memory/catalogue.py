@@ -9,9 +9,7 @@ DEVICES = [("cpu", "CPU"), ("auto", "Anything faster")]
 EARS_ENGINES = [("parakeet", "Parakeet"), ("whisper", "Whisper")]
 
 VOICE_ENGINES = [
-    ("expressive", "Expressive"),
     ("kokoro", "Smooth"),
-    ("piper", "Plain"),
 ]
 
 PROVIDERS = [("ollama", "Ollama"), ("openai", "OpenAI shape")]
@@ -88,11 +86,9 @@ EARS = [
 ]
 
 VOICE = [
-    choice("voice.engine", "Engine", VOICE_ENGINES, "expressive",
-           "Expressive puts the pauses where the words do. Smooth is quicker to a whole sentence."),
+    choice("voice.engine", "Engine", VOICE_ENGINES, "kokoro",
+           "The voice Happy speaks with."),
     choice("voice.name", "Voice", [], "", VOICES, source="voices", preview="preview"),
-    text("voice.manner", "Manner", "", "How it should sound, in words. Expressive only.",
-         rare=True),
     toggle("voice.muted", "Mute", False, "Happy still answers, in writing."),
     number("voice.pace", "Pace", 0.6, 1.6, 0.05, 0.95, "Below one is faster speech."),
 ]
