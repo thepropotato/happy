@@ -30,6 +30,7 @@ class Voice:
 
     def __init__(self, name=None, pace=None):
         self.pinned = name  # HANDED A NAME MEANS THE SETTING NEVER MOVES IT.
+        self.held = pace  # AND A PACE THE SAME, WHICH refit MUST NOT READ BACK OVER.
         self.session, self.vocab = weights()
 
         self.load(name or find(), pace)
@@ -42,6 +43,12 @@ class Voice:
     def refit(self, text=""):
         """PICK UP A CHANGED VOICE OR PACE. A STYLE IS HALF A MEGABYTE, SO THIS COSTS NOTHING."""
         wanted = self.pinned or find(text)
+
+        if self.held is not None:
+            if wanted != self.name:
+                self.load(wanted, self.held)
+
+            return
 
         if wanted != self.name or settings.get("voice.pace") != self.pace:
             self.load(wanted)
