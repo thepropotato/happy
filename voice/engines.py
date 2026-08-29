@@ -6,8 +6,9 @@ from memory import settings
 from voice.mute import Mute
 
 KOKORO = "kokoro"
+SUPERTONIC = "supertonic"
 
-ENGINES = {KOKORO: "voice.kokoro"}
+ENGINES = {SUPERTONIC: "voice.supertonic", KOKORO: "voice.kokoro"}
 
 # THE ONE THAT NEEDS NOTHING BUT THE FILES ALREADY HERE, SO IT IS WHAT SPEAKS WHEN THE PICKED
 # ENGINE CANNOT.
@@ -21,7 +22,7 @@ class VoiceError(Exception):
 
 
 def chosen():
-    return settings.get(SETTING) or KOKORO
+    return settings.get(SETTING) or SUPERTONIC
 
 
 def part(engine=None):

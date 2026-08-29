@@ -9,6 +9,7 @@ DEVICES = [("cpu", "CPU"), ("auto", "Anything faster")]
 EARS_ENGINES = [("parakeet", "Parakeet"), ("whisper", "Whisper")]
 
 VOICE_ENGINES = [
+    ("supertonic", "Expressive"),
     ("kokoro", "Smooth"),
 ]
 
@@ -86,7 +87,7 @@ EARS = [
 ]
 
 VOICE = [
-    choice("voice.engine", "Engine", VOICE_ENGINES, "kokoro",
+    choice("voice.engine", "Engine", VOICE_ENGINES, "supertonic",
            "The voice Happy speaks with."),
     choice("voice.name", "Voice", [], "", VOICES, source="voices", preview="preview"),
     toggle("voice.muted", "Mute", False, "Happy still answers, in writing."),
