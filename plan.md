@@ -139,7 +139,28 @@ thing that made the answer useless: the user cannot see the list.
       for the three-token language guess. The real clip
       `recordings/2026-08-28_21-55-28-806.wav` now reads "unread", not "100".
       Cost: 0.5s -> 1.45s a take.
-- [ ] #5 voice, #6 TTS latency, #674 silent turn, #676 duplicate call.
+- [~] **#5 voice** — Piper now keeps each voice's own tuned `noise_scale` and
+      `noise_w_scale` (`piper.py`), which were being thrown away for the
+      library's flat defaults. The main cause is the *setting*:
+      `voice.name = "bm_fable"` is 11th of 12 in a list the code itself orders
+      best-first. Samples of six voices are rendered for a listen — the pick is
+      the user's, not mine.
+- [x] **#6 measured, and mostly a myth.** Numbers on this machine, not guesses:
+      - `sd.query_devices` per sentence: **0.0 ms**. Not worth touching.
+      - `styles.voices()` glob per sentence: **0.06 ms**. Not worth touching.
+      - FFT resample 24k->48k: **12 ms** typical, 21 ms on an awkward prime
+        length, 1 ms on a friendly one. Real but small.
+      - Kokoro synthesis: **~400 ms** for a 3.6 s sentence, **9x realtime**.
+      - **CoreML is slower, not faster: 432 ms against 408 ms**, warm-up 3.7 s
+        against 1.2 s, and it splinters the graph into 109 partitions and prints
+        warnings. Tried, measured, reverted. Do not try it again without
+        measuring.
+      So time-to-first-audio is ~400 ms and it is nearly all one Kokoro forward
+      pass over a whole sentence. The only real lever left is sub-sentence
+      chunking, which `phonemes.mouthfuls` gave up on purpose: it saved half a
+      second and put a pause in the middle of a clause. That trades straight
+      against #5, so it stays as it is.
+- [ ] #674 silent turn, #676 duplicate call.
 
 ### Watch out for
 The bigger ear is *worse* at naming the language: medium called plain English

@@ -41,8 +41,13 @@ class Voice:
         self.rate = self.voice.config.sample_rate
         self.pace = settings.get("voice.pace") if length is None else length
 
-        # BELOW ONE IS FASTER SPEECH.
-        self.how = SynthesisConfig(length_scale=self.pace)
+        # BELOW ONE IS FASTER SPEECH. THE TWO NOISE FIGURES ARE THE VOICE'S OWN, TUNED WHEN
+        # IT WAS TRAINED: DROPPING THEM FOR THE LIBRARY'S DEFAULTS FLATTENS ITS PROSODY.
+        self.how = SynthesisConfig(
+            length_scale=self.pace,
+            noise_scale=self.voice.config.noise_scale,
+            noise_w_scale=self.voice.config.noise_w_scale,
+        )
 
     def refit(self, text=""):
         """PICK UP A CHANGED VOICE OR PACE. RELOADING COSTS A FEW MILLISECONDS."""
