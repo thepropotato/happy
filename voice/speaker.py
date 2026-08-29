@@ -8,7 +8,7 @@ import sounddevice as sd
 
 from face import show
 from memory import settings
-from voice import clips, engines, stripping
+from voice import clips, engines, numbers, stripping
 from voice.sentences import Sentences
 
 IDLE_POLL_SECONDS = 0.1  # SHORT HOPS SO CTRL+C STILL LANDS WHILE WAITING.
@@ -142,6 +142,9 @@ class Speaker:
         A NAME SAYS WHICH VOICE, WHICH IS HOW ONE IS HEARD BEFORE IT IS PICKED."""
         # THE PANEL DRAWS THE MARKDOWN. NOTHING OUT HERE SHOULD HEAR IT.
         sentence = stripping.spoken(sentence)
+
+        # A FIGURE IS SAID AS THE WORDS IT IS READ AS, WHICH NO VOICE MODEL DOES ON ITS OWN.
+        sentence = numbers.spoken(sentence)
 
         if not sentence:
             return
