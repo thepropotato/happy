@@ -1,0 +1,41 @@
+name: Feature request
+description: Something Happy should be able to do
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please check [HAPPY.md](../blob/main/HAPPY.md) first — several shapes have already been
+        built and deliberately taken back out, and the reasoning is written down there.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The errand, in the words you would say out loud.
+      placeholder: "Happy, what did Priya send me about the venue?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: today
+    attributes:
+      label: What happens today
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you think should happen
+      description: If you know where it would live — a tool under `hands/`, a service under `mcps/` — say so.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: platforms
+    attributes:
+      label: Platforms
+      description: A feature that works on only one is not finished. Both have to be possible.
+      options:
+        - label: This can work on both macOS and Windows

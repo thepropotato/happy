@@ -1,0 +1,50 @@
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  compiles:
+    name: Compiles on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      # NOTHING IS INSTALLED HERE ON PURPOSE: THE REQUIREMENTS ARE HEAVY AND PLATFORM SPLIT,
+      # AND WHAT THIS CATCHES IS A FILE THAT DOES NOT PARSE.
+      - name: Byte-compile every module
+        run: python -m compileall -q bones brain ears eyes face hands heart mcps memory tongue voice main.py
+
+  house-rules:
+    name: House rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # ADVISORY, NOT A GATE: NINETEEN FILES ARE ALREADY OVER, AND FAILING ON THEM WOULD
+      # BLOCK EVERY PULL REQUEST UNTIL THEY ARE SPLIT.
+      - name: Files over 200 lines
+        continue-on-error: true
+        run: |
+          find bones brain ears eyes face hands heart mcps memory tongue voice -name '*.py' \
+            -not -path '*__pycache__*' \
+            -exec awk 'END { if (NR > 200) printf "%s (%d lines)\n", FILENAME, NR }' {} \; \
+            | sort -t'(' -k2 -rn
+          echo "The limit in AGENTS.md is 200. Do not add to this list."
+      - name: Every module is a folder with an __init__.py
+        run: |
+          missing=$(find bones brain ears eyes face hands heart mcps memory tongue voice \
+            -type d -not -path '*/__pycache__*' -not -path '*/node_modules*' \
+            -exec sh -c 'ls "$1"/*.py >/dev/null 2>&1 && [ ! -f "$1/__init__.py" ] && echo "$1"' _ {} \;)
+          if [ -n "$missing" ]; then
+            echo "These folders hold Python but have no __init__.py:"
+            echo "$missing"
+            exit 1
+          fi
