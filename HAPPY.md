@@ -82,10 +82,9 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `voice/engines.py` | Which engine speaks, and loading only that one. |
 | `voice/kokoro.py` | The voice model itself. |
 | `voice/styles.py` | The voice files: what is here, which one speaks, and getting more. |
-| `voice/piper.py` | The Telugu voice, and nothing else now. |
+| `voice/piper.py` | The other voice engine, kept as an alternative to Kokoro. |
 | `voice/phonemes.py` | Words turned into the sounds they are made of. |
 | `voice/clips.py` | Sound tidied at its edges, so one piece runs into the next. |
-| `voice/collecting.py` | Fetching a missing voice behind the conversation. |
 | `voice/mute.py` | The stand-in when no voice will load. |
 | `voice/sentences.py` | Where one spoken sentence ends and the next begins. |
 | `voice/speaker.py` | Saying it out loud: synthesis, playback, barge-in. |
@@ -498,8 +497,8 @@ The model loads and warms in 0.77 s where WhisperX took 2.89 s. 631 MB in `model
 **v2 is the English one, and it was picked over multilingual v3 by listening.** v3 covers 25
 languages and mis-hears *"open the most recent **chat**"* as "chart" or "set" in four of the fifty
 takes. That phrase is a command Happy is actually given, so being right about it beats a language
-nobody here speaks. v2 gets all four. There is no `ears.language` knob, because this model takes
-no language at all.
+nobody here speaks. v2 gets all four. There is no `ears.language` knob, because Happy hears
+English only and this model takes no language at all.
 
 **int8, and no knob for it.** Full precision is 2.55 GB against int8's 631 MB for a vendor claim of
 parity. A knob whose other setting nobody has downloaded only ever produces an error.
@@ -517,9 +516,8 @@ Nothing imports torch, which is 55 packages and a gigabyte not installed.
 
 ## The voice
 
-**Kokoro** speaks everything except Telugu, which **Piper** reads. One engine and one named
-exception — not a fallback layer. `voice/engines.py` names both and imports only what is asked
-for; `ELSEWHERE` there is the whole of the exception, and it has one entry.
+**Kokoro** speaks, and **Piper** is kept beside it as the other engine. `voice/engines.py` names
+both and imports only whichever is asked for. Both speak English and nothing else.
 
 *This reverses an earlier decision, on purpose.* Piper was picked first on speed and Kokoro was
 rejected for being slow, and the numbers were right — measured on this machine, warmed, Piper is
@@ -545,39 +543,33 @@ once the model is down. The style is a table indexed by how many sounds are in t
 which is why `sound()` picks its row off the token count rather than loading anything, and why
 the model is loaded once per run and shared by every voice rather than per voice.
 
-**Telugu is Piper's, and the reason is worth writing down because the obvious test lied.**
-Kokoro has no Telugu voice. Its Hindi voices look like they could stand in: espeak spells Telugu
-into sounds, and **100% of them survive Kokoro's alphabet** — nothing is dropped, so on paper it
-reads. It does not. A symbol being *in* the alphabet is not the model having been *trained* on
-it in that position, and Telugu's palatal `c`, its `ʋ` and its vowel runs are not things the
-Hindi voices ever saw. What comes out is fluent-sounding nonsense.
+**Happy speaks and hears English only, and the machinery for anything else was removed on
+purpose.** Hindi and Telugu were both supported once, through a language detector, per-language
+Whisper fine-tunes and a Piper exception for Telugu. It was taken out because detection is a
+guess made on every single take and a wrong guess ruins a take that would otherwise have been
+right: plain English *"How many hundreds are there in a million?"* came back as
+`हाउ मैनी हॉंड्रेड्स आर देर इन मिलियन.` — the English words transliterated into Devanagari.
+Guessing also cost about 30% in transcription time, spent on every take to be wrong on some.
 
-*Do not re-test this with speech recognition.* Synthesising Telugu and reading it back with
-Happy's own Telugu ear scored **0.90 / 0.93 / 0.98** against Piper's 0.94 / 0.96 / 0.98, which
-says the two are equivalent. They are not, and the number is an artefact: Whisper carries a
-language model strong enough to reconstruct the intended sentence out of mangled sound. It was
-measuring its own guessing, not Kokoro's speaking. A person listening heard gibberish
-immediately. **For "is this intelligible", the ear is the instrument.**
+Three findings from that work are worth keeping, because they cost real measurement and anyone
+adding a language back will otherwise pay for them twice:
 
-**A voice handed a script it cannot read says the name of the language out loud, once before
-every letter.** This is espeak's behaviour, not a bug in anything here, and it is the single
-worst-sounding failure in the voice: `"Downloads folder తెరిచాను."` came out as *"telugu, telugu,
-telugu…"* for fifteen seconds. It happened because the language of a sentence was picked by
-`tongue.language()`, which answers *which language most of it is in* — and two English words beat
-one Telugu word, so the sentence went to an English voice that could not read a third of it.
+- **Kokoro's Hindi voices cannot stand in for Telugu**, even though 100% of espeak's Telugu
+  phonemes survive Kokoro's alphabet. A symbol being *in* the alphabet is not the model having
+  been *trained* on it in that position. What comes out is fluent-sounding nonsense.
+- **Do not test intelligibility with speech recognition.** Reading synthesised Telugu back with
+  a Telugu ear scored 0.90/0.93/0.98 against Piper's 0.94/0.96/0.98, saying the two were
+  equivalent. They were not. Whisper's language model reconstructs the intended sentence out of
+  mangled sound, so it measures its own guessing. A person heard gibberish immediately. **For
+  "is this intelligible", the ear is the instrument.**
+- **A voice handed a script it cannot read says the name of the language out loud, once before
+  every letter** — `"Downloads folder తెరిచాను."` became *"telugu, telugu, telugu…"* for fifteen
+  seconds. Picking a voice is therefore not the same question as identifying a language: what
+  is wanted is the language whose voice can read *all* of a sentence, not most of it.
 
-Choosing a **voice** is not the same question as identifying a language. `tongue.reading()` is
-the one to use: the language whose voice can read *all* of this, hardest script first. One
-Telugu word in an otherwise English sentence makes the whole sentence Telugu's, because an
-Indian voice reads an embedded English word perfectly well and the reverse is a catastrophe.
-Mixed sentences also make espeak switch languages mid-way and mark where it did; those marks are
-sound if left in, so `phonemes.sounds()` asks for them removed while keeping the words.
-
-So `ELSEWHERE = {"te": PIPER}`, and Kokoro's `say()` hands a Telugu sentence to a Piper voice
-built the first time one arrives. Piper runs at 22050 against Kokoro's 24000, and rather than
-teach the player about two rates, `clips.resampled()` puts Piper's output on Kokoro's rate on
-the way out — so there is exactly one sample rate in the system and `Speaker` never learns that
-any of this happened.
+Only the last of these still has code behind it: mixed text makes espeak switch languages
+mid-way and mark where it did, and those marks are read out as sound if left in, so
+`phonemes.sounds()` still asks for them removed while keeping the words.
 
 If no voice is there, `voice.create()` returns a `Mute` voice and the reason. Happy carries on
 answering in writing, and nothing downstream has to check whether there is a voice.
@@ -1674,7 +1666,7 @@ pip install python-magic-bin                    # Windows, which carries the DLL
 .venv/bin/python -m ears               # transcribe everything in recordings/, with timings
 
 # the voice. 326 MB of model into models/kokoro, plus a style per voice.
-.venv/bin/python -m voice --get       # english; --get hi for the hindi voices too
+.venv/bin/python -m voice --get       # the voice model and its styles
 .venv/bin/python -m voice --voices    # which voices are installed
 .venv/bin/python -m voice "say this"  # hear it without the rest of Happy
 

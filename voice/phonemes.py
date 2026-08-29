@@ -1,7 +1,7 @@
 """WORDS TURNED INTO THE SOUNDS THEY ARE MADE OF, WHICH IS WHAT A VOICE MODEL READS."""
 
-# espeak-ng HAS ITS OWN NAME FOR A LANGUAGE, WHICH IS NOT THE TWO LETTERS EVERYTHING ELSE USES.
-SPELLING = {"en": "en-us", "hi": "hi", "te": "te"}
+# espeak-ng HAS ITS OWN NAME FOR ENGLISH, WHICH IS NOT THE TWO LETTERS EVERYTHING ELSE USES.
+ENGLISH = "en-us"
 
 # THE MODEL READS NO MORE THAN THIS AT ONCE, AND ITS STYLES ARE ONLY WRITTEN OUT THAT FAR. A
 # SENTENCE ARRIVES CUT TO 260 LETTERS, SO ONLY ONE MADE ALMOST WHOLLY OF DIGITS REACHES IT.
@@ -29,17 +29,17 @@ def start():
     started = True
 
 
-def sounds(text, language, vocab):
+def sounds(text, vocab):
     """ONE SENTENCE AS THE SOUNDS IT IS SAID WITH, MINUS ANY THIS MODEL WAS NOT TAUGHT."""
     import phonemizer
 
     start()
 
-    # A SENTENCE THAT MIXES TWO LANGUAGES MAKES espeak SWITCH MID-WAY AND MARK WHERE IT DID.
+    # A WORD espeak READS AS ANOTHER LANGUAGE MAKES IT SWITCH MID-WAY AND MARK WHERE IT DID.
     # LEFT IN, THOSE MARKS ARE READ OUT AS SOUND; THE WORDS EITHER SIDE OF THEM ARE WANTED.
     said = phonemizer.phonemize(
         text,
-        SPELLING.get(language, language),
+        ENGLISH,
         preserve_punctuation=True,
         with_stress=True,
         language_switch="remove-flags",
@@ -48,9 +48,9 @@ def sounds(text, language, vocab):
     return "".join(mark for mark in said if mark in vocab).strip()
 
 
-def spoken(text, language, vocab):
+def spoken(text, vocab):
     """THE SOUNDS OF A SENTENCE, IN MOUTHFULS SHORT ENOUGH FOR THE MODEL TO TAKE."""
-    return mouthfuls(sounds(text, language, vocab))
+    return mouthfuls(sounds(text, vocab))
 
 
 def mouthfuls(said):

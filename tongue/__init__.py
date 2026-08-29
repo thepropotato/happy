@@ -1,8 +1,5 @@
-"""WHICH LANGUAGE SOMETHING IS IN: OFF THE WRITING WHERE THERE IS ANY, OFF THE SOUND WHERE NOT."""
+"""THE NAME SOMEBODY MEANT, OUT OF THE NAMES THERE ARE."""
 
-from tongue.scripts import ENGLISH, HINDI, TELUGU, language, mixed, reading, share, tally
-from tongue.sound import aloud
+from tongue.names import resolve, shortens
 
-__all__ = [
-    "ENGLISH", "HINDI", "TELUGU", "aloud", "language", "mixed", "reading", "share", "tally",
-]
+__all__ = ["resolve", "shortens"]

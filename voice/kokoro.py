@@ -4,23 +4,20 @@ import json
 
 import numpy as np
 
-import tongue
 from bones import systems
 from memory import settings
-from voice import engines, phonemes
-from voice.clips import resampled, tidied
-from voice.engines import ELSEWHERE, VoiceError
+from voice import phonemes
+from voice.clips import tidied
+from voice.engines import VoiceError
 from voice.styles import GET_THEM, MODEL, STYLES, VOCAB, find, whole
 
 # THE REST OF THE ENGINE'S SURFACE, WHICH IS ABOUT THE FILES RATHER THAN THE MODEL.
-from voice.styles import fetch, holds, installed, language  # noqa: F401
+from voice.styles import fetch, holds, installed  # noqa: F401
 
 RATE = 24000
 
-# THE MODEL AND ITS ALPHABET, AND THE VOICES FOR LANGUAGES IT CANNOT SAY, BUILT ON FIRST ASK.
+# THE MODEL AND ITS ALPHABET, BUILT ON FIRST ASK.
 loaded = None
-
-borrowed = {}
 
 
 class Voice:
@@ -62,17 +59,8 @@ class Voice:
         """ONE SENTENCE AS THE PIECES IT IS MADE OF, EACH HANDED OVER THE MOMENT IT EXISTS
         RATHER THAN WHEN THE WHOLE SENTENCE IS DONE, WHICH IS WHAT THE WAIT BEFORE THE FIRST
         WORD USED TO BE."""
-        spoken = tongue.reading(text)
-        other = elsewhere(spoken)
-
-        if other:
-            for part in other.stream(text):
-                yield resampled(part, other.rate, RATE)
-
-            return
-
         self.refit(text)
-        said = phonemes.spoken(text, spoken, self.vocab)
+        said = phonemes.spoken(text, self.vocab)
         last = len(said) - 1
 
         for at, mouthful in enumerate(said):
@@ -128,14 +116,3 @@ def weights():
     loaded = (session, vocab)
 
     return loaded
-
-
-def elsewhere(spoken):
-    """THE VOICE FOR A LANGUAGE THIS MODEL CANNOT SAY, BUILT THE FIRST TIME IT IS ASKED FOR."""
-    if spoken not in ELSEWHERE:
-        return None
-
-    if spoken not in borrowed:
-        borrowed[spoken] = engines.part(ELSEWHERE[spoken]).Voice()
-
-    return borrowed[spoken]

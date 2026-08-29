@@ -1,4 +1,4 @@
-"""HEAR IT WITHOUT THE REST OF HAPPY: python -m ears [some.wav ...] | --get | --export"""
+"""HEAR IT WITHOUT THE REST OF HAPPY: python -m ears [some.wav ...] | --get"""
 
 import sys
 import time
@@ -12,12 +12,6 @@ silence.configure()
 import ears
 from ears import engines
 from ears.microphone import RECORDINGS
-
-if "--export" in sys.argv:
-    from ears.exporting import export
-
-    export()
-    raise SystemExit
 
 # WHICHEVER ENGINE IS SET, NOT WHICHEVER ONE THIS FILE WAS FIRST WRITTEN AGAINST.
 if "--get" in sys.argv:

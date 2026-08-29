@@ -2,10 +2,9 @@
 
 import numpy as np
 
-import tongue
 from ears.engines import EarsError
-from ears.languages import DETECTING, LANGUAGES, collect, complete, download, picked, spoken
-from ears.nonsense import clean, looping
+from ears.languages import complete, download, picked
+from ears.nonsense import clean
 from face import show
 from memory import settings
 
@@ -14,8 +13,8 @@ RATE = 16000
 # CPU IS THE SAFE BASELINE EVERYWHERE.
 PROVIDERS = {"cpu": ["CPUExecutionProvider"]}
 
-# NOT A FINE-TUNE AND NOT IN LANGUAGES: IT IS THE GENERAL MODEL'S OWN BEST
-# LANGUAGE, ALREADY LOADED, WITH NOTHING TO DOWNLOAD AND NOTHING TO WAIT FOR.
+# THE ONE LANGUAGE HAPPY HEARS. TOLD WHAT IT IS LISTENING TO, WHISPER NEVER SPENDS A PASS
+# GUESSING, AND NEVER GUESSES WRONG.
 ENGLISH = "en"
 
 
@@ -34,12 +33,12 @@ def whole():
     return complete(picked())
 
 
-def load_model(language=None):
-    """CALLED AT STARTUP, AND AGAIN WHEN A SETTING PICKS A DIFFERENT ONE."""
+def load_model():
+    """CALLED AT STARTUP, AND AGAIN WHEN A SETTING PICKS A DIFFERENT DEVICE."""
     global model, built, cached
 
     asked = wanted()
-    choice = picked(language)
+    choice = picked()
     state = (asked, choice["name"], str(choice["path"]), choice["quantization"])
 
     if state in cached:
@@ -53,19 +52,12 @@ def load_model(language=None):
     import onnx_asr
 
     try:
-        if choice["quantization"]:
-            model = onnx_asr.load_model(
-                choice["name"],
-                choice["path"],
-                quantization=choice["quantization"],
-                providers=PROVIDERS.get(asked),
-            )
-        else:
-            model = onnx_asr.load_model(
-                choice["name"],
-                choice["path"],
-                providers=PROVIDERS.get(asked),
-            )
+        model = onnx_asr.load_model(
+            choice["name"],
+            choice["path"],
+            quantization=choice["quantization"],
+            providers=PROVIDERS.get(asked),
+        )
 
         cached[state] = model
         built = state
@@ -79,107 +71,19 @@ def load_model(language=None):
 
 
 def transcribe(audio_file):
-    language = spoken()
-    source = str(audio_file)
-
-    if language != "auto":
-        return clean(load_model(language).recognize(source, language=language))
-
-    guess = firstly(source)
-
-    # IT HAS NAMED ONE WE KEEP A MODEL FOR.
-    if guess in LANGUAGES:
-        return sharper(source, settled(audio_file, guess)) or english(source)
-
-    # ENGLISH, OR IT WOULD NOT SAY.
-    if guess in (ENGLISH, REFUSAL):
-        return english(source) or second(source, audio_file)
-
-    # FORCING NO LANGUAGE MAKES WHISPER PICK ONE ITSELF, HERE, WITH NOTHING OVER THE
-    # NETWORK.
-    raw = (load_model("auto").recognize(source) or "").strip()
-    heard = "" if looping(raw) else raw
-    found = tongue.language(raw)
-
-    # OFF THE RAW TEXT, LOOP AND ALL: REPEATING ITSELF COSTS WHISPER THE WORDS BUT NOT THE
-    # SCRIPT, AND WHICH ALPHABET IT REACHED FOR IS THE SUREST THING IT KNOWS ABOUT A TAKE.
-    if found in LANGUAGES and not tongue.mixed(raw):
-        return sharper(source, settled(audio_file, found)) or heard
-
-    # NOTHING AT ALL IS NOT ONLY WHAT SILENCE SOUNDS LIKE.
-    if not heard:
-        return second(source, audio_file) or english(source)
-
-    return heard
-
-
-def settled(audio_file, found):
-    """AN INDIAN SCRIPT ON THE PAGE ALREADY SAYS THIS WAS NOT ENGLISH, AND THAT IS THE ONE
-    PLACE THE SOUND JUDGES BETTER THAN THE WRITING: ASKED FOR TELUGU WITHOUT BEING TOLD,
-    WHISPER WILL HEAR IT AND WRITE THE WHOLE THING DOWN IN DEVANAGARI."""
-    listened = tongue.aloud(audio_file)
-
-    return listened if listened in LANGUAGES else found
-
-
-REFUSAL = "nocaptions"
-
-
-def firstly(source):
-    """WHISPER'S OWN FIRST ANSWER, IN THREE TOKENS: THE LANGUAGE IT THINKS IT IS HEARING, OR
-    nocaptions FOR ONE IT WILL NOT WRITE AT ALL."""
+    """THE MODEL, TOLD WHAT IT IS LISTENING TO."""
     try:
-        from onnx_asr.utils import read_wav_files
-
-        model = load_model(DETECTING)
-        inner = model.asr
-        waveforms, lengths = model.resampler(*read_wav_files(source))[:2]
-
-        seed = np.repeat(inner._detect_lang_input, len(waveforms), axis=0)
-        first = inner._decoding(inner._encode(waveforms, lengths), seed, 3)[:, 1]
-        token = inner._vocab[int(first[0])]
-
-        return token[2:-2] if token.startswith("<|") and token.endswith("|>") else None
-    except Exception:
-        return None
-
-
-def second(source, audio_file):
-    """ONLY EVER REACHED WHERE ENGLISH CAME BACK WITH NOTHING IN IT, WHICH IS THE ONE PLACE
-    THIS DETECTOR IS WORTH ASKING: IT HEARS AN ACCENT AS READILY AS A LANGUAGE, AND ON A
-    TAKE THAT DID HAVE ENGLISH WORDS IN IT, IT IS CONFIDENTLY WRONG."""
-    listened = tongue.aloud(audio_file)
-
-    return sharper(source, listened) or "" if listened in LANGUAGES else ""
-
-
-def english(source):
-    """THE GENERAL MODEL, TOLD WHAT IT IS LISTENING TO."""
-    try:
-        return clean(load_model(ENGLISH).recognize(source, language=ENGLISH))
+        return clean(load_model().recognize(str(audio_file), language=ENGLISH))
     except Exception as error:
-        show.trouble(f"English would not hear this one ({error})")
+        show.trouble(f"This one would not be heard ({error})")
         return ""
-
-
-def sharper(source, language):
-    """THE MODEL TRAINED ON THIS ONE LANGUAGE, IF IT IS ON THIS MACHINE."""
-    if not complete(picked(language)):
-        collect(language)
-        return None
-
-    try:
-        return clean(load_model(language).recognize(source, language=language))
-    except Exception as error:
-        show.trouble(f"The {language} model would not hear this one, keeping what it had ({error})")
-        return None
 
 
 def warm():
     """RECOGNISE ONCE NOW. THE FIRST CALL IS THE ONE THAT BUILDS THE SESSION."""
-    load_model(spoken()).recognize(np.zeros(RATE // 2, dtype=np.float32), sample_rate=RATE)
+    load_model().recognize(np.zeros(RATE // 2, dtype=np.float32), sample_rate=RATE)
 
 
 def fetch():
-    """THE WEIGHTS FOR WHATEVER IS SET NOW. ONLY EVER RUN BY HAND, OR ONCE AT STARTUP."""
+    """THE WEIGHTS. ONLY EVER RUN BY HAND, OR ONCE AT STARTUP."""
     return download()

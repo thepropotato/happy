@@ -10,7 +10,6 @@ LOOKING = ("qwen3-vl", "6 GB")
 FETCHES = (
     ("Speech model", "ears", "1 GB"),
     ("Voice model", "voice", "330 MB"),
-    ("Language detector", "tongue", "85 MB"),
 )
 
 # THE MEMORY MODEL HAS NO COMMAND LINE OF ITS OWN, SO IT IS ASKED FOR DIRECTLY.
@@ -45,6 +44,5 @@ except Exception:
 HELD = {
     "ears": "import sys; from ears import engines; sys.exit(0 if engines.whole() else 1)",
     "voice": VOICE,
-    "tongue": "import sys; from tongue import sound; sys.exit(0 if sound.whole() else 1)",
     "memory": "import sys; from memory import embedding; sys.exit(0 if embedding.whole() else 1)",
 }

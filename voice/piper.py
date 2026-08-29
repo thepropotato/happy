@@ -4,19 +4,13 @@ from pathlib import Path
 
 import numpy as np
 
-import tongue
 from memory import settings
-from voice.collecting import collect
 from voice.engines import VoiceError
 
 MODELS = Path(__file__).resolve().parent.parent / "models" / "piper"
 SUFFIX = "*.onnx"
 DEFAULT = "en_US-hfc_male-medium"
 REPO = "rhasspy/piper-voices"
-VOICES_BY_LANGUAGE = {
-    "hi": "hi_IN-pratham-medium",
-    "te": "te_IN-venkatesh-medium",
-}
 
 GET_THEM = f"No voice in {MODELS}. Get one with:\n  python -m voice --get"
 
@@ -83,14 +77,6 @@ def whole(path):
     return path.exists() and path.with_suffix(".onnx.json").exists()
 
 
-def language(path):
-    """THE LANGUAGE PREFIX FROM A VOICE FILE NAME."""
-    name = Path(path).stem
-    prefix = name.split("-", 1)[0].lower()
-
-    return prefix.split("_", 1)[0]
-
-
 def voices():
     if not MODELS.is_dir():
         return []
@@ -98,21 +84,14 @@ def voices():
     return [path for path in sorted(MODELS.glob(SUFFIX)) if whole(path)]
 
 
-def holds(wanted):
-    """WHETHER A VOICE FOR THIS LANGUAGE IS ALREADY ON THE DISK."""
-    return any(language(path) == wanted for path in voices())
-
-
-def ranked(found, target):
-    matching = [path for path in found if language(path) == target]
-    rest = [path for path in found if language(path) != target]
-
-    return matching + rest
+def holds():
+    """WHETHER A VOICE IS ALREADY ON THE DISK."""
+    return bool(voices())
 
 
 def installed(text=""):
     """EVERY VOICE ON THIS MACHINE, BY NAME, FOR SOMETHING DRAWING A LIST."""
-    return [path.stem for path in ranked(voices(), tongue.reading(text))]
+    return [path.stem for path in voices()]
 
 
 def find(text=""):
@@ -121,15 +100,6 @@ def find(text=""):
 
     if not found:
         raise VoiceError(GET_THEM)
-
-    # A MIXED SENTENCE GOES TO THE VOICE THAT CAN READ ITS HARDEST SCRIPT, NOT ITS COMMONEST.
-    target = tongue.reading(text)
-    preferred = ranked(found, target)
-
-    if preferred and language(preferred[0]) == target:
-        return preferred[0]
-
-    collect(target, VOICES_BY_LANGUAGE, fetch)
 
     chosen = settings.get("voice.name")
 
@@ -143,7 +113,7 @@ def find(text=""):
 
 
 def wherein(name):
-    """THEY ARE KEPT AT hi/hi_IN/pratham/medium/hi_IN-pratham-medium, SPELT OUT OF THE NAME."""
+    """THEY ARE KEPT AT en/en_US/hfc_male/medium/en_US-hfc_male-medium, SPELT OUT OF THE NAME."""
     parts = name.split("-")
     region, quality = parts[0], parts[-1]
     speaker = "-".join(parts[1:-1])
@@ -151,13 +121,13 @@ def wherein(name):
     return f"{region.split('_')[0]}/{region}/{speaker}/{quality}/{name}"
 
 
-def fetch(language=None):
+def fetch():
     """PIPER'S OWN DOWNLOADER GOES OUT THROUGH urllib, WHICH HAS NO CERTIFICATES ON MACOS."""
     import shutil
 
     from huggingface_hub import hf_hub_download
 
-    chosen = VOICES_BY_LANGUAGE.get((language or "").strip().lower(), DEFAULT)
+    chosen = DEFAULT
     where = wherein(chosen)
     MODELS.mkdir(parents=True, exist_ok=True)
 

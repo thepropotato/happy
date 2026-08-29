@@ -8,13 +8,6 @@ DEVICES = [("cpu", "CPU"), ("auto", "Anything faster")]
 
 EARS_ENGINES = [("parakeet", "Parakeet"), ("whisper", "Whisper")]
 
-EARS_LANGUAGES = [
-    ("auto", "Auto detect"),
-    ("en", "English (en)"),
-    ("hi", "Hindi (hi)"),
-    ("te", "Telugu (te)"),
-]
-
 PROVIDERS = [("ollama", "Ollama"), ("openai", "OpenAI shape")]
 
 PERSONAS = [
@@ -82,10 +75,7 @@ EARS = [
     choice("ears.microphone", "Microphone", [], "", MICROPHONE, source="microphones"),
     choice("ears.device", "Runs on", DEVICES, "cpu", "CPU is the sure one."),
     choice("ears.engine", "Engine", EARS_ENGINES, "whisper",
-        "Parakeet is English only and fast. Whisper is multilingual and slower."),
-    choice("ears.language", "Language", EARS_LANGUAGES, "auto",
-            "Set one code like hi to skip detection when your language never changes.",
-            rare=True),
+        "Parakeet is faster. Whisper hears an accent better."),
     number("ears.hold", "Shortest take", 0.05, 2, 0.05, 0.25, "Briefer was the key brushed.",
            "sec", rare=True),
     number("ears.tail", "Lead out", 0, 1.5, 0.05, 0.2, "Kept after you let go.", "sec", rare=True),

@@ -1,5 +1,5 @@
-"""HEAR IT WITHOUT THE REST OF HAPPY: python -m voice [--engine name] "say this" GET A VOICE:
-python -m voice --get [hi | te]. TELUGU AND HINDI ARE THE SAME VOICES."""
+"""HEAR IT WITHOUT THE REST OF HAPPY: python -m voice [--engine name] "say this"
+GET A VOICE: python -m voice --get"""
 
 import sys
 
@@ -24,9 +24,7 @@ if "--voices" in argv:
     raise SystemExit
 
 if "--get" in argv:
-    at = argv.index("--get")
-    wanted = argv[at + 1] if at + 1 < len(argv) else None
-    print(f"Got it: {engines.part(engine).fetch(wanted)}")
+    print(f"Got it: {engines.part(engine).fetch()}")
     raise SystemExit
 
 words = " ".join(argv) or (
