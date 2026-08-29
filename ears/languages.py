@@ -37,7 +37,13 @@ LANGUAGES = {
     "te": {"name": TELUGU, "release": RELEASE, "parts": LOCAL_PARTS},
 }
 
-DEFAULT = {"repo": "onnx-community/whisper-small", "quantization": "quantized"}
+# small MISHEARS ORDINARY WORDS INTO NUMBERS ("unread" CAME BACK AS "100") AND GREEDY
+# DECODING GIVES IT NO SECOND GUESS TO FALL BACK ON, SO THE SIZE IS THE ONLY FIX.
+DEFAULT = {"repo": "onnx-community/whisper-medium-ONNX", "quantization": "quantized"}
+
+# NAMING THE LANGUAGE IS THREE TOKENS, NOT A TRANSCRIPT, AND THE BIGGER MODEL IS WORSE AT IT:
+# medium CALLS PLAIN ENGLISH hi OR ml OFTEN ENOUGH TO SEND A TAKE TO THE WRONG EAR ENTIRELY.
+DETECTOR = {"repo": "onnx-community/whisper-small", "quantization": "quantized"}
 
 # ONE ATTEMPT EACH PER RUN. A FAILED DOWNLOAD SHOULD NOT RETRY ON EVERY SENTENCE.
 getting = set()
@@ -47,9 +53,12 @@ def spoken():
     return (settings.get("ears.language") or "auto").strip().lower()
 
 
+DETECTING = "detector"
+
+
 def picked(language=None):
     language = (spoken() if language is None else language).strip().lower()
-    entry = LANGUAGES.get(language, DEFAULT)
+    entry = DETECTOR if language == DETECTING else LANGUAGES.get(language, DEFAULT)
 
     # A REPOSITORY IS BOTH WHAT A MODEL IS CALLED AND WHERE IT COMES FROM. A RELEASE IS ONLY
     # WHERE IT COMES FROM, SO THE OWNER'S NAME FOR IT IS CARRIED ALONGSIDE.

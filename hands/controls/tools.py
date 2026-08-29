@@ -3,7 +3,7 @@
 from langchain_core.tools import tool
 
 from hands import reasons
-from hands.controls import clipboard, display, media, network, power, volume
+from hands.controls import clipboard, display, keyboard, media, network, power, volume
 
 STEP = 10  # HOW MUCH "A BIT LOUDER" IS WORTH.
 
@@ -42,13 +42,19 @@ def sound_control(action: str, level: int = -1) -> str:
 
 @tool
 def brightness_control(action: str, level: int = -1) -> str:
-    """Control the screen brightness. Actions: "status" to say what it is, "set"
-    with a level from 0 to 100, "up" or "down" to step it by ten (or by level if
-    you give one).
+    """Control the brightness of the screen. Actions: "status" to say what it is,
+    "set" with a level from 0 to 100, "up" or "down" to step it by ten (or by
+    level if you give one).
 
     Use this for "make the screen brighter", "dim the screen", "set brightness
     to fifty". This is the built in screen; an external monitor has its own
-    buttons and cannot always be asked."""
+    buttons and cannot always be asked.
+
+    This is the screen and only the screen. The light under the keys is a
+    different thing on a different tool: anything about the keyboard, its keys or
+    its backlight goes to keyboard_backlight, never here. Setting this to nought
+    blacks out their display, which is not what somebody asking about their
+    keyboard wanted."""
     wanted = (action or "").strip().lower()
     step = STEP if level < 0 else level
 
@@ -65,6 +71,38 @@ def brightness_control(action: str, level: int = -1) -> str:
         return display.change(-step)
 
     return reasons.no(f"I can set, step or report the brightness, not {action}.")
+
+
+@tool
+def keyboard_backlight(action: str, level: int = -1) -> str:
+    """Control the light under the keys of the keyboard. Actions: "status" to say
+    what it is, "set" with a level from 0 to 100, "up" or "down" to step it by ten
+    (or by level if you give one).
+
+    Use this for "turn the keyboard backlight off", "light my keys up", "dim the
+    keyboard". This is the keyboard, not the screen: to change what they are
+    looking at use brightness_control instead.
+
+    Only a built in Mac keyboard answers this. Anywhere else, and on an external
+    keyboard, it says so rather than changing anything, and that answer is the one
+    to pass on: say the keys on the keyboard do it, and do not reach for the screen
+    instead."""
+    wanted = (action or "").strip().lower()
+    step = STEP if level < 0 else level
+
+    if wanted == "status":
+        return keyboard.status()
+
+    if wanted == "set":
+        return keyboard.set_level(level)
+
+    if wanted == UP:
+        return keyboard.change(step)
+
+    if wanted == DOWN:
+        return keyboard.change(-step)
+
+    return reasons.no(f"I can set, step or report the keyboard backlight, not {action}.")
 
 
 @tool
@@ -158,6 +196,7 @@ def clipboard_control(action: str, text: str = "") -> str:
 TOOLS = [
     sound_control,
     brightness_control,
+    keyboard_backlight,
     media_control,
     display_control,
     power_control,

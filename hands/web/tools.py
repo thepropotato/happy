@@ -28,7 +28,17 @@ def search_web(query: str) -> str:
     pick the likeliest result and read it with read_page. Answer from a summary
     only when it plainly says the whole thing.
 
-    To put a page in front of the person instead, use open_url."""
+    That is for a question. Asked to show, open, pull up or bring up a thing, or
+    for a picture, a chart, a map or a video, searching is only the first half:
+    finish it by calling open_url with "show" on the likeliest result, in the same
+    turn, without being asked twice. Wanting to see a thing is not a question and
+    a description is not an answer to it.
+
+    This list is yours and nobody else can see it. Never point at it out loud —
+    not "the first link", "the results", "the link below", nor any of them by
+    number or position. They have no link to click and no list to look at, so an
+    answer written that way leaves them with nothing. Open the page or say what it
+    said."""
     try:
         found = search(query)
     except Exception as error:

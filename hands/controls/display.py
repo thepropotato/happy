@@ -3,7 +3,7 @@
 import re
 import shutil
 
-from hands.controls import backlight
+from hands.controls import screen
 from hands.controls.commands import (
     REFUSED,
     UNSUPPORTED,
@@ -59,7 +59,7 @@ def helper():
 
 def mac_level():
     """THE BRIGHTNESS AS A PERCENTAGE, OR None."""
-    fraction = backlight.level()
+    fraction = screen.level()
 
     if fraction is not None:
         return round(fraction * 100)
@@ -101,7 +101,7 @@ def set_level(wanted):
         return "The brightness has to be a number between zero and one hundred."
 
     if on_mac():
-        if backlight.put(value / 100):
+        if screen.put(value / 100):
             return f"Brightness set to {value} percent."
 
         found = helper()
@@ -127,7 +127,7 @@ def change(step):
 
         # THE KEYS BELOW ARE FOR WHEN THE FRAMEWORK IS NOT THERE, AND ARE
         # DELIBERATELY NOT REACHED THROUGH set_level, WHICH FALLS BACK TO HERE.
-        if now is not None and backlight.put(clamp(now + step) / 100):
+        if now is not None and screen.put(clamp(now + step) / 100):
             return f"Brightness set to {clamp(now + step)} percent."
 
         for _ in range(max(1, round(abs(step) / NOTCH))):

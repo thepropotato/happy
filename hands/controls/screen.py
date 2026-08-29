@@ -1,4 +1,4 @@
-"""THE MAC'S OWN BRIGHTNESS, ASKED FOR DIRECTLY."""
+"""THE MAC'S OWN SCREEN BRIGHTNESS, ASKED FOR DIRECTLY."""
 
 import ctypes
 import ctypes.util

@@ -4,7 +4,7 @@ import numpy as np
 
 import tongue
 from ears.engines import EarsError
-from ears.languages import LANGUAGES, collect, complete, download, picked, spoken
+from ears.languages import DETECTING, LANGUAGES, collect, complete, download, picked, spoken
 from ears.nonsense import clean, looping
 from face import show
 from memory import settings
@@ -131,7 +131,7 @@ def firstly(source):
     try:
         from onnx_asr.utils import read_wav_files
 
-        model = load_model("auto")
+        model = load_model(DETECTING)
         inner = model.asr
         waveforms, lengths = model.resampler(*read_wav_files(source))[:2]
 
