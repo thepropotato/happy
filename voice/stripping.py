@@ -37,6 +37,39 @@ BARS = re.compile(r"[ \t]*\|[ \t]*")
 
 BLANK = re.compile(r"\n{3,}")
 
+# THE MARKS A KEYBOARD NEVER TYPES. THE MODEL READS ONE CHARACTER AT A TIME OFF A TABLE THAT
+# COVERS ASCII AND ANSWERS -1 TO EVERY ONE OF THESE, SO AN EM DASH IS NOT A SHORT PAUSE TO IT
+# BUT NOTHING AT ALL, AND A CURLY APOSTROPHE IS A HOLE IN THE MIDDLE OF A WORD.
+TYPESET = {
+    "\u2014": ". ",  # EM DASH, WHICH IS A BREATH WHERE IT IS WRITTEN.
+    "\u2013": ", ",  # EN DASH.
+    "\u2012": ", ",
+    "\u2015": ". ",
+    "\u2011": "-",  # A HYPHEN THAT WILL NOT BREAK IS STILL A HYPHEN.
+    "\u2010": "-",
+    "\u2019": "'",  # THE CURLY QUOTES, WHICH SIT INSIDE WORDS.
+    "\u2018": "'",
+    "\u201c": '"',
+    "\u201d": '"',
+    "\u2026": "... ",  # THE ONE-CHARACTER ELLIPSIS.
+    "\u00a0": " ",  # A SPACE THAT WILL NOT BREAK IS STILL A SPACE.
+    "\u202f": " ",
+    "\u2009": " ",
+    "\u200b": "",
+}
+
+TYPESET_AT = re.compile("|".join(re.escape(mark) for mark in TYPESET))
+
+# TWO SPACES WHERE A MARK WAS SWAPPED FOR ONE THAT CARRIES ITS OWN.
+DOUBLED = re.compile(r"[ \t]{2,}")
+
+# A MARK PUT IN BESIDE ONE THAT WAS ALREADY THERE.
+STACKED = re.compile(r"(?<!\.)([,!?;:])[ \t]*[.,]([ \t])")
+
+# A DASH SWAPPED FOR A FULL STOP LEAVES THE NEXT WORD IN LOWER CASE, WHICH IS NOT HOW A
+# SENTENCE LOOKS TO ANYTHING READING IT.
+OPENING = re.compile(r"(?<=[.!?] )([a-z])")
+
 
 def spoken(text):
     """ONE SENTENCE AS IT SHOULD SOUND, WITH EVERY MARK THAT ONLY MEANT SOMETHING
@@ -60,5 +93,16 @@ def spoken(text):
     said = STRUCK.sub(r"\1", said)
 
     said = BARS.sub(", ", EDGE_BARS.sub("", said))
+    said = typeset(said)
 
     return BLANK.sub("\n\n", said).strip()
+
+
+def typeset(said):
+    """THE TYPESET MARKS AS THE PLAIN ONES THE VOICE CAN READ. A MARK THE MODEL CANNOT SEE IS
+    NOT A SHORTER PAUSE THAN ONE IT CAN, IT IS NO PAUSE AT ALL."""
+    said = TYPESET_AT.sub(lambda found: TYPESET[found.group(0)], said)
+    said = STACKED.sub(r"\1\2", said)
+    said = DOUBLED.sub(" ", said)
+
+    return OPENING.sub(lambda found: found.group(1).upper(), said)
