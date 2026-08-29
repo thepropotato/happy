@@ -166,10 +166,16 @@ def installed(text=""):
 
 
 def find(text=""):
-    """THE VOICE TO SPEAK WITH. A NAME THAT IS NOT ONE OF ITS OWN FALLS BACK QUIETLY."""
+    """THE VOICE TO SPEAK WITH, OR A COMPLAINT SAYING HOW TO GET ONE."""
+    if not whole():
+        raise VoiceError(GET_THEM)
+
+    found = voices()
+
+    # A NAME THAT IS NOT ONE OF ITS OWN, OR IS NOT DOWNLOADED, FALLS BACK QUIETLY.
     chosen = settings.get("voice.name")
 
-    return chosen if chosen in VOICES else DEFAULT
+    return chosen if chosen in found else (DEFAULT if DEFAULT in found else found[0])
 
 
 def fetch():

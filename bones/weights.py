@@ -9,7 +9,7 @@ LOOKING = ("qwen3-vl", "6 GB")
 # EACH ONE KNOWS HOW TO GET ITSELF, AND SAYS SO THE SAME WAY.
 FETCHES = (
     ("Speech model", "ears", "1 GB"),
-    ("Voice model", "voice", "330 MB"),
+    ("Voice model", "voice", "385 MB"),
 )
 
 # THE MEMORY MODEL HAS NO COMMAND LINE OF ITS OWN, SO IT IS ASKED FOR DIRECTLY.
