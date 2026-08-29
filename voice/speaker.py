@@ -254,15 +254,33 @@ class Speaker:
                 self.opened(rate).write(samples[at : at + step])
 
     def opened(self, rate):
-        """THE OUTPUT DEVICE, HELD OPEN BETWEEN CLIPS AND REBUILT ONLY IF THE RATE MOVES."""
+        """THE OUTPUT DEVICE, HELD OPEN BETWEEN CLIPS AND REBUILT ONLY IF THE RATE MOVES.
+
+        THE DEVICE ITSELF CAN VANISH FROM UNDER A HELD STREAM: AIRPODS DROPPING OR THE OUTPUT
+        SWITCHING LEAVES A STREAM THAT STILL LOOKS OPEN BUT THROWS ON start(). A FRESH STREAM
+        COVERS THAT, BUT PORTAUDIO'S OWN DEVICE LIST CAN ALSO HAVE GONE STALE AGAINST COREAUDIO
+        (-9986 EVEN ON A BRAND NEW STREAM), WHICH ONLY A REINIT OF PORTAUDIO ITSELF CLEARS."""
         if self.stream is not None and self.stream.samplerate != rate:
             self.shut()
 
         if self.stream is None:
             self.stream = sd.OutputStream(samplerate=rate, channels=CHANNELS, dtype="float32")
 
-        if not self.stream.active:
-            self.stream.start()
+        try:
+            if not self.stream.active:
+                self.stream.start()
+        except sd.PortAudioError:
+            self.shut()
+            self.stream = sd.OutputStream(samplerate=rate, channels=CHANNELS, dtype="float32")
+
+            try:
+                self.stream.start()
+            except sd.PortAudioError:
+                self.shut()
+                sd._terminate()
+                sd._initialize()
+                self.stream = sd.OutputStream(samplerate=rate, channels=CHANNELS, dtype="float32")
+                self.stream.start()
 
         return self.stream
 
