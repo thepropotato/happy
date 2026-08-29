@@ -228,6 +228,12 @@ class Happy:
             taken = time.perf_counter() - started
             tell(MODEL, None, taken)
 
+            # THE YIELDS ABOVE CANNOT RUN WHEN THE CONSUMER LET GO OF THIS GENERATOR PART WAY
+            # THROUGH, AND A ROW WITH NO REPLY IN IT READS AS HAPPY SAYING NOTHING AT ALL. SO
+            # THE LAST WORD IS SETTLED HERE, WHERE IT IS WRITTEN DOWN, AS WELL AS THERE.
+            if not reply.strip() and not self.stopping.is_set():
+                reply = self.ending() or NOTHING
+
             said = reply.strip()
 
             memory.close(said or None, taken)

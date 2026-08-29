@@ -160,7 +160,19 @@ thing that made the answer useless: the user cannot see the list.
       chunking, which `phonemes.mouthfuls` gave up on purpose: it saved half a
       second and put a pause in the middle of a clause. That trades straight
       against #5, so it stays as it is.
-- [ ] #674 silent turn, #676 duplicate call.
+- [x] **#674 silent turn** — `say_streaming` is a generator, and its last-word
+      fallback could only run where it could also `yield`. When the consumer let
+      go part way through, `GeneratorExit` skipped straight past it to the
+      `finally`, which wrote `reply` empty and stored NULL. The reply is now
+      settled inside the `finally` as well, so the row is right even when the
+      words cannot be delivered.
+- [x] **#676 duplicate call** — nothing in the prompt forbade re-calling one tool
+      with identical arguments in a single turn. `prompt.md:45` now says the same
+      call gives the same answer and to use the one already in front of you.
+- [x] **Telling the truth about what was done** — the deeper half of #4. A new
+      paragraph at `prompt.md:45` forbids naming the thing asked for while
+      describing something else done instead, and makes "I cannot do that one"
+      the right answer where no tool covers it.
 
 ### Watch out for
 The bigger ear is *worse* at naming the language: medium called plain English
