@@ -194,6 +194,10 @@ def start():
     from memory import embedding
     embedding.warm()
 
+    # THE SAME MODEL, ALREADY ON ITS WAY. THIS ONLY AVERAGES WHAT IT HANDS BACK.
+    from hands.apps import telling
+    telling.warm()
+
     try:
         ears.load_model()
     except ears.EarsError:
