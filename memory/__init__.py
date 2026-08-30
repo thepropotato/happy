@@ -2,6 +2,7 @@
 
 from memory import reminders, routines, settings
 from memory.conversation import (
+    asking,
     begin,
     brief,
     close,
@@ -18,6 +19,7 @@ from memory.storage import path
 from memory.transcript import show
 
 __all__ = [
+    "asking",
     "begin",
     "brief",
     "close",

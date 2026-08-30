@@ -5,14 +5,25 @@ from typing import Literal
 
 from langchain_core.tools import tool
 
+import memory
 from hands import reasons
-from hands.apps import installed, machine, opening, whereabouts
+from hands.apps import installed, judging, machine, opening, whereabouts
 from hands.apps.running import launch
 
 # THE ONE THING THIS FIELD IS ALLOWED TO SAY, WHICH IS THE POINT OF IT.
 SEEING = "show"
 
 CHECKING = "read"
+
+# WHAT A READ SAYS BEFORE THE PAGE, WHEN READING IS WHAT WAS ASKED FOR.
+MOVED = "Their screen did not move. The page says:"
+
+# AND WHEN IT WAS AN OPEN THAT WAS TURNED INTO ONE, SO THE NEXT PAGE IS NOT OPENED EITHER.
+TURNED = (
+    "That was a question rather than something to look at, so their screen was left alone and "
+    "the page was read here instead. Answer out of it and use \"read\" for the rest of this. "
+    "The page says:"
+)
 
 
 @tool
@@ -141,11 +152,19 @@ def open_url(url: str, because: Literal[SEEING, CHECKING]) -> str:
     Their browser is already signed in to their accounts, so this is how you
     reach anything of theirs on the web. Prefer it over opening a browser
     application and typing, which is never right."""
+    # A PAGE OPENED TO ANSWER A QUESTION COVERS THEIR WORK OVER FOR NOTHING, AND THE WORDING
+    # ABOVE HAS NEVER BEEN ENOUGH TO STOP IT, SO A SECOND AND MUCH SMALLER QUESTION DECIDES.
+    if because == SEEING and not judging.wanted(memory.asking()):
+        because = CHECKING
+        turned = True
+    else:
+        turned = False
+
     if because == CHECKING:
         from hands.web.pages import page  # LATE: apps IS IMPORTED BEFORE web.
 
         try:
-            return f"Their screen did not move. The page says:\n\n{page(url, 0)}"
+            return f"{TURNED if turned else MOVED}\n\n{page(url, 0)}"
         except Exception as error:
             return reasons.no(f"{error}")
 

@@ -73,6 +73,21 @@ def progress(said):
     told.set(said)
 
 
+def asking():
+    """WHAT THE PERSON SAID TO START THIS TURN, FOR A TOOL THAT HAS TO WEIGH IT."""
+    row = here.get()
+
+    if row is None:
+        return None
+
+    try:
+        found = storage.read("SELECT message FROM messages WHERE id = ?", (row,))
+    except Exception:
+        return None
+
+    return found[0][0] if found else None
+
+
 def used(name, args, result, seconds=None, why=None, row=None, failed=False, spent=None):
     """ONE TOOL CALL, ONTO THE END OF ITS EXCHANGE'S LIST."""
     row = here.get() if row is None else row
