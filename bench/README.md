@@ -6,6 +6,9 @@ no tool ever executes.
 - **ToolCall-15** (`toolcall15.py`) — fifteen spoken instructions in five categories, scored
   pass / partial / fail on which tool Happy reached for. Modelled on the ToolCall-15 in
   OpenJarvis's suite, rewritten against Happy's own 61 tools.
+- **Regression** (`regress.py`) — the phrases that drove the move to whisper-medium, plus the
+  real command vocabulary, spoken by every English voice macOS ships. This is the one that
+  decides the engine; VoiceBench measures general speech and disagrees with it.
 - **VoiceBench** (`run_voicebench.py`) — the real `hlt-lab/voicebench` dataset (Apache 2.0),
   spoken instructions through Happy's own ears. Reports word error rate and a realtime factor
   per accent split, Indian English included.
@@ -76,3 +79,20 @@ Parakeet is better on three of four splits and about ten times faster. Whisper i
 configured in `ears.engine`, so this is worth acting on — but note whisper here is
 whisper-medium, the bigger ear that transcribes well and misnames the language, and neither
 engine was asked to detect language in this run.
+
+## Which ear, and why not the faster one
+
+VoiceBench says parakeet: better word error rate on three of four splits and about ten times
+faster. `regress.py` says whisper, and regress is the one that counts, because it asks in the
+words this house actually uses.
+
+Over 200 clips and eight voices, substantive misses: whisper 36, parakeet 44. The whole gap is
+one family of words — "unread", 20 misses out of 22 against whisper's 14 — and it is the
+regression `ears/languages.py` already documents: parakeet hears "how many unread emails" as
+"how many hundred emails", and "is that one unread" as "is that 100". Parakeet also loses the
+letters in "how many r's are in strawberry" on three voices of eight, which quietly breaks
+count_letters. On the three Indian English voices it is whisper 10 misses to parakeet 15.
+
+Parakeet is genuinely better at general speech and wins five of the eighteen disagreements
+(GitHub, receipt). It is worse at the twenty words that get said every day, so whisper stays,
+and the 0.25 realtime factor is a speed problem to solve on whisper's own terms.

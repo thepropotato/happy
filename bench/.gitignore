@@ -3,3 +3,4 @@ runs/*.db
 runs/*.db-shm
 runs/*.db-wal
 runs/audio/
+runs/regress/
