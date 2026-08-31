@@ -1,10 +1,15 @@
 """THE SQLITE FILE. IT OWNS THE FILE AND THE SHAPE OF IT, NOTHING ELSE."""
 
+import os
 import sqlite3
 import threading
 from pathlib import Path
 
-FILE = Path(__file__).resolve().parent.parent / "data" / "happy.db"
+# TESTS POINT HAPPY_DB AT A THROWAWAY FILE SO A RUN NEVER LANDS IN THE REAL HISTORY.
+ENV = "HAPPY_DB"
+
+FILE = (Path(os.environ[ENV]).expanduser().resolve() if os.environ.get(ENV)
+        else Path(__file__).resolve().parent.parent / "data" / "happy.db")
 
 BUSY_TIMEOUT_MS = 5000
 

@@ -1,0 +1,181 @@
+db -> /private/tmp/claude-501/-Users-venupulagam-Desktop-projects-happy/a6f0caea-a029-4491-856a-9b2922ce34ab/scratchpad/bench-wt/bench/runs/voicebench.db
+engine -> parakeet, 40 clips per suite
+
+commoneval/test
+  [  0] wer 0.0     1.18s  heard: Does the Earth move or is it immobile?
+  [  1] wer 0.167   0.07s  heard: How far is Hayanna from Delhi?
+  [  2] wer 0.0     0.07s  heard: What is consciousness?
+  [  3] wer 0.2     0.06s  heard: Is it Chale in Haiti?
+  [  4] wer 0.2     0.08s  heard: Can Yodelink really trigger avalanches?
+  [  5] wer 0.0     0.08s  heard: List of the most populated French islands
+  [  6] wer 0.0     0.08s  heard: Why does nobody eat semolina?
+  [  7] wer 0.0     0.11s  heard: Planets smashed together and the rubble made the moon, b
+  [  8] wer 0.0     0.12s  heard: Are we building a generation of web addicts?
+  [  9] wer 0.091   0.11s  heard: Is it possible to take a longer break from studying theo
+  [ 10] wer 0.077    0.1s  heard: Which day of the seventh hath God appointed to be the we
+  [ 11] wer 0.077   0.09s  heard: Is the world a better place than it was fifty years ago?
+  [ 12] wer 0.0     0.08s  heard: Are we doing enough for sex workers?
+  [ 13] wer 0.0     0.07s  heard: How do I grow a tomato plant?
+  [ 14] wer 0.0      0.1s  heard: I'm struggling to begin writing my novel.
+  [ 15] wer 0.333   0.11s  heard: Can I use Last Fm to listen to Twilight Time by D. J. Kh
+  [ 16] wer 0.0     0.07s  heard: Where can we find fish fillet?
+  [ 17] wer 0.0     0.07s  heard: What can I do about my headache?
+  [ 18] wer 0.0     0.12s  heard: What do you believe happens after death?
+  [ 19] wer 0.0     0.08s  heard: What are the challenges in tackling homelessness?
+  [ 20] wer 0.0     0.08s  heard: A list of bouncer software.
+  [ 21] wer 0.0     0.13s  heard: Are virtues rooted in a universal human nature, or in a 
+  [ 22] wer 0.0     0.12s  heard: What are the externalities associated with setting up a 
+  [ 23] wer 0.0     0.09s  heard: How do I turn the computer on?
+  [ 24] wer 0.0     0.09s  heard: How do you deal with the unintended impacts of machine l
+  [ 25] wer 0.0     0.09s  heard: What rule hath God given for our direction in prayer?
+  [ 26] wer 0.0     0.14s  heard: And what are the criteria for selecting and sorting info
+  [ 27] wer 0.0     0.08s  heard: A summary of information about Canada.
+  [ 28] wer 0.0     0.11s  heard: Do the objects have to retain their identity over time, 
+  [ 29] wer 0.0     0.11s  heard: Who is the dominant company in refrigeration equipment?
+  [ 30] wer 0.0     0.08s  heard: Who is Max Schrems?
+  [ 31] wer 0.0     0.12s  heard: If statements about game rules can be true or false, why
+  [ 32] wer 0.0     0.05s  heard: What is a lorry?
+  [ 33] wer 0.0     0.08s  heard: How do I grow as a performer?
+  [ 34] wer 0.0     0.13s  heard: I wonder if plastic plants make a room more beautiful or
+  [ 35] wer 0.0     0.09s  heard: What about the strong equivalence principle?
+  [ 36] wer 0.091   0.12s  heard: There's not much evidence that homopathy works, but what
+  [ 37] wer 0.0     0.12s  heard: What benefits do believers receive from Christ at the re
+  [ 38] wer 0.0     0.09s  heard: How far is Delhi from Goa?
+  [ 39] wer 0.0     0.12s  heard: What is deemed an appropriate expression of anger is cul
+  -> mean WER 0.031 over 40 clips
+
+sd-qa/ind_s
+  [  0] wer 0.0     0.09s  heard: When was quantum field theory developed?
+  [  1] wer 0.0      0.1s  heard: Who was the first Nobel Prize winner for literature?
+  [  2] wer 0.333   0.06s  heard: Who invented Hongul?
+  [  3] wer 0.0     0.08s  heard: What do grasshoppers eat?
+  [  4] wer 0.0      0.1s  heard: How large is the Kerman province of southeastern Iran
+  [  5] wer 0.0     0.08s  heard: When was Guitar Hero Live first released?
+  [  6] wer 0.222   0.09s  heard: When were Blue Bonnets named the state Flower of Texas?
+  [  7] wer 0.25    0.13s  heard: What's the difference between man's laughter and homicid
+  [  8] wer 0.0     0.14s  heard: When did DC Comics first introduce the Guardians of the 
+  [  9] wer 0.0      0.1s  heard: What is the largest parrot in New Zealand?
+  [ 10] wer 0.143    0.1s  heard: When was the first Assassin's Grid released?
+  [ 11] wer 0.0     0.11s  heard: What percentage of the Earth's atmosphere is oxygen?
+  [ 12] wer 0.0     0.11s  heard: When was the X Men Cartoon television series first aired
+  [ 13] wer 0.444    0.1s  heard: When was the Battle of Shoi Chaupa formed?
+  [ 14] wer 0.0     0.09s  heard: What is the Navy's military mascot?
+  [ 15] wer 0.0     0.15s  heard: How many permanent members of the United Nations Securit
+  [ 16] wer 0.0      0.1s  heard: When was special relativity developed?
+  [ 17] wer 0.25    0.09s  heard: When did Morrison develop?
+  [ 18] wer 0.111   0.13s  heard: What was the first film directed by Andrew Tarkovsky?
+  [ 19] wer 0.0      0.1s  heard: Who was the last Han dynasty emperor?
+  [ 20] wer 0.0     0.08s  heard: Who wrote the song Happy Days?
+  [ 21] wer 0.0     0.11s  heard: Who was the first ruler of the Tang dynasty?
+  [ 22] wer 0.0      0.1s  heard: When was the first web page released?
+  [ 23] wer 0.0     0.11s  heard: What was the first Atlantic hurricane in 2000?
+  [ 24] wer 0.1     0.12s  heard: What is the main version of Islam practised in Iraq?
+  [ 25] wer 0.0      0.1s  heard: What is within a nucleus of a cell?
+  [ 26] wer 0.0     0.13s  heard: What is the population of Emperor Penguins in Antarctica
+  [ 27] wer 0.143   0.08s  heard: How long is the England Wall's border?
+  [ 28] wer 0.0     0.09s  heard: When was the first Spanish Grand Prix?
+  [ 29] wer 0.0     0.09s  heard: Who is the mayor of San Francisco?
+  [ 30] wer 0.0     0.07s  heard: When did Alfred die?
+  [ 31] wer 0.0      0.1s  heard: What language do Chechens speak?
+  [ 32] wer 0.0     0.09s  heard: When were the Gallic Wars?
+  [ 33] wer 0.222   0.12s  heard: What is the oldest overseas US military base?
+  [ 34] wer 0.333    0.1s  heard: When did Michael Anglo create the David?
+  [ 35] wer 0.0      0.1s  heard: When was the Nazi Party founded?
+  [ 36] wer 0.0     0.16s  heard: When did Justin Morgan first appear as a character on Ho
+  [ 37] wer 0.0     0.13s  heard: When was the Prohibition Era in the US?
+  [ 38] wer 0.0     0.09s  heard: Who invented air conditioning?
+  [ 39] wer 0.0     0.11s  heard: What does GDP stand for?
+  -> mean WER 0.064 over 40 clips
+
+sd-qa/usa
+  [  0] wer 0.0     0.12s  heard: When was quantum field theory developed?
+  [  1] wer 0.0     0.11s  heard: Who was the first Nobel Prize winner for literature?
+  [  2] wer 0.333   0.09s  heard: Who invented Hango?
+  [  3] wer 0.0      0.1s  heard: What do Grasshoppers eat?
+  [  4] wer 0.111   0.13s  heard: How large is the common province of southeastern Iran?
+  [  5] wer 0.0     0.11s  heard: When was Guitar Hero Live first released?
+  [  6] wer 0.444   0.13s  heard: When we are blue bonnets named the State Flower of Texas
+  [  7] wer 0.25    0.12s  heard: What's the difference between manslaughter and homicide?
+  [  8] wer 0.0     0.15s  heard: When did DC Comics first introduce The Guardians of the 
+  [  9] wer 0.0     0.12s  heard: What is the largest parrot in New Zealand?
+  [ 10] wer 0.0     0.12s  heard: When was the first Assassin's Creed released?
+  [ 11] wer 0.0     0.11s  heard: What percentage of the Earth's atmosphere is oxygen?
+  [ 12] wer 0.0     0.13s  heard: When was the X-Men Cartoon Television series first aired
+  [ 13] wer 0.444   0.13s  heard: When was the battle of Suich?
+  [ 14] wer 0.0      0.1s  heard: What is the Navy's military mascot?
+  [ 15] wer 0.0     0.14s  heard: How many permanent members of the United Nations Securit
+  [ 16] wer 0.0     0.11s  heard: When was special relativity developed?
+  [ 17] wer 0.0     0.07s  heard: When did Marxism develop?
+  [ 18] wer 0.222    0.1s  heard: What was the first film directed by Andrey Targove
+  [ 19] wer 0.0     0.08s  heard: Who was the last Han dynasty emperor?
+  [ 20] wer 0.0     0.08s  heard: Who wrote the song Happy Days?
+  [ 21] wer 0.0     0.09s  heard: Who was the first ruler of the Tang dynasty?
+  [ 22] wer 0.0     0.08s  heard: When was the first web page released?
+  [ 23] wer 0.0     0.09s  heard: What was the first Atlantic hurricane in 2000?
+  [ 24] wer 0.1     0.09s  heard: What is the main version of Islam practised in Iraq?
+  [ 25] wer 0.0     0.08s  heard: What is within a nucleus of a cell?
+  [ 26] wer 0.0     0.08s  heard: What is the population of Emperor Penguins in Antarctica
+  [ 27] wer 0.0     0.08s  heard: How long is the England Wales border?
+  [ 28] wer 0.0     0.08s  heard: When was the first Spanish Grand Prix?
+  [ 29] wer 0.0     0.07s  heard: Who is the mayor of San Francisco?
+  [ 30] wer 0.0     0.08s  heard: When did Alfred die?
+  [ 31] wer 0.2     0.07s  heard: What language do Chutens speak?
+  [ 32] wer 0.2     0.08s  heard: When were the Gaelic Wars?
+  [ 33] wer 0.222   0.11s  heard: What is the oldest overseas US military base?
+  [ 34] wer 0.0     0.08s  heard: When did Michelangelo create the David?
+  [ 35] wer 0.0     0.09s  heard: When was the Nazi Party founded?
+  [ 36] wer 0.0     0.11s  heard: When did Justin Morgan first appear as a character on Ho
+  [ 37] wer 0.0     0.09s  heard: When was the Prohibition era in the US?
+  [ 38] wer 0.0     0.08s  heard: Who invented air conditioning?
+  [ 39] wer 0.0     0.07s  heard: What does GDP stand for?
+  -> mean WER 0.063 over 40 clips
+
+sd-qa/gbr
+  [  0] wer 0.0     0.08s  heard: When was quantum field theory developed?
+  [  1] wer 0.0     0.08s  heard: Who was the first Nobel Prize winner for literature?
+  [  2] wer 0.0     0.08s  heard: Who invented Hangul?
+  [  3] wer 0.0     0.08s  heard: What do grasshoppers eat?
+  [  4] wer 0.0      0.1s  heard: How large is the Kerman Province of southeastern Iran?
+  [  5] wer 0.0     0.11s  heard: When was Guitar Hero Live first released?
+  [  6] wer 0.333    0.1s  heard: When were the Blue Bonnets named the State Flower of Tex
+  [  7] wer 0.25    0.13s  heard: What's the difference between manslaughter and homicide?
+  [  8] wer 0.0     0.12s  heard: When did DC Comics first introduce the Guardians of the 
+  [  9] wer 0.0     0.11s  heard: What is the largest parrot in New Zealand?
+  [ 10] wer 0.0     0.12s  heard: When was the first Assassin's Creed released?
+  [ 11] wer 0.0     0.12s  heard: What percentage of the Earth's atmosphere is oxygen?
+  [ 12] wer 0.0     0.11s  heard: When was the X Men Cartoon television series first aired
+  [ 13] wer 0.333   0.12s  heard: When was the Battle of Suijiaofa fought?
+  [ 14] wer 0.0     0.11s  heard: What is the Navy's military mascot?
+  [ 15] wer 0.0     0.12s  heard: How many permanent members of the United Nations Securit
+  [ 16] wer 0.0     0.09s  heard: When was special relativity developed?
+  [ 17] wer 0.0     0.08s  heard: When did Marxism develop?
+  [ 18] wer 0.111   0.11s  heard: What was the first film directed by Andrey Tarkovsky?
+  [ 19] wer 0.0     0.09s  heard: Who was the last Han Dynasty emperor?
+  [ 20] wer 0.0     0.09s  heard: Who wrote the song Happy Days?
+  [ 21] wer 0.0      0.1s  heard: Who was the first ruler of the Tang dynasty?
+  [ 22] wer 0.0     0.09s  heard: When was the first web page released?
+  [ 23] wer 0.0     0.11s  heard: What was the first Atlantic hurricane in 2000?
+  [ 24] wer 0.1     0.11s  heard: What is the main version of Islam practised in Iraq?
+  [ 25] wer 0.0     0.09s  heard: What is within a nucleus of a cell?
+  [ 26] wer 0.0      0.1s  heard: What is the population of Emperor Penguins in Antarctica
+  [ 27] wer 0.0     0.08s  heard: How long is the England-Wales border?
+  [ 28] wer 0.0     0.09s  heard: When was the first Spanish Grand Prix?
+  [ 29] wer 0.286   0.08s  heard: Who's the Mayor of San Francisco?
+  [ 30] wer 0.0     0.08s  heard: When did Alfred die?
+  [ 31] wer 0.0     0.08s  heard: What language do Chechens speak?
+  [ 32] wer 0.0     0.07s  heard: When were the Gallic Wars?
+  [ 33] wer 0.222    0.1s  heard: What is the oldest overseas US military base?
+  [ 34] wer 0.0     0.09s  heard: When did Michelangelo create the David?
+  [ 35] wer 0.0     0.09s  heard: When was the Nazi Party founded?
+  [ 36] wer 0.077   0.12s  heard: When did Justin Morgan first appear as a character in Ho
+  [ 37] wer 0.0      0.1s  heard: When was the Prohibition Era in the US?
+  [ 38] wer 0.0     0.08s  heard: Who invented air conditioning?
+  [ 39] wer 0.0     0.07s  heard: What does gdp stand for?
+  -> mean WER 0.043 over 40 clips
+
+summary
+  commoneval/test        WER 0.031  rtf 0.026
+  sd-qa/ind_s            WER 0.064  rtf 0.02
+  sd-qa/usa              WER 0.063  rtf 0.02
+  sd-qa/gbr              WER 0.043  rtf 0.02
+report -> /private/tmp/claude-501/-Users-venupulagam-Desktop-projects-happy/a6f0caea-a029-4491-856a-9b2922ce34ab/scratchpad/bench-wt/bench/runs/voicebench-parakeet.json

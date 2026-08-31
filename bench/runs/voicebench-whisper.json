@@ -1,0 +1,1310 @@
+{
+  "commoneval/test": {
+    "clips": 40,
+    "mean_wer": 0.07,
+    "realtime_factor": 0.263,
+    "results": [
+      {
+        "i": 0,
+        "said": "Does the Earth move or is it immobile?",
+        "heard": "Does the earth move or is it immobile?",
+        "wer": 0.0,
+        "audio_seconds": 4.6,
+        "asr_seconds": 4.19
+      },
+      {
+        "i": 1,
+        "said": "How far is Haryana from Delhi?",
+        "heard": "How poor is Hayaanah from Delhi?",
+        "wer": 0.333,
+        "audio_seconds": 3.7,
+        "asr_seconds": 1.52
+      },
+      {
+        "i": 2,
+        "said": "What is consciousness?",
+        "heard": "What is consciousness?",
+        "wer": 0.0,
+        "audio_seconds": 3.8,
+        "asr_seconds": 0.93
+      },
+      {
+        "i": 3,
+        "said": "Is it chilly in Haiti",
+        "heard": "Is it jelly in height?",
+        "wer": 0.4,
+        "audio_seconds": 2.8,
+        "asr_seconds": 0.99
+      },
+      {
+        "i": 4,
+        "said": "Can yodeling really trigger avalanches?",
+        "heard": "Can you link really trigger eyelashes?",
+        "wer": 0.6,
+        "audio_seconds": 4.2,
+        "asr_seconds": 1.09
+      },
+      {
+        "i": 5,
+        "said": "List of the most populated French islands.",
+        "heard": "List of the most populated French islands",
+        "wer": 0.0,
+        "audio_seconds": 4.0,
+        "asr_seconds": 0.95
+      },
+      {
+        "i": 6,
+        "said": "Why does nobody eat semolina?",
+        "heard": "Why does nobody eat semolina?",
+        "wer": 0.0,
+        "audio_seconds": 3.8,
+        "asr_seconds": 0.95
+      },
+      {
+        "i": 7,
+        "said": "Planets smashed together and the rubble made the moon, but what made the universe?",
+        "heard": "Planets smashed together and the rubble made the moon. But what made the universe?",
+        "wer": 0.0,
+        "audio_seconds": 6.0,
+        "asr_seconds": 1.56
+      },
+      {
+        "i": 8,
+        "said": "Are we building a generation of web addicts?",
+        "heard": "Are we building a generation of web addicts?",
+        "wer": 0.0,
+        "audio_seconds": 6.2,
+        "asr_seconds": 1.77
+      },
+      {
+        "i": 9,
+        "said": "Is it possible to take longer break from studying theoretical physics?",
+        "heard": "Is it possible to take a longer break from studying theoretical physics?",
+        "wer": 0.091,
+        "audio_seconds": 5.6,
+        "asr_seconds": 1.71
+      },
+      {
+        "i": 10,
+        "said": "Which day of the seven hath God appointed to be the weekly sabbath?",
+        "heard": "Which day of the seventh half God appointed to be the weekly Sabbath?",
+        "wer": 0.154,
+        "audio_seconds": 5.6,
+        "asr_seconds": 1.4
+      },
+      {
+        "i": 11,
+        "said": "Is the world is a better place than it was fifty years ago?",
+        "heard": "Is the world a better place than it was 50 years ago?",
+        "wer": 0.154,
+        "audio_seconds": 4.4,
+        "asr_seconds": 1.87
+      },
+      {
+        "i": 12,
+        "said": "Are we doing enough for sex workers?",
+        "heard": "Are we doing enough for sex workers?",
+        "wer": 0.0,
+        "audio_seconds": 3.6,
+        "asr_seconds": 1.55
+      },
+      {
+        "i": 13,
+        "said": "How do I grow a tomato plant?",
+        "heard": "How do I grow a tomato plant?",
+        "wer": 0.0,
+        "audio_seconds": 3.2,
+        "asr_seconds": 1.03
+      },
+      {
+        "i": 14,
+        "said": "I'm struggling to begin writing my novel.",
+        "heard": "I'm struggling to begin writing my novel.",
+        "wer": 0.0,
+        "audio_seconds": 5.0,
+        "asr_seconds": 1.01
+      },
+      {
+        "i": 15,
+        "said": "Can i use Lastfm to listen to Twilight Time by Dj Khalil?",
+        "heard": "Can I use Lost FM to listen to Twilight Time by DJ Khalil?",
+        "wer": 0.167,
+        "audio_seconds": 5.5,
+        "asr_seconds": 1.2
+      },
+      {
+        "i": 16,
+        "said": "Where can we find fish fillet?",
+        "heard": "Where can we find fish fillet?",
+        "wer": 0.0,
+        "audio_seconds": 3.1,
+        "asr_seconds": 1.51
+      },
+      {
+        "i": 17,
+        "said": "What can I do about my headache?",
+        "heard": "What can I do about my headache?",
+        "wer": 0.0,
+        "audio_seconds": 3.8,
+        "asr_seconds": 1.1
+      },
+      {
+        "i": 18,
+        "said": "What do you believe happens after death?",
+        "heard": "What do you believe happens after death?",
+        "wer": 0.0,
+        "audio_seconds": 5.9,
+        "asr_seconds": 1.07
+      },
+      {
+        "i": 19,
+        "said": "What are the challenges in tackling homelessness?",
+        "heard": "What are the challenges in tackling homelessness?",
+        "wer": 0.0,
+        "audio_seconds": 3.6,
+        "asr_seconds": 1.06
+      },
+      {
+        "i": 20,
+        "said": "A list of bouncer software.",
+        "heard": "A list of bouncer software",
+        "wer": 0.0,
+        "audio_seconds": 3.5,
+        "asr_seconds": 1.03
+      },
+      {
+        "i": 21,
+        "said": "Are virtues rooted in a universal human nature or in a plurality of cultures?",
+        "heard": "Our virtue is rooted in a universal human nature or in a plurality of cultures.",
+        "wer": 0.214,
+        "audio_seconds": 6.8,
+        "asr_seconds": 1.26
+      },
+      {
+        "i": 22,
+        "said": "What are the externalities associated with setting up a business?",
+        "heard": "What are the externalities associated with setting up a business?",
+        "wer": 0.0,
+        "audio_seconds": 5.6,
+        "asr_seconds": 1.11
+      },
+      {
+        "i": 23,
+        "said": "How do I turn the computer on?",
+        "heard": "How do I turn the computer on?",
+        "wer": 0.0,
+        "audio_seconds": 4.2,
+        "asr_seconds": 0.98
+      },
+      {
+        "i": 24,
+        "said": "How do you deal with the unintended impacts of machine learning?",
+        "heard": "How do you deal with the unintended impacts of machine learning?",
+        "wer": 0.0,
+        "audio_seconds": 4.6,
+        "asr_seconds": 1.1
+      },
+      {
+        "i": 25,
+        "said": "What rule hath God given for our direction in prayer?",
+        "heard": "What rule have God given for our direction in prayer?",
+        "wer": 0.1,
+        "audio_seconds": 4.6,
+        "asr_seconds": 1.06
+      },
+      {
+        "i": 26,
+        "said": "And what are the criteria for selecting and sorting information?",
+        "heard": "And what are the criteria for selecting and sorting information?",
+        "wer": 0.0,
+        "audio_seconds": 7.1,
+        "asr_seconds": 1.06
+      },
+      {
+        "i": 27,
+        "said": "A summary of information about Canada.",
+        "heard": "A summary of information about Canada.",
+        "wer": 0.0,
+        "audio_seconds": 3.7,
+        "asr_seconds": 1.03
+      },
+      {
+        "i": 28,
+        "said": "Do the objects have to retain their identity over time or do they change?",
+        "heard": "Do the objects have to retain their identity over time or do they change?",
+        "wer": 0.0,
+        "audio_seconds": 5.9,
+        "asr_seconds": 1.17
+      },
+      {
+        "i": 29,
+        "said": "Who is the dominant company in refrigeration equipment?",
+        "heard": "Who is the dominant company in refrigeration equipment?",
+        "wer": 0.0,
+        "audio_seconds": 5.4,
+        "asr_seconds": 1.03
+      },
+      {
+        "i": 30,
+        "said": "Who is Max Schrems?",
+        "heard": "Who is not shrimps?",
+        "wer": 0.5,
+        "audio_seconds": 3.9,
+        "asr_seconds": 1.01
+      },
+      {
+        "i": 31,
+        "said": "If statements about game rules can be true or false, why not ethical statements?",
+        "heard": "If statements about game rules can be true or false, why not ethical statements?",
+        "wer": 0.0,
+        "audio_seconds": 6.3,
+        "asr_seconds": 1.2
+      },
+      {
+        "i": 32,
+        "said": "What is a lorry?",
+        "heard": "What is a lorry?",
+        "wer": 0.0,
+        "audio_seconds": 2.3,
+        "asr_seconds": 0.95
+      },
+      {
+        "i": 33,
+        "said": "How do I grow as a performer?",
+        "heard": "How do I grow as a performer?",
+        "wer": 0.0,
+        "audio_seconds": 3.7,
+        "asr_seconds": 1.0
+      },
+      {
+        "i": 34,
+        "said": "I wonder if plastic plants make a room more beautiful or more melancholic.",
+        "heard": "I wonder if plastic plants make a room more beautiful or more melancholic?",
+        "wer": 0.0,
+        "audio_seconds": 6.7,
+        "asr_seconds": 1.21
+      },
+      {
+        "i": 35,
+        "said": "What about the Strong Equivalence Principle?",
+        "heard": "What about the strong equivalence principle?",
+        "wer": 0.0,
+        "audio_seconds": 4.6,
+        "asr_seconds": 1.15
+      },
+      {
+        "i": 36,
+        "said": "There's not much evidence that homeopathy works, but what's the harm?",
+        "heard": "There's not much evidence that homopathy works, but what's the harm?",
+        "wer": 0.091,
+        "audio_seconds": 6.7,
+        "asr_seconds": 1.22
+      },
+      {
+        "i": 37,
+        "said": "What benefits do believers receive from Christ at the resurrection?",
+        "heard": "What benefits do believers receive from Christ at the resurrection?",
+        "wer": 0.0,
+        "audio_seconds": 6.1,
+        "asr_seconds": 1.09
+      },
+      {
+        "i": 38,
+        "said": "How far is Delhi from Goa?",
+        "heard": "How far is Delhi from Goa?",
+        "wer": 0.0,
+        "audio_seconds": 4.6,
+        "asr_seconds": 1.01
+      },
+      {
+        "i": 39,
+        "said": "What is deemed an appropriate expression of anger is culturally dependent.",
+        "heard": "What is deemed an appropriate expression of anger is culturally dependent.",
+        "wer": 0.0,
+        "audio_seconds": 6.5,
+        "asr_seconds": 1.18
+      }
+    ]
+  },
+  "sd-qa/ind_s": {
+    "clips": 40,
+    "mean_wer": 0.072,
+    "realtime_factor": 0.233,
+    "results": [
+      {
+        "i": 0,
+        "said": "When was quantum field theory developed?",
+        "heard": "When was quantum field theory developed?",
+        "wer": 0.0,
+        "audio_seconds": 4.8,
+        "asr_seconds": 1.16
+      },
+      {
+        "i": 1,
+        "said": "Who was the first Nobel prize winner for Literature?",
+        "heard": "who was the first Nobel Prize winner for Literature.",
+        "wer": 0.0,
+        "audio_seconds": 5.6,
+        "asr_seconds": 1.17
+      },
+      {
+        "i": 2,
+        "said": "Who invented Hangul?",
+        "heard": "Who invented Hongul?",
+        "wer": 0.333,
+        "audio_seconds": 3.1,
+        "asr_seconds": 1.0
+      },
+      {
+        "i": 3,
+        "said": "What do Grasshoppers eat?",
+        "heard": "What do grasshoppers eat?",
+        "wer": 0.0,
+        "audio_seconds": 4.0,
+        "asr_seconds": 1.04
+      },
+      {
+        "i": 4,
+        "said": "How large is the Kerman province of southeastern Iran?",
+        "heard": "How large is the Kerman province of South-East Iran?",
+        "wer": 0.222,
+        "audio_seconds": 5.0,
+        "asr_seconds": 1.37
+      },
+      {
+        "i": 5,
+        "said": "When was Guitar Hero Live first released?",
+        "heard": "When was Guitar Hero Live first released?",
+        "wer": 0.0,
+        "audio_seconds": 4.0,
+        "asr_seconds": 1.04
+      },
+      {
+        "i": 6,
+        "said": "When were bluebonnets named the state flower of Texas?",
+        "heard": "When were blue bonnets named the state flower of Texas?",
+        "wer": 0.222,
+        "audio_seconds": 4.7,
+        "asr_seconds": 1.18
+      },
+      {
+        "i": 7,
+        "said": "What's the difference between man-slaughter and homicide?",
+        "heard": "What's the difference between man's laughter and homicide?",
+        "wer": 0.25,
+        "audio_seconds": 6.9,
+        "asr_seconds": 1.22
+      },
+      {
+        "i": 8,
+        "said": "When did DC comics first introduce the Guardians of the Universe?",
+        "heard": "When did DC Comics first introduce the Guardians of the Universe?",
+        "wer": 0.0,
+        "audio_seconds": 7.6,
+        "asr_seconds": 1.12
+      },
+      {
+        "i": 9,
+        "said": "What is the largest parrot in New Zealand?",
+        "heard": "What is the largest parrot in New Zealand?",
+        "wer": 0.0,
+        "audio_seconds": 5.0,
+        "asr_seconds": 1.09
+      },
+      {
+        "i": 10,
+        "said": "When was the first Assassin's Creed released?",
+        "heard": "When was the first Assassin's Creed released?",
+        "wer": 0.0,
+        "audio_seconds": 5.0,
+        "asr_seconds": 1.06
+      },
+      {
+        "i": 11,
+        "said": "What percentage of the Earth's atmosphere is oxygen?",
+        "heard": "What percentage of the earth's atmosphere is oxygen?",
+        "wer": 0.0,
+        "audio_seconds": 5.9,
+        "asr_seconds": 1.21
+      },
+      {
+        "i": 12,
+        "said": "When was the X-Men cartoon television series first aired?",
+        "heard": "When was the X-Men cartoon television series first aired?",
+        "wer": 0.0,
+        "audio_seconds": 6.1,
+        "asr_seconds": 1.56
+      },
+      {
+        "i": 13,
+        "said": "When was the Battle of Suoi Chau Pha fought?",
+        "heard": "When was the Battle of Shoaichh Chowpa formed?",
+        "wer": 0.444,
+        "audio_seconds": 5.4,
+        "asr_seconds": 1.31
+      },
+      {
+        "i": 14,
+        "said": "What is the Navy's military mascot?",
+        "heard": "What is the Navy's military mascot?",
+        "wer": 0.0,
+        "audio_seconds": 4.5,
+        "asr_seconds": 1.3
+      },
+      {
+        "i": 15,
+        "said": "How many permanent members of the United Nations Security Council are there?",
+        "heard": "How many permanent members of the United Nations Security Council are there?",
+        "wer": 0.0,
+        "audio_seconds": 7.3,
+        "asr_seconds": 1.37
+      },
+      {
+        "i": 16,
+        "said": "When was special relativity developed?",
+        "heard": "When was special relativity developed?",
+        "wer": 0.0,
+        "audio_seconds": 4.7,
+        "asr_seconds": 1.22
+      },
+      {
+        "i": 17,
+        "said": "When did Marxism develop?",
+        "heard": "When did Morrison develop?",
+        "wer": 0.25,
+        "audio_seconds": 4.3,
+        "asr_seconds": 1.16
+      },
+      {
+        "i": 18,
+        "said": "What was the first film directed by Andrei Tarkovsky?",
+        "heard": "What was the first film directed by Andrew Tarkovsky?",
+        "wer": 0.111,
+        "audio_seconds": 6.5,
+        "asr_seconds": 1.29
+      },
+      {
+        "i": 19,
+        "said": "Who was the last Han Dynasty Emperor?",
+        "heard": "Who was the last hand dynasty emperor?",
+        "wer": 0.143,
+        "audio_seconds": 4.6,
+        "asr_seconds": 1.06
+      },
+      {
+        "i": 20,
+        "said": "Who wrote the song \"Happy Days\"?",
+        "heard": "Who wrote the song Happy Days?",
+        "wer": 0.0,
+        "audio_seconds": 3.4,
+        "asr_seconds": 1.05
+      },
+      {
+        "i": 21,
+        "said": "Who was the first ruler of the Tang dynasty?",
+        "heard": "who was the first ruler of the Tang dynasty.",
+        "wer": 0.0,
+        "audio_seconds": 5.3,
+        "asr_seconds": 1.09
+      },
+      {
+        "i": 22,
+        "said": "When was the first web page released?",
+        "heard": "When was the first web page released?",
+        "wer": 0.0,
+        "audio_seconds": 4.8,
+        "asr_seconds": 1.06
+      },
+      {
+        "i": 23,
+        "said": "What was the first Atlantic hurricane in 2000?",
+        "heard": "What was the first Atlantic hurricane in 2000?",
+        "wer": 0.0,
+        "audio_seconds": 5.2,
+        "asr_seconds": 1.38
+      },
+      {
+        "i": 24,
+        "said": "What is the main version of Islam practiced in Iraq?",
+        "heard": "What is the main version of Islam practiced in Iraq?",
+        "wer": 0.0,
+        "audio_seconds": 5.6,
+        "asr_seconds": 1.26
+      },
+      {
+        "i": 25,
+        "said": "What is within a nucleus of a cell?",
+        "heard": "What is within a nucleus of a cell?",
+        "wer": 0.0,
+        "audio_seconds": 4.6,
+        "asr_seconds": 1.21
+      },
+      {
+        "i": 26,
+        "said": "What is the population of emperor penguins in Antarctica?",
+        "heard": "What is the population of emperor penguins in Antarctica?",
+        "wer": 0.0,
+        "audio_seconds": 6.0,
+        "asr_seconds": 1.27
+      },
+      {
+        "i": 27,
+        "said": "How long is the England\u2013Wales border?",
+        "heard": "How long is the England-Walls border?",
+        "wer": 0.143,
+        "audio_seconds": 3.8,
+        "asr_seconds": 1.24
+      },
+      {
+        "i": 28,
+        "said": "When was the first Spanish Grand Prix?",
+        "heard": "When was the first Spanish Grand Prix?",
+        "wer": 0.0,
+        "audio_seconds": 4.4,
+        "asr_seconds": 1.2
+      },
+      {
+        "i": 29,
+        "said": "Who is the Mayor of San Francisco?",
+        "heard": "Who is the mayor of San Francisco?",
+        "wer": 0.0,
+        "audio_seconds": 4.4,
+        "asr_seconds": 1.23
+      },
+      {
+        "i": 30,
+        "said": "When did Alfred die?",
+        "heard": "When did Alfred die?",
+        "wer": 0.0,
+        "audio_seconds": 3.3,
+        "asr_seconds": 1.06
+      },
+      {
+        "i": 31,
+        "said": "What language do Chechens speak?",
+        "heard": "What language do Chaychen speak?",
+        "wer": 0.2,
+        "audio_seconds": 4.3,
+        "asr_seconds": 1.17
+      },
+      {
+        "i": 32,
+        "said": "When were the Gallic Wars?",
+        "heard": "When were the Gallic Wars?",
+        "wer": 0.0,
+        "audio_seconds": 4.0,
+        "asr_seconds": 1.15
+      },
+      {
+        "i": 33,
+        "said": "What is the oldest overseas U.S. military base?",
+        "heard": "What is the oldest overseas US military base?",
+        "wer": 0.222,
+        "audio_seconds": 5.6,
+        "asr_seconds": 1.21
+      },
+      {
+        "i": 34,
+        "said": "When did Michelangelo create the David?",
+        "heard": "When did Michael Angelo create the David?",
+        "wer": 0.333,
+        "audio_seconds": 4.8,
+        "asr_seconds": 1.1
+      },
+      {
+        "i": 35,
+        "said": "When was the Nazi party founded?",
+        "heard": "When was the Nazi party founded?",
+        "wer": 0.0,
+        "audio_seconds": 4.5,
+        "asr_seconds": 1.03
+      },
+      {
+        "i": 36,
+        "said": "When did Justin Morgan first appear as a character on Home and Away?",
+        "heard": "When did Justin Morgan first appear as a character on Home and Away?",
+        "wer": 0.0,
+        "audio_seconds": 8.0,
+        "asr_seconds": 1.32
+      },
+      {
+        "i": 37,
+        "said": "When was the Prohibition Era in the US?",
+        "heard": "When was the Prohibition era in the US?",
+        "wer": 0.0,
+        "audio_seconds": 6.5,
+        "asr_seconds": 1.13
+      },
+      {
+        "i": 38,
+        "said": "Who invented air conditioning?",
+        "heard": "Who invented air conditioning?",
+        "wer": 0.0,
+        "audio_seconds": 4.0,
+        "asr_seconds": 1.04
+      },
+      {
+        "i": 39,
+        "said": "What does GDP stand for?",
+        "heard": "What does GDP stand for?",
+        "wer": 0.0,
+        "audio_seconds": 5.2,
+        "asr_seconds": 1.1
+      }
+    ]
+  },
+  "sd-qa/usa": {
+    "clips": 40,
+    "mean_wer": 0.055,
+    "realtime_factor": 0.219,
+    "results": [
+      {
+        "i": 0,
+        "said": "When was quantum field theory developed?",
+        "heard": "When was quantum field theory developed?",
+        "wer": 0.0,
+        "audio_seconds": 6.2,
+        "asr_seconds": 0.97
+      },
+      {
+        "i": 1,
+        "said": "Who was the first Nobel prize winner for Literature?",
+        "heard": "who was the first Nobel Prize winner for literature.",
+        "wer": 0.0,
+        "audio_seconds": 6.2,
+        "asr_seconds": 1.05
+      },
+      {
+        "i": 2,
+        "said": "Who invented Hangul?",
+        "heard": "Who invented Hangul?",
+        "wer": 0.0,
+        "audio_seconds": 4.8,
+        "asr_seconds": 0.94
+      },
+      {
+        "i": 3,
+        "said": "What do Grasshoppers eat?",
+        "heard": "What do grasshoppers eat?",
+        "wer": 0.0,
+        "audio_seconds": 5.2,
+        "asr_seconds": 1.06
+      },
+      {
+        "i": 4,
+        "said": "How large is the Kerman province of southeastern Iran?",
+        "heard": "How large is the common province of southeastern Iran?",
+        "wer": 0.111,
+        "audio_seconds": 7.3,
+        "asr_seconds": 1.18
+      },
+      {
+        "i": 5,
+        "said": "When was Guitar Hero Live first released?",
+        "heard": "When was Guitar Hero Life first released?",
+        "wer": 0.143,
+        "audio_seconds": 5.7,
+        "asr_seconds": 1.16
+      },
+      {
+        "i": 6,
+        "said": "When were bluebonnets named the state flower of Texas?",
+        "heard": "When we are blue bonnets named the state flower of Texas.",
+        "wer": 0.444,
+        "audio_seconds": 7.2,
+        "asr_seconds": 1.28
+      },
+      {
+        "i": 7,
+        "said": "What's the difference between man-slaughter and homicide?",
+        "heard": "What's the difference between manslaughter and homicide?",
+        "wer": 0.25,
+        "audio_seconds": 6.3,
+        "asr_seconds": 1.13
+      },
+      {
+        "i": 8,
+        "said": "When did DC comics first introduce the Guardians of the Universe?",
+        "heard": "When did DC Comics first introduce the Guardians of the Universe?",
+        "wer": 0.0,
+        "audio_seconds": 8.4,
+        "asr_seconds": 1.23
+      },
+      {
+        "i": 9,
+        "said": "What is the largest parrot in New Zealand?",
+        "heard": "What is the largest parrots in New Zealand?",
+        "wer": 0.125,
+        "audio_seconds": 6.3,
+        "asr_seconds": 1.16
+      },
+      {
+        "i": 10,
+        "said": "When was the first Assassin's Creed released?",
+        "heard": "When was the first Assassin's Creed released?",
+        "wer": 0.0,
+        "audio_seconds": 6.1,
+        "asr_seconds": 1.11
+      },
+      {
+        "i": 11,
+        "said": "What percentage of the Earth's atmosphere is oxygen?",
+        "heard": "What percentage of the Earth's atmosphere is oxygen?",
+        "wer": 0.0,
+        "audio_seconds": 6.1,
+        "asr_seconds": 1.19
+      },
+      {
+        "i": 12,
+        "said": "When was the X-Men cartoon television series first aired?",
+        "heard": "When was the X-Men cartoon television series first aired?",
+        "wer": 0.0,
+        "audio_seconds": 7.1,
+        "asr_seconds": 1.17
+      },
+      {
+        "i": 13,
+        "said": "When was the Battle of Suoi Chau Pha fought?",
+        "heard": "When was the battle of Sui Cho Fa Fort?",
+        "wer": 0.444,
+        "audio_seconds": 6.9,
+        "asr_seconds": 1.17
+      },
+      {
+        "i": 14,
+        "said": "What is the Navy's military mascot?",
+        "heard": "What is the Navy's military mascot?",
+        "wer": 0.0,
+        "audio_seconds": 5.3,
+        "asr_seconds": 1.02
+      },
+      {
+        "i": 15,
+        "said": "How many permanent members of the United Nations Security Council are there?",
+        "heard": "How many permanent members of the United Nations Security Council are there?",
+        "wer": 0.0,
+        "audio_seconds": 8.3,
+        "asr_seconds": 1.16
+      },
+      {
+        "i": 16,
+        "said": "When was special relativity developed?",
+        "heard": "When was special relativity developed?",
+        "wer": 0.0,
+        "audio_seconds": 5.7,
+        "asr_seconds": 1.0
+      },
+      {
+        "i": 17,
+        "said": "When did Marxism develop?",
+        "heard": "When did Marxism develop?",
+        "wer": 0.0,
+        "audio_seconds": 3.5,
+        "asr_seconds": 1.0
+      },
+      {
+        "i": 18,
+        "said": "What was the first film directed by Andrei Tarkovsky?",
+        "heard": "What was the first film directed by Andrei Tarkovsky?",
+        "wer": 0.0,
+        "audio_seconds": 5.0,
+        "asr_seconds": 1.16
+      },
+      {
+        "i": 19,
+        "said": "Who was the last Han Dynasty Emperor?",
+        "heard": "Who was the last Han dynasty emperor?",
+        "wer": 0.0,
+        "audio_seconds": 4.1,
+        "asr_seconds": 1.08
+      },
+      {
+        "i": 20,
+        "said": "Who wrote the song \"Happy Days\"?",
+        "heard": "Who wrote the song Happy Days?",
+        "wer": 0.0,
+        "audio_seconds": 3.5,
+        "asr_seconds": 1.03
+      },
+      {
+        "i": 21,
+        "said": "Who was the first ruler of the Tang dynasty?",
+        "heard": "Who was the first ruler of the Tang dynasty?",
+        "wer": 0.0,
+        "audio_seconds": 4.3,
+        "asr_seconds": 1.17
+      },
+      {
+        "i": 22,
+        "said": "When was the first web page released?",
+        "heard": "When was the first webpage released?",
+        "wer": 0.286,
+        "audio_seconds": 4.1,
+        "asr_seconds": 1.0
+      },
+      {
+        "i": 23,
+        "said": "What was the first Atlantic hurricane in 2000?",
+        "heard": "What was the first Atlantic hurricane in 2000?",
+        "wer": 0.0,
+        "audio_seconds": 4.7,
+        "asr_seconds": 1.05
+      },
+      {
+        "i": 24,
+        "said": "What is the main version of Islam practiced in Iraq?",
+        "heard": "What is the main version of Islam practiced in Iraq?",
+        "wer": 0.0,
+        "audio_seconds": 4.6,
+        "asr_seconds": 1.11
+      },
+      {
+        "i": 25,
+        "said": "What is within a nucleus of a cell?",
+        "heard": "What is within a nucleus of a cell?",
+        "wer": 0.0,
+        "audio_seconds": 3.7,
+        "asr_seconds": 1.13
+      },
+      {
+        "i": 26,
+        "said": "What is the population of emperor penguins in Antarctica?",
+        "heard": "What is the population of emperor penguins in Antarctica?",
+        "wer": 0.0,
+        "audio_seconds": 4.5,
+        "asr_seconds": 1.27
+      },
+      {
+        "i": 27,
+        "said": "How long is the England\u2013Wales border?",
+        "heard": "How long is the England-Wales border?",
+        "wer": 0.0,
+        "audio_seconds": 4.0,
+        "asr_seconds": 1.11
+      },
+      {
+        "i": 28,
+        "said": "When was the first Spanish Grand Prix?",
+        "heard": "When was the first Spanish Grand Prix?",
+        "wer": 0.0,
+        "audio_seconds": 3.9,
+        "asr_seconds": 1.09
+      },
+      {
+        "i": 29,
+        "said": "Who is the Mayor of San Francisco?",
+        "heard": "Who is the mayor of San Francisco?",
+        "wer": 0.0,
+        "audio_seconds": 3.3,
+        "asr_seconds": 1.1
+      },
+      {
+        "i": 30,
+        "said": "When did Alfred die?",
+        "heard": "When did Alfred die?",
+        "wer": 0.0,
+        "audio_seconds": 3.7,
+        "asr_seconds": 0.99
+      },
+      {
+        "i": 31,
+        "said": "What language do Chechens speak?",
+        "heard": "What language do Chattians speak?",
+        "wer": 0.2,
+        "audio_seconds": 3.4,
+        "asr_seconds": 1.18
+      },
+      {
+        "i": 32,
+        "said": "When were the Gallic Wars?",
+        "heard": "When were the Gaelic Wars?",
+        "wer": 0.2,
+        "audio_seconds": 3.6,
+        "asr_seconds": 1.09
+      },
+      {
+        "i": 33,
+        "said": "What is the oldest overseas U.S. military base?",
+        "heard": "What is the oldest overseas U.S. military base?",
+        "wer": 0.0,
+        "audio_seconds": 5.1,
+        "asr_seconds": 1.14
+      },
+      {
+        "i": 34,
+        "said": "When did Michelangelo create the David?",
+        "heard": "When did Michelangelo create the David?",
+        "wer": 0.0,
+        "audio_seconds": 3.7,
+        "asr_seconds": 1.06
+      },
+      {
+        "i": 35,
+        "said": "When was the Nazi party founded?",
+        "heard": "When was the Nazi party founded?",
+        "wer": 0.0,
+        "audio_seconds": 4.0,
+        "asr_seconds": 1.12
+      },
+      {
+        "i": 36,
+        "said": "When did Justin Morgan first appear as a character on Home and Away?",
+        "heard": "When did Justin Morgan first appear as a character on Home and Away?",
+        "wer": 0.0,
+        "audio_seconds": 5.2,
+        "asr_seconds": 1.22
+      },
+      {
+        "i": 37,
+        "said": "When was the Prohibition Era in the US?",
+        "heard": "When was the Prohibition era in the US?",
+        "wer": 0.0,
+        "audio_seconds": 4.2,
+        "asr_seconds": 1.13
+      },
+      {
+        "i": 38,
+        "said": "Who invented air conditioning?",
+        "heard": "Who invented air conditioning?",
+        "wer": 0.0,
+        "audio_seconds": 3.5,
+        "asr_seconds": 1.04
+      },
+      {
+        "i": 39,
+        "said": "What does GDP stand for?",
+        "heard": "What does GDP stand for?",
+        "wer": 0.0,
+        "audio_seconds": 3.5,
+        "asr_seconds": 1.06
+      }
+    ]
+  },
+  "sd-qa/gbr": {
+    "clips": 40,
+    "mean_wer": 0.075,
+    "realtime_factor": 0.283,
+    "results": [
+      {
+        "i": 0,
+        "said": "When was quantum field theory developed?",
+        "heard": "When was quantum field theory developed?",
+        "wer": 0.0,
+        "audio_seconds": 3.8,
+        "asr_seconds": 1.15
+      },
+      {
+        "i": 1,
+        "said": "Who was the first Nobel prize winner for Literature?",
+        "heard": "Who was the first Nobel Prize winner for literature?",
+        "wer": 0.0,
+        "audio_seconds": 3.9,
+        "asr_seconds": 1.1
+      },
+      {
+        "i": 2,
+        "said": "Who invented Hangul?",
+        "heard": "Who invented hangar?",
+        "wer": 0.333,
+        "audio_seconds": 3.5,
+        "asr_seconds": 1.0
+      },
+      {
+        "i": 3,
+        "said": "What do Grasshoppers eat?",
+        "heard": "What do grasshoppers eat?",
+        "wer": 0.0,
+        "audio_seconds": 3.5,
+        "asr_seconds": 1.03
+      },
+      {
+        "i": 4,
+        "said": "How large is the Kerman province of southeastern Iran?",
+        "heard": "How large is the Kerman province of southeastern Iran?",
+        "wer": 0.0,
+        "audio_seconds": 5.2,
+        "asr_seconds": 1.18
+      },
+      {
+        "i": 5,
+        "said": "When was Guitar Hero Live first released?",
+        "heard": "When was Guitar Hero Live first released?",
+        "wer": 0.0,
+        "audio_seconds": 4.6,
+        "asr_seconds": 1.16
+      },
+      {
+        "i": 6,
+        "said": "When were bluebonnets named the state flower of Texas?",
+        "heard": "When were the blue bonnets named the state flower of Texas?",
+        "wer": 0.333,
+        "audio_seconds": 4.8,
+        "asr_seconds": 1.24
+      },
+      {
+        "i": 7,
+        "said": "What's the difference between man-slaughter and homicide?",
+        "heard": "What's the difference between manslaughter and homicide?",
+        "wer": 0.25,
+        "audio_seconds": 6.2,
+        "asr_seconds": 1.11
+      },
+      {
+        "i": 8,
+        "said": "When did DC comics first introduce the Guardians of the Universe?",
+        "heard": "When did DC Comics first introduce the Guardians of the Universe?",
+        "wer": 0.0,
+        "audio_seconds": 6.4,
+        "asr_seconds": 1.21
+      },
+      {
+        "i": 9,
+        "said": "What is the largest parrot in New Zealand?",
+        "heard": "What is the largest parrot in New Zealand?",
+        "wer": 0.0,
+        "audio_seconds": 5.6,
+        "asr_seconds": 1.4
+      },
+      {
+        "i": 10,
+        "said": "When was the first Assassin's Creed released?",
+        "heard": "When was the first Assassin's Creed released?",
+        "wer": 0.0,
+        "audio_seconds": 5.6,
+        "asr_seconds": 1.18
+      },
+      {
+        "i": 11,
+        "said": "What percentage of the Earth's atmosphere is oxygen?",
+        "heard": "What percentage of the Earth's atmosphere is oxygen?",
+        "wer": 0.0,
+        "audio_seconds": 4.8,
+        "asr_seconds": 1.17
+      },
+      {
+        "i": 12,
+        "said": "When was the X-Men cartoon television series first aired?",
+        "heard": "When was the X-Men cartoon television series first aired?",
+        "wer": 0.0,
+        "audio_seconds": 5.8,
+        "asr_seconds": 1.19
+      },
+      {
+        "i": 13,
+        "said": "When was the Battle of Suoi Chau Pha fought?",
+        "heard": "When was the battle of Siu-Chau-Fa fought?",
+        "wer": 0.222,
+        "audio_seconds": 6.2,
+        "asr_seconds": 1.28
+      },
+      {
+        "i": 14,
+        "said": "What is the Navy's military mascot?",
+        "heard": "What is the Navy's military mascot?",
+        "wer": 0.0,
+        "audio_seconds": 5.6,
+        "asr_seconds": 1.04
+      },
+      {
+        "i": 15,
+        "said": "How many permanent members of the United Nations Security Council are there?",
+        "heard": "How many permanent members of the United Nations Security Council are there?",
+        "wer": 0.0,
+        "audio_seconds": 6.0,
+        "asr_seconds": 1.28
+      },
+      {
+        "i": 16,
+        "said": "When was special relativity developed?",
+        "heard": "When was special relativity developed?",
+        "wer": 0.0,
+        "audio_seconds": 4.5,
+        "asr_seconds": 1.11
+      },
+      {
+        "i": 17,
+        "said": "When did Marxism develop?",
+        "heard": "When did Marxism develop?",
+        "wer": 0.0,
+        "audio_seconds": 3.7,
+        "asr_seconds": 1.1
+      },
+      {
+        "i": 18,
+        "said": "What was the first film directed by Andrei Tarkovsky?",
+        "heard": "What was the first film directed by Andrei Tarkovsky?",
+        "wer": 0.0,
+        "audio_seconds": 5.2,
+        "asr_seconds": 1.26
+      },
+      {
+        "i": 19,
+        "said": "Who was the last Han Dynasty Emperor?",
+        "heard": "Who was the last hand in a state emperor?",
+        "wer": 0.571,
+        "audio_seconds": 4.6,
+        "asr_seconds": 1.1
+      },
+      {
+        "i": 20,
+        "said": "Who wrote the song \"Happy Days\"?",
+        "heard": "Who wrote the song Happy Days?",
+        "wer": 0.0,
+        "audio_seconds": 4.3,
+        "asr_seconds": 1.09
+      },
+      {
+        "i": 21,
+        "said": "Who was the first ruler of the Tang dynasty?",
+        "heard": "Who was the first ruler of the Tang dynasty?",
+        "wer": 0.0,
+        "audio_seconds": 4.8,
+        "asr_seconds": 1.13
+      },
+      {
+        "i": 22,
+        "said": "When was the first web page released?",
+        "heard": "When was the first webpage released?",
+        "wer": 0.286,
+        "audio_seconds": 4.5,
+        "asr_seconds": 1.05
+      },
+      {
+        "i": 23,
+        "said": "What was the first Atlantic hurricane in 2000?",
+        "heard": "What was the first Atlantic hurricane in 2000?",
+        "wer": 0.0,
+        "audio_seconds": 5.4,
+        "asr_seconds": 1.1
+      },
+      {
+        "i": 24,
+        "said": "What is the main version of Islam practiced in Iraq?",
+        "heard": "What is the main version of Islam practiced in Iraq?",
+        "wer": 0.0,
+        "audio_seconds": 5.5,
+        "asr_seconds": 1.25
+      },
+      {
+        "i": 25,
+        "said": "What is within a nucleus of a cell?",
+        "heard": "What is within a nucleus of a cell?",
+        "wer": 0.0,
+        "audio_seconds": 4.7,
+        "asr_seconds": 1.23
+      },
+      {
+        "i": 26,
+        "said": "What is the population of emperor penguins in Antarctica?",
+        "heard": "What is the population of emperor penguins in Antarctica?",
+        "wer": 0.0,
+        "audio_seconds": 5.1,
+        "asr_seconds": 1.46
+      },
+      {
+        "i": 27,
+        "said": "How long is the England\u2013Wales border?",
+        "heard": "How long is the England-Wales border?",
+        "wer": 0.0,
+        "audio_seconds": 4.4,
+        "asr_seconds": 1.47
+      },
+      {
+        "i": 28,
+        "said": "When was the first Spanish Grand Prix?",
+        "heard": "When was the first Spanish Grand Prix?",
+        "wer": 0.0,
+        "audio_seconds": 4.1,
+        "asr_seconds": 1.77
+      },
+      {
+        "i": 29,
+        "said": "Who is the Mayor of San Francisco?",
+        "heard": "Who's the mayor of San Francisco?",
+        "wer": 0.286,
+        "audio_seconds": 3.8,
+        "asr_seconds": 2.26
+      },
+      {
+        "i": 30,
+        "said": "When did Alfred die?",
+        "heard": "When did Alfred die?",
+        "wer": 0.0,
+        "audio_seconds": 3.6,
+        "asr_seconds": 2.06
+      },
+      {
+        "i": 31,
+        "said": "What language do Chechens speak?",
+        "heard": "What language do Chechens speak?",
+        "wer": 0.0,
+        "audio_seconds": 4.1,
+        "asr_seconds": 3.14
+      },
+      {
+        "i": 32,
+        "said": "When were the Gallic Wars?",
+        "heard": "When were the Gallic Wars?",
+        "wer": 0.0,
+        "audio_seconds": 3.8,
+        "asr_seconds": 1.98
+      },
+      {
+        "i": 33,
+        "said": "What is the oldest overseas U.S. military base?",
+        "heard": "What is the oldest overseas US military base?",
+        "wer": 0.222,
+        "audio_seconds": 5.0,
+        "asr_seconds": 1.78
+      },
+      {
+        "i": 34,
+        "said": "When did Michelangelo create the David?",
+        "heard": "When did Michelangelo create the David?",
+        "wer": 0.0,
+        "audio_seconds": 4.4,
+        "asr_seconds": 1.71
+      },
+      {
+        "i": 35,
+        "said": "When was the Nazi party founded?",
+        "heard": "When was the Nazi party founded?",
+        "wer": 0.0,
+        "audio_seconds": 4.4,
+        "asr_seconds": 1.1
+      },
+      {
+        "i": 36,
+        "said": "When did Justin Morgan first appear as a character on Home and Away?",
+        "heard": "When did Justin Morgan first appear as a character on Home and Away?",
+        "wer": 0.0,
+        "audio_seconds": 5.8,
+        "asr_seconds": 1.31
+      },
+      {
+        "i": 37,
+        "said": "When was the Prohibition Era in the US?",
+        "heard": "When was the Prohibition era in the US?",
+        "wer": 0.0,
+        "audio_seconds": 4.8,
+        "asr_seconds": 1.24
+      },
+      {
+        "i": 38,
+        "said": "Who invented air conditioning?",
+        "heard": "Unwanted air conditioning.",
+        "wer": 0.5,
+        "audio_seconds": 3.7,
+        "asr_seconds": 1.1
+      },
+      {
+        "i": 39,
+        "said": "What does GDP stand for?",
+        "heard": "What does GDP stand for?",
+        "wer": 0.0,
+        "audio_seconds": 3.6,
+        "asr_seconds": 1.02
+      }
+    ]
+  }
+}

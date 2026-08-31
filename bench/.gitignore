@@ -1,0 +1,5 @@
+# THE THROWAWAY DATABASES AND THE DECODED CLIPS, NOT THE REPORTS.
+runs/*.db
+runs/*.db-shm
+runs/*.db-wal
+runs/audio/
