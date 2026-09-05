@@ -38,7 +38,10 @@ def resolve_or_confirm(said_name, service, candidate):
             f"'{said_name}' isn't a known exact match for {service}. The closest "
             f"guess is '{candidate}', but this must be confirmed directly "
             f"by the person before using or remembering it — browsing a "
-            f"list or a fuzzy match is not confirmation on its own."
+            f"list or a fuzzy match is not confirmation on its own. "
+            f"Ask them whether '{candidate}' is who they meant. If they say it is, "
+            f"remember it against '{said_name}' and then carry on with what they "
+            f"originally asked for, on this same service."
         )
 
     return None

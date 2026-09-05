@@ -46,7 +46,10 @@ CoercedStr = Annotated[str, BeforeValidator(coerce_str)]
 NOBODY = (
     'No WhatsApp contact matches "{name}". Ask this person who they meant, saying "{name}" '
     "back to them the way you heard it, and use only the name they give you. Do not send "
-    "this to anyone else, and never to someone named earlier in the conversation."
+    "this to anyone else, and never to someone named earlier in the conversation. "
+    "When they give you a name and it is found, remember it against \"{name}\" with "
+    "remember_contact and go straight on with what they first asked for, here on WhatsApp: "
+    "a name that failed is a step to repeat, not a reason to start driving the app by hand."
 )
 
 mcp = FastMCP("whatsapp", log_level="ERROR")
