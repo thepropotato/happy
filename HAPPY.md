@@ -81,6 +81,7 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `ears/holding.py` | One press: record while it is down, read it, hand it on. |
 | `ears/microphone.py` | Microphone capture, one WAV per take, device open only while held. |
 | `ears/transcribing.py` | Speech to text. |
+| `ears/hearing.py` | The handful of words this ear reliably mishears, put back. |
 | `voice/engines.py` | Which engine speaks, and loading only that one. |
 | `voice/kokoro.py` | The voice model itself. |
 | `voice/styles.py` | The voice files: what is here, which one speaks, and getting more. |

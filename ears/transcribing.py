@@ -5,6 +5,8 @@ from pathlib import Path
 import numpy as np
 
 from ears.engines import EarsError
+from ears.hearing import corrected
+from ears.nonsense import clean
 from face import show
 from memory import settings
 
@@ -70,7 +72,12 @@ def load_model():
 
 
 def transcribe(audio_file):
-    return load_model().recognize(str(audio_file)).strip()
+    """WHAT WAS SAID, WITH THE HANDFUL OF WORDS THIS EAR MISHEARS PUT BACK."""
+    try:
+        return corrected(clean(load_model().recognize(str(audio_file))))
+    except Exception as error:
+        show.trouble(f"This one would not be heard ({error})")
+        return ""
 
 
 def warm():

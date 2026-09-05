@@ -81,7 +81,7 @@ EARS = [
            "Held from any window, not just this. The microphone opens for as long as it is down."),
     choice("ears.microphone", "Microphone", [], "", MICROPHONE, source="microphones"),
     choice("ears.device", "Runs on", DEVICES, "cpu", "CPU is the sure one."),
-    choice("ears.engine", "Engine", EARS_ENGINES, "whisper",
+    choice("ears.engine", "Engine", EARS_ENGINES, "parakeet",
         "Parakeet is faster. Whisper hears an accent better."),
     number("ears.hold", "Shortest take", 0.05, 2, 0.05, 0.25, "Briefer was the key brushed.",
            "sec", rare=True),
