@@ -160,6 +160,22 @@ UNLOOKED = (
 )
 
 
+# AND THE SAME FOR A PLAIN FILE. write_document HAS HELD THIS LINE SINCE THE DECK ABOUT THE
+# WRONG SHOW; write_file WAS LEFT OUTSIDE IT AND IS THE EASIER TOOL TO REACH FOR, SO "copy this
+# link into a text file" WENT STRAIGHT THROUGH AND SAVED A MEET LINK FROM EARLIER IN THE
+# CONVERSATION. WHAT GOES IN THE FILE IS AS MUCH A CLAIM AS WHAT GOES IN A DECK.
+UNLOOKED_TEXT = (
+    "Not written yet — you have not looked. They said {said!r}, which points at whatever is in "
+    "front of them right now, and nothing this turn has been and found out what that is. An "
+    "address, a title or a name you remember from earlier in this conversation is what was true "
+    "earlier; it is not what is on their screen now, and it is not what they asked you to save.\n\n"
+    "Do it now, in this turn, without asking them anything:\n"
+    "1. current_activity, to see what is actually in front of them and what it is called.\n"
+    "2. this tool again, written out of what that came back with.\n"
+    "This is a step of the job, not a refusal of it. Do not apologise and do not stop."
+)
+
+
 @tool
 def describe_project(project: str) -> str:
     """Understand a project folder before saying or writing anything about it:
@@ -188,8 +204,19 @@ def write_file(path: str, text: str) -> str:
     nothing is touched, so it can never wipe out somebody's work. To change a
     file that exists, use edit_file. Never write a file with run_command.
 
+    What goes in the file has to be found before it is written. When what they
+    want saved is this thing here rather than something named outright — this
+    link, the address of this page, the show I am watching — go and look with
+    current_activity first, this turn. An address remembered from earlier in
+    the conversation is the wrong one.
+
     A presentation, a Word document and a spreadsheet are not plain text and
     are made with write_document instead."""
+    said = conversation.asking() or ""
+
+    if any(each in said.lower() for each in POINTED) and not wrapping.already(*LOOKERS):
+        return reasons.no(UNLOOKED_TEXT.format(said=said))
+
     where = Path(path).expanduser()
     sort = SEALED.get(where.suffix.lower())
 

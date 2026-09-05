@@ -10,6 +10,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 import hands
 import memory
+from face import show
 from brain import model as brain, persona, resuming
 from brain.model import LLMError
 from brain.prompt import system_prompt
@@ -240,7 +241,14 @@ class Happy:
                     reply += piece
                     memory.progress(len(reply))
 
-                    yield piece
+                    # SHOWN AS IT ARRIVES, NEVER YIELDED AS IT ARRIVES. A PIECE REACHES THE
+                    # STREAM BEFORE ITS ROUND HAS SAID WHETHER IT IS CALLING A TOOL, AND THE
+                    # VOICE SPEAKS WHATEVER IT IS HANDED THE MOMENT IT HAS A SENTENCE — SO
+                    # "just let me know which one you'd like" WAS OUT OF THE SPEAKER LONG
+                    # BEFORE aside COULD DROP IT, AND YOUTUBE THEN OPENED ANYWAY. THE PANEL
+                    # STILL GETS EVERY PIECE HERE; THE ANSWER GOES OUT WHOLE, BELOW, ONCE
+                    # THERE IS SOMETHING TO SAY.
+                    show.piece(piece)
 
                 if self.stopping.is_set():
                     break
@@ -249,6 +257,9 @@ class Happy:
             # CANNOT SEE.
             # WHAT WAS SAID ON THE WAY TO A TOOL IS DROPPED NOW THE REAL ANSWER IS IN.
             reply = answer(reply, aside)
+
+            if reply.strip() and not self.stopping.is_set():
+                yield reply
 
             if not reply.strip() and not self.stopping.is_set():
                 last = self.ending() or NOTHING

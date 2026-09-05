@@ -302,6 +302,12 @@ POINTED = (
     "im watching", "i'm watching", "i am watching", "this show", "this video", "this movie",
     "this page", "this song", "this article", "on my screen", "in front of me", "right now",
     "currently watching", "playing right now", "this thing", "what im", "what i'm",
+    # AND THE SAME POINTING DONE AT A PROPERTY OF THE THING RATHER THAN THE THING. "copy this
+    # link" NAMES NO SHOW AND NO PAGE, SO NOTHING ABOVE MATCHED IT, AND THE ADDRESS WENT INTO A
+    # FILE OFF A MEET LINK SOMEBODY MENTIONED EARLIER IN THE CONVERSATION. A LINK IS ONLY EVER
+    # THE LINK OF SOMETHING, AND WHICH SOMETHING IS A THING YOU LOOK AT.
+    "this link", "the link", "this url", "the url", "this address", "the address",
+    "its link", "it's link", "the title of this", "this title",
 )
 
 # THE TOOLS THAT ACTUALLY GO AND LOOK.
@@ -346,7 +352,11 @@ UNREAD_ALOUD = (
 ON_SCREEN = ("link", "url", "address", "what is this", "what's this", "whats this",
              "what am i", "what im", "what i'm", "which video", "which show", "what show",
              "what video", "what song", "what page", "called", "title", "name of", "open",
-             "playing", "tab", "window")
+             "playing", "tab", "window",
+             # AND THE WORD FOR THE THING ITSELF. TOLD "the video im watching right now" AFTER
+             # NAMING THE WRONG FILE, THE TURN LOOKED, MATCHED NOTHING HERE, WAS SENT OFF TO
+             # READ, AND OPENED A DIFFERENT VIDEO — WITH THE RIGHT ADDRESS ALREADY IN HAND.
+             "watching", "this video", "this show", "this page", "this song")
 
 # WHAT A TURN SAYS WHEN IT HAS TALKED ITSELF OUT OF A JOB IT CAN DO, AND THE TOOL THAT DOES
 # IT. THE MODEL BELIEVES IT CANNOT MAKE AN OFFICE FILE, BECAUSE MOST MODELS CANNOT; SAYING SO
