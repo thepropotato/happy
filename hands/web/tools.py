@@ -1,5 +1,7 @@
 """THE TOOLS. EVERY DOCSTRING HERE IS READ BY THE MODEL, NOT BY US."""
 
+from typing import Literal
+
 from langchain_core.tools import tool
 
 from hands import reasons
@@ -9,6 +11,16 @@ from hands.web.pages import page
 from hands.web.searching import ENDINGS, pictures, search
 
 MOST_AT_ONCE = 25
+
+# LOOKING AT ONE AND HAVING THE FILE ARE DIFFERENT ASKS. THIS TOOL ONLY EVER FETCHES; WHAT
+# CHANGES IS WHAT IS SAID ABOUT WHAT TO DO NEXT, BECAUSE OPENING IS open_path'S JOB.
+SEEING = "show"
+
+KEEPING = "keep"
+
+NEXT = "Now put the first of these in front of them with open_path, by its exact path above."
+
+KEPT = "They asked for the files, so say where they are and leave them shut."
 
 
 @tool
@@ -62,7 +74,8 @@ def read_page(url: str, start: int = 0) -> str:
 
 
 @tool
-def download_images(description: str, count: int = 5, folder: str = "") -> str:
+def download_images(description: str, because: Literal[SEEING, KEEPING], count: int = 5,
+                    folder: str = "") -> str:
     """Find pictures on the web and save them onto this computer. This is the
     whole job in one call: it looks them up, fetches them and writes the files.
 
@@ -73,11 +86,19 @@ def download_images(description: str, count: int = 5, folder: str = "") -> str:
     "count" is how many they asked for. "folder" is where they land, and left
     empty they go to Downloads.
 
+    Asked to be shown one rather than sent one — show me a picture of her, what
+    does that place look like — this fetches it and hands you back where it
+    landed, and open_path is what puts it in front of them afterwards. This one
+    never opens anything by itself.
     Do not open a stock photo site and leave them to click, and do not use
     search_web, open_url or read_page to hunt for pictures. Those put pages on a
-    screen; this is the only thing that puts files on the disk. Plenty of sites
-    refuse to hand a picture over, so this quietly tries more than it needs and
-    tells you how many actually landed."""
+    screen; this is the only thing that puts files on the disk.
+
+    It comes back with the full path of every picture that landed. A picture
+    keeps whatever name and ending the site gave it, so never write a path
+    yourself to open one afterwards: use the ones this hands back, exactly as
+    they are written. Plenty of sites refuse, so this quietly tries more than it
+    needs and tells you which ones actually landed."""
     wanted = max(1, min(int(count or 1), MOST_AT_ONCE))
 
     try:
@@ -96,7 +117,16 @@ def download_images(description: str, count: int = 5, folder: str = "") -> str:
 
     short = f" That is all {description} that would be handed over." if len(saved) < wanted else ""
 
-    return f"Saved {len(saved)} pictures into {into}.{short}"
+    # THE NAMES, NOT THE COUNT. A PICTURE COMES DOWN UNDER WHATEVER NAME AND ENDING THE SITE
+    # GAVE IT, WHICH IS NEVER THE ONE THAT WOULD BE GUESSED, AND THE NEXT STEP IS ALWAYS TO
+    # OPEN ONE: GUESSING LEFT SOMEBODY BEING TOLD A PICTURE WAS ON SCREEN THAT WAS NOT THERE.
+    named = "\n".join(f"- {each}" for each in saved)
+    said = f"Saved {len(saved)} into {into}.{short} They are:\n{named}"
+
+    # ASKED TO BE SHOWN ONE, BEING TOLD WHERE IT WENT IS THE JOB HANDED BACK, SO IT IS PUT
+    # IN FRONT OF THEM HERE AND THE ANSWER SAYS SO. THIS IS THE ONLY THING THAT KNOWS THE
+    # NAME IT LANDED UNDER, AND GUESSING THAT NAME IS WHAT WENT WRONG BEFORE.
+    return f"{said}\n{NEXT if because == SEEING else KEPT}"
 
 
 @tool
