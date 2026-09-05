@@ -71,6 +71,8 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `main.py` | The loop. The key, what was asked, an answer. Nothing else. |
 | `brain/thinking.py` | The graph. Speech in, spoken answer out, tools called along the way. |
 | `brain/wrapping.py` | What wraps every call: what goes in, what is kept, how long it took. |
+| `brain/history.py` | The backchat behind a turn: finished turns compacted, the oldest dropped in halves. |
+| `brain/resuming.py` | The conversation before this session, read back off the messages table. |
 | `brain/model.py` | Which model, at which URL, with which settings. |
 | `brain/prompt.py` | What the model is told before it hears anything, read once from `prompt.md`. |
 | `prompt.md` | The wording itself, one section per block, editable without reading Python. |
@@ -91,10 +93,10 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `hands/__init__.py` | The registry. Collects every tool from every module into one flat list. |
 | `hands/apps/` | The machine: what's installed, what it is, opening apps, paths and addresses. |
 | `hands/controls/` | The machine's settings: sound, brightness, media, display, power, Wi-Fi, clipboard. |
-| `hands/files/` | Finding files and reading what is inside them, whatever the format. |
+| `hands/files/` | Finding files and reading what is inside them, whatever the format. Describing a whole project in one call, and creating or editing a file without ever wiping one. |
 | `hands/shell/` | The shell. One command in, what it printed back out. |
 | `hands/desktop/` | The pointer and the keyboard, and checking that they worked. |
-| `hands/web/` | Searching the web, and reading whichever result holds the answer. |
+| `hands/web/` | Searching the web, and reading whichever result holds the answer, by number. Results never show an address, and one the model writes itself is refused. Pages are read in tiers: plain fetch, the facts inside the HTML, then Happy's own headless browser. |
 | `hands/browser/` | The browser errand. **Blank — being rebuilt.** |
 | `eyes/systems.py` | Asking each system to describe its own screen. macOS and Windows side by side. |
 | `eyes/naming.py` | What each system calls a thing, and what a person calls it. |

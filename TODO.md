@@ -20,10 +20,14 @@ delete the line when it stops being interesting.
       doors and both are DuckDuckGo's, so a bad day there is a bad day for both. Mojeek and
       the public SearXNG instances were tried and answer a script with a captcha or a 429.
       A search API is the other way out and costs a key; see HAPPY.md before reaching for it.
-- [ ] **Pages that are only a script.** `read_page` fetches and parses, so a site that
-      renders itself in the browser comes back as "it wants a real browser" and the model
-      reads the next result instead. That is the honest answer and usually the right one.
-      The day it is not, the fallback is the browser errand, not a second fetcher.
+- [x] **Pages that are only a script.** `read_page` now reads in three tiers: the plain
+      fetch, then the facts the HTML ships inside itself (`hands/web/embedded.py`: JSON-LD,
+      Open Graph, YouTube's player response), then the page drawn in Happy's own headless
+      Chromium (`hands/web/browsing.py`, Playwright, its own profile beside the database).
+      YouTube answers from tier two in about a second; Flipkart needs tier three and takes
+      ten. IMDb hands nothing to either and stays "read the next result".
+- [ ] **The browser tier is unmeasured on Windows.** Playwright installs there and the
+      code has no Mac-only call in it, but nobody has run it.
 - [ ] **Nothing does a multi-step web errand.** `hands/browser/` came back as two tools —
       `bring_to_front` and `play_pause` — which is a page already open, not a job worked
       through in a browser. Filling a form, going through a checkout or reading down a list
