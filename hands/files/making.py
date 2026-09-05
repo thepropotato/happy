@@ -73,6 +73,22 @@ POINTED = (
 # THE TOOLS THAT ACTUALLY GO AND LOOK.
 LOOKERS = ("current_activity", "already_open", "screen", "list_open_windows")
 
+# AND THE ONES THAT GO AND FIND OUT ABOUT WHAT THE LOOKING TURNED UP.
+READERS = ("read_page", "search_web", "describe_project", "read_file", "open_url",
+           "recall_conversation")
+
+UNREAD = (
+    "Not written yet. You know what it is called and that is all you know, and a title is not "
+    "enough to fill a page with. They said {said!r}, so whatever is in front of them is the "
+    "subject, and nothing this turn has gone and found out anything about it.\n\n"
+    "Carry on and finish it, this turn, without asking them anything:\n"
+    "1. search_web for what you saw on the screen, or read_page on its address.\n"
+    "2. this tool again, written out of what came back and nothing else.\n"
+    "Whatever you would have written from memory is the part that turns out to be about the "
+    "wrong show. This is a step of the job, not a refusal of it. Do not apologise and do not "
+    "stop."
+)
+
 # A FIGURE, A YEAR, A DURATION: THE THINGS A DECK STATES THAT ARE EITHER RIGHT OR WRONG.
 FIGURE = re.compile(r"\d[\d,.]*\s*(?:%|million|billion|k\b|m\b)?", re.I)
 
@@ -405,6 +421,15 @@ def write_document(kind: KINDS, path: str, title: str, text: str) -> str:
 
     if pointing and not wrapping.already(*LOOKERS):
         return reasons.no(UNLOOKED.format(said=said))
+
+    # LOOKING GIVES YOU A TITLE AND NOTHING ELSE, AND A TITLE IS NOT ENOUGH TO WRITE A PAGE
+    # ABOUT. THE CHECK BELOW CATCHES A NAME OF TWO WORDS AND A FIGURE; IT CANNOT SEE
+    # "Daemon's betrayal" OR "Rhaenyra's council", WHICH ARE ONE UNFAMILIAR WORD AND ONE
+    # ORDINARY ONE, AND A DECK MADE ENTIRELY OF THOSE WENT OUT LOOKING SOURCED. SO FOR A
+    # SUBJECT THAT WAS ONLY POINTED AT, READING IT UP IS PART OF THE JOB RATHER THAN
+    # SOMETHING THE FACT CHECK IS ASKED TO NOTICE THE ABSENCE OF.
+    if pointing and not wrapping.already(*READERS):
+        return reasons.no(UNREAD.format(said=said))
 
     # LOOKING IS NOT KNOWING. THE TURN THAT PUT "Battle of the Bastards" INTO A DECK ABOUT
     # HOUSE OF THE DRAGON HAD LOOKED, AND READ THE TITLE, AND THEN WROTE THE REST OUT OF THE
