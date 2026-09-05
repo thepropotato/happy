@@ -13,19 +13,30 @@ HEADING = "Results for {question}:"
 
 
 def written(question, results):
-    """EVERY RESULT AS A TITLE, AN ADDRESS AND A LINE OF WHAT THE PAGE SAYS."""
+    """EVERY RESULT AS A NUMBER, A TITLE, THE SITE AND A LINE OF WHAT THE PAGE SAYS.
+
+    THE ADDRESS ITSELF IS NEVER PRINTED. SHOWN ONE, A MODEL COPIES ITS SHAPE AND FILLS IN
+    THE ID BY HAND; GIVEN A NUMBER, THERE IS NOTHING TO COPY."""
+    from hands.web import handed
+
     if not results:
         return NOTHING.format(question=question)
 
+    handed.offered(results)
     lines = [HEADING.format(question=question)]
 
     for number, each in enumerate(results, 1):
-        lines.append(f"{number}. {each.title} — {short(each.url)}")
+        lines.append(f"{number}. {each.title} — {site(each.url)}")
 
         if each.summary:
             lines.append(f"   {each.summary}")
 
     return "\n".join(lines)[:MOST]
+
+
+def site(url):
+    """THE SITE A RESULT IS ON, AND NOTHING THAT NAMES THE PAGE."""
+    return urlparse(url).netloc.removeprefix("www.") or url
 
 
 def kept(query):

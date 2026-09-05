@@ -4,7 +4,7 @@ from langchain_core.tools import tool
 
 from hands import reasons
 from hands.files.finding import folder as chosen
-from hands.web import downloading, results
+from hands.web import downloading, handed, results
 from hands.web.pages import page
 from hands.web.searching import ENDINGS, pictures, search
 
@@ -13,31 +13,23 @@ MOST_AT_ONCE = 25
 
 @tool
 def search_web(query: str) -> str:
-    """Search the web and read back the top results: a title, an address and a
-    line of what each page says.
+    """Search the web and read back the top results, numbered: a title, the site
+    it is on and a line of what the page says.
 
     Use this whenever the answer is something you do not know or something that
-    changes — the news, a score, a price, when a place opens, who somebody is.
-    Prefer it over saying you are not sure or cannot check. Give it what a
-    person would type into a search box: "weather hyderabad tomorrow", not a
-    full sentence. If the results do not answer it, search again with different
-    words before giving up.
+    changes: the news, a score, a price, when a place opens, who somebody is.
+    Give it what a person would type into a search box, "weather hyderabad
+    tomorrow", not a full sentence. If the results do not answer it, search again
+    with different words before giving up.
 
     The answer is almost always inside one of the results rather than in this
-    list, because a summary describes a page instead of answering out of it. So
-    pick the likeliest result and read it with read_page. Answer from a summary
-    only when it plainly says the whole thing.
+    list, so pick the likeliest and read it with read_page by its number, "2" for
+    the second. Asked to show, open, pull up or bring up a thing, searching is only
+    the first half: open the likeliest result with open_url and "show", by its
+    number, in the same turn.
 
-    That is for a question. Asked to show, open, pull up or bring up a thing, or
-    for a picture, a chart, a map or a video, searching is only the first half:
-    finish it by calling open_url with "show" on the likeliest result, in the same
-    turn, without being asked twice. Wanting to see a thing is not a question and
-    a description is not an answer to it.
-
-    This list is yours and nobody else can see it. Never point at it out loud —
-    not "the first link", "the results", "the link below", nor any of them by
-    number or position. They have no link to click and no list to look at, so an
-    answer written that way leaves them with nothing. Open the page or say what it
+    This list is yours and nobody else can see it, so never point at it out loud,
+    not "the first link" nor any result by position. Open the page or say what it
     said."""
     try:
         found = search(query)
@@ -49,19 +41,22 @@ def search_web(query: str) -> str:
 
 @tool
 def read_page(url: str, start: int = 0) -> str:
-    """Read a web page and return the words on it as plain text. Takes an
-    address from a search result, like "en.wikipedia.org/wiki/Super_Bowl_LX".
-    This is how you get the actual number, date, price or fact: search_web finds
-    which page holds it, this one reads it out of that page.
+    """Read a web page and return the words on it as plain text. Give it the
+    number of a search result, "2" for the second one, or a site's own name like
+    "bbc.com". This is how you get the actual number, date, price or fact:
+    search_web finds which page holds it, this one reads it out of that page.
 
     Nothing is opened on screen and the person sees none of this. If the text
     comes back cut short, call this again with start set to carry on from there.
+    If a site will not hand its text over, read the next result down instead, and
+    never guess at what a page you could not read said."""
+    address, refusal = handed.resolve(url)
 
-    If a site will not hand its text over, that is one site being difficult, not
-    a dead end: go back to the results and read the next one down. Do not give up
-    after one page, and never guess at what a page you could not read said."""
+    if address is None:
+        return reasons.no(refusal)
+
     try:
-        return page(url, start)
+        return page(address, start)
     except Exception as error:
         return reasons.no(f"{error}")
 
@@ -117,12 +112,17 @@ def download(url: str, folder: str = "") -> str:
     than one they already have the address of. "folder" is where it lands, and
     left empty it goes to Downloads.
 
-    Never make an address up: use the one they said or the one a tool handed you.
-    Say where it landed once this has come back, and never say something has
-    downloaded before it has."""
+    Give it a search result's number, "3" for the third, or the address they
+    read out to you. Say where it landed once this has come back, and never say
+    something has downloaded before it has."""
+    address, refusal = handed.resolve(url)
+
+    if address is None:
+        return reasons.no(refusal)
+
     try:
         into = chosen(folder)
-        landed = downloading.save(url, into)
+        landed = downloading.save(address, into)
     except Exception as error:
         return reasons.no(f"That did not download: {error}.")
 

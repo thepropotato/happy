@@ -130,28 +130,27 @@ def open_path(path: str) -> str:
 
 @tool
 def open_url(url: str, because: Literal[SEEING, CHECKING]) -> str:
-    """Open a web address in the browser the user already uses, exactly as if
-    they had clicked the link themselves. Use this for anything on the web that
-    an address alone will reach: a site, a video, a page, a web app.
-
-    Give it an address you have actually read: one search_web printed beside a
-    result, one a tool handed you, one they said out loud, or a site's own name
-    like "youtube.com". Never write out the rest of an address yourself. You are
-    not told any site's ids, so "youtube.com/watch?v=" and everything after it is
-    something only a search result can tell you, and an address you finish off by
-    hand opens somebody else's page while you tell them it is the one they asked
-    for. To play or show one particular thing, search_web for it first and open
-    the address that came back with it.
+    """Open a web page in the browser the user already uses, exactly as if they
+    had clicked it themselves. Give it the number of a search result, "1" for the
+    first, a site's own name like "youtube.com", or an address they read out to
+    you. To show one particular video, product or page, search_web for it first
+    and open the result by its number.
 
     "because" takes one of two words and nothing else. Say "show" when they
     asked for the page itself, to watch or read or use, and it lands on their
     screen on top of what they were doing. Say "read" when you only want a fact
-    off it and their screen should stay exactly where they left it. The sentence
-    saying what you are doing goes in "why", the same as every tool.
+    off it and their screen should stay exactly where they left it.
 
     Their browser is already signed in to their accounts, so this is how you
-    reach anything of theirs on the web. Prefer it over opening a browser
-    application and typing, which is never right."""
+    reach anything of theirs on the web. Never open a browser application and
+    type into it instead."""
+    from hands.web import handed  # LATE: apps IS IMPORTED BEFORE web.
+
+    url, refusal = handed.resolve(url)
+
+    if url is None:
+        return reasons.no(refusal)
+
     # A PAGE OPENED TO ANSWER A QUESTION COVERS THEIR WORK OVER FOR NOTHING, AND THE WORDING
     # ABOVE HAS NEVER BEEN ENOUGH TO STOP IT, SO A SECOND AND MUCH SMALLER QUESTION DECIDES.
     if because == SEEING and not judging.wanted(memory.asking()):

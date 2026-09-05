@@ -6,6 +6,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from hands.apps.opening import web_address
+from hands.web import browsing, embedded
 from hands.web.searching import LIKE_A_BROWSER
 
 # A LITTLE LONGER THAN A SEARCH GETS, BECAUSE A REAL PAGE IS OFTEN A QUARTER OF A MEGABYTE.
@@ -56,8 +57,22 @@ class PageError(Exception):
 def page(url, start=0, most=MOST):
     """WHAT A PAGE ACTUALLY SAYS, AS PLAIN TEXT, FROM start ONWARDS."""
     address = web_address(url)
-    answer = fetched(address)
     host = urlhost(address)
+    words = read(address, host)
+    window = words[start : start + most]
+    more = CUT if len(words) > start + most else ""
+
+    return f"{host}\n\n{window}{more}"
+
+
+def read(address, host):
+    """THE WORDS, THE CHEAPEST WAY THAT WORKS: A PLAIN FETCH, THEN THE FACTS THE HTML SHIPS
+    INSIDE ITSELF, THEN THE PAGE DRAWN IN A BROWSER OF OUR OWN."""
+    try:
+        answer = fetched(address)
+    except PageError as trouble:
+        return rendered(address, host, trouble)
+
     kind = (answer.headers.get("content-type") or "").split(";")[0].strip().lower()
 
     if kind and not any(each in kind for each in TEXTUAL):
@@ -66,13 +81,37 @@ def page(url, start=0, most=MOST):
     words = stripped(answer.text) if "html" in kind or not kind else answer.text.strip()
     wall = walled(words)
 
+    if not wall:
+        return words
+
+    shipped = embedded.summary(answer.text) if "html" in kind or not kind else ""
+
+    if shipped and not walled(shipped):
+        return shipped
+
+    return rendered(address, host, PageError(HELD.format(host=host, why=wall)))
+
+
+def rendered(address, host, trouble):
+    """THE PAGE AS A BROWSER SEES IT, OR THE TROUBLE THAT BROUGHT US HERE IF THAT FAILS TOO."""
+    try:
+        title, words = browsing.text(address)
+    except Exception as error:
+        raise PageError(f"{trouble} Drawing it in a browser did not help either: {reason(error)}")
+
+    words = " ".join(f"{title}\n{words}".split())
+    wall = walled(words)
+
     if wall:
-        raise PageError(HELD.format(host=host, why=wall))
+        raise PageError(HELD.format(host=host, why=f"even in a browser, {wall}"))
 
-    window = words[start : start + most]
-    more = CUT if len(words) > start + most else ""
+    return words
 
-    return f"{host}\n\n{window}{more}"
+
+def reason(error):
+    said = str(error).strip().splitlines()
+
+    return said[0][:160] if said else error.__class__.__name__
 
 
 def fetched(address):
