@@ -2,12 +2,14 @@
 
 import queue
 import threading
+import time
 
 import numpy as np
 import sounddevice as sd
 
 from face import show
 from memory import settings
+from sound import quiet, reset, surrender
 from voice import clips, engines, numbers, stripping
 from voice.sentences import Sentences
 
@@ -17,6 +19,12 @@ IDLE_POLL_SECONDS = 0.1  # SHORT HOPS SO CTRL+C STILL LANDS WHILE WAITING.
 BLOCK_MS = 60
 
 ENVELOPE_MS = 40
+
+# HOW LONG THE DEVICE IS ASKED FOR BEFORE THE BIG HAMMER, AND HOW OFTEN. A BLUETOOTH
+# HEADSET REFUSES ITS OUTPUT FOR THE WHOLE OF THE SWITCH BACK OUT OF THE TWO WAY PROFILE
+# THE MICROPHONE PUT IT IN, MEASURED AT SEVEN SECONDS ON AIRPODS, SO FOUR GAVE UP MID SWITCH.
+WAKING = 12.0
+WAKING_PAUSE = 0.2
 
 CHANNELS = 1
 
@@ -47,6 +55,9 @@ class Speaker:
 
         # HELD OPEN BETWEEN CLIPS, WHICH IS WHERE AN EIGHTH OF A SECOND PER PIECE USED TO GO.
         self.stream = None
+
+        # SO A RESET ASKED FOR ANYWHERE SHUTS THIS STREAM BEFORE IT PULLS PORTAUDIO DOWN.
+        surrender(self.shut)
 
         self.running = True
 
@@ -266,26 +277,74 @@ class Speaker:
         if self.stream is not None and self.stream.samplerate != rate:
             self.shut()
 
-        if self.stream is None:
-            self.stream = sd.OutputStream(samplerate=rate, channels=CHANNELS, dtype="float32")
-
+        # INSIDE THE GUARD LIKE EVERY OTHER OPEN, AND THE BUILDING AS WELL AS THE STARTING:
+        # COREAUDIO PICKS THE DEVICE WHEN THE STREAM IS MADE, WHICH IS WHERE A HEADSET MID
+        # PROFILE SWITCH GRUMBLES FROM. THIS IS THE ORDINARY PATH, SO IT GRUMBLES MOST.
         try:
-            if not self.stream.active:
-                self.stream.start()
-        except sd.PortAudioError:
-            self.shut()
-            self.stream = sd.OutputStream(samplerate=rate, channels=CHANNELS, dtype="float32")
+            with quiet():
+                if self.stream is None:
+                    self.stream = sd.OutputStream(
+                        samplerate=rate, channels=CHANNELS, dtype="float32"
+                    )
 
-            try:
-                self.stream.start()
-            except sd.PortAudioError:
-                self.shut()
-                sd._terminate()
-                sd._initialize()
-                self.stream = sd.OutputStream(samplerate=rate, channels=CHANNELS, dtype="float32")
-                self.stream.start()
+                if not self.stream.active:
+                    self.stream.start()
+        except sd.PortAudioError:
+            self.woken(rate)
 
         return self.stream
+
+    def woken(self, rate):
+        """THE DEVICE ASKED FOR UNTIL IT ANSWERS, THEN ONCE MORE THE HARD WAY.
+
+        THE OUTPUT SIDE DOES NOT HAVE THE INPUT'S FIRST OPEN FAILURE, BUT A DEVICE CAN STILL
+        GO AWAY UNDER A HELD STREAM, AND THREE TRIES WITH NO WAIT BETWEEN THEM ALL FALL
+        INSIDE THE SAME INSTANT AND FAIL ALIKE. THE ASKING IS SPREAD OUT INSTEAD, AND ONLY
+        WHEN NONE OF IT LANDS IS THE LIST TREATED AS STALE."""
+        until = time.monotonic() + WAKING
+
+        while True:
+            self.shut()
+
+            try:
+                with quiet():
+                    self.stream = sd.OutputStream(
+                        samplerate=rate, channels=CHANNELS, dtype="float32"
+                    )
+                    self.stream.start()
+
+                return
+            except sd.PortAudioError:
+                if time.monotonic() >= until:
+                    break
+
+                time.sleep(WAKING_PAUSE)
+
+        # NOTHING ON THIS DEVICE ANSWERED IN ALL THAT TIME, SO THE LIST ITSELF MAY BE STALE
+        # AGAINST COREAUDIO, WHICH ONLY A REINIT CLEARS. IT COSTS THE MICROPHONE ITS STREAM
+        # TOO, WHICH IS WHY IT WAITS UNTIL EVERYTHING GENTLER HAS BEEN TRIED.
+        reset()
+
+        # AND THE SAME PATIENCE AGAIN AFTERWARDS. THE REINIT IS NOT INSTANT EITHER, AND A
+        # SINGLE ASK ON THE OTHER SIDE OF IT WAS THE ONE OPEN NOTHING CAUGHT.
+        until = time.monotonic() + WAKING
+
+        while True:
+            self.shut()
+
+            try:
+                with quiet():
+                    self.stream = sd.OutputStream(
+                        samplerate=rate, channels=CHANNELS, dtype="float32"
+                    )
+                    self.stream.start()
+
+                return
+            except sd.PortAudioError:
+                if time.monotonic() >= until:
+                    raise
+
+                time.sleep(WAKING_PAUSE)
 
     def rest(self):
         """NOTHING LEFT TO SAY, SO THE DEVICE STOPS PULLING. THE STREAM ITSELF IS KEPT, WHICH
@@ -296,8 +355,9 @@ class Speaker:
 
         with self.device:
             try:
-                if self.stream is not None and self.stream.active:
-                    self.stream.stop()
+                with quiet():
+                    if self.stream is not None and self.stream.active:
+                        self.stream.stop()
             except Exception:
                 pass
 
@@ -305,16 +365,18 @@ class Speaker:
         """WHAT IS BUFFERED THROWN AWAY RATHER THAN PLAYED OUT. THE DEVICE STAYS OPEN, WHICH IS
         WHAT KEEPS THE NEXT THING SAID FROM WAITING ON COREAUDIO WAKING IT UP AGAIN."""
         try:
-            if self.stream is not None and self.stream.active:
-                self.stream.abort()
+            with quiet():
+                if self.stream is not None and self.stream.active:
+                    self.stream.abort()
         except Exception:
             pass
 
     def shut(self):
         try:
-            if self.stream is not None:
-                self.stream.abort()
-                self.stream.close()
+            with quiet():
+                if self.stream is not None:
+                    self.stream.abort()
+                    self.stream.close()
         except Exception:
             pass
         finally:
@@ -338,7 +400,8 @@ def native(fallback):
     """THE RATE THE OUTPUT DEVICE ITSELF RUNS AT, BECAUSE PORTAUDIO ANSWERS ANY OTHER ONE WITH
     ITS OWN CONVERTER, WHICH ON COREAUDIO ASKS FOR FIFTEEN SAMPLES AT A TIME AND CRACKLES."""
     try:
-        return int(sd.query_devices(kind="output")["default_samplerate"])
+        with quiet():
+            return int(sd.query_devices(kind="output")["default_samplerate"])
     except Exception:
         return fallback
 
