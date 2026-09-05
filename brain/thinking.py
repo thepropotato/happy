@@ -20,8 +20,11 @@ from brain.wrapping import (
     amiss,
     doings,
     fresh,
+    keep_able,
+    keep_at_it,
     keep_count,
     keep_going,
+    keep_honest,
     keep_named,
     keep_recent,
     keep_record,
@@ -106,6 +109,14 @@ class Happy:
                 keep_named,
                 keep_record,
                 keep_going,
+                # AFTER THE TOOLS HAVE RUN AND BEFORE THE WORDS GO OUT: THE LAST THING THAT
+                # CAN STOP A TURN TELLING SOMEBODY A THING HAPPENED WHEN IT DID NOT.
+                keep_honest,
+                # AND THE OTHER HALF OF THE SAME JOB: A TURN MAY NOT SAY SORRY AND STOP
+                # WHILE A GUARD IS STILL HOLDING THE DOOR OPEN FOR IT.
+                keep_at_it,
+                # AND A TURN MAY NOT TALK ITSELF OUT OF A JOB IT HAS A TOOL FOR.
+                keep_able,
                 ModelCallLimitMiddleware(run_limit=settings.get("brain.calls")),
                 # LAST, SO IT SITS CLOSEST TO THE MODEL: A GO THROWN AWAY OVER BAD
                 # JSON IS NOT A ROUND ANYBODY ASKED FOR AND IS NOT COUNTED AS ONE.
@@ -190,6 +201,8 @@ class Happy:
         memory.begin(speech, **about)
         fresh()
         reply = ""
+        # HOW MUCH OF reply IS PREAMBLE TO A TOOL RATHER THAN THE ANSWER ITSELF.
+        aside = 0
         started = time.perf_counter()
 
         straight = self.direct(speech, context)
@@ -209,6 +222,14 @@ class Happy:
                 if self.stopping.is_set():
                     break
 
+                # A ROUND THAT ENDS BY ASKING FOR A TOOL WAS TALKING TO ITSELF ON THE WAY
+                # THERE — "Let me open it for you" — AND WHAT IT SAID IS NOT THE ANSWER. IT
+                # IS SHOWN AS IT ARRIVES, BECAUSE THE PANEL WOULD OTHERWISE GO QUIET FOR AS
+                # LONG AS THE TOOL TAKES, AND THEN DROPPED. LEAVING IT IN IS WHAT GLUED
+                # THREE ANSWERS TOGETHER, THE LAST CONTRADICTING THE FIRST.
+                if asking(chunk, note):
+                    aside = len(reply)
+
                 piece = spoken(chunk, note)
 
                 if piece:
@@ -222,6 +243,9 @@ class Happy:
 
             # NOT ONE WORD CAME OUT, SO WHATEVER ENDED THE RUN ENDED IT SOMEWHERE THE STREAM
             # CANNOT SEE.
+            # WHAT WAS SAID ON THE WAY TO A TOOL IS DROPPED NOW THE REAL ANSWER IS IN.
+            reply = answer(reply, aside)
+
             if not reply.strip() and not self.stopping.is_set():
                 last = self.ending() or NOTHING
                 reply += last
@@ -246,6 +270,8 @@ class Happy:
             # THE YIELDS ABOVE CANNOT RUN WHEN THE CONSUMER LET GO OF THIS GENERATOR PART WAY
             # THROUGH, AND A ROW WITH NO REPLY IN IT READS AS HAPPY SAYING NOTHING AT ALL. SO
             # THE LAST WORD IS SETTLED HERE, WHERE IT IS WRITTEN DOWN, AS WELL AS THERE.
+            reply = answer(reply, aside)
+
             if not reply.strip() and not self.stopping.is_set():
                 reply = self.ending() or NOTHING
 
@@ -336,6 +362,26 @@ def missing_tool_error(error):
 def worded(said):
     """A RUN THAT RAN OUT OF ROUNDS, IN HAPPY'S WORDS INSTEAD OF THE COUNTER'S."""
     return RAN_OUT if said.startswith(LIMIT) else said
+
+
+def answer(reply, aside):
+    """THE ANSWER ITSELF: WHAT CAME AFTER THE LAST TIME A ROUND WENT OFF TO CALL A TOOL.
+
+    IF NOTHING CAME AFTER IT, THE PREAMBLE IS ALL THERE IS AND IT IS KEPT — SAYING SOMETHING
+    HALF-FINISHED BEATS SAYING NOTHING, WHICH IS THE ONE THING A TURN MAY NOT DO."""
+    if not aside or aside >= len(reply):
+        return reply
+
+    return reply[aside:] if reply[aside:].strip() else reply
+
+
+def asking(chunk, note):
+    """WHETHER THIS CHUNK IS A ROUND DECIDING TO CALL A TOOL, SO ANY WORDS SO FAR WERE ONLY
+    THE THINKING OUT LOUD THAT CAME BEFORE IT."""
+    if note.get("langgraph_node") != MODEL_NODE:
+        return False
+
+    return bool(getattr(chunk, "tool_calls", None) or getattr(chunk, "tool_call_chunks", None))
 
 
 def spoken(chunk, note):

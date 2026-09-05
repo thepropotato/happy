@@ -1,7 +1,9 @@
 """WHAT WRAPS EVERY CALL: WHAT GOES IN, WHAT IS KEPT, AND HOW LONG IT TOOK."""
 
+import collections
 import difflib
 import json
+import re
 import time
 
 from langchain.agents.middleware import wrap_model_call, wrap_tool_call
@@ -66,6 +68,15 @@ missed = 0
 # WHAT THE ROUND JUST FINISHED COST, WAITING FOR THE TOOL IT ASKED FOR TO CLAIM IT.
 spend = None
 
+# WHAT SAID NO THIS TURN AND HAS NOT BEEN PUT RIGHT SINCE: {tool name: what it said}. A TOOL
+# THAT LATER WORKS TAKES ITS OWN NAME BACK OFF, SO WHAT IS LEFT AT THE END IS ONLY WHAT
+# REALLY DID NOT HAPPEN.
+refused = {}
+
+# EVERY TOOL THAT HAS RUN THIS TURN, IN ORDER. A TOOL THAT MUST NOT BE THE FIRST THING A
+# TURN DOES CAN ASK WHAT CAME BEFORE IT.
+ran = []
+
 
 class Stuck(Exception):
     """ENOUGH TOOLS IN A ROW SAID NO THAT THE NEXT ONE WOULD TOO."""
@@ -78,10 +89,20 @@ def fresh():
     missed = 0
     spend = None
     asked.clear()
+    tried.clear()
+    refused.clear()
+    ran.clear()
 
 
 # EVERY CALL MADE THIS TURN, BY TOOL AND ARGUMENTS, WITH WHAT IT GOT BACK.
 asked = {}
+
+# THE TOOLS THAT GO AND LOOK SOMETHING UP, WHERE ASKING AGAIN IN OTHER WORDS IS THE THING A
+# MODEL DOES INSTEAD OF ADMITTING IT CANNOT FIND IT.
+SEARCHING = {"search_web", "read_page", "find_files"}
+
+# WHAT EACH OF THOSE HAS BEEN ASKED THIS TURN, AS THE GIST RATHER THAN THE WORDING.
+tried = collections.defaultdict(list)
 
 REPEATED = (
     "You already called this with exactly these arguments this turn, and the answer is above. "
@@ -119,8 +140,56 @@ def repeated(name, args):
     return UNMOVED if len(got) >= 2 and got[-1] == got[-2] else None
 
 
+# HOW MANY TIMES ONE TOOL MAY BE ASKED THE SAME QUESTION IN DIFFERENT WORDS BEFORE IT IS
+# CLEAR THE WORDING IS NOT THE PROBLEM. THREE IS ENOUGH TO TRY A REPHRASE AND A NARROWING.
+ENOUGH_TRIES = 3
+
+CIRCLING = (
+    "You have asked {name} {count} times this turn and it keeps coming back with the same "
+    "thing. Rewording the question is not going to change the answer — what is being looked "
+    "for is not there. Use the best of what you already have and answer them now, or say "
+    "plainly that it could not be found. Do not search again."
+)
+
+# THE LITTLE WORDS THAT MAKE TWO SEARCHES LOOK DIFFERENT WITHOUT ASKING ANYTHING DIFFERENT.
+NOISE = {"the", "a", "an", "of", "in", "on", "for", "to", "and", "latest", "new", "newest",
+         "recent", "video", "videos", "channel", "id", "list", "page", "official", "full"}
+
+
+def gist(args):
+    """WHAT A CALL IS REALLY ASKING, WITH THE WORDING TAKEN OFF. "Barbell latest video" AND
+    "Barbell newest video 2026" ARE ONE QUESTION ASKED TWICE, AND COUNTING THEM AS TWO IS HOW
+    A TURN GOT TO FOURTEEN SEARCHES."""
+    words = " ".join(str(each) for each in args.values()).lower()
+    kept = {each for each in re.findall(r"[a-z0-9]+", words) if each not in NOISE and not each.isdigit()}
+
+    return frozenset(kept)
+
+
+def circling(name, args):
+    """WHY THIS TOOL SHOULD NOT BE ASKED THE SAME THING AGAIN, OR None."""
+    if name not in SEARCHING:
+        return None
+
+    same = [each for each in tried[name] if each == gist(args)]
+
+    return CIRCLING.format(name=name, count=len(same) + 1) if len(same) >= ENOUGH_TRIES else None
+
+
 def remember(name, args, said):
     asked.setdefault(signature(name, args), []).append(said)
+
+    if name in SEARCHING:
+        tried[name].append(gist(args))
+
+
+def learned():
+    """EVERYTHING EVERY TOOL HANDED BACK THIS TURN, AS ONE BLOCK OF TEXT.
+
+    THIS IS THE WHOLE OF WHAT HAPPY HAS ACTUALLY BEEN TOLD SINCE THE PERSON SPOKE. ANYTHING
+    IN AN ANSWER OR A FILE THAT IS NOT SOMEWHERE IN HERE CAME OUT OF THE MODEL RATHER THAN
+    OUT OF THE WORLD."""
+    return "\n".join(said for got in asked.values() for said in got)
 
 
 def watches(handler):
@@ -157,6 +226,183 @@ def doings(handler):
 def doing(said):
     if noted:
         noted(said)
+
+
+# WHAT A REPLY IS TOLD WHEN IT WOULD HAVE CLAIMED SOMETHING THAT DID NOT HAPPEN.
+DENIED = (
+    "Stop. These were asked for this turn and did NOT happen:\n{undone}\n\n"
+    "The answer you just wrote says one of them worked. It did not. Either do the thing now "
+    "with a tool that will actually do it, or say plainly that it did not happen and why. "
+    "Never tell them something is done, saved, created, opened or sent unless a tool this "
+    "turn came back saying so."
+)
+
+# HOW A REPLY CLAIMS A THING HAPPENED, AND HOW IT OWNS THAT ONE DID NOT. A REPLY THAT OWNS IT
+# IS ALLOWED TO ALSO SAY WHAT IT DID MANAGE, SO OWNING IT ALWAYS WINS.
+CLAIMS = ("i've ", "i have ", "here's ", "here is ", "it's open", "its open", "saved", "created",
+          "made ", "opened", "sent ", "written", "wrote ", "done", "all set", "ready for you")
+
+OWNS = ("could not", "couldn't", "cannot", "can't", "not able", "did not", "didn't", "unable",
+        "failed", "no luck", "nothing was", "wasn't able", "was not able", "not there",
+        "does not exist", "doesn't exist", "already exists")
+
+
+# A REFUSAL THAT WAS REALLY AN INSTRUCTION MARKS ITSELF WITH THIS, AND A TURN MAY NOT END
+# ON AN APOLOGY WHILE ONE OF THEM IS STILL OUTSTANDING.
+CARRY_ON = "not a refusal of it"
+
+# HOW A REPLY GIVES UP: IT IS SORRY, AND IT IS NOT TELLING THEM ANYTHING ELSE.
+GIVES_UP = ("i'm sorry", "im sorry", "i am sorry", "sorry,", "i can't", "i cannot", "i can not",
+            "unable to", "not able to", "afraid i")
+
+GAVE_UP = (
+    "Stop. That was not a refusal, it was the next step, and it told you what to do:\n\n"
+    "{undone}\n\n"
+    "You have not done it yet and you have just apologised instead. Do it now, in this turn, "
+    "with the tools it named, and then finish the job they actually asked for. Do not say "
+    "sorry and do not ask them anything."
+)
+
+
+# WHAT A TURN SAYS WHEN IT HAS TALKED ITSELF OUT OF A JOB IT CAN DO, AND THE TOOL THAT DOES
+# IT. THE MODEL BELIEVES IT CANNOT MAKE AN OFFICE FILE, BECAUSE MOST MODELS CANNOT; SAYING SO
+# IN THE PROMPT DID NOT MOVE IT, SO THE ANSWER IS TURNED BACK HERE INSTEAD.
+DISOWNED = {
+    "write_document": ("powerpoint", "power point", "presentation", "slide deck", "pptx",
+                       "word document", "docx", "spreadsheet", "excel", "xlsx"),
+}
+
+# HOW IT SAYS IT CANNOT, AS OPPOSED TO SAYING IT DID NOT.
+DISCLAIMS = ("can't create", "cannot create", "can not create", "can't make", "cannot make",
+             "unable to create", "unable to make", "can't generate", "cannot generate",
+             "don't have the ability", "do not have the ability", "not able to create",
+             "copy it into", "copy into a presentation", "paste it into")
+
+DISOWNED_TOLD = (
+    "That is not true and you have the tool for it. {name} makes a real {kind} on their disk "
+    "that opens in the app that owns it, and it is bound to you right now. Do not offer them "
+    "text to copy out by hand. Find out what it is about with the tools that look, then call "
+    "{name} and actually make the file."
+)
+
+
+def disowning(words):
+    """THE TOOL AND THE THING A REPLY HAS JUST SAID IT CANNOT MAKE, OR None."""
+    if not any(each in words for each in DISCLAIMS):
+        return None
+
+    for name, kinds in DISOWNED.items():
+        for kind in kinds:
+            if kind in words:
+                return name, kind
+
+    return None
+
+
+@wrap_model_call
+def keep_able(request, handler):
+    """A TURN MAY NOT SAY IT CANNOT DO A THING IT HAS A TOOL FOR.
+
+    THIS IS NOT THE SAME AS GIVING UP AFTER A REFUSAL: NOTHING REFUSED, NOTHING WAS EVEN
+    TRIED. THE MODEL DECLINED THE JOB OUT OF A BELIEF ABOUT ITSELF THAT IS WRONG HERE, AND
+    THE ONE PLACE THAT CAN BE CAUGHT IS THE ANSWER ON ITS WAY OUT."""
+    answered = handler(request)
+    said = getattr(answered, "result", None) or answered
+
+    if isinstance(said, list):
+        said = said[-1] if said else None
+
+    if getattr(said, "tool_calls", None):
+        return answered
+
+    words = (getattr(said, "text", "") or "").lower()
+    found = disowning(words) if words.strip() else None
+
+    if not found:
+        return answered
+
+    name, kind = found
+    told = request.override(
+        messages=list(request.messages) + [HumanMessage(DISOWNED_TOLD.format(name=name, kind=kind))]
+    )
+
+    return handler(told)
+
+
+@wrap_model_call
+def keep_at_it(request, handler):
+    """A TURN MAY NOT GIVE UP WHILE A TOOL IS STILL HOLDING THE DOOR OPEN FOR IT.
+
+    A GUARD THAT SAYS "GO AND LOOK, THEN CALL ME AGAIN" IS A STEP OF THE ERRAND. THE MODEL AT
+    LOW EFFORT READS ANY REFUSAL AS THE END AND ANSWERS "I can't create that presentation",
+    WHICH IS HONEST AND STILL LEAVES THE JOB UNDONE. TELLING IT SO IN THE TOOL'S OWN WORDS DID
+    NOT WORK; BEING SENT BACK ONCE DOES."""
+    answered = handler(request)
+
+    waiting = [said for said in refused.values() if CARRY_ON in said]
+
+    if not waiting or not surrendering(answered):
+        return answered
+
+    told = request.override(
+        messages=list(request.messages) + [HumanMessage(GAVE_UP.format(undone="\n\n".join(waiting)))]
+    )
+
+    return handler(told)
+
+
+def surrendering(answered):
+    """WHETHER THESE WORDS ARE AN APOLOGY FOR NOT DOING IT RATHER THAN AN ANSWER."""
+    said = getattr(answered, "result", None) or answered
+
+    if isinstance(said, list):
+        said = said[-1] if said else None
+
+    if getattr(said, "tool_calls", None):
+        return False
+
+    words = (getattr(said, "text", "") or "").lower()
+
+    return bool(words.strip()) and any(each in words for each in GIVES_UP)
+
+
+@wrap_model_call
+def keep_honest(request, handler):
+    """A REPLY MAY NOT SAY A THING HAPPENED WHEN THE TOOL THAT WOULD HAVE DONE IT SAID NO.
+
+    THIS IS THE ONE PLACE IT CAN BE CAUGHT FOR EVERY TOOL AT ONCE. THE MODEL HAS ALREADY BEEN
+    TOLD, IN THE TOOL'S OWN WORDS, THAT IT FAILED; WHAT THIS ADDS IS THAT IT CANNOT THEN GO ON
+    TO SAY OTHERWISE. IT IS SENT BACK ONCE, WHICH IS ENOUGH — IT EITHER DOES THE THING OR SAYS
+    IT DID NOT HAPPEN, AND BOTH OF THOSE ARE HONEST ANSWERS."""
+    answered = handler(request)
+
+    if not refused or not claiming(answered):
+        return answered
+
+    told = request.override(
+        messages=list(request.messages) + [HumanMessage(DENIED.format(undone="\n".join(unfinished())))]
+    )
+
+    return handler(told)
+
+
+def claiming(answered):
+    """WHETHER THESE WORDS TELL SOMEBODY A THING WAS DONE WITHOUT OWNING THAT IT WAS NOT."""
+    said = getattr(answered, "result", None) or answered
+
+    if isinstance(said, list):
+        said = said[-1] if said else None
+
+    # A ROUND THAT ASKED FOR MORE TOOLS IS NOT THE ANSWER YET, SO THERE IS NOTHING TO CHECK.
+    if getattr(said, "tool_calls", None):
+        return False
+
+    words = (getattr(said, "text", "") or "").lower()
+
+    if not words.strip():
+        return False
+
+    return any(each in words for each in CLAIMS) and not any(each in words for each in OWNS)
 
 
 @wrap_model_call
@@ -289,7 +535,9 @@ def keep_record(request, handler):
 
     # THE SAME TOOL WITH THE SAME ARGUMENTS GIVES THE SAME ANSWER, AND ASKING TWICE IN ONE TURN
     # IS THE SHAPE EVERY STUCK RUN TAKES. THE ANSWER IT ALREADY HAS IS POINTED AT INSTEAD.
-    refusal = repeated(name, args)
+    # AND THE SAME QUESTION IN NEW WORDS, WHICH IS THE SHAPE THE OTHER HALF OF THEM TAKE: A
+    # TURN ONCE PUT THE SAME SEARCH THROUGH FOURTEEN REWORDINGS AND THEN GAVE UP ANYWAY.
+    refusal = repeated(name, args) or circling(name, args)
 
     if refusal is not None:
         global missed
@@ -305,6 +553,8 @@ def keep_record(request, handler):
     # TO ASK FOR IT COST. TAKEN ON THE WAY IN SO THE FIRST TOOL OF A ROUND GETS IT.
     cost = claim()
 
+    ran.append(name)
+
     tell(STARTED, name, None, {"id": which, "args": args})
 
     started = time.perf_counter()
@@ -319,6 +569,7 @@ def keep_record(request, handler):
         memory.used(name, args, str(error), taken, why, failed=True, spent=cost)
         tell(TOOL, name, taken, gone)
 
+        noting(name, str(error), True)
         missed += 1
 
         # A TOOL THAT THREW IS A TOOL THAT SAID NO, NOT THE END OF THE TURN: THE CALL
@@ -333,7 +584,12 @@ def keep_record(request, handler):
     # THE TOOL MEANT TO SAY AND NEVER THE BOOKKEEPING IN FRONT OF IT.
     said, nope = reasons.went(text(result))
 
-    missed = missed + 1 if nope else 0
+    # A GUARD THAT TURNED A CALL BACK AND TOLD IT WHAT TO DO NEXT IS NOT A TOOL THAT FAILED.
+    # COUNTING THOSE TOWARDS "ENOUGH SAID NO, STOP THE TURN" WOULD END A TURN THAT IS BEING
+    # CORRECTED THREE TIMES ON ITS WAY TO GETTING THE JOB RIGHT, WHICH IS THE OPPOSITE OF WHAT
+    # THEY ARE FOR.
+    missed = 0 if (not nope or CARRY_ON in said) else missed + 1
+    noting(name, said, nope)
     remember(name, args, said)
 
     memory.used(name, args, said, taken, why, failed=nope, spent=cost)
@@ -347,6 +603,27 @@ def keep_record(request, handler):
     )
 
     return plainly(result, said, nope)
+
+
+def noting(name, said, nope):
+    """WHAT THIS TOOL JUST DID, KEPT ONLY WHILE IT IS STILL UNDONE.
+
+    A TOOL THAT SAYS NO AND IS THEN MADE TO WORK HAS NOT FAILED THE TURN, SO ITS NAME COMES
+    STRAIGHT BACK OFF. WHAT IS LEFT WHEN THE TURN ENDS IS THE THING THAT NEVER HAPPENED."""
+    if nope:
+        refused[name] = said
+    else:
+        refused.pop(name, None)
+
+
+def already(*names):
+    """WHETHER ANY OF THESE HAS ALREADY RUN THIS TURN."""
+    return any(name in ran for name in names)
+
+
+def unfinished():
+    """WHAT WAS ASKED FOR THIS TURN AND DID NOT HAPPEN, AS ONE LINE EACH, NEWEST LAST."""
+    return [f"{name}: {said}" for name, said in refused.items()]
 
 
 @wrap_model_call
