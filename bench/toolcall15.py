@@ -12,7 +12,7 @@ SCENARIOS = [
 
     # --- GROUNDED: MUST GO AND LOOK RATHER THAN ANSWER FROM THE PROMPT ---
     dict(id="G1", category="grounded", said="what am I looking at right now?",
-         expect=["current_activity", "read_screen", "list_open_windows"], forbid=[]),
+         expect=["current_activity", "screen", "list_open_windows"], forbid=[]),
     dict(id="G2", category="grounded", said="how many r's are in strawberry?",
          expect=["letters"], forbid=[]),
     dict(id="G3", category="grounded", said="what kind of computer is this?",
@@ -32,7 +32,7 @@ SCENARIOS = [
          expect=["find_files"], then=["read_file"], forbid=[]),
     dict(id="M2", category="multi-step",
          said="copy what's on my screen to the clipboard",
-         expect=["read_screen", "read_selection"], then=["system_control"], forbid=[]),
+         expect=["screen"], then=["system_control"], forbid=[]),
     dict(id="M3", category="multi-step",
          said="remind me to call mum in an hour",
          expect=["reminder"], forbid=[]),

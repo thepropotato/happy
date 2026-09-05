@@ -30,7 +30,7 @@ SHOTS = Path(__file__).resolve().parents[1] / "data" / "shots"
 # WHOEVER IS ASKING IS LOOKING AT IT. THERE IS NOTHING TO SEND THEM.
 HERE = (
     "Whoever is asking is sat in front of this screen, so there is nowhere to send a "
-    "picture of it. Tell them it is right there, or use read_screen and say what is on it."
+    "picture of it. Tell them it is right there, or read the screen and say what is on it."
 )
 
 
@@ -68,17 +68,49 @@ def read_image(path: str) -> str:
 
 
 @tool
-def read_screen() -> str:
-    """Read the text that is on the screen right now, exactly as it appears,
-    with the layout kept. Use this whenever you are asked what is on the screen,
-    what a window says, what an error message is, or what the user is looking
-    at. This is fast and exact, so prefer it over look_at_screen whenever the
-    answer is written on the screen in words.
+def screen(action: str, question: str = "") -> str:
+    """The screen in front of this person, read or sent.
 
-    A video is black to a picture, so on a player this returns a title and a
-    clock at best; current_activity says what that window is showing. If what
-    you want is what can be clicked, use list_controls, which asks the
-    application directly. To show or send the screen, use show_screen."""
+    action:
+    "read" — the text on it right now, exactly as it appears, layout kept. This
+    is the fast, exact one: use it whenever you are asked what is on the screen,
+    what a window says, or what an error message is.
+    "selection" — only the text they have highlighted, in whichever window has
+    focus. Prefer this over "read" when they have selected something and ask
+    what it is, what it says, what it means, or say "this" or "that" while
+    something is plainly selected. If nothing is selected it says so; ask what
+    they meant rather than guessing from the rest of the screen.
+    "look" with question — what the screen looks like rather than what it says:
+    which window is in front, where something sits, what an icon shows, what
+    colour something is, whether a box is ticked. This wakes a second model and
+    takes several seconds, so use "read" when the answer is written in words.
+    "show" — send a picture of the screen to whoever is asking, for "show me",
+    "send", "share", "screenshot". Only works for somebody messaging from
+    somewhere else; anybody sat at this machine is already looking at it and it
+    says so. Say what they are about to see rather than describing every corner.
+
+    A video is black to a picture, so on a player "read" returns a title and a
+    clock at best; current_activity says what that window is showing. For what
+    can be clicked, use list_controls, which asks the application directly."""
+    wanted = (action or "").strip().lower()
+
+    if wanted == "read":
+        return read_the_screen()
+
+    if wanted == "selection":
+        return the_selection()
+
+    if wanted == "look":
+        return looked_at(question)
+
+    if wanted == "show":
+        return sent_on()
+
+    return reasons.no(f"I can read the screen, its selection, look at it or send it, not {action}.")
+
+
+def read_the_screen():
+    """THE WORDS ON IT, EXACTLY AS THEY SIT."""
     try:
         seen = look(framed(grab()).image)
     except VisionError as problem:
@@ -87,22 +119,47 @@ def read_screen() -> str:
     return seen.text[:MAX_CHARS] if seen.text else reasons.no("There is no text on the screen.")
 
 
-@tool
-def read_selection() -> str:
-    """The exact text currently highlighted, in whichever window has focus.
-
-    Use this whenever they have selected or highlighted something and ask what
-    it is, what it says, what it means, to explain it, translate it or
-    summarise it, or say "this" or "that" while something is plainly selected.
-    Prefer this over read_screen and look_at_screen for that: it reads exactly
-    what they picked out rather than everything else on screen with it. If
-    nothing is selected, say so and ask what they meant instead of guessing
-    from the rest of the screen."""
+def the_selection():
+    """ONLY WHAT THEY PICKED OUT, WHICH IS NEVER EVERYTHING ELSE ON SCREEN WITH IT."""
     from hands.controls import clipboard  # LATE: hands.controls REACHES BACK INTO eyes.
 
     said = clipboard.selection()
 
     return said if said else reasons.no(clipboard.NOTHING_SELECTED)
+
+
+def looked_at(question):
+    """WHAT IT LOOKS LIKE, WHICH COSTS A SECOND MODEL AND SEVERAL SECONDS."""
+    try:
+        shot = grab()
+        seen = look(shot.image)
+        about = QUESTION.format(text=seen.text[:MAX_CHARS], question=question)
+
+        return asked(smaller(shot.image)[0], about)
+    except VisionError as problem:
+        return reasons.no(str(problem))
+
+
+def sent_on():
+    """A PICTURE, BUT ONLY TO SOMEBODY WHO IS NOT SAT IN FRONT OF IT."""
+    if not handing.wanted():
+        return reasons.no(HERE)
+
+    try:
+        shot = grab()
+    except VisionError as problem:
+        return reasons.no(str(problem))
+
+    SHOTS.mkdir(parents=True, exist_ok=True)
+    where = SHOTS / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
+    shot.image.save(where)
+
+    if not handing.offer(where):
+        where.unlink(missing_ok=True)
+
+        return reasons.no("They have already been sent a picture of the screen this turn.")
+
+    return f"A picture of the whole screen, {shot.image.width} by {shot.image.height}, is on its way."
 
 
 @tool
@@ -124,7 +181,7 @@ def current_activity() -> str:
     is in the answer too. Read past the first window before you answer: what
     they asked about is often one of the ones behind it. already_open also
     reads browser tabs, which no window title shows. When a title is too little
-    to go on, read_screen next.
+    to go on, screen with "read" next.
 
     This says what a thing is called and never where it is: a title is not a
     path, and the moment you need one, file_in_front answers it. Say what the
@@ -245,65 +302,10 @@ def already_open(about: str, because: Literal[SEEING, CHECKING]) -> str:
     return f"Nothing about {about} is open. What is open:\n{listed}"
 
 
-@tool
-def look_at_screen(question: str) -> str:
-    """Ask about what the screen looks like, rather than what it says: which
-    window is in front, where something sits, what an icon or a picture shows,
-    what colour something is, whether a box is ticked. Give the question you
-    want answered.
-
-    This wakes a second model and takes several seconds, so use read_screen
-    instead when the answer is text that is written on the screen."""
-    try:
-        shot = grab()
-        seen = look(shot.image)
-        about = QUESTION.format(text=seen.text[:MAX_CHARS], question=question)
-
-        return asked(smaller(shot.image)[0], about)
-    except VisionError as problem:
-        return reasons.no(str(problem))
-
-
-@tool
-def show_screen() -> str:
-    """Send a picture of the screen to whoever is asking, so they can look at it
-    themselves. Use this when you are asked to show, send, share or screenshot
-    the screen, or asked what it looks like by somebody who cannot see it.
-
-    This only works for somebody messaging Happy from somewhere else. Anybody
-    sat at this machine is already looking at the screen, and this will say so
-    rather than send anything.
-
-    The picture goes with your answer, so say what they are about to see rather
-    than describing every corner of it. read_screen is still the way to answer a
-    question about what the screen says."""
-    if not handing.wanted():
-        return reasons.no(HERE)
-
-    try:
-        shot = grab()
-    except VisionError as problem:
-        return reasons.no(str(problem))
-
-    SHOTS.mkdir(parents=True, exist_ok=True)
-    where = SHOTS / f"{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.png"
-    shot.image.save(where)
-
-    if not handing.offer(where):
-        where.unlink(missing_ok=True)
-
-        return reasons.no("They have already been sent a picture of the screen this turn.")
-
-    return f"A picture of the whole screen, {shot.image.width} by {shot.image.height}, is on its way."
-
-
 TOOLS = [
     read_image,
-    read_screen,
-    read_selection,
+    screen,
     current_activity,
     already_open,
     list_open_windows,
-    look_at_screen,
-    show_screen,
 ]

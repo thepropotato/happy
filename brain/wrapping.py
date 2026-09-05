@@ -90,9 +90,9 @@ REPEATED = (
 
 # A TOOL THAT READS A CHANGING THING MAY HONESTLY BE ASKED TWICE: THE SCREEN MOVES, A BUILD
 # FINISHES. EVERYTHING ELSE ANSWERS THE SAME WAY TO THE SAME QUESTION WITHIN ONE TURN.
-CHANGING = {"current_activity", "read_screen", "look_at_screen", "list_open_windows",
+CHANGING = {"current_activity", "screen", "list_open_windows",
             "already_open", "build", "play_pause", "list_controls", "file_in_front",
-            "reminder", "clipboard_control"}
+            "reminder", "system_control"}
 
 
 def signature(name, args):

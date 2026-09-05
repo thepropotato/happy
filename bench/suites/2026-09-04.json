@@ -271,7 +271,7 @@
    "was_reply": "I’m seeing the “Happy reset” window in front, and you also have a YouTube tab open in Chrome and Ollama running in the background.",
    "expect": [
     "current_activity",
-    "read_screen",
+    "screen",
     "list_open_windows"
    ],
    "forbid": [],
@@ -1085,7 +1085,7 @@
       "result": "Nothing about movie is open. What is open:\nCode — \"Happy agent architecture… — happy\"\nOllama\nGoogle Chrome tab — \"Korean Kanakaraju on Netflix\""
      }
     ],
-    "read_screen": [
+    "screen": [
      {
       "failed": false,
       "result": "What's this idol?"

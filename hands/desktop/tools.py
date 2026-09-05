@@ -22,7 +22,7 @@ def list_controls() -> str:
     the most reliable way to know what can be clicked, because the application
     is asked directly rather than guessed at from a picture.
 
-    This is different from read_screen, which reads the words off the screen as
+    This is different from screen with "read", which reads the words off it as
     a picture. Prefer this one when you want to know what you can press."""
     model = eyes.current()
     model.refresh()
@@ -102,7 +102,7 @@ def scroll(direction: str, amount: int = 1) -> str:
 
     Use this to bring something into view that is not on the screen yet. If you
     are looking for something in particular, scroll a step and then use
-    list_controls or read_screen to see whether it has appeared."""
+    list_controls or screen with "read" to see whether it has appeared."""
     return went(acting.scrolled(direction, amount))
 
 
