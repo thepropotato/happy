@@ -504,12 +504,20 @@
     },
     "not_contains": [
      "Battle of the Bastards",
+     "Battle of the Trident",
      "Daenerys",
      "Winterfell",
-     "Jon Snow"
+     "Jon Snow",
+     "Iron Throne",
+     "Khaleesi",
+     "Night King"
     ]
    },
-   "restart": true
+   "restart": true,
+   "then": [
+    "search_web",
+    "read_page"
+   ]
   },
   {
    "row": 13,

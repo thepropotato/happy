@@ -90,25 +90,29 @@ def stubbed(tool, calls, replies=None):
 
 
 def writing(name, kwargs):
-    """WHAT A REAL WRITING TOOL WOULD SAY NO TO, WITHOUT WRITING ANYTHING. EACH OF THESE IS
-    A PURE CHECK OVER THE ARGUMENTS, SO IT RUNS HERE EXACTLY AS IT DOES ON THE MACHINE."""
+    """WHAT A REAL WRITING TOOL WOULD SAY NO TO, WITHOUT WRITING ANYTHING.
+
+    THE CHECKS ARE NOT COPIED HERE, THEY ARE CALLED: A SECOND COPY OF A GUARD IS A GUARD THAT
+    GOES STALE, AND THIS ONE DID — IT KEPT REFUSING ON ONE STRAY FACT AFTER THE REAL TOOL HAD
+    LEARNED TO DROP THE LINE AND CARRY ON. WHAT THE BENCH ENFORCES IS NOW WHATEVER
+    hands.files.making ENFORCES, WHICH IS THE ONLY WAY THE TWO STAY THE SAME."""
     from pathlib import Path as Where
 
     from hands import reasons
     from hands.files import making
 
-    if name not in ("write_file", "edit_file", "write_document"):
-        return None
-
     if name in ("write_file", "edit_file"):
         where = Where(str(kwargs.get("path") or "")).expanduser()
         sort = making.SEALED.get(where.suffix.lower())
 
-        if sort:
-            return reasons.no(making.NOT_TEXT.format(
-                name=where.name, kind=where.suffix.lstrip("."),
-                doing="write" if name == "write_file" else "change", sort=sort))
+        if not sort:
+            return None
 
+        return reasons.no(making.NOT_TEXT.format(
+            name=where.name, kind=where.suffix.lstrip("."),
+            doing="write" if name == "write_file" else "change", sort=sort))
+
+    if name != "write_document":
         return None
 
     from brain import wrapping
@@ -121,11 +125,12 @@ def writing(name, kwargs):
 
     made_up = making.unsourced(str(kwargs.get("text") or ""), str(kwargs.get("title") or ""))
 
-    if made_up:
-        much = "some of" if len(made_up) < 4 else "much of"
-
+    # THE SAME LINE THE REAL TOOL DRAWS: BUILT OUT OF NOTHING IS TURNED BACK, WRONG IN A
+    # DETAIL IS WRITTEN WITHOUT IT. THE STUB WRITES NOTHING EITHER WAY, SO ONLY THE REFUSAL
+    # HALF CAN BE ACTED ON HERE.
+    if len(made_up) >= making.MOSTLY_INVENTED:
         return reasons.no(making.UNSOURCED.format(
-            much=f"{much} what you were about to put",
+            much="much of what you were about to put",
             made_up="\n".join(f"- {each}" for each in made_up)))
 
     return None
