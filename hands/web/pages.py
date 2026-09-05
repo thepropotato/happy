@@ -1,5 +1,6 @@
 """ONE PAGE, FETCHED AND READ DOWN TO THE WORDS ON IT."""
 
+import re
 from urllib.parse import urlparse
 
 import httpx
@@ -49,6 +50,11 @@ NOT_A_PAGE = "{host} answered with {kind}, which is not a page of text."
 # A FEED OR AN API IS WORTH READING RAW. A PICTURE OR AN ARCHIVE IS NOT.
 TEXTUAL = ("text/", "application/json", "application/xml", "+xml", "+json")
 
+# A CHANNEL'S FRONT PAGE IS ORDERED BY POPULARITY; ITS VIDEOS TAB IS ORDERED BY DATE.
+CHANNEL = re.compile(r"^/(@[^/]+|c/[^/]+|channel/[^/]+|user/[^/]+)/?$")
+
+TABBED = "/videos"
+
 
 class PageError(Exception):
     pass
@@ -56,13 +62,26 @@ class PageError(Exception):
 
 def page(url, start=0, most=MOST):
     """WHAT A PAGE ACTUALLY SAYS, AS PLAIN TEXT, FROM start ONWARDS."""
-    address = web_address(url)
+    address = dated(web_address(url))
     host = urlhost(address)
     words = read(address, host)
     window = words[start : start + most]
     more = CUT if len(words) > start + most else ""
 
     return f"{host}\n\n{window}{more}"
+
+
+def dated(address):
+    """A YOUTUBE CHANNEL, POINTED AT THE TAB THAT IS IN DATE ORDER RATHER THAN ITS FRONT PAGE."""
+    parts = urlparse(address)
+
+    if not parts.netloc.removeprefix("www.").endswith("youtube.com"):
+        return address
+
+    if not CHANNEL.match(parts.path):
+        return address
+
+    return f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}{TABBED}"
 
 
 def read(address, host):

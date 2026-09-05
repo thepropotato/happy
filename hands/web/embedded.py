@@ -8,6 +8,12 @@ from bs4 import BeautifulSoup
 # WHERE YOUTUBE PUTS THE VIDEO'S OWN DETAILS, VIEWS INCLUDED, ON EVERY WATCH PAGE.
 PLAYER = re.compile(r"ytInitialPlayerResponse\s*=\s*")
 
+# WHERE A CHANNEL, SEARCH OR PLAYLIST PAGE PUTS ITS LIST, NEWEST FIRST ON THE VIDEOS TAB.
+LISTING = re.compile(r"ytInitialData\s*=\s*")
+
+# HOW MANY OF THAT LIST ARE WORTH SAYING; THE ANSWER IS ALWAYS NEAR THE TOP.
+MOST_LISTED = 15
+
 META = ("og:title", "og:description", "description", "og:site_name")
 
 # THE FIELDS WORTH SAYING OUT OF STRUCTURED DATA, AND WHAT TO CALL EACH.
@@ -21,7 +27,7 @@ MOST_ABOUT = 400
 
 def summary(html):
     """WHAT THE PAGE SAYS ABOUT ITSELF, AS LINES, OR "" WHEN IT SAYS NOTHING USEFUL."""
-    lines = video(html) or structured(html)
+    lines = video(html) or listed(html) or structured(html)
 
     if not lines:
         lines = tags(html)
@@ -55,6 +61,64 @@ def video(html):
         f"Length: {seconds // 60} minutes {seconds % 60} seconds" if seconds else "",
         f"About: {short(details.get('shortDescription', ''))}",
     ]
+
+
+def listed(html):
+    """A CHANNEL OR SEARCH PAGE: THE VIDEOS IT LISTS, IN THE ORDER IT LISTS THEM."""
+    found = LISTING.search(html)
+
+    if not found:
+        return []
+
+    data = balanced(html, found.end())
+
+    if not data:
+        return []
+
+    videos = [said for card in lockups(data) if (said := lockup(card))]
+
+    if not videos:
+        return []
+
+    return ["Videos, newest first:"] + videos[:MOST_LISTED]
+
+
+def lockups(data):
+    """EVERY VIDEO CARD IN THE PAGE'S OWN DATA, IN PAGE ORDER."""
+    found = []
+
+    def walk(node):
+        if isinstance(node, dict):
+            if "lockupViewModel" in node:
+                found.append(node["lockupViewModel"])
+
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(data)
+
+    return found
+
+
+def lockup(card):
+    """ONE CARD AS A LINE: TITLE, THEN THE VIEWS AND AGE IT SHOWS UNDERNEATH."""
+    inner = (card.get("metadata") or {}).get("lockupMetadataViewModel") or {}
+    title = (inner.get("title") or {}).get("content") or ""
+
+    if not title:
+        return ""
+
+    rows = ((inner.get("metadata") or {}).get("contentMetadataViewModel") or {}).get("metadataRows") or []
+    parts = [
+        (part.get("text") or {}).get("content") or ""
+        for row in rows for part in row.get("metadataParts") or []
+    ]
+    said = ", ".join(part for part in parts if part)
+
+    return f"- {title}" + (f" ({said})" if said else "")
 
 
 def structured(html):
