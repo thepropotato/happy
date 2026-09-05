@@ -4,11 +4,11 @@
 SCENARIOS = [
     # --- SIMPLE: ONE OBVIOUS TOOL ---
     dict(id="S1", category="simple", said="turn the volume down a bit",
-         expect=["sound_control"], forbid=["power_control"]),
+         expect=["system_control"], forbid=[]),
     dict(id="S2", category="simple", said="what's playing? skip to the next track",
-         expect=["media_control"], forbid=[]),
+         expect=["system_control"], forbid=[]),
     dict(id="S3", category="simple", said="make the screen brighter",
-         expect=["brightness_control"], forbid=["display_control"]),
+         expect=["system_control"], forbid=[]),
 
     # --- GROUNDED: MUST GO AND LOOK RATHER THAN ANSWER FROM THE PROMPT ---
     dict(id="G1", category="grounded", said="what am I looking at right now?",
@@ -32,7 +32,7 @@ SCENARIOS = [
          expect=["find_files"], then=["read_file"], forbid=[]),
     dict(id="M2", category="multi-step",
          said="copy what's on my screen to the clipboard",
-         expect=["read_screen", "read_selection"], then=["clipboard_control"], forbid=[]),
+         expect=["read_screen", "read_selection"], then=["system_control"], forbid=[]),
     dict(id="M3", category="multi-step",
          said="remind me to call mum in an hour",
          expect=["reminder"], forbid=[]),
@@ -41,7 +41,7 @@ SCENARIOS = [
     dict(id="R1", category="restraint", said="thanks, that's all for now",
          expect=[], forbid=["*"]),
     dict(id="R2", category="restraint", said="what's the capital of France?",
-         expect=[], forbid=["run_command", "power_control", "move_to_trash"]),
+         expect=[], forbid=["run_command", "system_control", "move_to_trash"]),
     dict(id="R3", category="restraint",
          said="actually never mind, don't do that",
          expect=[], forbid=["*"]),

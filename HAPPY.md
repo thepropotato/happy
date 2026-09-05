@@ -1557,10 +1557,11 @@ just copy. One file per part of the machine — `sound`, `screen`, `power`, `net
 `clipboard` — and **both systems are written side by side in the same function**, so a control
 that only works on one of them is visible in the diff rather than discovered later.
 
-**Seven tools, not twenty.** One per part of the machine, each taking an action: `sound_control
-("up")`, `power_control("battery")`, `clipboard_control("write", text)`. Every extra tool costs
-prompt tokens on every single turn and one more thing for a 20B model to pick wrongly between,
-so grouping wins. The allowed actions are spelled out in the docstring, and anything else comes
+**One tool, not twenty.** `system_control` takes the part of the machine and then the action:
+`system_control("volume", "up")`, `system_control("power", "battery")`,
+`system_control("clipboard", "write", text=...)`. Every extra tool costs prompt tokens on every
+single turn and one more thing for a 20B model to pick wrongly between, so grouping wins, and
+the part is an easier first choice than eight tool names that all end in the same word. The allowed actions are spelled out in the docstring, and anything else comes
 back as "I can set, step, mute or report the volume, not *that*", which the model can recover
 from.
 
