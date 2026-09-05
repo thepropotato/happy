@@ -7,6 +7,13 @@ ADDRESSED = {"open_url", "read_page", "download"}
 
 MARKDOWN = re.compile(r"^\s*(#|\||[-*] |\d+\. |```)", re.M)
 
+# A ROW OF A SPREADSHEET WHOSE NUMBER CAME OUT OF NOWHERE: A NAME THAT IS ONLY A COUNTER,
+# OR THE RUN OF DIGITS A MODEL REACHES FOR WHEN IT HAS NOT LOOKED ANYTHING UP.
+PLACEHOLDER = re.compile(
+    r"^(video|item|row|title|name)\s*\d+\s*,|,\s*(12345|67890|23456|34567|45678)\s*$",
+    re.M | re.I,
+)
+
 
 def score(turn, called, reply):
     """THE VERDICT AND ONE LINE SAYING WHY."""
@@ -59,7 +66,44 @@ def checks(wanted, called, reply):
         if each.lower() in low:
             found.append(f"reply says {each!r}")
 
+    names = [each["name"] for each in called]
+
+    # A CALL A GUARD TURNED BACK NEVER HAPPENED, SO IT IS NOT COUNTED AGAINST A LIMIT. THE
+    # TURN THAT TRIED TO WRITE A DECK SAYING "Directed by Simon Curtis", WAS STOPPED, WENT AND
+    # READ, AND WROTE "Joe Wright" INSTEAD IS THE BEHAVIOUR WANTED — NOT TWO GOES AT ONE TOOL.
+    went = [each["name"] for each in called if not each.get("refused")]
+
+    for name, most in (wanted.get("at_most") or {}).items():
+        if went.count(name) > most:
+            found.append(f"called {name} {went.count(name)} times, more than {most}")
+
+    for name, first in (wanted.get("before") or {}).items():
+        if name in names and (first not in names or names.index(first) > names.index(name)):
+            found.append(f"called {name} before {first} had said anything")
+
+    if wanted.get("no_invented_rows"):
+        made_up = invented_rows(called)
+
+        if made_up:
+            found.append(f"wrote a row nothing looked up: {made_up}")
+
     return found
+
+
+def invented_rows(called):
+    """THE FIRST MADE-UP SPREADSHEET ROW WRITTEN TO DISK, OR None. A FILE IS WORSE THAN A
+    SENTENCE: A WRONG NUMBER SPOKEN IS GONE, AND A WRONG NUMBER SAVED IS BELIEVED LATER."""
+    for each in called:
+        if each["name"] not in ("write_file", "edit_file"):
+            continue
+
+        text = str(each["args"].get("text") or each["args"].get("replace") or "")
+        found = PLACEHOLDER.search(text)
+
+        if found:
+            return found.group(0).strip()
+
+    return None
 
 
 def invented(called):

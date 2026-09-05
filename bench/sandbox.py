@@ -38,15 +38,33 @@ def stubbed(tool, calls, replies=None):
         host = handed.urlparse(handed.full(said)).netloc.removeprefix("www.").lower()
         offered = " ".join(each["result"] for each in (replies or {}).get("search_web") or [])
 
-        return host not in offered.lower()
+        # THE REAL GUARD ALSO REFUSES AN ADDRESS THAT IS NOT A PLAIN SITE ROOT, WHATEVER THE
+        # HOST — A CHANNEL PATH LIKE "/@Someone" IS NOT SOMETHING A SEARCH HANDED OVER. TAKING
+        # THE HOST ALONE AS PERMISSION MADE THIS BENCH KINDER THAN THE MACHINE.
+        return host not in offered.lower() or not handed.shallow(handed.full(said))
 
     def body(**kwargs):
-        calls.append({"name": tool.name, "args": kwargs})
+        # THE OUTCOME GOES IN TOO, NOT JUST THE NAME. A CALL A GUARD TURNED BACK IS NOT A CALL
+        # THE MODEL GOT TO MAKE, AND SCORING IT AS ONE MARKS THE GUARD WORKING AS A FAULT.
+        made = {"name": tool.name, "args": kwargs, "refused": False}
+        calls.append(made)
 
-        # THE ONE GUARD THE REAL TOOLS HAVE THAT THE MODEL MUST STILL MEET HERE: AN ADDRESS IT
-        # WROTE ITSELF IS REFUSED, AND IT IS TOLD TO USE THE NUMBER, THE SAME AS IN REAL LIFE.
+        def turned(said):
+            made["refused"] = True
+
+            return said
+
+        # THE GUARDS THE REAL TOOLS HAVE THAT THE MODEL MUST STILL MEET HERE. WITHOUT THESE
+        # THE BENCH SCORES A TURN AS LOST THAT REAL LIFE WOULD HAVE PUT RIGHT: THE TOOL SAYS
+        # NO, NAMES THE TOOL THAT WOULD WORK, AND THE MODEL GOES AND USES IT. A BENCH THAT
+        # SKIPS THE REFUSAL IS MEASURING A HAPPY NOBODY RUNS.
         if tool.name in ADDRESSED and forged(kwargs.get("url")):
-            return reasons.no(handed.REFUSED.format(said=kwargs.get("url")))
+            return turned(reasons.no(handed.REFUSED.format(said=kwargs.get("url"))))
+
+        blocked = writing(tool.name, kwargs)
+
+        if blocked:
+            return turned(blocked)
 
         canned = (replies or {}).get(tool.name)
 
@@ -58,7 +76,10 @@ def stubbed(tool, calls, replies=None):
 
         given = canned.pop(0) if len(canned) > 1 else canned[0]
 
-        return reasons.no(given["result"]) if given.get("failed") else given["result"]
+        if given.get("failed"):
+            return turned(reasons.no(given["result"]))
+
+        return given["result"]
 
     return StructuredTool(
         name=tool.name,
@@ -66,6 +87,48 @@ def stubbed(tool, calls, replies=None):
         args_schema=tool.args_schema,
         func=body,
     )
+
+
+def writing(name, kwargs):
+    """WHAT A REAL WRITING TOOL WOULD SAY NO TO, WITHOUT WRITING ANYTHING. EACH OF THESE IS
+    A PURE CHECK OVER THE ARGUMENTS, SO IT RUNS HERE EXACTLY AS IT DOES ON THE MACHINE."""
+    from pathlib import Path as Where
+
+    from hands import reasons
+    from hands.files import making
+
+    if name not in ("write_file", "edit_file", "write_document"):
+        return None
+
+    if name in ("write_file", "edit_file"):
+        where = Where(str(kwargs.get("path") or "")).expanduser()
+        sort = making.SEALED.get(where.suffix.lower())
+
+        if sort:
+            return reasons.no(making.NOT_TEXT.format(
+                name=where.name, kind=where.suffix.lstrip("."),
+                doing="write" if name == "write_file" else "change", sort=sort))
+
+        return None
+
+    from brain import wrapping
+    from memory import conversation
+
+    said = conversation.asking() or ""
+
+    if any(each in said.lower() for each in making.POINTED) and not wrapping.already(*making.LOOKERS):
+        return reasons.no(making.UNLOOKED.format(said=said))
+
+    made_up = making.unsourced(str(kwargs.get("text") or ""), str(kwargs.get("title") or ""))
+
+    if made_up:
+        much = "some of" if len(made_up) < 4 else "much of"
+
+        return reasons.no(making.UNSOURCED.format(
+            much=f"{much} what you were about to put",
+            made_up="\n".join(f"- {each}" for each in made_up)))
+
+    return None
 
 
 def harness(replies=None):
