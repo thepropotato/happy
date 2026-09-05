@@ -2,7 +2,12 @@
 
 from langchain_core.tools import tool
 
-from memory import knowledge
+from memory import conversation, knowledge
+
+# HOW MANY EARLIER EXCHANGES ARE WORTH READING BACK, AND HOW MUCH OF EACH.
+FEW = 5
+
+SHOWN = 160
 
 
 @tool
@@ -26,4 +31,38 @@ def recall_something(question: str) -> str:
     return "\n".join(found) if found else "Nothing relevant found."
 
 
-TOOLS = [remember_this, recall_something]
+@tool
+def recall_conversation(about: str) -> str:
+    """Look back through earlier conversations with this person for something
+    said or done before: what was done with a project last week, the name they
+    gave a file, what you answered the last time this came up. Give it one or
+    two words that would have been in it, like "untitled" or "PS5".
+
+    The last few turns are already in front of you; this is for everything
+    further back, including before you were last closed. Use it before saying
+    you do not remember. It returns the matching exchanges newest first, each
+    with when it happened, what they said and what you answered."""
+    found = [each for each in conversation.search(about, limit=FEW + 1)
+             if each.get("id") != conversation.here.get()][:FEW]
+
+    if not found:
+        return "Nothing earlier mentions that."
+
+    return "\n".join(line(each) for each in found)
+
+
+def line(entry):
+    when = (entry.get("at") or "")[:16].replace("T", " at ")
+    said = short(entry.get("message") or "nothing")
+    answered = short(entry.get("reply") or "nothing")
+
+    return f"{when}: they said {said!r}; you answered {answered!r}"
+
+
+def short(said):
+    said = " ".join(said.split())
+
+    return said if len(said) <= SHOWN else said[:SHOWN].rstrip() + "..."
+
+
+TOOLS = [remember_this, recall_something, recall_conversation]

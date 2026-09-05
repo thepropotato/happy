@@ -10,7 +10,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 import hands
 import memory
-from brain import model as brain, persona
+from brain import model as brain, persona, resuming
 from brain.model import LLMError
 from brain.prompt import system_prompt
 from brain.wrapping import (
@@ -77,6 +77,18 @@ class Happy:
         self.version = None
 
         self.assemble()
+        self.resume()
+
+    def resume(self):
+        """WHAT WAS SAID BEFORE THIS SESSION GOES ON THE THREAD FIRST, SO A FOLLOW-UP TO
+        YESTERDAY HAS SOMETHING BEHIND IT. THE TABLE IS THE CONVERSATION; THIS IS A READ OF IT."""
+        try:
+            earlier = resuming.messages()
+
+            if earlier:
+                self.graph.update_state(self.config(), {"messages": earlier})
+        except Exception:
+            pass
 
     def assemble(self):
         """THE GRAPH, BUILT OUT OF WHATEVER THE SETTINGS SAY RIGHT NOW."""

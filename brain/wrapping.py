@@ -3,9 +3,10 @@
 import time
 
 from langchain.agents.middleware import wrap_model_call, wrap_tool_call
-from langchain_core.messages import HumanMessage, ToolMessage, trim_messages
+from langchain_core.messages import HumanMessage, ToolMessage
 
 import memory
+from brain.history import recent
 from hands import reasons
 from memory import settings
 
@@ -48,9 +49,6 @@ AGAIN = (
 
 # WHAT A CALL IS TOLD WHEN THE TOOL BEHIND IT THREW INSTEAD OF ANSWERING.
 BROKEN = "That tool did not run: {trouble}"
-
-# WHAT A CALL IS TOLD WHEN THE RUN THAT ASKED FOR IT STOPPED BEFORE IT CAME BACK.
-UNFINISHED = "That call was never finished."
 
 report = None
 
@@ -297,63 +295,3 @@ def text(result):
     """WHAT A TOOL ACTUALLY SAID, OUT OF WHATEVER WRAPPER IT CAME BACK IN."""
     return getattr(result, "content", result)
 
-
-def recent(messages):
-    """THE BACKCHAT BEHIND THIS TURN, CUT DOWN, AND THIS TURN WHOLE."""
-    began = opened(messages)
-
-    return answered(settled(messages[:began]) + messages[began:])
-
-
-def answered(messages):
-    """EVERY TOOL CALL WITH A REPLY BEHIND IT. A RUN THAT STOPPED BETWEEN ASKING FOR A TOOL
-    AND HEARING BACK LEAVES ONE WITHOUT, AND A BACKEND REFUSES THE WHOLE CONVERSATION OVER
-    IT — NOT JUST THAT TURN BUT EVERY TURN AFTER IT."""
-    whole = []
-
-    for index, message in enumerate(messages):
-        whole.append(message)
-
-        whole += [
-            ToolMessage(content=UNFINISHED, tool_call_id=each)
-            for each in unreplied(message, messages[index + 1:])
-        ]
-
-    return whole
-
-
-def unreplied(message, after):
-    """THE CALLS THIS MESSAGE ASKED FOR THAT NOTHING AFTER IT ANSWERS."""
-    wanted = [each.get("id") for each in getattr(message, "tool_calls", None) or []]
-
-    if not wanted:
-        return []
-
-    replied = {getattr(each, "tool_call_id", None) for each in after}
-
-    return [each for each in wanted if each and each not in replied]
-
-
-def opened(messages):
-    """WHERE THE TURN IN PROGRESS STARTS: THE LAST THING A PERSON SAID."""
-    for index in range(len(messages) - 1, -1, -1):
-        if getattr(messages[index], "type", "") == "human":
-            return index
-
-    return 0
-
-
-def settled(messages):
-    """THE TURNS ALREADY FINISHED, DOWN TO THE LAST STRETCH."""
-    if not messages:
-        return []
-
-    return trim_messages(
-        messages,
-        token_counter=len,
-        max_tokens=settings.get("brain.history"),
-        strategy="last",
-        start_on="human",  # NEVER OPEN ON A TOOL REPLY WHOSE CALL WAS TRIMMED.
-        include_system=False,
-        allow_partial=False,
-    )

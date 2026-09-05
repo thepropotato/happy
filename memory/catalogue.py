@@ -61,7 +61,9 @@ BRAIN = [
            "tokens", whole=True, rare=True),
     number("brain.temperature", "Temperature", 0, 2, 0.05, 0, "Higher wanders further.",
            rare=True),
-    number("brain.history", "History carried", 2, 64, 2, 24, "Messages of backchat.", "msgs",
+    # TURNS, NOT MESSAGES: ONE BUSY TURN IS SIXTEEN MESSAGES, AND COUNTING THOSE THREW AWAY
+    # THE SENTENCE BEFORE IT. FINISHED TURNS ARE KEPT SHORT, SO A DOZEN COST WHAT TWO DID.
+    number("brain.history", "History carried", 2, 40, 1, 12, "Turns of backchat.", "turns",
            whole=True, rare=True),
     # A BACKSTOP NOW, NOT THE BRAKE.
     number("brain.calls", "Tool rounds", 1, 60, 1, 40, "Before it has to answer.", "max",
