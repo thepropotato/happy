@@ -15,6 +15,11 @@ REFUSED = (
     "reads the second result."
 )
 
+SEVERAL = (
+    "{said} is not an address any tool gave you. Results {numbers} are on {host}: give the "
+    "number of the one you mean instead."
+)
+
 NONE = "There are no results to pick from yet. Search first, then use the number."
 
 lock = threading.Lock()
@@ -48,6 +53,25 @@ def resolve(said):
 
     if address in given or spoken(said) or shallow(address):
         return address, None
+
+    return by_site(address, said)
+
+
+def by_site(address, said):
+    """AN ADDRESS MADE UP ON A SITE THE RESULTS ACTUALLY HAVE MEANS THAT RESULT, AND IS GIVEN
+    IT WHEN THERE IS ONLY ONE. TWO OR MORE IS A CHOICE THE MODEL HAS TO MAKE BY NUMBER."""
+    host = urlparse(address).netloc.removeprefix("www.").lower()
+
+    with lock:
+        matching = [number for number, each in enumerate(numbered, 1)
+                    if urlparse(each).netloc.removeprefix("www.").lower() == host]
+        found = [numbered[number - 1] for number in matching]
+
+    if len(found) == 1:
+        return found[0], None
+
+    if found:
+        return None, SEVERAL.format(said=said, host=host, numbers=", ".join(map(str, matching)))
 
     return None, REFUSED.format(said=said)
 

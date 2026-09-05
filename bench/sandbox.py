@@ -28,9 +28,17 @@ def stubbed(tool, calls, replies=None):
     from hands.web import handed
 
     def forged(said):
+        """AN ADDRESS THE MODEL WROTE, UNLESS ITS SITE IS ONE THE CANNED RESULTS NAME, WHICH
+        THE REAL RESOLVER WOULD HAVE TAKEN AS THAT RESULT."""
         said = str(said or "").strip()
 
-        return bool(said) and not said.isdigit() and not handed.shallow(handed.full(said))
+        if not said or said.isdigit() or handed.shallow(handed.full(said)):
+            return False
+
+        host = handed.urlparse(handed.full(said)).netloc.removeprefix("www.").lower()
+        offered = " ".join(each["result"] for each in (replies or {}).get("search_web") or [])
+
+        return host not in offered.lower()
 
     def body(**kwargs):
         calls.append({"name": tool.name, "args": kwargs})

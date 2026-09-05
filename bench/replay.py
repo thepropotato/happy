@@ -23,6 +23,7 @@ DB.unlink(missing_ok=True)
 
 from bench import scoring
 from brain.thinking import Happy
+from memory import settings
 
 THREAD = "replay"
 
@@ -31,6 +32,17 @@ MARK = {"pass": "PASS", "partial": "PART", "fail": "FAIL"}
 
 def load(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def knobs(args):
+    """--effort medium BECOMES brain.effort, medium; ANY --name value PAIR IS A brain.name."""
+    pairs = []
+
+    for index, each in enumerate(args):
+        if each.startswith("--") and index + 1 < len(args):
+            pairs.append((f"brain.{each[2:]}", args[index + 1]))
+
+    return pairs
 
 
 def opened(tools):
@@ -68,7 +80,12 @@ def one(happy, turn, replies, calls):
 
 def main():
     suite = load(sys.argv[1])
-    only = {int(each) for each in sys.argv[2:]}
+    only = {int(each) for each in sys.argv[2:] if each.isdigit()}
+
+    # --effort medium, OR ANY OTHER KNOB, SET ON THE THROWAWAY DATABASE BEFORE THE FIRST TURN.
+    for name, value in knobs(sys.argv[2:]):
+        settings.put(name, value)
+        print(f"{name} = {value}")
 
     replies = {}
     tools, calls = sandbox.harness(replies)

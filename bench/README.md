@@ -44,6 +44,7 @@ Verified rather than assumed: calling the mocked `run_command` with `rm -rf ~/De
 
     python3 bench/replay.py bench/suites/2026-09-04.json          # the whole evening, ten minutes
     python3 bench/replay.py bench/suites/2026-09-04.json 21 26    # just those rows
+    python3 bench/replay.py bench/suites/2026-09-04.json --effort medium   # any brain knob
 
     python3 bench/run_toolcall15.py               # all fifteen, about two minutes
     python3 bench/run_toolcall15.py S2 L2         # just the named scenarios
