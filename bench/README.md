@@ -3,9 +3,16 @@
 Two standard benchmarks, adapted to Happy. Both are safe to run on a real machine, because
 no tool ever executes.
 
+- **Replay** (`replay.py`, `suites/`) — a real evening from the log, played back on one
+  continuous thread with every tool mocked and the real tool results handed back as canned
+  replies. Each turn says which tools should have been reached for, which are forbidden, and
+  what the answer must and must not say; a turn marked `restart` closes and reopens Happy
+  first, so it checks what survives a restart. `suites/2026-09-04.json` is the first one,
+  lifted from `messages` rows 1 to 26. The rule from here: a change to prompt.md, persona.md
+  or a docstring ships with the turn it fixes, and runs the whole suite.
 - **ToolCall-15** (`toolcall15.py`) — fifteen spoken instructions in five categories, scored
   pass / partial / fail on which tool Happy reached for. Modelled on the ToolCall-15 in
-  OpenJarvis's suite, rewritten against Happy's own 61 tools.
+  OpenJarvis's suite, rewritten against Happy's own tools.
 - **Regression** (`regress.py`) — the phrases that drove the move to whisper-medium, plus the
   real command vocabulary, spoken by every English voice macOS ships. This is the one that
   decides the engine; VoiceBench measures general speech and disagrees with it.
@@ -34,6 +41,9 @@ Verified rather than assumed: calling the mocked `run_command` with `rm -rf ~/De
 `power_control` with `shut down`, does nothing at all.
 
 ## Running them
+
+    python3 bench/replay.py bench/suites/2026-09-04.json          # the whole evening, ten minutes
+    python3 bench/replay.py bench/suites/2026-09-04.json 21 26    # just those rows
 
     python3 bench/run_toolcall15.py               # all fifteen, about two minutes
     python3 bench/run_toolcall15.py S2 L2         # just the named scenarios

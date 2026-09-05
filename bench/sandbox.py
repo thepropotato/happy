@@ -6,6 +6,8 @@ from pathlib import Path
 DANGEROUS = {"run_command", "power_control", "move_to_trash", "open_app", "click_on",
              "type_text", "press_keys", "download", "build", "network_control"}
 
+ADDRESSED = {"open_url", "read_page", "download"}
+
 
 def throwaway(name="bench.db"):
     """POINT THE DATABASE AT A SCRATCH FILE BEFORE ANY HAPPY MODULE IS IMPORTED."""
@@ -16,13 +18,39 @@ def throwaway(name="bench.db"):
 
 
 def stubbed(tool, calls, replies=None):
-    """THE SAME SCHEMA AND DOCSTRING, BUT THE BODY ONLY WRITES DOWN THAT IT WAS CALLED."""
+    """THE SAME SCHEMA AND DOCSTRING, BUT THE BODY ONLY WRITES DOWN THAT IT WAS CALLED.
+
+    A CANNED REPLY IS A STRING, OR A LIST OF {"result", "failed"} HANDED OUT IN ORDER WITH
+    THE LAST ONE REPEATING, SO A TURN THAT SEARCHED TWICE GETS BOTH ANSWERS."""
     from langchain_core.tools import StructuredTool
+
+    from hands import reasons
+    from hands.web import handed
+
+    def forged(said):
+        said = str(said or "").strip()
+
+        return bool(said) and not said.isdigit() and not handed.shallow(handed.full(said))
 
     def body(**kwargs):
         calls.append({"name": tool.name, "args": kwargs})
+
+        # THE ONE GUARD THE REAL TOOLS HAVE THAT THE MODEL MUST STILL MEET HERE: AN ADDRESS IT
+        # WROTE ITSELF IS REFUSED, AND IT IS TOLD TO USE THE NUMBER, THE SAME AS IN REAL LIFE.
+        if tool.name in ADDRESSED and forged(kwargs.get("url")):
+            return reasons.no(handed.REFUSED.format(said=kwargs.get("url")))
+
         canned = (replies or {}).get(tool.name)
-        return canned if canned is not None else f"[mocked {tool.name}]"
+
+        if canned is None:
+            return f"[mocked {tool.name}]"
+
+        if isinstance(canned, str):
+            return canned
+
+        given = canned.pop(0) if len(canned) > 1 else canned[0]
+
+        return reasons.no(given["result"]) if given.get("failed") else given["result"]
 
     return StructuredTool(
         name=tool.name,
