@@ -7,6 +7,7 @@ from langchain_core.tools import tool
 from hands import reasons
 from hands.files import infront, trashing
 from hands.files.finding import describe, dig, hunt, locate
+from hands.files.making import TOOLS as MAKING
 from hands.files.readers import UNREADABLE, extract
 
 MAX_CHARS = 40000
@@ -238,4 +239,4 @@ def restore_from_trash(path: str) -> str:
     return trashing.RESTORED.format(what=found["what"], where=restored_to)
 
 
-TOOLS = [file_in_front, read_file, find_files, list_folder, move_to_trash, restore_from_trash]
+TOOLS = [file_in_front, read_file, find_files, list_folder, move_to_trash, restore_from_trash, *MAKING]

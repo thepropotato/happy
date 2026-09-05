@@ -17,11 +17,12 @@ NO_FOLLOWUPS = "This coder does not support answering follow-ups."
 
 @tool
 def build(task: str, project: str) -> str:
-    """Hand off substantial coding work to Claude Code or Codex.
-
-    Use this for new projects, multi-file features, or bug fixes that need
-    investigation, code changes, and iteration. Prefer this over run_command
-    for anything beyond a trivial one-file script.
+    """Hand substantial work on a codebase to a coding agent that reads the whole
+    project before it writes: documentation for a project, a new feature, a fix
+    that needs investigation, anything touching more than one file. Writing docs
+    for a repository is this, not write_file. Call describe_project first so you
+    can say what the project is, then hand the job over here with the task in
+    plain words. It runs in the background; build_status says how it is going.
 
     project says which folder the work happens in. For work on something that
     already exists, give its name and I will find it. For work that has no folder

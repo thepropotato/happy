@@ -6,7 +6,7 @@ from pathlib import Path
 from langchain_core.tools import tool
 
 from hands import reasons
-from hands.shell.guard import INSTEAD, deleting, report, shell
+from hands.shell.guard import INSTEAD, OVERWRITES, clobbering, deleting, report, shell
 
 TIMEOUT_SECONDS = 30
 
@@ -32,6 +32,10 @@ def run_command(command: str, directory: str = "") -> str:
     can get it back. That holds when move_to_trash has already refused: a refusal
     is the answer, not a reason to reach for a command instead.
 
+    Never write a file with a command either. Creating one is write_file and
+    changing one is edit_file; a > redirect onto a file that exists is refused
+    here because it wipes the file unread.
+
     Anything about this person's own project or repository has to run in the
     folder that project lives in, and the home folder this otherwise starts in
     is never it. Call file_in_front and pass the project it names as directory.
@@ -50,6 +54,11 @@ def run_command(command: str, directory: str = "") -> str:
 
     if not Path(where).is_dir():
         return reasons.no(f"There is no folder at {where}.")
+
+    wiped = clobbering(command, where)
+
+    if wiped is not None:
+        return reasons.no(OVERWRITES.format(path=wiped))
 
     try:
         done = subprocess.run(

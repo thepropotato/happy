@@ -136,6 +136,16 @@ def folder(where):
 
 
 def describe(path):
+    """A FILE WITH ITS SIZE, OR A FOLDER SAID TO BE ONE. A FOLDER GIVEN AS "0 KB" WAS ONCE
+    READ AS AN EMPTY PROJECT, AND A WHOLE CODEBASE WAS WRITTEN OFF ON THE STRENGTH OF IT."""
+    if path.is_dir():
+        try:
+            inside = sum(1 for each in path.iterdir() if not each.name.startswith("."))
+        except OSError:
+            inside = 0
+
+        return f"{path}/ (a folder holding {inside} things)"
+
     size = path.stat().st_size
 
     if size < 1024**2:

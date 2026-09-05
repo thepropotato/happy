@@ -1,5 +1,6 @@
 """HOW A COMMAND IS HANDED TO A SHELL, AND WHAT COMES BACK WHEN IT RUNS."""
 
+import re
 import sys
 from pathlib import Path
 
@@ -22,6 +23,29 @@ INSTEAD = (
     "Deleting with a command cannot be undone. Use move_to_trash with the path, which puts "
     "it in the Trash where they can get it back."
 )
+
+# A SINGLE > ONTO A FILE THAT EXISTS REPLACES ALL OF IT WITHOUT ANYTHING HAVING READ IT. >>
+# APPENDS, sed -i EDITS, git RESTORES: NONE OF THOSE ARE THIS, AND ALL OF THEM STAY OPEN.
+REDIRECT = re.compile(r"(?<![>\d&])\s*>\s*(?!>|&)\s*([\"']?)([^\s\"'|;&]+)\1")
+
+OVERWRITES = (
+    "{path} already exists, and a > redirect would replace all of it unread. To change it, "
+    "read it and use edit_file; to make something new, use write_file with a new name."
+)
+
+
+def clobbering(command, where):
+    """THE EXISTING FILE A > REDIRECT IN THIS COMMAND WOULD WIPE, OR None."""
+    for found in REDIRECT.finditer(command):
+        target = Path(found.group(2)).expanduser()
+
+        if not target.is_absolute():
+            target = Path(where) / target
+
+        if target.is_file():
+            return target
+
+    return None
 
 
 def shell(command):
