@@ -7,7 +7,7 @@ import numpy as np
 from bones import systems
 from memory import settings
 from voice import pacing
-from voice.clips import tidied, trimmed
+from voice.clips import breath, tidied, trimmed
 from voice.engines import VoiceError
 
 RATE = 44100
@@ -81,7 +81,7 @@ class Voice:
 
         # THE MODEL PADS EVERY UTTERANCE WITH ROOM AT BOTH ENDS, ABOUT A SECOND OF IT, WHICH
         # IS DEAD AIR BEFORE THE FIRST WORD AND AFTER THE LAST.
-        yield tidied([self.sound(text)], self.rate)
+        yield tidied([self.sound(text)], self.rate, tail=breath(text))
 
     def sound(self, text):
         """ONE SENTENCE THROUGH THE MODEL, AT AN EVEN PACE.

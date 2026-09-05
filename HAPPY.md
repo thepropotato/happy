@@ -86,6 +86,7 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `voice/styles.py` | The voice files: what is here, which one speaks, and getting more. |
 | `voice/phonemes.py` | Words turned into the sounds they are made of. |
 | `voice/clips.py` | Sound tidied at its edges, so one piece runs into the next. |
+| `voice/pacing.py` | An even pace: the model's own length prediction read first, the speed set per sentence. |
 | `voice/mute.py` | The stand-in when no voice will load. |
 | `voice/sentences.py` | Where one spoken sentence ends and the next begins. |
 | `voice/speaker.py` | Saying it out loud: synthesis, playback, barge-in. |

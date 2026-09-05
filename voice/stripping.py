@@ -41,10 +41,6 @@ BLANK = re.compile(r"\n{3,}")
 # COVERS ASCII AND ANSWERS -1 TO EVERY ONE OF THESE, SO AN EM DASH IS NOT A SHORT PAUSE TO IT
 # BUT NOTHING AT ALL, AND A CURLY APOSTROPHE IS A HOLE IN THE MIDDLE OF A WORD.
 TYPESET = {
-    "\u2014": ". ",  # EM DASH, WHICH IS A BREATH WHERE IT IS WRITTEN.
-    "\u2013": ", ",  # EN DASH.
-    "\u2012": ", ",
-    "\u2015": ". ",
     "\u2011": "-",  # A HYPHEN THAT WILL NOT BREAK IS STILL A HYPHEN.
     "\u2010": "-",
     "\u2019": "'",  # THE CURLY QUOTES, WHICH SIT INSIDE WORDS.
@@ -59,6 +55,12 @@ TYPESET = {
 }
 
 TYPESET_AT = re.compile("|".join(re.escape(mark) for mark in TYPESET))
+
+# A DASH IS A BREATH WHERE IT IS WRITTEN, AND THE SPACES AROUND IT GO WITH IT: "anywhere . Three"
+# READS AS A STRAY MARK TO THE VOICE WHERE "anywhere. Three" READS AS A SENTENCE.
+EM_DASH = re.compile(r"\s*[\u2014\u2015]\s*")
+
+EN_DASH = re.compile(r"\s*[\u2013\u2012]\s*")
 
 # TWO SPACES WHERE A MARK WAS SWAPPED FOR ONE THAT CARRIES ITS OWN.
 DOUBLED = re.compile(r"[ \t]{2,}")
@@ -101,6 +103,8 @@ def spoken(text):
 def typeset(said):
     """THE TYPESET MARKS AS THE PLAIN ONES THE VOICE CAN READ. A MARK THE MODEL CANNOT SEE IS
     NOT A SHORTER PAUSE THAN ONE IT CAN, IT IS NO PAUSE AT ALL."""
+    said = EM_DASH.sub(". ", said)
+    said = EN_DASH.sub(", ", said)
     said = TYPESET_AT.sub(lambda found: TYPESET[found.group(0)], said)
     said = STACKED.sub(r"\1\2", said)
     said = DOUBLED.sub(" ", said)

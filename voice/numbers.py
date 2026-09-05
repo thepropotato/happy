@@ -6,12 +6,13 @@ from num2words import num2words
 
 # A NUMBER BIG ENOUGH TO CARRY SEPARATORS IS THE ONE THAT BREAKS: THE COMMA CUTS IT INTO
 # GROUPS AND EACH GROUP IS READ ALONE, SO 100,000 COMES OUT AS A HUNDRED AND THREE ZEROES.
-GROUPED = re.compile(r"(?<![\d.])(\d{1,3}(?:,\d{3})+)(?![\d,])")
+GROUPED = re.compile(r"(?<![\d.])(\d{1,3}(?:,\d{3})+)(?!\d|,\d)")
 
 # WHAT A SYMBOL IN FRONT OF A NUMBER IS WORTH, SAID AFTER IT THE WAY A PERSON SAYS IT.
-MONEY = {"$": ("dollar", "dollars"), "£": ("pound", "pounds"), "€": ("euro", "euros"), "¥": ("yen", "yen")}
+MONEY = {"$": ("dollar", "dollars"), "£": ("pound", "pounds"), "€": ("euro", "euros"), "¥": ("yen", "yen"),
+         "₹": ("rupee", "rupees")}
 
-CURRENCY = re.compile(r"([$£€¥])\s?(\d[\d,]*(?:\.\d+)?)")
+CURRENCY = re.compile(r"([$£€¥₹])\s?(\d(?:[\d,]*\d)?(?:\.\d+)?)")
 
 # A YEAR IS SAID IN TWO HALVES, NOT AS A COUNT OF THOUSANDS.
 # A FULL STOP ENDING THE SENTENCE IS NOT PART OF THE NUMBER, SO ONLY A DIGIT AFTER A POINT
