@@ -60,7 +60,14 @@ def require_bridge_key():
 
 @app.errorhandler(Exception)
 def handle_exception(e):
-    pass
+    # A BROWSER ASKS FOR A FAVICON ON EVERY SCAN PAGE AND THERE IS NONE TO GIVE IT, WHICH IS
+    # NOT WORTH A TRACEBACK. EVERYTHING ELSE IS: SWALLOWING THESE IS WHY A BRIDGE THAT MISBEHAVES
+    # LEAVES NOTHING TO READ AFTERWARDS.
+    if request.path == "/favicon.ico":
+        return "", 404
+
+    logger.exception(f"[http] {request.method} {request.path} failed")
+
     return jsonify({"error": "Internal bridge error"}), 500
 
 
@@ -625,7 +632,11 @@ def register_events(session):
             session.qr_life = QR_LATER if session.qr_at else QR_FIRST
             session.qr_at = time.time()
             session.authenticated = False
-            logger.info(f"[qr] user={session.username} new code")
+            session.qr_count = getattr(session, "qr_count", 0) + 1
+            logger.info(
+                f"[qr] user={session.username} new code #{session.qr_count}, "
+                f"good for {session.qr_life}s"
+            )
         except Exception as e:
             logger.warning(f"[qr] user={session.username} code could not be drawn: {e}")
 
@@ -1679,6 +1690,13 @@ def qr(username):
     if s.authenticated or s.connected:
         return jsonify({"status": "connected", "qr": None})
     if s.qr_data and talking(s):
+        # THE AGE OF WHAT WE ARE ABOUT TO HAND BACK. A CODE WHATSAPP HAS ALREADY EXPIRED ITS
+        # SIDE STILL LOOKS PERFECTLY FRESH HERE, SO ITS AGE IS THE ONLY WAY TO SEE THAT COMING.
+        old = time.time() - s.qr_at
+        if old > s.qr_life:
+            logger.warning(
+                f"[qr] user={s.username} serving a code {old:.0f}s old, past its {s.qr_life}s"
+            )
         return jsonify({"status": "waiting", "qr": s.qr_data})
     return jsonify({"status": "loading", "qr": None})
 
@@ -1753,7 +1771,8 @@ def renew(session):
         if not stale(session):
             return
 
-        logger.info(f"[qr] user={session.username} codes ran out, asking for more")
+        why = "socket shut" if shut_for(session) > QR_GRACE else "code aged out"
+        logger.info(f"[qr] user={session.username} codes ran out ({why}), asking for more")
         session.qr_data = None
 
         stop_session(session)
@@ -2630,7 +2649,9 @@ def flush_all_sessions():
 
 
 def handle_shutdown(signum, frame):
-    pass
+    # WHO ASKED. A BRIDGE THAT WENT DOWN BECAUSE HAPPY EXITED AND ONE THAT DIED ON ITS OWN LOOK
+    # THE SAME IN THIS LOG OTHERWISE, AND THEY ARE NOT THE SAME PROBLEM.
+    logger.info(f"[shutdown] signal {signum}, writing everything out and going down")
     flush_all_sessions()
     sys.exit(0)
 
