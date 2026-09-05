@@ -6,7 +6,7 @@ from typing import Literal
 
 from langchain_core.tools import tool
 
-from eyes import attention, ongoing, titling
+from eyes import attention, identifying, ongoing, tabs, titling
 from eyes.deciphering import look
 from eyes.describing import QUESTION, asked, smaller
 from eyes.framing import framed
@@ -26,6 +26,23 @@ SEEING = "show"
 CHECKING = "read"
 
 SHOTS = Path(__file__).resolve().parents[1] / "data" / "shots"
+
+# THE MODEL KNEW IT ON SIGHT, SO THERE IS NOTHING TO HEDGE.
+SURE = "That is what is on the screen. Say it plainly."
+
+# IT DID NOT KNOW ON SIGHT, SO WHAT FOLLOWS IS THE WEB'S BEST FIT TO A DESCRIPTION AND NOT
+# A THING ANYBODY READ OFF THE SCREEN. NAME IT, AND SAY IN THE SAME BREATH THAT YOU ARE NOT
+# SURE, BECAUSE A GUESS HANDED OVER AS A FACT IS THE ONE ANSWER THEY CANNOT CHECK.
+GUESS = (
+    "None of this was read off the screen: it is what the web makes of a description of "
+    "the picture. Give them the likeliest name and say in the same sentence that you are "
+    "not certain, for example \"I think it is X, but I am not sure.\" Never state it flat."
+)
+
+NOTHING = (
+    "Nothing came back. Say what is on the screen and say plainly that you cannot name it, "
+    "rather than offering a name nothing here supports."
+)
 
 # WHOEVER IS ASKING IS LOOKING AT IT. THERE IS NOTHING TO SEND THEM.
 HERE = (
@@ -88,6 +105,14 @@ def screen(action: str, question: str = "") -> str:
     "send", "share", "screenshot". Only works for somebody messaging from
     somewhere else; anybody sat at this machine is already looking at it and it
     says so. Say what they are about to see rather than describing every corner.
+    "identify" — what the thing on the screen is called, when the screen does
+    not say: who these characters are, what show or film this is, what this
+    song, game, painting, plant, car or building is. Use it for any "who is
+    this", "who are they", "what is this from", "what am I looking at" where the
+    answer is a name rather than something written on the screen. This looks,
+    then searches the web for what it saw, so it takes longer than the others
+    and it goes online. When a title is written on the screen, "read" already
+    has the answer and is faster.
 
     A video is black to a picture, so on a player "read" returns a title and a
     clock at best; current_activity says what that window is showing. For what
@@ -106,7 +131,13 @@ def screen(action: str, question: str = "") -> str:
     if wanted == "show":
         return sent_on()
 
-    return reasons.no(f"I can read the screen, its selection, look at it or send it, not {action}.")
+    if wanted == "identify":
+        return named(question)
+
+    return reasons.no(
+        f"I can read the screen, its selection, look at it, name what is on it or send "
+        f"it, not {action}."
+    )
 
 
 def read_the_screen():
@@ -138,6 +169,50 @@ def looked_at(question):
         return asked(smaller(shot.image)[0], about)
     except VisionError as problem:
         return reasons.no(str(problem))
+
+
+def named(question):
+    """WHAT THE THING ON THE SCREEN IS CALLED, WHICH IS A LOOK AND THEN A SEARCH."""
+    from hands.web.searching import search  # LATE: eyes REACHES ACROSS INTO hands.
+
+    try:
+        shot = grab()
+        seen = look(shot.image)
+        said = identifying.described(shot.image, seen.text)
+    except VisionError as problem:
+        return reasons.no(str(problem))
+
+    # THE MODEL KNOWING IT OUTRIGHT IS THE WHOLE ANSWER, AND THE WEB ONLY SLOWS IT DOWN.
+    if not identifying.hedged(said):
+        return f"{said}\n\n{SURE}"
+
+    # IT DID NOT KNOW, SO WHAT IT SAW BECOMES THE SEARCH THAT MIGHT.
+    asking = " ".join(said.split())[:200]
+    lines = [f"Looking at it: {said}"]
+
+    try:
+        found = search(f"{asking} {question}".strip())
+    except Exception:
+        found = []
+
+    if found:
+        lines.append("\nWhat the web says about that description:")
+        lines.extend(f"- {each.title} — {each.summary}"[:300] for each in found)
+
+    elsewhere = identifying.corroborated(shot.image)
+
+    if elsewhere:
+        lines.append("\nPages this same picture appears on:")
+        lines.extend(f"- {each}" for each in elsewhere)
+
+    if not found and not elsewhere:
+        lines.append(f"\n{NOTHING}")
+
+        return "\n".join(lines)
+
+    lines.append(f"\n{GUESS}")
+
+    return "\n".join(lines)
 
 
 def sent_on():
@@ -183,9 +258,17 @@ def current_activity() -> str:
     reads browser tabs, which no window title shows. When a title is too little
     to go on, screen with "read" next.
 
-    This says what a thing is called and never where it is: a title is not a
-    path, and the moment you need one, file_in_front answers it. Say what the
-    title actually is, the file, the page, the video, the person. A season and
+    When what is in front is a web page this gives its address too, and that
+    address is the answer to "what am I watching", "what is this", and "send me
+    the link" — for the page they are on right now. It is the only thing that
+    knows. An address from an earlier turn is a different page they have
+    finished with, so never answer today's question with yesterday's link: if
+    this does not give you one, say you cannot get it rather than reaching for
+    one you have seen before.
+
+    This says what a thing is called and, for a file, never where it is: a
+    title is not a path, and the moment you need one, file_in_front answers it.
+    Say what the title actually is, the file, the page, the video, the person. A season and
     an episode in it is where they are up to; how much is left is that against
     what the whole thing runs to, which search_web finds."""
     # ONE INVENTORY FOR BOTH HALVES OF THE ANSWER, SO THE TWO CANNOT DISAGREE.
@@ -199,8 +282,12 @@ def current_activity() -> str:
     if title:
         shown = titling.showing(name, title)
         more = f', showing "{shown}"' if shown else ""
+        # A TITLE NAMES A PAGE AND NEVER SAYS WHERE IT IS. ASKED FOR THE LINK TO WHAT IS ON,
+        # THE MODEL USED TO REACH FOR THE NEAREST ADDRESS IT HAD EVER SEEN, WHICH WAS AN OLD ONE.
+        where = tabs.front(name)
+        at = f" Its address is {where}." if where and not where.startswith("chrome://") else ""
 
-        return f'{name} is in front, and the window is "{title}"{more}.{rest(seen)}'
+        return f'{name} is in front, and the window is "{title}"{more}.{at}{rest(seen)}'
 
     # A REFUSED ACCESSIBILITY PROMPT LOOKS EXACTLY LIKE A WINDOW WITH NO NAME, AND
     # ONE OF THE TWO IS SOMETHING THE PERSON CAN ACTUALLY GO AND FIX.
