@@ -198,6 +198,32 @@ def flattened(words):
     return "".join(each.lower() for each in words if each.isalnum())
 
 
+# "535K", "1.2 million", "17.4M": A FIGURE A PAGE WROTE SHORT.
+SHORT = re.compile(r"(\d+(?:\.\d+)?)\s*(k|m|b|thousand|million|billion)\b", re.I)
+
+SCALE = {"k": 1_000, "thousand": 1_000, "m": 1_000_000, "million": 1_000_000,
+         "b": 1_000_000_000, "billion": 1_000_000_000}
+
+
+def expanded(seen):
+    """EVERY SHORT FIGURE IN WHAT THE TOOLS SAID, WRITTEN OUT IN FULL."""
+    out = set()
+
+    for number, scale in SHORT.findall(seen):
+        try:
+            out.add(str(int(float(number) * SCALE[scale.lower()])))
+        except (ValueError, KeyError):
+            continue
+
+    return out
+
+
+def rounded(bare):
+    """A FIGURE AND THE NEARBY ROUNDINGS OF IT, SO 535000 ANSWERS FOR A PAGE'S 535K."""
+    return {bare, bare.lstrip("0")} | {str(int(bare[:each] + "0" * (len(bare) - each)))
+                                       for each in range(1, min(4, len(bare)) + 1)}
+
+
 def without(text, made_up):
     """THE DECK WITH THE LINES THAT STATE A MADE-UP FACT TAKEN OUT, AND THE REST LEFT ALONE."""
     kept = [line for line in text.splitlines()
@@ -241,7 +267,12 @@ def unsourced(text, title):
         return []
 
     missing = []
+    digits = "".join(each for each in seen if each.isdigit())
 
+    # A PAGE SAYS "535K views" AND A SHEET SAYS 535000, WHICH IS THE SAME FACT WRITTEN OUT
+    # RATHER THAN A MADE-UP ONE. THE SHORT FORMS THE PAGE USED ARE EXPANDED ONCE HERE SO A
+    # HONESTLY EXPANDED FIGURE IS NOT CHASED FOR A SOURCE IT ALREADY HAS.
+    shorthand = expanded(wrapping.learned())
     said = claimed(text)
 
     for found in list(NAMES.finditer(said)) + list(FIGURE.finditer(said)):
@@ -266,7 +297,7 @@ def unsourced(text, title):
         bare = "".join(each for each in fact if each.isdigit())
 
         if bare and len(bare) > 2:
-            if bare in "".join(each for each in seen if each.isdigit()):
+            if bare in digits or rounded(bare) & shorthand:
                 continue
         elif flattened(fact) in seen:
             continue

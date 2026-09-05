@@ -67,18 +67,20 @@ def checks(wanted, called, reply):
             found.append(f"reply says {each!r}")
 
     names = [each["name"] for each in called]
+    went = [each["name"] for each in called if not each.get("refused")]
 
     # A CALL A GUARD TURNED BACK NEVER HAPPENED, SO IT IS NOT COUNTED AGAINST A LIMIT. THE
     # TURN THAT TRIED TO WRITE A DECK SAYING "Directed by Simon Curtis", WAS STOPPED, WENT AND
     # READ, AND WROTE "Joe Wright" INSTEAD IS THE BEHAVIOUR WANTED — NOT TWO GOES AT ONE TOOL.
-    went = [each["name"] for each in called if not each.get("refused")]
-
     for name, most in (wanted.get("at_most") or {}).items():
         if went.count(name) > most:
             found.append(f"called {name} {went.count(name)} times, more than {most}")
 
+    # SAME REASONING AS at_most: A CALL THAT WAS TURNED BACK NEVER HAPPENED. THE GUARD EXISTS
+    # PRECISELY TO CATCH A WRITE THAT CAME BEFORE THE LOOKING, AND THE TURN THAT TRIES, IS
+    # STOPPED, LOOKS AND THEN WRITES PROPERLY HAS DONE THE RIGHT THING IN THE END.
     for name, first in (wanted.get("before") or {}).items():
-        if name in names and (first not in names or names.index(first) > names.index(name)):
+        if name in went and (first not in went or went.index(first) > went.index(name)):
             found.append(f"called {name} before {first} had said anything")
 
     if wanted.get("no_invented_rows"):

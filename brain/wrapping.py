@@ -166,12 +166,27 @@ def gist(args):
     return frozenset(kept)
 
 
+# TWO QUESTIONS SHARING THIS MUCH OF THEIR MEANING ARE THE SAME QUESTION. AN EXACT MATCH WAS
+# NO USE: ONE EXTRA WORD MADE "Romanchakam Barbell review" AND "Romanchakam Barbell review
+# youtube" COUNT AS TWO, AND A TURN GOT NINE GOES OUT OF THAT.
+MOSTLY_SAME = 0.7
+
+
+def alike(one, other):
+    """WHETHER TWO GISTS ARE ASKING THE SAME THING, ALLOWING A WORD EITHER WAY."""
+    if not one or not other:
+        return one == other
+
+    return len(one & other) / max(len(one), len(other)) >= MOSTLY_SAME
+
+
 def circling(name, args):
     """WHY THIS TOOL SHOULD NOT BE ASKED THE SAME THING AGAIN, OR None."""
     if name not in SEARCHING:
         return None
 
-    same = [each for each in tried[name] if each == gist(args)]
+    asking = gist(args)
+    same = [each for each in tried[name] if alike(each, asking)]
 
     return CIRCLING.format(name=name, count=len(same) + 1) if len(same) >= ENOUGH_TRIES else None
 
