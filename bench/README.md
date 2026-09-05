@@ -30,7 +30,7 @@ Happy is macOS and Windows only.
 1. **Every tool becomes a stub.** `harness()` walks `hands.tools()` and wraps each one in a
    `StructuredTool` that keeps the name, description and argument schema — so the model sees an
    identical toolset and picks exactly as it would in real life — but whose body only appends to
-   a list. `run_command`, `power_control`, `move_to_trash`, `click_on` and `type_text` are inert.
+   a list. `run_command`, `system_control`, `move_to_trash` and `control_app` are inert.
 2. **The database is redirected.** `throwaway()` sets `HAPPY_DB` before any Happy module is
    imported, so `memory/storage.py` opens a scratch file in `bench/runs/` instead of `data/`.
    Without this a run puts a hundred fake turns into the real history and the panel.
@@ -38,7 +38,7 @@ Happy is macOS and Windows only.
    the list is one of its own stubs.
 
 Verified rather than assumed: calling the mocked `run_command` with `rm -rf ~/Desktop`, and
-`power_control` with `shut down`, does nothing at all.
+`system_control` with `power`, `shutdown`, does nothing at all.
 
 ## Running them
 

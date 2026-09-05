@@ -31,79 +31,55 @@ def list_controls() -> str:
 
 
 @tool
-def click_on(target: str, double: bool = False, right: bool = False) -> str:
-    """Click something on the screen, named the way a person would name it, for
-    example "Send", "the search box", "Documents in the sidebar". Never give
-    coordinates. Set double for a double click, for example to open a file, and
-    right for a right click to get a context menu.
+def control_app(action: str, target: str = "", text: str = "", keys: str = "",
+                path: str = "", amount: int = 1, double: bool = False,
+                right: bool = False) -> str:
+    """Work the window in front by hand: click it, type into it, press a key,
+    attach a file or scroll it. Do this only for things that have no proper
+    tool — open_app starts an application, open_url opens an address, and
+    system_control works the volume, brightness and Wi-Fi, all faster and safer
+    than clicking around.
 
-    The screen is read again on every call, the thing is found by what it says,
-    and afterwards the screen is checked to confirm something actually happened.
-    You get told plainly when it did not, so believe the answer rather than
-    assuming the click worked.
+    action:
+    "click" with target, named the way a person would name it: "Send", "the
+    search box", "Documents in the sidebar". Never coordinates. double for a
+    double click, right for a context menu.
+    "type" with text, and optionally target as a field to click first. For a
+    single key or a shortcut use "press" instead.
+    "press" with keys, one key or one shortcut written with plus signs:
+    "enter", "esc", "cmd+s", "cmd+shift+t". On macOS the command key is "cmd";
+    on Windows use "ctrl".
+    "attach" with path, and optionally target as the box it belongs in. For a
+    resume, a photo, anything to send someone. Use this rather than hunting for
+    a paperclip. Open the right chat, mail or page first. It attaches only —
+    nothing is sent until you press Enter or click Send.
+    "scroll" with target as "up", "down", "left" or "right", and amount as how
+    many steps. Scroll a step, then list_controls to see if it appeared.
 
-    Do this only for things that have no proper tool. To start an application
-    use open_app, to open a web address use open_url, and to change the volume,
-    brightness or Wi-Fi use the controls, all of which are faster and safer than
-    clicking around. Anything whose label suggests it deletes, sends, buys or
-    installs is shown to the user for approval first."""
-    return went(acting.clicked(target, times=2 if double else 1, button="right" if right else "left"))
+    The screen is read again on every call and checked afterwards to confirm
+    something actually happened, so believe the answer rather than assuming it
+    worked. Anything that deletes, sends, buys or installs is shown to the user
+    for approval first."""
+    wanted = (action or "").strip().lower()
 
+    if wanted == "click":
+        return went(acting.clicked(
+            target, times=2 if double else 1, button="right" if right else "left"
+        ))
 
-@tool
-def type_text(text: str, into: str = "") -> str:
-    """Type text on the keyboard, into whatever currently has the cursor.
-    Optionally give into as the name of a field to click first, for example
-    into="the search box".
+    if wanted == "type":
+        return went(acting.typed(text, target))
 
-    Afterwards the screen is checked to confirm the text actually arrived, and
-    you are told if it did not. Use this for filling in a form, writing a
-    message or searching inside an application. To press a shortcut or a single
-    key like Enter, use press_keys instead."""
-    return went(acting.typed(text, into))
+    if wanted == "press":
+        return went(acting.pressed(keys))
 
+    if wanted == "attach":
+        return went(attaching.attached(path, target))
 
-@tool
-def press_keys(keys: str) -> str:
-    """Press one key or one keyboard shortcut, written with plus signs, for
-    example "enter", "esc", "tab", "cmd+s", "cmd+shift+t", "ctrl+c".
+    if wanted == "scroll":
+        return went(acting.scrolled(target, amount))
 
-    Use this for confirming a dialog, saving, copying, closing a tab, or moving
-    around with the arrow keys. On macOS the command key is "cmd" and on Windows
-    use "ctrl". Shortcuts that quit an application or delete something are shown
-    to the user for approval first."""
-    return went(acting.pressed(keys))
-
-
-@tool
-def attach_file(path: str, into: str = "") -> str:
-    """Attach a file to a message, an email or an upload box: a resume, a photo,
-    a document, anything someone asks you to send or share with a person. Give
-    the file as a full path or just a name like "resume", and optionally give
-    into as the box it belongs in, for example into="the message box".
-
-    Use this rather than looking for a paperclip or an attach button. Those
-    icons often have no name for you to click, and this does what pressing one
-    ends up doing: it puts the file itself on the clipboard and pastes it where
-    the cursor is. It works anywhere a file can be dropped.
-
-    Open the right chat, mail or page first, so the file lands in the right
-    place. Afterwards the screen is checked for the file's name and you are told
-    if it did not arrive. This attaches only. Nothing is sent until you press
-    Enter or click Send, which you should do once you are told the file is
-    there."""
-    return went(attaching.attached(path, into))
+    return reasons.no(f"I can click, type, press, attach or scroll, not {action}.")
 
 
-@tool
-def scroll(direction: str, amount: int = 1) -> str:
-    """Scroll whatever is under the pointer. Direction is "up", "down", "left"
-    or "right", and amount is how many steps, defaulting to one.
-
-    Use this to bring something into view that is not on the screen yet. If you
-    are looking for something in particular, scroll a step and then use
-    list_controls or screen with "read" to see whether it has appeared."""
-    return went(acting.scrolled(direction, amount))
-
-
-TOOLS = [list_controls, click_on, type_text, attach_file, press_keys, scroll]
+TOOLS = [list_controls, control_app]

@@ -3,8 +3,8 @@
 import os
 from pathlib import Path
 
-DANGEROUS = {"run_command", "system_control", "move_to_trash", "open_app", "click_on",
-             "type_text", "press_keys", "download", "build"}
+DANGEROUS = {"run_command", "system_control", "move_to_trash", "open_app",
+             "control_app", "download", "build"}
 
 ADDRESSED = {"open_url", "read_page", "download"}
 

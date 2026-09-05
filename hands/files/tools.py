@@ -42,7 +42,7 @@ def file_in_front() -> str:
     on the screen that every other tool needs as a path, and the name on a window
     is not a path.
 
-    A file goes straight to read_file, attach_file or download. A project folder
+    A file goes straight to read_file, control_app with "attach", or download. A project folder
     goes to run_command as directory, which otherwise runs in their home folder
     and answers about nothing. Their editor, their PDF, their document: this is
     the same question for all of them.
