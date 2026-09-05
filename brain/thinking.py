@@ -22,6 +22,7 @@ from brain.wrapping import (
     fresh,
     keep_count,
     keep_going,
+    keep_named,
     keep_recent,
     keep_record,
     keep_trying,
@@ -102,6 +103,7 @@ class Happy:
             middleware=[
                 keep_recent,
                 keep_count,
+                keep_named,
                 keep_record,
                 keep_going,
                 ModelCallLimitMiddleware(run_limit=settings.get("brain.calls")),

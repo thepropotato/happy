@@ -10,7 +10,7 @@ from brain import model as brain, persona
 from brain.prompt import STANDING
 from brain.wording import written
 from brain.wrapping import (
-    LIMIT, Stuck, doing, keep_count, keep_going, keep_record, keep_trying,
+    LIMIT, Stuck, doing, keep_count, keep_going, keep_named, keep_record, keep_trying,
 )
 from hands.routines import picking
 from memory import routines, settings
@@ -79,6 +79,7 @@ def run(found, said):
         system_prompt=told(found),
         middleware=[
             keep_count,
+            keep_named,
             keep_record,
             keep_going,
             ModelCallLimitMiddleware(run_limit=rounds(found)),

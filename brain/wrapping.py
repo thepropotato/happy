@@ -1,5 +1,7 @@
 """WHAT WRAPS EVERY CALL: WHAT GOES IN, WHAT IS KEPT, AND HOW LONG IT TOOK."""
 
+import difflib
+import json
 import time
 
 from langchain.agents.middleware import wrap_model_call, wrap_tool_call
@@ -75,6 +77,38 @@ def fresh():
 
     missed = 0
     spend = None
+    asked.clear()
+
+
+# EVERY CALL MADE THIS TURN, BY TOOL AND ARGUMENTS, WITH WHAT IT GOT BACK.
+asked = {}
+
+REPEATED = (
+    "You already called this with exactly these arguments this turn, and the answer is above. "
+    "Use it, or change the arguments or the tool."
+)
+
+# A TOOL THAT READS A CHANGING THING MAY HONESTLY BE ASKED TWICE: THE SCREEN MOVES, A BUILD
+# FINISHES. EVERYTHING ELSE ANSWERS THE SAME WAY TO THE SAME QUESTION WITHIN ONE TURN.
+CHANGING = {"current_activity", "read_screen", "look_at_screen", "list_open_windows",
+            "already_open", "build", "play_pause", "list_controls", "file_in_front",
+            "reminder", "clipboard_control"}
+
+
+def signature(name, args):
+    return name, json.dumps(args, sort_keys=True, default=str)
+
+
+def repeated(name, args):
+    """WHAT THIS EXACT CALL ALREADY GOT BACK THIS TURN, OR None."""
+    if name in CHANGING:
+        return None
+
+    return asked.get(signature(name, args))
+
+
+def remember(name, args, said):
+    asked[signature(name, args)] = said
 
 
 def watches(handler):
@@ -147,6 +181,50 @@ def unparsed(said):
     return any(each in lowered for each in UNPARSED)
 
 
+# HOW CLOSE A MISSPELT TOOL NAME HAS TO BE TO THE REAL ONE TO BE TAKEN AS IT.
+CLOSE = 0.75
+
+
+@wrap_model_call
+def keep_named(request, handler):
+    """A TOOL NAME THE MODEL GOT NEARLY RIGHT IS PUT RIGHT BEFORE IT IS LOOKED UP. A FAILED
+    LOOKUP COSTS A WHOLE ROUND, AND openApp OR open_app_tool MEANS open_app TO ANYBODY."""
+    answered = handler(request)
+    message = getattr(answered, "result", None) or answered
+
+    if isinstance(message, list):
+        message = message[-1] if message else None
+
+    calls = getattr(message, "tool_calls", None) or []
+    known = [each.name for each in request.tools or []]
+
+    for call in calls:
+        fixed = nearest(call.get("name") or "", known)
+
+        if fixed and fixed != call.get("name"):
+            amiss(f"tool {call.get('name')} taken as {fixed}")
+            call["name"] = fixed
+
+    return answered
+
+
+def nearest(name, known):
+    """THE REAL TOOL A NAME MEANS, OR None WHEN IT IS RIGHT ALREADY OR NOTHING IS CLOSE."""
+    if not known or name in known:
+        return None
+
+    plain = name.lower().replace("-", "_").removesuffix("_tool").removeprefix("functions.")
+    snake = "".join(f"_{c.lower()}" if c.isupper() else c for c in plain).strip("_")
+
+    for candidate in (plain, snake):
+        if candidate in known:
+            return candidate
+
+    close = difflib.get_close_matches(snake, known, n=1, cutoff=CLOSE)
+
+    return close[0] if close else None
+
+
 @wrap_model_call
 def keep_count(request, handler):
     """WHAT EACH ROUND COST, COUNTED WHERE THE MODEL ACTUALLY ANSWERS."""
@@ -197,6 +275,20 @@ def keep_record(request, handler):
     # THE ID TIES THE STARTED AND FINISHED REPORTS TO THE ONE ROW.
     which = call.get("id") or f"{name}-{id(call)}"
 
+    # THE SAME TOOL WITH THE SAME ARGUMENTS GIVES THE SAME ANSWER, AND ASKING TWICE IN ONE TURN
+    # IS THE SHAPE EVERY STUCK RUN TAKES. THE ANSWER IT ALREADY HAS IS POINTED AT INSTEAD.
+    earlier = repeated(name, args)
+
+    if earlier is not None:
+        global missed
+
+        missed += 1
+        memory.used(name, args, REPEATED, 0.0, why, failed=True, spent=claim())
+        tell(TOOL, name, 0.0, {"id": which, "why": why, "args": args, "result": REPEATED,
+                               "failed": True, "spent": None})
+
+        return ToolMessage(content=REPEATED, name=name, tool_call_id=call.get("id") or "", status="error")
+
     # THE ROUND THAT ASKED FOR THIS CALL, AND WHAT READING THE WHOLE PROMPT AGAIN
     # TO ASK FOR IT COST. TAKEN ON THE WAY IN SO THE FIRST TOOL OF A ROUND GETS IT.
     cost = claim()
@@ -204,8 +296,6 @@ def keep_record(request, handler):
     tell(STARTED, name, None, {"id": which, "args": args})
 
     started = time.perf_counter()
-
-    global missed
 
     try:
         result = handler(request)
@@ -232,6 +322,7 @@ def keep_record(request, handler):
     said, nope = reasons.went(text(result))
 
     missed = missed + 1 if nope else 0
+    remember(name, args, said)
 
     memory.used(name, args, said, taken, why, failed=nope, spent=cost)
 
