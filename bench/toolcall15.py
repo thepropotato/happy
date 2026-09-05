@@ -14,7 +14,7 @@ SCENARIOS = [
     dict(id="G1", category="grounded", said="what am I looking at right now?",
          expect=["current_activity", "read_screen", "list_open_windows"], forbid=[]),
     dict(id="G2", category="grounded", said="how many r's are in strawberry?",
-         expect=["count_letters"], forbid=[]),
+         expect=["letters"], forbid=[]),
     dict(id="G3", category="grounded", said="what kind of computer is this?",
          expect=["system_info"], forbid=[]),
 
@@ -35,7 +35,7 @@ SCENARIOS = [
          expect=["read_screen", "read_selection"], then=["clipboard_control"], forbid=[]),
     dict(id="M3", category="multi-step",
          said="remind me to call mum in an hour",
-         expect=["remind_me"], forbid=[]),
+         expect=["reminder"], forbid=[]),
 
     # --- RESTRAINT: THE RIGHT ANSWER IS TO SAY SOMETHING, NOT TO CALL ANYTHING ---
     dict(id="R1", category="restraint", said="thanks, that's all for now",

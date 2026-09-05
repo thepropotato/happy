@@ -1,6 +1,7 @@
 """THE TOOLS. EVERY DOCSTRING HERE IS READ BY THE MODEL, NOT BY US."""
 
 from langchain_core.tools import tool
+from typing import Literal
 
 from hands import reasons
 from hands.reminders import picking
@@ -25,7 +26,6 @@ AGAIN = "Right. Again {said}."
 UNKNOWN = 'There is no routine called "{name}", so there is nothing for that to run.'
 
 
-@tool
 def remind_me(what: str, when: str, routine: str = "") -> str:
     """Set a reminder. Use it whenever the person wants telling about something later —
     "remind me to drink water every hour", "remind me to call the dentist at four",
@@ -64,7 +64,6 @@ def remind_me(what: str, when: str, routine: str = "") -> str:
     return SET.format(said=wording.briefly(made)) + invited(moment)
 
 
-@tool
 def my_reminders() -> str:
     """What the person has asked to be reminded of, soonest first, with the time each
     one is set for. Use it whenever they ask what is set, what is coming up, or
@@ -74,7 +73,6 @@ def my_reminders() -> str:
     return picking.described(kept) if kept else NONE
 
 
-@tool
 def change_reminder(which: str = "", when: str = "", what: str = "") -> str:
     """Change a reminder that is already set. Use it when they want a different time
     for one — "make that four in the afternoon", "move the dentist one to six in the
@@ -106,7 +104,6 @@ def change_reminder(which: str = "", when: str = "", what: str = "") -> str:
     return MOVED.format(said=wording.briefly(moved)) + invited(moment)
 
 
-@tool
 def forget_reminder(which: str) -> str:
     """Drop a reminder for good. Use it when they have actually asked for one to go —
     "forget that reminder", "stop reminding me to drink water". Stopping a repeating
@@ -121,7 +118,6 @@ def forget_reminder(which: str) -> str:
     return f'Forgotten. No more "{gone["what"]}".'
 
 
-@tool
 def snooze_reminder(when: str = "in ten minutes", which: str = "") -> str:
     """Set a reminder to come round again a little later. Use it the moment they say
     "remind me again in ten minutes", "not now", or "in a bit" after one has just gone
@@ -178,4 +174,34 @@ def invited(when):
     return CHECK.format(other=other)
 
 
-TOOLS = [remind_me, my_reminders, snooze_reminder, change_reminder, forget_reminder]
+
+ACTIONS = Literal["set", "list", "change", "forget", "snooze"]
+
+
+@tool
+def reminder(action: ACTIONS, what: str = "", when: str = "", which: str = "", routine: str = "") -> str:
+    """Reminders. "set" with what ("call the dentist", the thing itself in few
+    words) and when (their exact words for the time, "at four", "every hour",
+    "tomorrow at nine"; never a date you worked out, you are not told the day).
+    "list" says what is set. "change" with which (the reminder in their words, or
+    empty for the one just mentioned) and a new when or what. "forget" with which.
+    "snooze" with when ("in ten minutes") for the one that just went off. routine
+    names a saved routine to run at that time instead of words. What comes back
+    says the time it actually set: say it back, it is their one chance to correct
+    a wrong half of the day."""
+    if action == "set":
+        return remind_me(what, when, routine)
+
+    if action == "list":
+        return my_reminders()
+
+    if action == "change":
+        return change_reminder(which, when, what)
+
+    if action == "forget":
+        return forget_reminder(which)
+
+    return snooze_reminder(when or "in ten minutes", which)
+
+
+TOOLS = [reminder]

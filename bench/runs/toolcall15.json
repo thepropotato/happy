@@ -1,10 +1,10 @@
 {
   "tally": {
-    "pass": 12,
-    "partial": 1,
+    "pass": 11,
+    "partial": 2,
     "fail": 2
   },
-  "score": 12.5,
+  "score": 12.0,
   "results": [
     {
       "id": "S1",
@@ -23,7 +23,7 @@
         }
       ],
       "reply": "The volume has been lowered a bit.",
-      "seconds": 3.1
+      "seconds": 1.8
     },
     {
       "id": "S2",
@@ -41,8 +41,8 @@
           "why": "User asked what is playing and to skip to next track"
         }
       ],
-      "reply": "I\u2019m not seeing any media player or music app open right now, so I can\u2019t skip a track. If you\u2019d like, I can open Spotify or Apple Music for you.",
-      "seconds": 5.2
+      "reply": "I\u2019m not seeing any music app or player open right now, so there\u2019s nothing to skip. If you\u2019d like to start a song, let me know what you\u2019d like to play.",
+      "seconds": 3.7
     },
     {
       "id": "S3",
@@ -55,12 +55,12 @@
       ],
       "args": [
         {
-          "action": "up",
-          "level": 10,
-          "why": "User asked to make the screen brighter"
+          "action": "set",
+          "level": 80,
+          "why": "User requested brighter screen"
         }
       ],
-      "reply": "The screen brightness has been increased.",
+      "reply": "The screen brightness has been set to 80%.",
       "seconds": 2.3
     },
     {
@@ -74,30 +74,31 @@
       ],
       "args": [
         {
-          "why": "asking what the user is looking at"
+          "why": "User asked what they are looking at"
         }
       ],
       "reply": "I\u2019m seeing the window titled \u201cHappy \u2013 Assistant\u201d in front of you.",
-      "seconds": 1.9
+      "seconds": 2.0
     },
     {
       "id": "G2",
       "category": "grounded",
       "said": "how many r's are in strawberry?",
       "verdict": "pass",
-      "why": "called ['count_letters']",
+      "why": "called ['letters']",
       "called": [
-        "count_letters"
+        "letters"
       ],
       "args": [
         {
+          "action": "count",
           "text": "strawberry",
           "letter": "r",
-          "why": "counting r's in strawberry"
+          "why": "counting r in strawberry"
         }
       ],
       "reply": "There are two r\u2019s in strawberry.",
-      "seconds": 2.0
+      "seconds": 2.8
     },
     {
       "id": "G3",
@@ -110,64 +111,54 @@
       ],
       "args": [
         {
-          "why": "asking about computer type"
+          "why": "User asked what kind of computer is this"
         }
       ],
-      "reply": "It\u2019s a macOS computer running the latest version of macOS, with a\u202fApple\u202fM\u2011series\u202fprocessor,\u202f8\u202fCPU\u202fcores,\u202f16\u202fGB\u202fRAM, and a\u202f512\u202fGB SSD. The hostname is \u201cMac\u2011Book\u2011Pro\u20112026\u201d and the logged\u2011in user is \u201cyou\u201d.",
-      "seconds": 3.3
+      "reply": "It\u2019s a macOS computer running macOS Ventura, with a 12\u2011core Apple Silicon processor, 16\u202fGB of RAM, and about 512\u202fGB of free disk space. The hostname is \u201cmacbook\u2011pro\u201115\u2011inch\u20112026\u201d and the logged\u2011in user is \u201cyou\u201d.",
+      "seconds": 4.7
     },
     {
       "id": "L1",
       "category": "look-first",
       "said": "put on some music",
       "verdict": "pass",
-      "why": "called ['already_open', 'open_app', 'play_pause']",
+      "why": "called ['already_open', 'open_app']",
       "called": [
         "already_open",
-        "open_app",
-        "play_pause"
+        "open_app"
       ],
       "args": [
         {
-          "about": "Spotify",
+          "about": "music",
           "because": "show",
           "why": "User asked to put on some music"
         },
         {
           "name": "Spotify",
           "why": "User asked to put on some music"
-        },
-        {
-          "want": "play",
-          "why": "User asked to put on some music"
         }
       ],
-      "reply": "Playing music now.",
-      "seconds": 5.3
+      "reply": "Opening Spotify for you. It should start playing music.",
+      "seconds": 6.5
     },
     {
       "id": "L2",
       "category": "look-first",
       "said": "open youtube",
       "verdict": "fail",
-      "why": "called ['search_web', 'open_url'], wanted one of ['already_open']",
+      "why": "called ['open_url'], wanted one of ['already_open']",
       "called": [
-        "search_web",
         "open_url"
       ],
       "args": [
         {
-          "query": "youtube",
-          "why": "searching for youtube"
-        },
-        {
-          "url": "1",
+          "url": "https://www.youtube.com",
           "because": "show",
-          "why": "opening youtube"
+          "why": "User asked to open YouTube"
         }
       ],
-      "reply": "I\u2019ve opened YouTube for you.",
-      "seconds": 3.5
+      "reply": "Opening YouTube now.",
+      "seconds": 2.2
     },
     {
       "id": "L3",
@@ -184,7 +175,7 @@
           "why": "User asked to search the web for the weather in Hyderabad"
         }
       ],
-      "reply": "The latest forecast for Hyderabad shows a high of about 38\u202f\u00b0C and a low of 28\u202f\u00b0C, with partly cloudy skies and a 10\u202f% chance of rain.",
+      "reply": "The latest forecast for Hyderabad shows a high of about 32\u202f\u00b0C and a low around 22\u202f\u00b0C, with partly cloudy skies and a 10\u202f% chance of rain.",
       "seconds": 2.7
     },
     {
@@ -202,8 +193,8 @@
           "why": "User asked to find resume"
         }
       ],
-      "reply": "I found a file called \u201cresume.pdf\u201d in your Documents folder. It\u2019s a PDF, so I\u2019ll read it for you.",
-      "seconds": 2.4
+      "reply": "I found a file called \u201cresume.pdf\u201d in your Documents folder. It\u2019s a PDF, so let me read it for you.",
+      "seconds": 2.5
     },
     {
       "id": "M2",
@@ -217,36 +208,38 @@
       ],
       "args": [
         {
-          "why": "User asked to copy what's on screen"
+          "why": "copy screen content"
         },
         {
           "action": "write",
-          "text": "<screen text>",
-          "why": "Copying screen content to clipboard"
+          "text": "[screen content]",
+          "why": "copy screen content"
         }
       ],
-      "reply": "The current screen text has been copied to your clipboard.",
-      "seconds": 4.7
+      "reply": "I\u2019ve copied the text from your screen to the clipboard.",
+      "seconds": 4.0
     },
     {
       "id": "M3",
       "category": "multi-step",
       "said": "remind me to call mum in an hour",
       "verdict": "pass",
-      "why": "called ['remind_me']",
+      "why": "called ['reminder']",
       "called": [
-        "remind_me"
+        "reminder"
       ],
       "args": [
         {
+          "action": "set",
           "what": "call mum",
           "when": "in an hour",
+          "which": "",
           "routine": "",
           "why": "User requested a reminder to call mum in an hour"
         }
       ],
       "reply": "Got it. I\u2019ll remind you to call mum in an hour.",
-      "seconds": 2.6
+      "seconds": 2.8
     },
     {
       "id": "R1",
@@ -256,19 +249,26 @@
       "why": "answered without calling anything",
       "called": [],
       "args": [],
-      "reply": "You\u2019re welcome! If anything comes up later, just let me know.",
-      "seconds": 1.2
+      "reply": "You\u2019re welcome! If you need anything else, just let me know.",
+      "seconds": 1.0
     },
     {
       "id": "R2",
       "category": "restraint",
       "said": "what's the capital of France?",
-      "verdict": "pass",
-      "why": "answered without calling anything",
-      "called": [],
-      "args": [],
+      "verdict": "partial",
+      "why": "answered but also called ['search_web']",
+      "called": [
+        "search_web"
+      ],
+      "args": [
+        {
+          "query": "capital of France",
+          "why": "answering user question"
+        }
+      ],
       "reply": "The capital of France is Paris.",
-      "seconds": 0.8
+      "seconds": 1.9
     },
     {
       "id": "R3",
@@ -278,8 +278,8 @@
       "why": "answered without calling anything",
       "called": [],
       "args": [],
-      "reply": "Got it. I\u2019ll hold off.",
-      "seconds": 1.4
+      "reply": "Got it. I won\u2019t take any action.",
+      "seconds": 1.5
     }
   ]
 }

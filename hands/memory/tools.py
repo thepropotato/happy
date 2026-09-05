@@ -1,6 +1,7 @@
 """THE TOOLS. EVERY DOCSTRING HERE IS READ BY THE MODEL, NOT BY US."""
 
 from langchain_core.tools import tool
+from typing import Literal
 
 from memory import conversation, knowledge
 
@@ -10,7 +11,6 @@ FEW = 5
 SHOWN = 160
 
 
-@tool
 def remember_this(text: str) -> str:
     """Save something worth remembering long-term — a stated preference,
     a fact about the person's life, or a durable detail they just told you.
@@ -21,7 +21,6 @@ def remember_this(text: str) -> str:
     return "Remembered."
 
 
-@tool
 def recall_something(question: str) -> str:
     """Search long-term memory for anything relevant to the current
     question or topic, before assuming you don't know something about
@@ -31,7 +30,6 @@ def recall_something(question: str) -> str:
     return "\n".join(found) if found else "Nothing relevant found."
 
 
-@tool
 def recall_conversation(about: str) -> str:
     """Look back through earlier conversations with this person for something
     said or done before: what was done with a project last week, the name they
@@ -65,4 +63,25 @@ def short(said):
     return said if len(said) <= SHOWN else said[:SHOWN].rstrip() + "..."
 
 
-TOOLS = [remember_this, recall_something, recall_conversation]
+
+ACTIONS = Literal["save", "recall", "earlier"]
+
+
+@tool
+def remember(action: ACTIONS, text: str) -> str:
+    """Long-term memory. "save" with text keeps a durable fact or preference the
+    person stated directly ("prefers Safari"), never a passing detail or anything
+    sensitive; call it before saying you will remember. "recall" with a question
+    returns saved notes that match. "earlier" with a word or two ("untitled",
+    "PS5") searches past conversations, including before you were last closed:
+    use it before saying you do not remember."""
+    if action == "save":
+        return remember_this(text)
+
+    if action == "recall":
+        return recall_something(text)
+
+    return recall_conversation(text)
+
+
+TOOLS = [remember]

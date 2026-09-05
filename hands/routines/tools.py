@@ -1,6 +1,7 @@
 """THE TOOLS. EVERY DOCSTRING HERE IS READ BY THE MODEL, NOT BY US."""
 
 from langchain_core.tools import tool
+from typing import Literal
 
 from hands import reasons
 from hands.routines import picking
@@ -8,7 +9,6 @@ from hands.routines.picking import NONE, TAKEN
 from memory import lifting, routines
 
 
-@tool
 def run_routine(name: str) -> str:
     """Run one of the person's saved routines by name. Use this the moment what they
     ask for matches what a saved routine does, whether or not they say the word
@@ -28,7 +28,6 @@ def run_routine(name: str) -> str:
     return running.run(found, picking.asked() or found["name"])
 
 
-@tool
 def save_routine(
     name: str,
     description: str,
@@ -96,7 +95,6 @@ def save_routine(
     return f'Saved it as "{saved["name"]}". {picking.captured(saved)}'
 
 
-@tool
 def rename_routine(name: str, to: str) -> str:
     """Rename a saved routine. Everything it does stays exactly as it was and only what
     it is called changes. Use this whenever the person wants a different name for one —
@@ -122,7 +120,6 @@ def rename_routine(name: str, to: str) -> str:
     return f'That one is called "{saved["name"]}" now.'
 
 
-@tool
 def forget_routine(name: str) -> str:
     """Delete a saved routine for good. Only when the person has actually asked for it
     to go — "forget that routine", "get rid of the morning one". Renaming or changing
@@ -137,7 +134,6 @@ def forget_routine(name: str) -> str:
     return f'Forgotten "{gone["name"]}".'
 
 
-@tool
 def my_routines(name: str = "") -> str:
     """What the person has saved as routines, and what each one actually does. Asked
     what routines they have, leave name empty and hear about all of them — never guess
@@ -154,4 +150,37 @@ def my_routines(name: str = "") -> str:
     return "\n".join(picking.described(each) for each in kept) if kept else NONE
 
 
-TOOLS = [run_routine, save_routine, rename_routine, forget_routine, my_routines]
+
+ACTIONS = Literal["run", "save", "rename", "forget", "list"]
+
+
+@tool
+def routine(action: ACTIONS, name: str = "", description: str = "", ends_with: str = "",
+            to: str = "", steps: str = "", turns: int = 1, replace: bool = False) -> str:
+    """A saved routine: a job this person taught once and asks for again by name.
+    Call "run" the moment a request matches what a saved routine does, before any
+    other tool, and say back what it answers without redoing the job. Their saved
+    routines are listed in the prompt.
+
+    action: "run" with name, e.g. "morning brief". "save" with name, description
+    (what the job does, never the answer that came back) and ends_with (what a
+    good run finishes on); pick a two or three word name yourself. "rename" with
+    name and to. "forget" with name, only when told to get rid of it. "list" with
+    name empty for all, or a name for one. Leave steps and turns alone unless the
+    person spelt them out; set replace only when told to overwrite."""
+    if action == "run":
+        return run_routine(name)
+
+    if action == "save":
+        return save_routine(name, description, ends_with, steps, turns, replace)
+
+    if action == "rename":
+        return rename_routine(name, to)
+
+    if action == "forget":
+        return forget_routine(name)
+
+    return my_routines(name)
+
+
+TOOLS = [routine]

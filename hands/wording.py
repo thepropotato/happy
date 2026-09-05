@@ -5,6 +5,7 @@ COUNTING THEM OR SPELLING THEM OUT IS SOMETHING IT HAS TO ASK FOR."""
 import re
 
 from langchain_core.tools import tool
+from typing import Literal
 
 # HOW MANY ARE WORTH OFFERING BACK. PAST THIS IS NOISE, NOT HELP.
 MOST = 10
@@ -45,7 +46,6 @@ def variations(text):
     return out[:MOST]
 
 
-@tool
 def word_variations(text: str) -> str:
     """Every likely spelling of one word or name, to try after an exact search
     for it came back with nothing. Give the exact word or phrase that failed,
@@ -108,7 +108,6 @@ def counted(number):
     return COUNTS.get(number, str(number))
 
 
-@tool
 def count_letters(text: str, letter: str) -> str:
     """How many times one letter appears in a word or phrase, and where. Give
     the word exactly as it was said, for example "strawberry", and the single
@@ -151,7 +150,6 @@ def count_letters(text: str, letter: str) -> str:
     )
 
 
-@tool
 def spell_word(text: str) -> str:
     """The letters of a word one at a time, in order, for when you need to see
     how something is actually written. Give the word exactly as it was said,
@@ -173,4 +171,25 @@ def spell_word(text: str) -> str:
     return f"{said} is spelled {letters}, and it has {counted(len(said))} letters."
 
 
-TOOLS = [word_variations, count_letters, spell_word]
+
+ACTIONS = Literal["count", "spell", "variations"]
+
+
+@tool
+def letters(action: ACTIONS, text: str, letter: str = "") -> str:
+    """The letters of a word, which you cannot see for yourself: never count or
+    spell in your head. "count" with text ("strawberry") and letter ("r") says
+    how many and where. "spell" with text gives the letters in order and how many.
+    "variations" with text ("tax invoice 2026") gives the other ways a name might
+    be written, to search again with one at a time after a search by name came
+    back empty."""
+    if action == "count":
+        return count_letters(text, letter)
+
+    if action == "spell":
+        return spell_word(text)
+
+    return word_variations(text)
+
+
+TOOLS = [letters]

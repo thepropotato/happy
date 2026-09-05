@@ -19,7 +19,7 @@ OPAQUE = 6
 SPLIT = re.compile(r"[^A-Za-z0-9]+")
 
 # THE TOOLS THAT MAKE AND RUN ROUTINES NEVER BELONG INSIDE ONE.
-OURS = {"save_routine", "run_routine", "rename_routine", "forget_routine", "my_routines"}
+OURS = {"routine"}
 
 
 def behind(turns=1, without=None):

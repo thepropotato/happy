@@ -24,7 +24,7 @@ RAN = "UPDATE routines SET runs = runs + 1 WHERE name = ?"
 # THE FIRST LINE OF THE LISTING THE STANDING PROMPT GAINS.
 SAYS = (
     "Saved routines. Each one is something this person has taught you to do the same way "
-    "every time. Run one with run_routine the moment what they ask matches what it does, "
+    "every time. Run one with routine set to run the moment what they ask matches what it does, "
     "whether or not they say the word routine."
 )
 

@@ -1,5 +1,7 @@
 """CODER TOOLS THE MODEL CAN CALL."""
 
+from typing import Literal
+
 from langchain_core.tools import tool
 import memory.storage as storage
 
@@ -15,8 +17,7 @@ NO_CONTINUE = "There is nothing to continue right now."
 NO_FOLLOWUPS = "This coder does not support answering follow-ups."
 
 
-@tool
-def build(task: str, project: str) -> str:
+def started(task: str, project: str) -> str:
     """Hand substantial work on a codebase to a coding agent that reads the whole
     project before it writes: documentation for a project, a new feature, a fix
     that needs investigation, anything touching more than one file. Writing docs
@@ -48,7 +49,6 @@ def build(task: str, project: str) -> str:
     return STARTED.format(folder=folder)
 
 
-@tool
 def build_status() -> str:
     """Say whether the background build is still going, and what came back."""
     if job.current is None:
@@ -57,7 +57,6 @@ def build_status() -> str:
     return job.current.progress() if job.current.running() else job.current.report()
 
 
-@tool
 def build_answer(response: str) -> str:
     """Send a follow-up to the coder that just finished, in its own session.
 
@@ -115,4 +114,26 @@ def build_answer(response: str) -> str:
     return STARTED.format(folder=job.current.folder)
 
 
-TOOLS = [build, build_status, build_answer]
+ACTIONS = Literal["start", "status", "answer"]
+
+
+@tool
+def build(action: ACTIONS, task: str = "", project: str = "") -> str:
+    """Hand work on a codebase to a coding agent that reads the whole project
+    before it writes: documentation for a project, a feature, a fix, anything
+    touching more than one file. Writing docs for a repository is this, not
+    write_file. "start" with task in plain words and project (its name, "untitled",
+    or its path; for something with no folder yet ask where it should go). It runs
+    in the background: "status" says how it is going and what came back. "answer"
+    with task carries a follow-up into the same session. Call describe_project
+    first so you can say what the project is."""
+    if action == "start":
+        return started(task, project)
+
+    if action == "status":
+        return build_status()
+
+    return build_answer(task)
+
+
+TOOLS = [build]

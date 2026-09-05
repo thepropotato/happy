@@ -47,7 +47,7 @@ A time is worked out one way and one way only: **the soonest future moment the w
 mean.** "At four" at one o'clock is four this afternoon; at five o'clock it is four
 tomorrow morning; "on May 21" is midnight on the twenty first. Nothing is ever asked back
 and nothing is ever left half set — the answer says the time in full and invites a
-correction, and `change_reminder` is how the correction lands. That say-back is the whole
+correction, and `reminder` with "change" is how the correction lands. That say-back is the whole
 safety net, so it is not something to trim.
 
 - [ ] **Only the parser is tested.** Firing, rolling and the catch-up were run by hand
@@ -62,10 +62,10 @@ safety net, so it is not something to trim.
       breath when he comes back, and a repeating one just resumes — but neither is the same
       thing as it having happened. Launching at login is the real fix and it needs the
       packaged app that does not exist yet.
-- [ ] **`my_reminders` never mentions the finished ones.** It answers with what is still to
+- [ ] **`reminder` with "list" never mentions the finished ones.** It answers with what is still to
       come, which is nearly always the question. "Did you remind me to take my tablets this
       morning" has no answer but the panel.
-- [ ] **The routine a reminder runs cannot be changed.** `change_reminder` moves the time
+- [ ] **The routine a reminder runs cannot be changed.** `reminder` with "change" moves the time
       and rewords the text; swapping which routine it runs means forgetting it and setting
       it again. The name is at least checked when it is set rather than at seven in the
       morning.
@@ -111,7 +111,7 @@ safety net, so it is not something to trim.
       the thing to lean on.
 - [ ] **A routine still cannot call another routine.** Playbooks have `${PLAYBOOK: name}` for this
       and it is the natural way to build a long one out of short ones. Nothing here does it.
-- [ ] **A routine only starts itself on a clock.** `heart/` keeps time and `remind_me` with a
+- [ ] **A routine only starts itself on a clock.** `heart/` keeps time and `reminder` with a
       `routine` name set makes one go off — at eight every morning, every weekday at nine. The
       other triggers are still missing: on waking, when the headphones connect. Those are a
       second kind of trigger into the same firing path, not a second feature.
