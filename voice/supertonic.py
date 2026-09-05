@@ -6,8 +6,7 @@ import numpy as np
 
 from bones import systems
 from memory import settings
-from voice import pacing
-from voice.clips import breath, tidied, trimmed
+from voice.clips import breath, tidied
 from voice.engines import VoiceError
 
 RATE = 44100
@@ -84,19 +83,13 @@ class Voice:
         yield tidied([self.sound(text)], self.rate, tail=breath(text))
 
     def sound(self, text):
-        """ONE SENTENCE THROUGH THE MODEL, AT AN EVEN PACE.
+        """ONE SENTENCE THROUGH THE MODEL, ONCE, AT THE SPEED THE PERSON SET.
 
-        THE SPEED IS SET PER SENTENCE OFF THE MODEL'S OWN LENGTH PREDICTION, SO A SHORT ONE IS
-        NOT BLURTED AND A LONG ONE NOT DRAWLED. THE PREDICTION IS ROUGH ON SHORT SENTENCES, SO
-        A CLIP THAT STILL LANDED FAR OFF IS MADE ONCE MORE AT THE CORRECTED SPEED."""
-        speed = pacing.speed(self.speech.model, self.style, text, self.pace)
-        made = self.once(text, speed)
-        drift = pacing.off(len(trimmed(made, self.rate)) / self.rate, text, self.pace)
-
-        if abs(drift - 1.0) > pacing.TOLERANCE:
-            made = self.once(text, pacing.corrected(speed, drift))
-
-        return made
+        NOTHING MEASURES THE CLIP AFTERWARDS AND NOTHING MAKES IT TWICE. FITTING EVERY SENTENCE
+        TO A LETTERS-PER-SECOND TARGET PINNED ORDINARY ONES TO THE SLOWEST SPEED THE MODEL TAKES
+        AND STRETCHED HAPPY BY TWO THIRDS, WHICH IS HEARD AS A DRAWL. THE MODEL ALREADY VARIES
+        ITS OWN PACE ACROSS A SENTENCE, AND THAT VARIATION IS WHAT MAKES IT SOUND LIKE A PERSON."""
+        return self.once(text, 1.0 / (self.pace or 1.0))
 
     def once(self, text, speed):
         made = self.speech.synthesize(
