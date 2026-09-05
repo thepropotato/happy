@@ -3,12 +3,16 @@
 import re
 from urllib.parse import urlparse
 
-import httpx
 from bs4 import BeautifulSoup
+from curl_cffi import requests as browserlike
 
 from hands.apps.opening import web_address
 from hands.web import browsing, embedded
 from hands.web.searching import LIKE_A_BROWSER
+
+# WHICH BROWSER'S HANDSHAKE TO WEAR. A NAMED VERSION GOES STALE AS SITES LEARN IT, SO THIS
+# IS THE MOVING ONE THAT curl_cffi KEEPS POINTED AT SOMETHING CURRENT.
+AS_CHROME = "chrome"
 
 # A LITTLE LONGER THAN A SEARCH GETS, BECAUSE A REAL PAGE IS OFTEN A QUARTER OF A MEGABYTE.
 PATIENCE = 10
@@ -39,21 +43,31 @@ WALLS = (
     "access denied",
     "are you a robot",
     "verify you are human",
+    "prove your humanity",
+    "complete the challenge",
+    "unusual traffic",
 )
 
 THIN = 200
 
 HELD = "{host} would not hand its text over: {why} Try another result."
 
+# THE THREE WAYS A PAGE COMES BACK USELESS ARE THREE DIFFERENT PROBLEMS, AND ONLY THE FIRST
+# IS WORTH TRYING ANOTHER RESULT FOR. SAYING THEM ALL THE SAME WAY LEFT THE MODEL GUESSING.
+REFUSED = (
+    "{host} turned us away at the door and never sent the page ({why}) Nothing here will get "
+    "in. Read a different result instead, and do not ask for this one again."
+)
+
+BARE = (
+    "{host} sent a page with nothing on it: it draws itself with scripts we did not run. "
+    "Read a different result, or answer from what the search already told you."
+)
+
 NOT_A_PAGE = "{host} answered with {kind}, which is not a page of text."
 
 # A FEED OR AN API IS WORTH READING RAW. A PICTURE OR AN ARCHIVE IS NOT.
 TEXTUAL = ("text/", "application/json", "application/xml", "+xml", "+json")
-
-# A CHANNEL'S FRONT PAGE IS ORDERED BY POPULARITY; ITS VIDEOS TAB IS ORDERED BY DATE.
-CHANNEL = re.compile(r"^/(@[^/]+|c/[^/]+|channel/[^/]+|user/[^/]+)/?$")
-
-TABBED = "/videos"
 
 
 class PageError(Exception):
@@ -62,26 +76,13 @@ class PageError(Exception):
 
 def page(url, start=0, most=MOST):
     """WHAT A PAGE ACTUALLY SAYS, AS PLAIN TEXT, FROM start ONWARDS."""
-    address = dated(web_address(url))
+    address = web_address(url)
     host = urlhost(address)
     words = read(address, host)
     window = words[start : start + most]
     more = CUT if len(words) > start + most else ""
 
     return f"{host}\n\n{window}{more}"
-
-
-def dated(address):
-    """A YOUTUBE CHANNEL, POINTED AT THE TAB THAT IS IN DATE ORDER RATHER THAN ITS FRONT PAGE."""
-    parts = urlparse(address)
-
-    if not parts.netloc.removeprefix("www.").endswith("youtube.com"):
-        return address
-
-    if not CHANNEL.match(parts.path):
-        return address
-
-    return f"{parts.scheme}://{parts.netloc}{parts.path.rstrip('/')}{TABBED}"
 
 
 def read(address, host):
@@ -97,18 +98,21 @@ def read(address, host):
     if kind and not any(each in kind for each in TEXTUAL):
         raise PageError(NOT_A_PAGE.format(host=host, kind=kind))
 
-    words = stripped(answer.text) if "html" in kind or not kind else answer.text.strip()
+    marked = kind == "" or "html" in kind
+    words = stripped(answer.text) if marked else answer.text.strip()
+    facts = embedded.summary(answer.text) if marked else ""
     wall = walled(words)
 
+    # THE FACTS GO IN FRONT OF THE WORDS RATHER THAN INSTEAD OF THEM. A COUNT IS NEVER IN
+    # THE PROSE — IT IS DRAWN BY A SCRIPT — SO A PAGE THAT READS PERFECTLY WELL STILL HAS
+    # TO BE ASKED WHAT IT DECLARES, OR ITS NUMBERS ARE ONES NOBODY CAN ANSWER FROM.
     if not wall:
-        return words
+        return f"{facts}\n\n{words}" if facts else words
 
-    shipped = embedded.summary(answer.text) if "html" in kind or not kind else ""
+    if facts and not walled(facts):
+        return facts
 
-    if shipped and not walled(shipped):
-        return shipped
-
-    return rendered(address, host, PageError(HELD.format(host=host, why=wall)))
+    return rendered(address, host, PageError(BARE.format(host=host)))
 
 
 def rendered(address, host, trouble):
@@ -122,7 +126,9 @@ def rendered(address, host, trouble):
     wall = walled(words)
 
     if wall:
-        raise PageError(HELD.format(host=host, why=f"even in a browser, {wall}"))
+        # THE BROWSER RAN THE SCRIPTS AND THERE WAS STILL NOTHING, SO SCRIPTS WERE NEVER WHAT
+        # WAS MISSING: THIS SITE IS SHUT TO US, AND ANOTHER GO AT IT COSTS A TURN FOR NOTHING.
+        raise PageError(REFUSED.format(host=host, why=f"even in a browser, {wall}"))
 
     return words
 
@@ -142,19 +148,25 @@ def fetched(address):
 
     if answer.status_code >= 400:
         raise PageError(
-            HELD.format(host=urlhost(address), why=f"it answered {answer.status_code}.")
+            REFUSED.format(host=urlhost(address), why=f"it answered {answer.status_code}.")
         )
 
     return answer
 
 
 def asked(address, headers):
-    """ONE ATTEMPT. WHAT WENT WRONG COMES BACK IN WORDS, BECAUSE IT MAY BE SPOKEN."""
+    """ONE ATTEMPT. WHAT WENT WRONG COMES BACK IN WORDS, BECAUSE IT MAY BE SPOKEN.
+
+    ASKED AS A BROWSER IS NOT ENOUGH ON ITS OWN: A SITE READS THE SHAPE OF THE HANDSHAKE
+    UNDERNEATH THE HEADERS, AND A PYTHON ONE IS TURNED AWAY WHATEVER IT CALLS ITSELF. THIS
+    MAKES THAT HANDSHAKE LOOK LIKE CHROME'S, WHICH IS THE WHOLE OF WHY REDDIT ANSWERS."""
     try:
-        return httpx.get(address, headers=headers, timeout=PATIENCE, follow_redirects=True)
-    except httpx.TimeoutException:
+        return browserlike.get(
+            address, headers=headers, timeout=PATIENCE, allow_redirects=True, impersonate=AS_CHROME
+        )
+    except browserlike.Timeout:
         raise PageError(HELD.format(host=urlhost(address), why="it took too long to answer."))
-    except httpx.HTTPError:
+    except browserlike.RequestsError:
         raise PageError(HELD.format(host=urlhost(address), why="it could not be reached."))
 
 
