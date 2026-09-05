@@ -36,17 +36,14 @@ def run_command(command: str, directory: str = "") -> str:
     changing one is edit_file; a > redirect onto a file that exists is refused
     here because it wipes the file unread.
 
-    Anything about this person's own project or repository has to run in the
-    folder that project lives in, and the home folder this otherwise starts in
-    is never it. Call file_in_front and pass the project it names as directory.
-    Running pwd or cd tells you where this tool starts, never where they are
-    working, and a git command in the wrong folder does not fail quietly, it
+    Anything about this person's own project runs in that project's folder:
+    call file_in_front and pass the project it names as directory, because the
+    home folder this starts in is never it and a git command in the wrong folder
     answers about a different thing.
 
-    Never write a date or a time into a command. You are not told what day it
-    is, so one you worked out yourself is a guess. Say when you mean in the words
-    the command works out for itself, and where it has to be a real date, get it
-    from where_we_are."""
+    Never write a date or a time into a command: you are not told what day it
+    is. Say when you mean in words the command works out itself, or get a real
+    date from where_we_are."""
     if deleting(command):
         return reasons.no(INSTEAD)
 

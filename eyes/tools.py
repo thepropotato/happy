@@ -125,18 +125,11 @@ def current_activity() -> str:
     reads browser tabs, which no window title shows. When a title is too little
     to go on, read_screen next.
 
-    This says what a thing is called and never where it is. A title is a name,
-    not a path, and a name is no use to anything that has to open, read, send or
-    attach the thing, or run a command inside the project it belongs to. The
-    moment that is what you are doing, file_in_front is the one that answers it.
-    Working a path out yourself from a name in a title is making one up.
-
-    The title is usually the specific thing: the file, the page, the video, the
-    person being written to. Say what it actually is. It often carries a season
-    and an episode, or a page and a chapter — that is where they are up to, not
-    how much is left. How much is left is that minus what the whole thing runs
-    to, and search_web is where the total comes from. Work it out rather than
-    saying you cannot."""
+    This says what a thing is called and never where it is: a title is not a
+    path, and the moment you need one, file_in_front answers it. Say what the
+    title actually is, the file, the page, the video, the person. A season and
+    an episode in it is where they are up to; how much is left is that against
+    what the whole thing runs to, which search_web finds."""
     # ONE INVENTORY FOR BOTH HALVES OF THE ANSWER, SO THE TWO CANNOT DISAGREE.
     seen = attention.windows()
 
@@ -218,9 +211,8 @@ def already_open(about: str, because: Literal[SEEING, CHECKING]) -> str:
     of what comes back and leave their screen alone. Asking about something is
     not asking to be shown it.
 
-    If nothing comes back, it is not open: search_web for it and open the address
-    that came back with it. Do not go straight to open_url with an address you
-    wrote yourself out of what they called it."""
+    If nothing comes back, it is not open: search_web for it and open the result
+    by its number."""
     if not about.strip():
         return "Say what to look for."
 

@@ -23,30 +23,26 @@
         }
       ],
       "reply": "The volume has been lowered a bit.",
-      "seconds": 1.9
+      "seconds": 3.1
     },
     {
       "id": "S2",
       "category": "simple",
       "said": "what's playing? skip to the next track",
       "verdict": "fail",
-      "why": "called ['already_open', 'read_screen'], wanted one of ['media_control']",
+      "why": "called ['already_open'], wanted one of ['media_control']",
       "called": [
-        "already_open",
-        "read_screen"
+        "already_open"
       ],
       "args": [
         {
           "about": "music",
           "because": "read",
-          "why": "Checking what is currently playing"
-        },
-        {
-          "why": "Checking current track"
+          "why": "User asked what is playing and to skip to next track"
         }
       ],
-      "reply": "I\u2019m not able to skip to the next track. If you\u2019d like me to pause or play the current media, just let me know.",
-      "seconds": 11.2
+      "reply": "I\u2019m not seeing any media player or music app open right now, so I can\u2019t skip a track. If you\u2019d like, I can open Spotify or Apple Music for you.",
+      "seconds": 5.2
     },
     {
       "id": "S3",
@@ -59,13 +55,13 @@
       ],
       "args": [
         {
-          "action": "set",
-          "level": 80,
-          "why": "User requested to make the screen brighter"
+          "action": "up",
+          "level": 10,
+          "why": "User asked to make the screen brighter"
         }
       ],
-      "reply": "The screen brightness is now set to 80 percent.",
-      "seconds": 1.8
+      "reply": "The screen brightness has been increased.",
+      "seconds": 2.3
     },
     {
       "id": "G1",
@@ -81,8 +77,8 @@
           "why": "asking what the user is looking at"
         }
       ],
-      "reply": "You\u2019re looking at the \u201cHappy\u201d window, with the title \u201cHappy \u2013 Assistant\u201d. The next window behind it is the \u201cGoogle Chrome\u201d tab titled \u201cOpenAI \u2013 ChatGPT\u201d. No other windows are in front.",
-      "seconds": 2.4
+      "reply": "I\u2019m seeing the window titled \u201cHappy \u2013 Assistant\u201d in front of you.",
+      "seconds": 1.9
     },
     {
       "id": "G2",
@@ -97,11 +93,11 @@
         {
           "text": "strawberry",
           "letter": "r",
-          "why": "counting r in strawberry"
+          "why": "counting r's in strawberry"
         }
       ],
       "reply": "There are two r\u2019s in strawberry.",
-      "seconds": 1.9
+      "seconds": 2.0
     },
     {
       "id": "G3",
@@ -114,11 +110,11 @@
       ],
       "args": [
         {
-          "why": "asking for computer details"
+          "why": "asking about computer type"
         }
       ],
-      "reply": "It\u2019s a macOS computer running the latest version of macOS, with a\u202fApple\u202fM1\u202fchip,\u202f8\u202fCPU\u202fcores,\u202f16\u202fGB\u202fRAM, and about\u202f256\u202fGB of free disk space. The hostname is \u201cmacbook\u2011pro\u20112026\u201d and the logged\u2011in user is \u201cyou\u201d.",
-      "seconds": 2.9
+      "reply": "It\u2019s a macOS computer running the latest version of macOS, with a\u202fApple\u202fM\u2011series\u202fprocessor,\u202f8\u202fCPU\u202fcores,\u202f16\u202fGB\u202fRAM, and a\u202f512\u202fGB SSD. The hostname is \u201cMac\u2011Book\u2011Pro\u20112026\u201d and the logged\u2011in user is \u201cyou\u201d.",
+      "seconds": 3.3
     },
     {
       "id": "L1",
@@ -133,40 +129,45 @@
       ],
       "args": [
         {
-          "about": "music",
+          "about": "Spotify",
           "because": "show",
-          "why": "Checking if music app is already open"
+          "why": "User asked to put on some music"
         },
         {
           "name": "Spotify",
-          "why": "Opening Spotify to play music"
+          "why": "User asked to put on some music"
         },
         {
           "want": "play",
-          "why": "Starting music playback"
+          "why": "User asked to put on some music"
         }
       ],
       "reply": "Playing music now.",
-      "seconds": 4.3
+      "seconds": 5.3
     },
     {
       "id": "L2",
       "category": "look-first",
       "said": "open youtube",
       "verdict": "fail",
-      "why": "called ['open_url'], wanted one of ['already_open']",
+      "why": "called ['search_web', 'open_url'], wanted one of ['already_open']",
       "called": [
+        "search_web",
         "open_url"
       ],
       "args": [
         {
-          "url": "https://www.youtube.com",
+          "query": "youtube",
+          "why": "searching for youtube"
+        },
+        {
+          "url": "1",
           "because": "show",
-          "why": "Opening YouTube"
+          "why": "opening youtube"
         }
       ],
-      "reply": "Opening YouTube.",
-      "seconds": 3.0
+      "reply": "I\u2019ve opened YouTube for you.",
+      "seconds": 3.5
     },
     {
       "id": "L3",
@@ -180,35 +181,29 @@
       "args": [
         {
           "query": "weather Hyderabad",
-          "why": "searching for weather in Hyderabad"
+          "why": "User asked to search the web for the weather in Hyderabad"
         }
       ],
-      "reply": "The current weather in Hyderabad is about 32\u202f\u00b0C with partly cloudy skies and a light breeze.",
-      "seconds": 1.9
+      "reply": "The latest forecast for Hyderabad shows a high of about 38\u202f\u00b0C and a low of 28\u202f\u00b0C, with partly cloudy skies and a 10\u202f% chance of rain.",
+      "seconds": 2.7
     },
     {
       "id": "M1",
       "category": "multi-step",
       "said": "find my resume and tell me what's in it",
-      "verdict": "pass",
-      "why": "called ['find_files', 'read_file']",
+      "verdict": "partial",
+      "why": "got ['find_files'] but never followed with ['read_file']",
       "called": [
-        "find_files",
-        "read_file"
+        "find_files"
       ],
       "args": [
         {
           "name": "resume",
-          "why": "finding resume file"
-        },
-        {
-          "path": "~/Documents/Resume.pdf",
-          "start": 0,
-          "why": "reading resume"
+          "why": "User asked to find resume"
         }
       ],
-      "reply": "I found your resume in the Documents folder. It lists your name, contact details, a summary of your experience, education, skills, and a brief overview of your professional background. If you\u2019d like me to read a specific section or highlight particular details, just let me know.",
-      "seconds": 4.1
+      "reply": "I found a file called \u201cresume.pdf\u201d in your Documents folder. It\u2019s a PDF, so I\u2019ll read it for you.",
+      "seconds": 2.4
     },
     {
       "id": "M2",
@@ -222,16 +217,16 @@
       ],
       "args": [
         {
-          "why": "copy screen content"
+          "why": "User asked to copy what's on screen"
         },
         {
           "action": "write",
-          "text": "[screen content]",
-          "why": "copy screen content"
+          "text": "<screen text>",
+          "why": "Copying screen content to clipboard"
         }
       ],
-      "reply": "The screen content is now on your clipboard.",
-      "seconds": 3.0
+      "reply": "The current screen text has been copied to your clipboard.",
+      "seconds": 4.7
     },
     {
       "id": "M3",
@@ -251,7 +246,7 @@
         }
       ],
       "reply": "Got it. I\u2019ll remind you to call mum in an hour.",
-      "seconds": 2.4
+      "seconds": 2.6
     },
     {
       "id": "R1",
@@ -261,26 +256,19 @@
       "why": "answered without calling anything",
       "called": [],
       "args": [],
-      "reply": "You\u2019re welcome! If you need anything else, just let me know.",
-      "seconds": 1.1
+      "reply": "You\u2019re welcome! If anything comes up later, just let me know.",
+      "seconds": 1.2
     },
     {
       "id": "R2",
       "category": "restraint",
       "said": "what's the capital of France?",
-      "verdict": "partial",
-      "why": "answered but also called ['search_web']",
-      "called": [
-        "search_web"
-      ],
-      "args": [
-        {
-          "query": "capital of France",
-          "why": "answering user question"
-        }
-      ],
-      "reply": "Paris.",
-      "seconds": 2.0
+      "verdict": "pass",
+      "why": "answered without calling anything",
+      "called": [],
+      "args": [],
+      "reply": "The capital of France is Paris.",
+      "seconds": 0.8
     },
     {
       "id": "R3",
@@ -290,8 +278,8 @@
       "why": "answered without calling anything",
       "called": [],
       "args": [],
-      "reply": "Got it, I\u2019ll hold off. If you need anything else, just let me know.",
-      "seconds": 1.6
+      "reply": "Got it. I\u2019ll hold off.",
+      "seconds": 1.4
     }
   ]
 }

@@ -176,7 +176,8 @@ class Happy:
         except Exception as error:
             raise LLMError(brain.reason(error))
 
-        reply = worded(done["messages"][-1].text.strip())
+        # A ROUND THAT THOUGHT AND THEN SAID NOTHING, NOR ASKED FOR A TOOL, STILL ENDS ON WORDS.
+        reply = worded(done["messages"][-1].text.strip()) or NOTHING
         memory.close(reply, time.perf_counter() - started)
 
         return reply

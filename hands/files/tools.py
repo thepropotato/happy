@@ -47,15 +47,10 @@ def file_in_front() -> str:
     and answers about nothing. Their editor, their PDF, their document: this is
     the same question for all of them.
 
-    Never go looking for it yourself. Listing Desktop and Documents one folder
-    after another to guess which one they meant is not looking, it is searching
-    in front of somebody who already knows, and the folder you settle on is a
-    guess you will not mention. When this cannot tell, ask them which one they
-    mean and use the path they say.
-
-    This is where a thing is. current_activity is what they are doing and is
-    the one to use when you were asked a question to answer out loud, not asked
-    to go and do something with the file."""
+    Never go looking for it yourself by listing folders to guess which one they
+    meant. When this cannot tell, ask them which one they mean and use the path
+    they say. This is where a thing is; current_activity is what they are doing,
+    for a question answered out loud."""
     found, complaint = infront.settled()
 
     if not found:
@@ -171,10 +166,8 @@ def move_to_trash(path: str) -> str:
     guessed path is not the thing they meant and will not be found.
 
     Use this whenever you are asked to delete, remove, get rid of, bin, throw away
-    or clear out something on the disk. Never delete with run_command. rm, rmdir,
-    del and Remove-Item destroy the thing outright and nothing on this computer can
-    bring it back, so they are not how you delete and not a fallback when this
-    refuses. This is the only tool that deletes.
+    or clear out something on the disk. This is the only tool that deletes; a
+    command is never a fallback when this refuses.
 
     What it moves is still there, in the Trash, and restore_from_trash can put it
     back. Say that when you report it, so they know they have not lost it.
