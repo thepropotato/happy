@@ -1068,6 +1068,41 @@
    "check": {
     "no_question": true
    }
+  },
+  {
+   "row": 27,
+   "said": "what movie is this",
+   "replies": {
+    "current_activity": [
+     {
+      "failed": false,
+      "result": "Google Chrome is in front, and the window is \"Netflix\", showing \"Korean Kanakaraju\". Also open, on this desktop and any other: Code — \"Happy agent architecture… — happy\"; Ollama."
+     }
+    ],
+    "already_open": [
+     {
+      "failed": false,
+      "result": "Nothing about movie is open. What is open:\nCode — \"Happy agent architecture… — happy\"\nOllama\nGoogle Chrome tab — \"Korean Kanakaraju on Netflix\""
+     }
+    ],
+    "read_screen": [
+     {
+      "failed": false,
+      "result": "What's this idol?"
+     }
+    ]
+   },
+   "expect": [
+    "current_activity",
+    "already_open"
+   ],
+   "forbid": [],
+   "check": {
+    "contains_any": [
+     "Kanakaraju"
+    ],
+    "no_question": true
+   }
   }
  ]
 }

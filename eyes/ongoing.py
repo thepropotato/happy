@@ -2,6 +2,7 @@
 
 from eyes import tabs
 from eyes.attention import windows
+from eyes.titling import named
 
 # TOO SMALL TO TELL TWO THINGS APART, AND PEOPLE DROP THEM ANYWAY.
 FILLER = {"the", "a", "an", "of", "on", "in", "at", "to", "my", "and", "for", "is", "it"}
@@ -38,10 +39,12 @@ def matches(about):
             found.append(f'{name} — "{title}"' if title else name)
 
     for browser, title, address in open_tabs:
-        if hit(wanted, title, address):
+        shown = named(title, address)
+
+        if hit(wanted, shown, address):
             found.append(
-                f'{browser} tab — "{title}" ({address})' if address
-                else f'{browser} tab — "{title}"'
+                f'{browser} tab — "{shown}" ({address})' if address
+                else f'{browser} tab — "{shown}"'
             )
 
     return found
@@ -58,4 +61,4 @@ def everything():
         if title not in fronting
     ]
 
-    return listed + [f'{browser} tab — "{title}"' for browser, title, _ in open_tabs[:MOST]]
+    return listed + [f'{browser} tab — "{named(title, address)}"' for browser, title, address in open_tabs[:MOST]]

@@ -99,16 +99,28 @@ def signature(name, args):
     return name, json.dumps(args, sort_keys=True, default=str)
 
 
+UNMOVED = (
+    "You have looked at this twice this turn and it has not changed, so looking again will not "
+    "either. Use what it said, or ask a different tool."
+)
+
+
 def repeated(name, args):
-    """WHAT THIS EXACT CALL ALREADY GOT BACK THIS TURN, OR None."""
-    if name in CHANGING:
+    """WHY THIS EXACT CALL SHOULD NOT RUN AGAIN THIS TURN, OR None. A TOOL THAT READS SOMETHING
+    THAT MOVES MAY BE ASKED TWICE, BUT TWICE THE SAME ANSWER MEANS IT IS NOT MOVING."""
+    got = asked.get(signature(name, args)) or []
+
+    if not got:
         return None
 
-    return asked.get(signature(name, args))
+    if name not in CHANGING:
+        return REPEATED
+
+    return UNMOVED if len(got) >= 2 and got[-1] == got[-2] else None
 
 
 def remember(name, args, said):
-    asked[signature(name, args)] = said
+    asked.setdefault(signature(name, args), []).append(said)
 
 
 def watches(handler):
@@ -277,17 +289,17 @@ def keep_record(request, handler):
 
     # THE SAME TOOL WITH THE SAME ARGUMENTS GIVES THE SAME ANSWER, AND ASKING TWICE IN ONE TURN
     # IS THE SHAPE EVERY STUCK RUN TAKES. THE ANSWER IT ALREADY HAS IS POINTED AT INSTEAD.
-    earlier = repeated(name, args)
+    refusal = repeated(name, args)
 
-    if earlier is not None:
+    if refusal is not None:
         global missed
 
         missed += 1
-        memory.used(name, args, REPEATED, 0.0, why, failed=True, spent=claim())
-        tell(TOOL, name, 0.0, {"id": which, "why": why, "args": args, "result": REPEATED,
+        memory.used(name, args, refusal, 0.0, why, failed=True, spent=claim())
+        tell(TOOL, name, 0.0, {"id": which, "why": why, "args": args, "result": refusal,
                                "failed": True, "spent": None})
 
-        return ToolMessage(content=REPEATED, name=name, tool_call_id=call.get("id") or "", status="error")
+        return ToolMessage(content=refusal, name=name, tool_call_id=call.get("id") or "", status="error")
 
     # THE ROUND THAT ASKED FOR THIS CALL, AND WHAT READING THE WHOLE PROMPT AGAIN
     # TO ASK FOR IT COST. TAKEN ON THE WAY IN SO THE FIRST TOOL OF A ROUND GETS IT.

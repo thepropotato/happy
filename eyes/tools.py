@@ -6,9 +6,10 @@ from typing import Literal
 
 from langchain_core.tools import tool
 
-from eyes import attention, ongoing
+from eyes import attention, ongoing, titling
 from eyes.deciphering import look
 from eyes.describing import QUESTION, asked, smaller
+from eyes.framing import framed
 from eyes.screen import grab
 from eyes.shapes import VisionError
 from face import handing
@@ -74,12 +75,12 @@ def read_screen() -> str:
     at. This is fast and exact, so prefer it over look_at_screen whenever the
     answer is written on the screen in words.
 
-    If what you actually want is what can be clicked, use list_controls instead.
-    It asks the application directly, which is several times faster than this
-    and also tells you what is greyed out or ticked. If you are asked to show or
-    send the screen rather than to say what is on it, use show_screen."""
+    A video is black to a picture, so on a player this returns a title and a
+    clock at best; current_activity says what that window is showing. If what
+    you want is what can be clicked, use list_controls, which asks the
+    application directly. To show or send the screen, use show_screen."""
     try:
-        seen = look(grab().image)
+        seen = look(framed(grab()).image)
     except VisionError as problem:
         return reasons.no(str(problem))
 
@@ -139,7 +140,10 @@ def current_activity() -> str:
     name, title = seen[0]
 
     if title:
-        return f'{name} is in front, and the window is "{title}".{rest(seen)}'
+        shown = titling.showing(name, title)
+        more = f', showing "{shown}"' if shown else ""
+
+        return f'{name} is in front, and the window is "{title}"{more}.{rest(seen)}'
 
     # A REFUSED ACCESSIBILITY PROMPT LOOKS EXACTLY LIKE A WINDOW WITH NO NAME, AND
     # ONE OF THE TWO IS SOMETHING THE PERSON CAN ACTUALLY GO AND FIX.

@@ -10,6 +10,13 @@ BLIND = (
 )
 
 
+BLACK = (
+    "The screen is black to a picture right now, which is what a streaming player does with its "
+    "video. Nothing can be read off it; current_activity and already_open say what the window is "
+    "showing without looking."
+)
+
+
 def density(pixels):
     """HOW MANY PIXELS OF PICTURE THERE ARE TO ONE STEP OF THE POINTER."""
     try:
@@ -38,8 +45,19 @@ def grab():
     if picture is None:
         raise VisionError(BLIND)
 
-    # MACOS DOES NOT REFUSE OUT LOUD: THE GRAB SUCCEEDS AND EVERY PIXEL IS BLACK.
+    # MACOS DOES NOT REFUSE OUT LOUD: THE GRAB SUCCEEDS AND EVERY PIXEL IS BLACK. BUT SO IS A
+    # STREAMING PLAYER FILLING THE SCREEN, SO THE SYSTEM IS ASKED WHICH ONE THIS IS.
     if picture.convert("L").getextrema() == (0, 0):
-        raise VisionError(BLIND)
+        raise VisionError(BLACK if allowed() else BLIND)
 
     return Shot(picture, density(picture.width))
+
+
+def allowed():
+    """WHETHER THE SCREEN MAY BE RECORDED, ASKED OF THE SYSTEM RATHER THAN GUESSED OFF THE PIXELS."""
+    try:
+        import Quartz
+
+        return bool(Quartz.CGPreflightScreenCaptureAccess())
+    except Exception:
+        return True  # NOT A MAC, OR NO WAY TO ASK: A BLACK FRAME IS THEN JUST A BLACK FRAME.
