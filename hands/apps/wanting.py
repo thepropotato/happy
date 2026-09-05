@@ -84,6 +84,20 @@ SHOW = [
     "bring it up on screen",
     "put it on my screen",
     "get it up in front of me",
+
+    # A REVIEW, A VIDEO OR A CHANNEL BY SOMEBODY NAMED. THEY WANT THAT PERSON'S OWN THING ON
+    # SCREEN, AND READING A DIFFERENT SITE'S WRITE-UP OUT LOUD IS NOT AN ANSWER TO IT.
+    "show me the review of this movie by barbell",
+    "show me the review of romanchakam by barbell",
+    "show me his review of it",
+    "show me that channel",
+    "show me the barbell review on youtube",
+    "no i was talking about the barbell pitch meetings review on youtube",
+    "let me see the video",
+    "let me see the vide",
+    "i want to watch his review",
+    "open his latest video",
+    "play his review",
 ]
 
 READ = [
@@ -158,4 +172,27 @@ READ = [
     "are you sure about the answer",
     "in the us",
     "and today",
+
+    # A LINK OR AN ADDRESS IS A FACT TO SAY, NOT A PAGE TO PUT UP -- EVEN WHEN THE SENTENCE
+    # BEGINS WITH SHOW ME. OPENING IT COVERS OVER THE VERY THING THEY ARE ASKING ABOUT.
+    "can you show me the link of the video im watching",
+    "show me the link",
+    "whats the link to this",
+    "send me the link",
+    "what is the url of this page",
+    "whats the address of this",
+    "copy the link for me",
+
+    # A QUESTION ABOUT WHAT IS ALREADY IN FRONT OF THEM. IT IS ON THEIR SCREEN ALREADY, SO
+    # THERE IS NOTHING TO OPEN, AND OPENING SOMETHING WOULD TAKE IT AWAY.
+    "no the current video",
+    "no the current one",
+    "what video am i watching",
+    "what is this video",
+    "which one is this",
+
+    # CARRYING ON WITH WORK THAT IS NOT ABOUT A PAGE AT ALL.
+    "fill it",
+    "fill it in",
+    "you just created the file and stopped continue",
 ]

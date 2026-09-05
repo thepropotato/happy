@@ -8,8 +8,10 @@ from hands.apps.wanting import READ, SHOW
 
 # HOW FAR APART THE TWO SIMILARITIES HAVE TO BE BEFORE THIS ANSWERS BY ITSELF. UNDER IT THE
 # QUESTION GOES TO THE MODEL INSTEAD, WHICH IS SLOW BUT UNDERSTANDS WORDS IT HAS NEVER SEEN.
-# MEASURED: 0.05 CATCHES NINE OF THIRTEEN MISTAKES AND SENDS ONE IN SIX QUESTIONS ONWARD.
-SURE = 0.05
+# NEAREST NEIGHBOUR SPREADS THE TWO SIDES MUCH FURTHER APART THAN THE AVERAGE DID, SO THE
+# GAP THAT MEANS "SURE" IS WIDER TOO. MEASURED OVER THE LINES BELOW AND THE MISTAKES THAT
+# PROMPTED THEM: 0.15 IS RIGHT ON 17 OF 18 AND HANDS ON THE ONE IT IS NOT SURE OF.
+SURE = 0.15
 
 learned = None
 
@@ -33,7 +35,10 @@ def told(said):
         # NO EMBEDDING MODEL IS NOT AN ANSWER OF NO. THE SLOWER JUDGE STILL GETS ITS TURN.
         return None
 
-    gap = float(point @ towards - point @ away)
+    # THE NEAREST LINE ON EACH SIDE, NOT THE MIDDLE OF EITHER. "SHOW ME THE LINK" AND "SHOW ME
+    # THE VIDEO" SIT ALMOST ON TOP OF EACH OTHER, AND AVERAGING EVERY LINE INTO ONE POINT
+    # RUBBED OUT THE VERY DIFFERENCE BEING ASKED ABOUT: BOTH CAME OUT "SHOW" BY A HAIR.
+    gap = float((towards @ point).max() - (away @ point).max())
 
     if abs(gap) < SURE:
         return None
@@ -47,25 +52,22 @@ READING = "read"
 
 
 def middles():
-    """THE MIDDLE OF EVERYTHING SAID TO BE SHOWN, AND THE MIDDLE OF EVERYTHING TO BE READ."""
+    """EVERY LINE SAID TO BE SHOWN, AND EVERY LINE TO BE READ, EACH AS A POINT OF ITS OWN."""
     global learned
 
     if learned is None:
         with lock:
             if learned is None:
-                learned = (centre(SHOW), centre(READ))
+                learned = (points(SHOW), points(READ))
 
     return learned
 
 
-def centre(lines):
-    """ONE VECTOR FOR A WHOLE LIST: THE AVERAGE OF THEM, BACK ON THE UNIT SPHERE."""
+def points(lines):
+    """ONE VECTOR PER LINE, KEPT APART RATHER THAN AVERAGED INTO ONE."""
     from memory.embedding import vector
 
-    points = np.array([vector(each) for each in lines], dtype=np.float32)
-    middle = points.mean(axis=0)
-
-    return middle / np.linalg.norm(middle)
+    return np.array([vector(each) for each in lines], dtype=np.float32)
 
 
 def warm():
