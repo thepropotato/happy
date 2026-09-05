@@ -62,8 +62,8 @@ Needs `pip install datasets`, and Ollama up with whatever `brain.model` is set t
 
 ## Reading a report
 
-Reports land in `bench/runs/` as JSON. The throwaway databases and decoded clips there are not
-committed; the reports are, so runs can be compared over time.
+Reports land in `bench/runs/` as JSON and stay there: results, throwaway databases and clips
+are not committed. Compare runs on the machine that made them.
 
 A ToolCall-15 scenario lists `expect` (any one of these tools is right), optional `then` (a
 second call that must follow, or it scores partial), and `forbid` (`"*"` means the right answer

@@ -17,8 +17,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from bench import sandbox
 
-# BEFORE ANY HAPPY IMPORT, AND EMPTIED, SO A REPLAY STARTS FROM NOTHING EVERY TIME.
-DB = sandbox.throwaway("replay.db")
+# BEFORE ANY HAPPY IMPORT, AND EMPTIED, SO A REPLAY STARTS FROM NOTHING EVERY TIME. TWO
+# REPLAYS AT ONCE EACH WANT A FILE OF THEIR OWN: --db name GIVES THIS ONE ITS OWN.
+DB = sandbox.throwaway(sys.argv[sys.argv.index("--db") + 1] if "--db" in sys.argv else "replay.db")
 DB.unlink(missing_ok=True)
 
 from bench import scoring
@@ -39,7 +40,7 @@ def knobs(args):
     pairs = []
 
     for index, each in enumerate(args):
-        if each.startswith("--") and index + 1 < len(args):
+        if each.startswith("--") and each != "--db" and index + 1 < len(args):
             pairs.append((f"brain.{each[2:]}", args[index + 1]))
 
     return pairs
