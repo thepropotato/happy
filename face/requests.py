@@ -52,6 +52,9 @@ def listen():
         try:
             order = json.loads(line)
         except ValueError:
+            # DROPPED WHERE NOBODY COULD SEE IT, WHICH IS HOW A MESSAGE CAME TO GO MISSING
+            # WITH NOTHING ANYWHERE TO SAY IT HAD. THE LINE ITSELF IS WHAT NAMES THE CULPRIT.
+            telling.trouble(f"a line from the window made no sense and was dropped: {line[:200]}")
             continue
 
         try:
@@ -113,6 +116,10 @@ def call(what, *args):
 
     if handler:
         handler(*args)
+    else:
+        # AN ORDER NOBODY IS LISTENING FOR IS A MESSAGE THAT GOES NOWHERE, AND SAYING SO IS
+        # THE DIFFERENCE BETWEEN A BUG AND A MYSTERY.
+        telling.trouble(f"the window asked for {what!r}, which nothing here answers")
 
 
 def changed(key, value):

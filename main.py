@@ -273,10 +273,16 @@ def typed(happy, speaker, text):
 
     stop_turn(happy, speaker)
 
+    # THE MESSAGE ON SCREEN BEFORE THE LOCK, THE TURN ITSELF AFTER IT. ONE SENT WHILE A TURN
+    # WAS STILL GOING USED TO WAIT HERE UNSEEN FOR AS LONG AS THAT TURN TOOK, AND IF THE
+    # PROCESS LEFT FIRST THIS DAEMON THREAD DIED WITH IT AND NOBODY EVER SAW OR ANSWERED IT.
+    # ONLY THE ECHO MOVES OUT: begin() REPLACES THE TURN BEING TIMED, AND OUT HERE THAT WOULD
+    # BE A RUNNING TURN'S.
+    show.said(text)
+
     with taking:
         happy.start_turn()
         show.begin()
-        show.said(text)
         respond(happy, speaker, text)
         show.end()
 
