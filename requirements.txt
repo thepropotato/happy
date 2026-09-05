@@ -22,6 +22,7 @@ cloudpickle==3.1.2
 colorlog==6.12.0
 cryptography==49.0.0
 csvw==4.1.0
+curl_cffi==0.16.3
 Cython==3.2.9
 defusedxml==0.7.1
 distro==1.9.0
@@ -29,6 +30,7 @@ dlinfo==2.0.0
 docstring_parser==0.18.0
 espeakng-loader==0.2.4
 et_xmlfile==2.0.0
+extruct==0.18.0
 fetch-use==0.4.0
 filelock==3.32.0
 flask==3.1.3
