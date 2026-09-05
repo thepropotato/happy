@@ -25,6 +25,7 @@ from brain.wrapping import (
     keep_count,
     keep_going,
     keep_honest,
+    keep_looking,
     keep_named,
     keep_recent,
     keep_record,
@@ -117,6 +118,9 @@ class Happy:
                 keep_at_it,
                 # AND A TURN MAY NOT TALK ITSELF OUT OF A JOB IT HAS A TOOL FOR.
                 keep_able,
+                # NOR ANSWER A QUESTION ABOUT WHAT IS IN FRONT OF THEM OUT OF ITS OWN MEMORY.
+                # THE WRITING TOOLS GUARD THIS FOR FILES; A SPOKEN ANSWER PASSES ONLY HERE.
+                keep_looking,
                 ModelCallLimitMiddleware(run_limit=settings.get("brain.calls")),
                 # LAST, SO IT SITS CLOSEST TO THE MODEL: A GO THROWN AWAY OVER BAD
                 # JSON IS NOT A ROUND ANYBODY ASKED FOR AND IS NOT COUNTED AS ONE.

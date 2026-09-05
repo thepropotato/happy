@@ -1,6 +1,13 @@
-# THE THROWAWAY DATABASES AND THE DECODED CLIPS, NOT THE REPORTS.
-runs/*.db
-runs/*.db-shm
-runs/*.db-wal
-runs/audio/
-runs/regress/
+# A RUN'S OUTPUT IS NOT SOMEBODY ELSE'S TO CHECK OUT: THE THROWAWAY DATABASES, THE DECODED
+# CLIPS, AND EVERY REPORT A REPLAY WRITES. IGNORING THESE BY NAME MEANT A RUN GIVEN ITS OWN
+# --db WENT STRAIGHT INTO GIT, SO IT IS THE WHOLE FOLDER NOW, WITH THE KEPT ONES NAMED BACK.
+runs/*
+
+# THE MEASUREMENTS WORTH KEEPING: THE NUMBERS A CHANGE IS ARGUED AGAINST LATER.
+!runs/regress-wide.log
+!runs/toolcall15.json
+!runs/toolcall15.log
+!runs/vb-parakeet.log
+!runs/vb-whisper.log
+!runs/voicebench-parakeet.json
+!runs/voicebench-whisper.json

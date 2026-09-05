@@ -12,7 +12,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 import memory
 from brain.history import recent
 from hands import reasons
-from memory import settings
+from memory import conversation, settings
 
 TOOL = "tool"
 
@@ -109,6 +109,18 @@ REPEATED = (
     "Use it, or change the arguments or the tool."
 )
 
+# THE SAME CALL AGAIN AFTER THE LAST ONE WAS TURNED BACK WITH INSTRUCTIONS. "THE ANSWER IS
+# ABOVE, USE IT" IS THE WRONG THING TO SAY HERE — THERE IS NO ANSWER ABOVE, THERE IS A
+# REFUSAL, AND A TURN TOLD TO USE IT WENT ON TO ANNOUNCE A DECK THAT HAD NEVER BEEN WRITTEN.
+# SO THE REFUSAL IS SAID AGAIN, WHOLE, RATHER THAN POINTED AT.
+UNCHANGED = (
+    "Nothing was written, and sending the very same arguments a second time will not write it "
+    "either — they are the ones that were turned back. This is what you were told, and it has "
+    "not been done yet:\n\n{undone}\n\n"
+    "Do that now, and then call this again with what came back in it. Nothing has been created "
+    "or saved, so do not tell them it has."
+)
+
 # A TOOL THAT READS A CHANGING THING MAY HONESTLY BE ASKED TWICE: THE SCREEN MOVES, A BUILD
 # FINISHES. EVERYTHING ELSE ANSWERS THE SAME WAY TO THE SAME QUESTION WITHIN ONE TURN.
 CHANGING = {"current_activity", "screen", "list_open_windows",
@@ -135,7 +147,9 @@ def repeated(name, args):
         return None
 
     if name not in CHANGING:
-        return REPEATED
+        # A REFUSAL THAT WAS REALLY AN INSTRUCTION IS REPEATED IN FULL, BECAUSE POINTING BACK
+        # AT IT IS WHAT LET A TURN READ "use it" AS LEAVE TO CARRY ON AND CLAIM IT WAS DONE.
+        return UNCHANGED.format(undone=got[-1]) if CARRY_ON in got[-1] else REPEATED
 
     return UNMOVED if len(got) >= 2 and got[-1] == got[-2] else None
 
@@ -279,6 +293,61 @@ GAVE_UP = (
 )
 
 
+# WORDS THAT POINT AT SOMETHING IN FRONT OF THEM RATHER THAN NAMING IT. WHAT THEY POINT AT IS
+# ONLY KNOWABLE BY LOOKING, AND THE CONVERSATION IS NOT LOOKING — IT IS WHAT WAS TRUE EARLIER.
+# THESE LIVE HERE, NOT WITH THE WRITING TOOLS, BECAUSE A SPOKEN ANSWER POINTS JUST AS OFTEN AS
+# A DECK DOES AND BOTH HALVES HAVE TO BE HELD TO THE SAME LIST.
+POINTED = (
+    "the show i", "the show im", "the show i'm", "the video i", "the video im", "the video i'm",
+    "im watching", "i'm watching", "i am watching", "this show", "this video", "this movie",
+    "this page", "this song", "this article", "on my screen", "in front of me", "right now",
+    "currently watching", "playing right now", "this thing", "what im", "what i'm",
+)
+
+# THE TOOLS THAT ACTUALLY GO AND LOOK.
+LOOKERS = ("current_activity", "already_open", "screen", "list_open_windows")
+
+# AND THE ONES THAT GO AND FIND OUT ABOUT WHAT THE LOOKING TURNED UP.
+READERS = ("read_page", "search_web", "describe_project", "read_file", "open_url",
+           "recall_conversation")
+
+# A QUESTION POINTS AT THE SCREEN, AND THE ANSWER CAME OUT OF THE MODEL WITH NOTHING LOOKED UP.
+# THE DECK HALF OF THIS WAS GUARDED AND THE SPOKEN HALF WAS NOT, SO "how many episodes does
+# this show have" WAS ANSWERED "ten" — OFF THE WEIGHTS, ABOUT A SHOW NAMED IN A TOOL RESULT AN
+# HOUR AND A HALF OLD, WITH NO CALL MADE THIS TURN AT ALL.
+UNLOOKED_ALOUD = (
+    "Stop — you have not looked. They said {said!r}, which points at whatever is in front of "
+    "them right now, and no tool this turn has been and found out what that is. What was said "
+    "earlier in this conversation is what was true earlier, not what is on their screen now, "
+    "and a title you remember is not a thing you know.\n\n"
+    "Do it now, in this turn, before you answer them anything:\n"
+    "1. current_activity, to see what is actually there.\n"
+    "2. search_web or read_page about whatever that turns out to be.\n"
+    "3. answer them out of what those two came back with, and nothing else.\n"
+    "This is a step of the job, not a refusal of it. Do not apologise and do not stop."
+)
+
+# AND THE SAME QUESTION ONCE THE LOOKING IS DONE: THE TITLE IS KNOWN AND THE ANSWER STILL IS
+# NOT. AN EPISODE COUNT, A YEAR, A CAST — NONE OF THOSE ARE ON THE SCREEN, AND ANSWERING THEM
+# OFF A WINDOW TITLE IS THE SAME GUESS WEARING A SOURCE.
+UNREAD_ALOUD = (
+    "You have looked and that is all you have done. You know what it is called; you do not "
+    "know the answer to {said!r}, and that is not something a window title says.\n\n"
+    "Do it now, in this turn: search_web or read_page about what you saw on the screen, then "
+    "answer out of what came back. Whatever you were about to say from memory is the part that "
+    "turns out to be about the wrong show. This is a step of the job, not a refusal of it."
+)
+
+# WHAT LOOKING ITSELF ANSWERS. A WINDOW SAYS WHAT IS OPEN, WHAT IT IS CALLED AND WHERE IT IS,
+# SO A QUESTION ASKING ONLY THAT IS FINISHED THE MOMENT current_activity COMES BACK. SENDING
+# THOSE OFF TO READ SOMETHING TOO IS NOT CAUTION, IT IS THE WRONG ANSWER: TOLD TO GO AND READ
+# AFTER LOOKING, THE TURN ASKED "show me the link of the video im watching" SEARCHED THE WEB
+# FOR A VIDEO IT WAS ALREADY LOOKING AT, WHICH IS THE ONE THING THAT ROW EXISTS TO CATCH.
+ON_SCREEN = ("link", "url", "address", "what is this", "what's this", "whats this",
+             "what am i", "what im", "what i'm", "which video", "which show", "what show",
+             "what video", "what song", "what page", "called", "title", "name of", "open",
+             "playing", "tab", "window")
+
 # WHAT A TURN SAYS WHEN IT HAS TALKED ITSELF OUT OF A JOB IT CAN DO, AND THE TOOL THAT DOES
 # IT. THE MODEL BELIEVES IT CANNOT MAKE AN OFFICE FILE, BECAUSE MOST MODELS CANNOT; SAYING SO
 # IN THE PROMPT DID NOT MOVE IT, SO THE ANSWER IS TURNED BACK HERE INSTEAD.
@@ -364,6 +433,74 @@ def keep_at_it(request, handler):
     )
 
     return handler(told)
+
+
+@wrap_model_call
+def keep_looking(request, handler):
+    """A TURN MAY NOT ANSWER A QUESTION ABOUT WHAT IS IN FRONT OF THEM OUT OF ITS OWN MEMORY.
+
+    THE WRITING TOOLS HAVE HELD THIS LINE FOR A WHILE, AND THEY HOLD IT ONLY FOR THEMSELVES:
+    THE CHECK LIVES IN write_document'S ARGUMENTS, SO A TURN THAT ENDS IN A PLAIN SENTENCE
+    NEVER TOUCHES IT. ASKED "how many episodes does this show have", A TURN CALLED NOTHING,
+    TOOK THE SHOW'S NAME OFF A current_activity RESULT FROM NINETY MINUTES EARLIER, AND SAID
+    "ten" OFF THE WEIGHTS. EVERY PART OF THAT WAS WRONG AND NONE OF IT WAS CATCHABLE ANYWHERE
+    BUT HERE, WHICH IS THE ONE PLACE A SPOKEN ANSWER PASSES THROUGH BEFORE IT IS SAID.
+
+    IT IS SENT BACK ONCE. WHAT COMES BACK EITHER CALLS THE TOOLS IT WAS TOLD TO OR ANSWERS
+    ANYWAY, AND A SECOND TURNING BACK WOULD ONLY SPEND ANOTHER ROUND ON THE SAME REPLY."""
+    answered = handler(request)
+    said = conversation.asking() or ""
+
+    if not answering(answered) or not any(each in said.lower() for each in POINTED):
+        return answered
+
+    # LOOKING FIRST, THEN READING: THE TWO ARE ASKED FOR IN THE ORDER THEY HAVE TO HAPPEN, SO
+    # A TURN THAT HAS LOOKED IS NOT SENT BACK TO LOOK AGAIN.
+    if not already(*LOOKERS):
+        return again(request, handler, answered, UNLOOKED_ALOUD.format(said=said))
+
+    # A QUESTION THE SCREEN ITSELF ANSWERS IS DONE NOW. ANYTHING ELSE — A COUNT, A YEAR, A
+    # RUNTIME — IS NOT ON THE SCREEN AND HAS TO BE READ UP BEFORE IT IS SAID.
+    if not already(*READERS) and not any(each in said.lower() for each in ON_SCREEN):
+        return again(request, handler, answered, UNREAD_ALOUD.format(said=said))
+
+    return answered
+
+
+def again(request, handler, answered, telling):
+    """THE ROUND RUN AGAIN WITH THE TELLING ON THE END OF IT, OR THE FIRST ANSWER BACK IF THAT
+    CAME TO NOTHING.
+
+    A SENT-BACK ROUND USUALLY GOES OFF TO CALL THE TOOL IT WAS TOLD TO, WHICH IS THE POINT. NOW
+    AND THEN IT COMES BACK EMPTY, AND HANDING THAT UP THE CHAIN ENDS THE TURN ON THE "I got
+    tangled up" FALLBACK — SILENCE, WHICH IS WORSE THAN THE ANSWER IT WAS BEING CORRECTED FOR.
+    SO NOTHING IS ONLY EVER TRADED FOR SOMETHING."""
+    told = handler(request.override(messages=list(request.messages) + [HumanMessage(telling)]))
+    said = getattr(told, "result", None) or told
+
+    if isinstance(said, list):
+        said = said[-1] if said else None
+
+    if getattr(said, "tool_calls", None) or (getattr(said, "text", "") or "").strip():
+        return told
+
+    return answered
+
+
+def answering(answered):
+    """WHETHER THIS ROUND IS THE ANSWER ITSELF RATHER THAN A STEP ON THE WAY TO ONE.
+
+    A ROUND THAT ASKED FOR A TOOL IS ABOUT TO GO AND LOOK, WHICH IS THE THING BEING ASKED FOR,
+    AND TURNING IT BACK WOULD INTERRUPT THE VERY BEHAVIOUR THIS IS HERE TO GET."""
+    said = getattr(answered, "result", None) or answered
+
+    if isinstance(said, list):
+        said = said[-1] if said else None
+
+    if getattr(said, "tool_calls", None):
+        return False
+
+    return bool((getattr(said, "text", "") or "").strip())
 
 
 def surrendering(answered):

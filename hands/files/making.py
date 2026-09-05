@@ -61,21 +61,12 @@ SEVERAL = (
     "that appears only once."
 )
 
-# WORDS THAT POINT AT SOMETHING IN FRONT OF THEM RATHER THAN NAMING IT. WHAT THEY POINT AT IS
-# ONLY KNOWABLE BY LOOKING, AND THE CONVERSATION IS NOT LOOKING — IT IS WHAT WAS TRUE EARLIER.
-POINTED = (
-    "the show i", "the show im", "the show i'm", "the video i", "the video im", "the video i'm",
-    "im watching", "i'm watching", "i am watching", "this show", "this video", "this movie",
-    "this page", "this song", "this article", "on my screen", "in front of me", "right now",
-    "currently watching", "playing right now", "this thing", "what im", "what i'm",
-)
-
-# THE TOOLS THAT ACTUALLY GO AND LOOK.
-LOOKERS = ("current_activity", "already_open", "screen", "list_open_windows")
-
-# AND THE ONES THAT GO AND FIND OUT ABOUT WHAT THE LOOKING TURNED UP.
-READERS = ("read_page", "search_web", "describe_project", "read_file", "open_url",
-           "recall_conversation")
+# WORDS THAT POINT AT SOMETHING IN FRONT OF THEM, AND THE TOOLS THAT GO AND SETTLE WHAT THEY
+# POINT AT. THEY LIVE IN wrapping BECAUSE A SPOKEN ANSWER IS HELD TO THE SAME LINE AS A DECK
+# IS, AND TWO COPIES OF THIS LIST WOULD BE ONE LIST AND ONE STALE ONE.
+POINTED = wrapping.POINTED
+LOOKERS = wrapping.LOOKERS
+READERS = wrapping.READERS
 
 UNREAD = (
     "Not written yet. You know what it is called and that is all you know, and a title is not "
@@ -90,7 +81,17 @@ UNREAD = (
 )
 
 # A FIGURE, A YEAR, A DURATION: THE THINGS A DECK STATES THAT ARE EITHER RIGHT OR WRONG.
-FIGURE = re.compile(r"\d[\d,.]*\s*(?:%|million|billion|k\b|m\b)?", re.I)
+# THE UNIT IS PART OF THE FIGURE, BECAUSE IT IS WHAT TELLS A CLAIM FROM A BULLET NUMBER: THE
+# DECK THAT SAID "Length: 45 minutes" ABOUT AN EPISODE NOBODY HAD TIMED MATCHED AS A BARE 45
+# AND WAS WAVED THROUGH AS COUNTING.
+UNITS = (r"%|million|billion|k\b|m\b|minutes?|mins?\b|hours?|hrs?\b|seconds?|secs?\b|"
+         r"episodes?|seasons?|series\b|parts?\b|years?|months?|weeks?|days?")
+FIGURE = re.compile(rf"\d[\d,.]*\s*(?:{UNITS})?", re.I)
+
+# A SHORT NUMBER IS ORDINARILY FURNITURE — "Slide 2", "- 3." — AND CHASING IT FOR A SOURCE IS
+# NOISE. ONE WEARING A UNIT IS NOT FURNITURE: IT IS A LENGTH, A COUNT OF EPISODES, A YEAR, AND
+# EVERY ONE OF THOSE IS EITHER READ OFF SOMETHING OR MADE UP.
+CARRIES_UNIT = re.compile(rf"\d[\d,.]*\s*(?:{UNITS})", re.I)
 
 # TWO OR MORE CAPITALISED WORDS MAKING ONE NAME: A PERSON, A PLACE, AN EPISODE, A BATTLE.
 # THE SMALL WORDS INSIDE A NAME STAY LOWERCASE — "Battle of the Bastards", "House of the
@@ -320,8 +321,8 @@ def unsourced(text, title):
                 continue
         elif flattened(fact) in seen:
             continue
-        elif bare:
-            continue  # A SHORT NUMBER IS A COUNT OR A BULLET, NOT A CLAIM WORTH CHASING.
+        elif bare and not CARRIES_UNIT.match(fact):
+            continue  # A SHORT NUMBER WITH NO UNIT IS A COUNT OR A BULLET, NOT A CLAIM.
 
         if fact not in missing:
             missing.append(fact)

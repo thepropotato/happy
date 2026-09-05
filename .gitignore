@@ -12,6 +12,3 @@ models
 data
 
 .env
-# RUN RESULTS STAY LOCAL
-bench/runs/replay*
-bench/runs/bisect*
