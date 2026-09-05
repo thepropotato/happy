@@ -10,10 +10,13 @@ from brain import wrapping
 from hands import reasons
 from hands.files import briefing
 from hands.files.finding import locate
-from hands.files.writers import WRITERS
+from hands.files.writers import ALSO_CALLED, writer
 from memory import conversation
 
-KINDS = Literal["slides", "document", "sheet"]
+# EVERY WORD THE TOOL WILL ANSWER TO, SO A MODEL WRITING "presentation" IS UNDERSTOOD
+# RATHER THAN BOUNCED OFF THE SCHEMA AND MADE TO GUESS AGAIN.
+KINDS = Literal["slides", "document", "sheet", "presentation", "powerpoint", "deck",
+                "doc", "word", "report", "spreadsheet", "excel", "table"]
 
 # A NAME ALREADY TAKEN IS NOT THE END OF THE ERRAND, IT IS THE MIDDLE OF ONE. WHAT IS
 # ALREADY THERE COMES BACK WITH THE REFUSAL, SO THE NEXT STEP CAN BE DECIDED RATHER THAN
@@ -419,7 +422,12 @@ def write_document(kind: KINDS, path: str, title: str, text: str) -> str:
     if made_up:
         text = without(text, made_up)
 
-    ending, make = WRITERS[kind]
+    made_for = writer(kind)
+
+    if not made_for:
+        return reasons.no(f"There is no kind of file called {kind!r}. Use slides, document or sheet.")
+
+    ending, make = made_for
     where = Path(path).expanduser().with_suffix(ending)
 
     if where.exists():

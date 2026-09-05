@@ -167,3 +167,22 @@ WRITERS = {
     "document": (".docx", document),
     "sheet": (".xlsx", sheet),
 }
+
+# THE WORDS A PERSON AND A MODEL ACTUALLY REACH FOR. THE SCHEMA NAMES ONE WORD PER KIND AND
+# THE MODEL WROTE "presentation", WHICH COST A WHOLE ROUND TO A VALIDATION ERROR AND TAUGHT
+# IT NOTHING; THE NEAR WORDS ARE TAKEN AS MEANT INSTEAD.
+ALSO_CALLED = {
+    "presentation": "slides", "powerpoint": "slides", "deck": "slides", "pptx": "slides",
+    "slide": "slides", "slideshow": "slides",
+    "doc": "document", "word": "document", "docx": "document", "letter": "document",
+    "report": "document", "text": "document",
+    "spreadsheet": "sheet", "excel": "sheet", "xlsx": "sheet", "table": "sheet",
+    "csv": "sheet", "workbook": "sheet",
+}
+
+
+def writer(kind):
+    """THE ENDING AND THE MAKER FOR A KIND, UNDER WHATEVER WORD IT WAS ASKED FOR."""
+    named = str(kind or "").strip().lower()
+
+    return WRITERS.get(named) or WRITERS.get(ALSO_CALLED.get(named, ""))
