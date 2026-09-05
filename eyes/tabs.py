@@ -131,3 +131,26 @@ def worded(found):
     )
 
 
+FRONT_TAB = """tell application "{name}"
+    if (count of windows) is 0 then return ""
+    return (URL of active tab of front window)
+end tell"""
+
+SAFARI_FRONT = """tell application "{name}"
+    if (count of documents) is 0 then return ""
+    return (URL of front document)
+end tell"""
+
+
+def front(browser):
+    """THE ADDRESS OF THE TAB BEING LOOKED AT IN THIS BROWSER, OR "". A WINDOW TITLE NAMES A
+    PAGE AND NEVER SAYS WHERE IT IS, AND WHERE IT IS IS WHAT A LINK IS."""
+    if not on_mac() or browser not in MAC_CHROMIUM + MAC_SAFARI:
+        return ""
+
+    recipe = SAFARI_FRONT if browser in MAC_SAFARI else FRONT_TAB
+
+    try:
+        return (osascript(recipe.format(name=browser)) or "").strip()
+    except Exception:
+        return ""
