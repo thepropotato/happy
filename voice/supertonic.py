@@ -6,7 +6,8 @@ import numpy as np
 
 from bones import systems
 from memory import settings
-from voice.clips import tidied
+from voice import pacing
+from voice.clips import tidied, trimmed
 from voice.engines import VoiceError
 
 RATE = 44100
@@ -83,14 +84,23 @@ class Voice:
         yield tidied([self.sound(text)], self.rate)
 
     def sound(self, text):
-        """ONE SENTENCE THROUGH THE MODEL."""
+        """ONE SENTENCE THROUGH THE MODEL, AT AN EVEN PACE.
+
+        THE SPEED IS SET PER SENTENCE OFF THE MODEL'S OWN LENGTH PREDICTION, SO A SHORT ONE IS
+        NOT BLURTED AND A LONG ONE NOT DRAWLED. THE PREDICTION IS ROUGH ON SHORT SENTENCES, SO
+        A CLIP THAT STILL LANDED FAR OFF IS MADE ONCE MORE AT THE CORRECTED SPEED."""
+        speed = pacing.speed(self.speech.model, self.style, text, self.pace)
+        made = self.once(text, speed)
+        drift = pacing.off(len(trimmed(made, self.rate)) / self.rate, text, self.pace)
+
+        if abs(drift - 1.0) > pacing.TOLERANCE:
+            made = self.once(text, pacing.corrected(speed, drift))
+
+        return made
+
+    def once(self, text, speed):
         made = self.speech.synthesize(
-            text,
-            voice_style=self.style,
-            lang=ENGLISH,
-            total_steps=STEPS,
-            # THE MODEL COUNTS SPEED UP WHERE THE SETTING COUNTS THE LENGTH OF A WORD DOWN.
-            speed=1.0 / (self.pace or 1.0),
+            text, voice_style=self.style, lang=ENGLISH, total_steps=STEPS, speed=speed
         )
 
         # IT HANDS BACK THE SOUND AND HOW LONG IT RUNS, AND HAS SWAPPED THEIR ORDER BEFORE.

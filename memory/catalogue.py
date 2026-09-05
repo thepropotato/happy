@@ -93,7 +93,9 @@ VOICE = [
            "The voice Happy speaks with."),
     choice("voice.name", "Voice", [], "", VOICES, source="voices", preview="preview"),
     toggle("voice.muted", "Mute", False, "Happy still answers, in writing."),
-    number("voice.pace", "Pace", 0.6, 1.6, 0.05, 0.8, "Below one is faster speech."),
+    # ONE IS ABOUT A HUNDRED AND SEVENTY WORDS A MINUTE, HELD EVEN ACROSS SENTENCES. THE OLD
+    # DEFAULT OF 0.8 WAS TWO HUNDRED AND THIRTY FIVE ON AVERAGE AND OVER THREE HUNDRED ON SHORT ONES.
+    number("voice.pace", "Pace", 0.6, 1.6, 0.05, 1.0, "Below one is faster speech."),
 ]
 
 EYES = [
