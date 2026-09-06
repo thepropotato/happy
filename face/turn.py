@@ -28,6 +28,7 @@ class Turn:
         # ADDED UP OVER EVERY ROUND, BECAUSE A TURN IS NEVER ONE REQUEST.
         self.read = 0
         self.wrote = 0
+        self.prefill = 0.0
 
     def seconds(self):
         return time.perf_counter() - self.started
@@ -39,6 +40,7 @@ class Turn:
         """ONE MORE ROUND'S TOKENS ONTO THIS TURN'S BILL."""
         self.read += (spent or {}).get("read") or 0
         self.wrote += (spent or {}).get("wrote") or 0
+        self.prefill += (spent or {}).get("prefill") or 0.0
 
     def spent(self):
         return sum(taken for _, taken in self.tools)
@@ -62,6 +64,11 @@ def stats(this):
         parts.append(f"first word {clock(this.first)}")
 
     parts.append(f"total {clock(this.seconds())}")
+
+    # RE-READING THE PROMPT, WHICH IS NOT THINKING AND NOT A TOOL, AND ON A MISSED PREFIX
+    # IS MOST OF THE TURN.
+    if this.prefill:
+        parts.append(f"prefill {clock(this.prefill)}")
 
     # LAST, AND ITS OWN PART: IT IS THE ONLY NUMBER HERE THAT IS NOT A CLOCK.
     if this.read or this.wrote:

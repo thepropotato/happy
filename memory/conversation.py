@@ -20,7 +20,7 @@ VALUES (?, ?, ?, ?, ?, '[]')
 # READING THE COLUMN BACK. TWO TOOLS FINISHING AT ONCE CANNOT LOSE EITHER.
 APPEND = "UPDATE messages SET tools = json_insert(tools, '$[#]', json(?)) WHERE id = ?"
 
-CLOSE = "UPDATE messages SET reply = ?, seconds = ? WHERE id = ?"
+CLOSE = "UPDATE messages SET reply = ?, seconds = ?, spent = ? WHERE id = ?"
 
 RECENT = "SELECT * FROM messages ORDER BY epoch DESC LIMIT ?"
 EVERYTHING = "SELECT * FROM messages ORDER BY epoch"
@@ -114,15 +114,23 @@ def used(name, args, result, seconds=None, why=None, row=None, failed=False, spe
         pass
 
 
-def close(reply, seconds=None, row=None):
-    """WHAT HAPPY ANSWERED, AND HOW LONG THE WHOLE EXCHANGE TOOK."""
+def close(reply, seconds=None, row=None, spent=None):
+    """WHAT HAPPY ANSWERED, HOW LONG THE WHOLE EXCHANGE TOOK, AND WHAT IT COST."""
     row = here.get() if row is None else row
 
     if row is None:
         return
 
     try:
-        storage.write(CLOSE, (reply, round(seconds, 3) if seconds is not None else None, row))
+        storage.write(
+            CLOSE,
+            (
+                reply,
+                round(seconds, 3) if seconds is not None else None,
+                json.dumps(spent) if spent else None,
+                row,
+            ),
+        )
     except Exception:
         pass
 
@@ -173,6 +181,13 @@ def unpack(row):
         entry["tools"] = json.loads(entry.get("tools") or "[]")
     except ValueError:
         entry["tools"] = []
+
+    # DROPPED ALTOGETHER BY THE LINE BELOW WHEN IT IS EMPTY, THE SAME AS EVERY OTHER
+    # COLUMN NOTHING WAS WRITTEN TO.
+    try:
+        entry["spent"] = json.loads(entry["spent"]) if entry.get("spent") else None
+    except (ValueError, TypeError):
+        entry["spent"] = None
 
     entry["unprompted"] = bool(entry.get("unprompted"))
 

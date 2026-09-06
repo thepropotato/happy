@@ -114,6 +114,27 @@ def piece(text):
     send("piece", text=text)
 
 
+def cost():
+    """WHAT THIS TURN COST, FOR WRITING DOWN BESIDE IT.
+
+    THE CLOCKS THAT CANNOT BE WORKED OUT AGAIN FROM THE ROW GO IN HERE TOO: total IS THE
+    seconds COLUMN AND THE TOOL TIMES ARE ON THE TOOL ROWS, BUT HOW LONG IT LISTENED, HOW
+    LONG IT THOUGHT AND HOW SOON IT SPOKE ARE ONLY EVER HELD HERE."""
+    if turn is None:
+        return None
+
+    kept = {
+        "read": turn.read,
+        "wrote": turn.wrote,
+        "prefill": turn.prefill or None,
+        "heard": turn.heard,
+        "thought": None if turn.thought is None else max(0.0, turn.thought - turn.spent()),
+        "first": turn.first,
+    }
+
+    return {key: value for key, value in kept.items() if value} or None
+
+
 def step(kind, name, seconds, about=None):
     if turn is None:
         return
@@ -178,4 +199,5 @@ def spent(this):
         "total": this.seconds(),
         "read": this.read,
         "wrote": this.wrote,
+        "prefill": this.prefill or None,
     }

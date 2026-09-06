@@ -300,7 +300,7 @@ class Happy:
 
             said = reply.strip()
 
-            memory.close(said or None, taken)
+            memory.close(said or None, taken, spent=show.cost())
             self.settle(said)
 
     def direct(self, speech, context=None):

@@ -25,6 +25,9 @@ MODEL = "model"
 # IT ASKED FOR HAS RUN.
 SPENT = "spent"
 
+# WHAT OLLAMA TIMES ITSELF IN.
+NANOSECONDS = 1_000_000_000
+
 # THREE IN A ROW GETTING NOWHERE.
 ENOUGH = 3
 
@@ -671,7 +674,19 @@ def counted(answered):
     if not usage.get("input_tokens") and not usage.get("output_tokens"):
         return None
 
-    return {"read": usage.get("input_tokens", 0), "wrote": usage.get("output_tokens", 0)}
+    return {"read": usage.get("input_tokens", 0), "wrote": usage.get("output_tokens", 0),
+            "prefill": prefill(said)}
+
+
+def prefill(said):
+    """HOW LONG THE BACKEND SPENT RE-READING THE PROMPT, IN SECONDS.
+
+    A PREFIX IT ALREADY HOLDS COSTS ALMOST NOTHING; ONE IT HAS TO READ AGAIN COSTS THE WHOLE
+    CONTEXT AT A FEW HUNDRED TOKENS A SECOND. THE GAP BETWEEN THOSE TWO IS MOST OF A SLOW
+    TURN, AND NOTHING ELSE ON THE SPENT LINE SHOWS IT."""
+    taken = (getattr(said, "response_metadata", None) or {}).get("prompt_eval_duration")
+
+    return None if taken is None else taken / NANOSECONDS
 
 
 def claim():

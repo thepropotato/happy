@@ -30,6 +30,28 @@ def tell(what, *args, **kwargs):
             continue
 
 
+def cost():
+    """WHAT THIS TURN HAS COST SO FAR, FROM WHICHEVER FACE IS KEEPING COUNT.
+
+    THE FACES HOLD THE STOPWATCH, NOT THE BRAIN, AND WHAT IS WRITTEN DOWN AT THE END OF A
+    TURN HAS TO COME FROM THE SAME PLACE THE PANEL READ IT OFF."""
+    for face in list(faces):
+        asking = getattr(face, "cost", None)
+
+        if asking is None:
+            continue
+
+        try:
+            found = asking()
+        except Exception:
+            continue
+
+        if found:
+            return found
+
+    return None
+
+
 def begin():
     tell("begin")
 

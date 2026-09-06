@@ -304,6 +304,42 @@ const Talk = (() => {
     }
 
     if (at < reply.length) box.append(make('happy', reply.slice(at)).line)
+
+    box.append(older(each))
+  }
+
+  // WHAT A TURN FROM BEFORE THIS RUN CAN STILL SAY ABOUT ITSELF. thought AND first word WERE
+  // NEVER WRITTEN DOWN, SO THEY ARE ABSENT RATHER THAN WRONG; THE REST IS ON THE ROW.
+  function older(each) {
+    const parts = []
+    const tools = each.tools || []
+
+    // THE TURN'S OWN COUNT WHERE THERE IS ONE. OLDER ROWS HAVE ONLY WHAT THE TOOL ROWS
+    // CARRIED, WHICH MISSES THE ROUND THAT ANSWERED WITHOUT CALLING ANYTHING.
+    const own = each.spent || {}
+    const add = (what) => tools.reduce((sum, one) => sum + (((one.spent || {})[what]) || 0), 0)
+    const read = own.read || add('read')
+    const wrote = own.wrote || add('wrote')
+    const prefill = own.prefill || add('prefill')
+    const tooling = tools.reduce((sum, one) => sum + (one.seconds || 0), 0)
+
+    // THE SAME ORDER AS A LIVE TURN, SO A RELOADED ROW READS THE WAY IT DID WHEN IT RAN.
+    if (own.heard != null) parts.push(`heard <b>${clock(own.heard)}</b>`)
+    if (own.thought != null) parts.push(`thought <b>${clock(own.thought)}</b>`)
+    if (tooling) parts.push(`tools <b>${clock(tooling)}</b>`)
+    if (own.first != null) parts.push(`first word <b>${clock(own.first)}</b>`)
+    if (each.seconds != null) parts.push(`total <b>${clock(each.seconds)}</b>`)
+    if (prefill) parts.push(`prefill <b>${clock(prefill)}</b>`)
+    if (read || wrote) parts.push(`read <b>${count(read)}</b> · wrote <b>${count(wrote)}</b>`)
+
+    const named = tools.map((one) => `${one.name} ${clock(one.seconds)}`).join(' · ')
+    const line = element('div', 'spent')
+
+    line.innerHTML =
+      `<span class="all">${clock(each.seconds) || ''}</span>` +
+      `<span class="parts">${parts.join(' · ')}${named ? `<br />${named}` : ''}</span>`
+
+    return line
   }
 
   function bare() {
