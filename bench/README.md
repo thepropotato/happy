@@ -7,9 +7,12 @@ no tool ever executes.
   continuous thread with every tool mocked and the real tool results handed back as canned
   replies. Each turn says which tools should have been reached for, which are forbidden, and
   what the answer must and must not say; a turn marked `restart` closes and reopens Happy
-  first, so it checks what survives a restart. `suites/2026-09-04.json` is the first one,
-  lifted from `messages` rows 1 to 26. The rule from here: a change to prompt.md, persona.md
-  or a docstring ships with the turn it fixes, and runs the whole suite.
+  first, so it checks what survives a restart. Each suite is named for what it exercises
+  rather than the day it was recorded, because the name is how you know whether the bug you
+  are fixing is covered; the evening it came off is inside the file, as its `name`.
+  `suites/project-docs-and-shopping.json` is the first one, lifted from `messages` rows 1 to
+  26. The rule from here: a change to prompt.md, persona.md or a docstring ships with the
+  turn it fixes, and runs the whole suite.
 - **ToolCall-15** (`toolcall15.py`) — fifteen spoken instructions in five categories, scored
   pass / partial / fail on which tool Happy reached for. Modelled on the ToolCall-15 in
   OpenJarvis's suite, rewritten against Happy's own tools.
@@ -42,9 +45,9 @@ Verified rather than assumed: calling the mocked `run_command` with `rm -rf ~/De
 
 ## Running them
 
-    python3 bench/replay.py bench/suites/2026-09-04.json          # the whole evening, ten minutes
-    python3 bench/replay.py bench/suites/2026-09-04.json 21 26    # just those rows
-    python3 bench/replay.py bench/suites/2026-09-04.json --effort medium   # any brain knob
+    python3 bench/replay.py bench/suites/project-docs-and-shopping.json        # the whole evening, ten minutes
+    python3 bench/replay.py bench/suites/project-docs-and-shopping.json 21 26  # just those rows
+    python3 bench/replay.py bench/suites/watching-and-documents.json --effort medium   # any brain knob
 
     python3 bench/run_toolcall15.py               # all fifteen, about two minutes
     python3 bench/run_toolcall15.py S2 L2         # just the named scenarios
