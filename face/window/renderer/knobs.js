@@ -9,11 +9,18 @@ const Knobs = (() => {
   let values = {}
   let opened = null
 
+  // THE LAST DRAW, AS ITS OWN COPY. A CLICK CHANGES values IMMEDIATELY SO THE CONTROL UNDER
+  // THE FINGER ANSWERS AT ONCE; THIS IS WHAT THE SCREEN ACTUALLY SAYS.
+  const painted = { values: null, groups: null }
+
   // OUTLIVES A REDRAW, SO A SIGN IN FINISHING DOES NOT FOLD THEM BACK.
   const asked = new Set()
 
   function tell(key, value) {
-    values[key] = value
+    // A COPY, NOT THE OBJECT painted WAS MEASURED FROM: THE CONTROL UNDER THE FINGER NEEDS
+    // THE NEW VALUE AT ONCE, BUT WRITING IT INTO THE MEASURED ONE WOULD MAKE THE BACKEND'S
+    // ANSWER LOOK LIKE NO CHANGE AND THE SHUT ROWS WOULD KEEP THE OLD WORD.
+    values = { ...values, [key]: value }
     ask({ do: 'set', key, value })
   }
 
@@ -147,6 +154,10 @@ const Knobs = (() => {
   function paint() {
     const where = sheet.scrollTop
 
+    // WHAT THIS DRAW IS MADE OF, SO THE NEXT WORD CAN BE COMPARED AGAINST THE SCREEN.
+    painted.values = JSON.stringify(values)
+    painted.groups = JSON.stringify(groups)
+
     sheet.innerHTML = ''
 
     for (const group of groups) sheet.append(section(group))
@@ -177,11 +188,13 @@ const Knobs = (() => {
     },
 
     // REBUILT ONLY ON A REAL CHANGE: A REDRAW WOULD SHUT THE LIST STILL OPEN
-    // UNDER SOMEBODY'S FINGER.
+    // UNDER SOMEBODY'S FINGER. WHAT IS COMPARED IS WHAT IS ON THE SCREEN, NOT WHAT IS IN
+    // values: A CLICK WRITES ITS OWN ANSWER THERE BEFORE THE BACKEND AGREES, SO COMPARING
+    // AGAINST values MATCHES ITSELF AND THE SHUT ROWS ABOVE KEEP THE OLD WORD.
     show(word) {
       const agreed =
-        JSON.stringify(word.values) === JSON.stringify(values) &&
-        JSON.stringify(word.groups) === JSON.stringify(groups)
+        JSON.stringify(word.values) === painted.values &&
+        JSON.stringify(word.groups) === painted.groups
 
       groups = word.groups
       values = word.values
