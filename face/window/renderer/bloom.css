@@ -39,12 +39,12 @@ body.bloom {
   border-color: var(--glow-soft);
 }
 
-/* DRAWN AT FULL SIZE AND SHOWN SMALL, SO IT IS THE SAME ORB AS THE PANEL'S
-   RATHER THAN A COARSER ONE THAT HAPPENS TO MOVE THE SAME WAY. */
-.blob {
+/* THE SAME MOUTH AS THE PANEL'S, DRAWN AT THIS SIZE RATHER THAN A COARSER ONE
+   THAT HAPPENS TO MOVE THE SAME WAY. WIDE AND SHORT, BECAUSE IT IS A MOUTH. */
+.mouth {
   flex: 0 0 auto;
-  width: 62px;
-  height: 62px;
+  width: 66px;
+  height: 44px;
 }
 
 .words {

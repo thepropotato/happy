@@ -41,7 +41,7 @@ function feel(name) {
   if (name === mood) return
 
   mood = name
-  Orb.mood(name)
+  Smile.mood(name)
 
   const found = MOODS[name] || MOODS.idle
   const word = node('mood')
@@ -66,9 +66,9 @@ function hear(word) {
 
       feel(word.state)
     },
-    level: () => Orb.level(word.level),
-    envelope: () => Orb.envelope(word.values, word.seconds),
-    hush: () => Orb.hush(),
+    level: () => Smile.level(word.level),
+    envelope: () => Smile.envelope(word.values, word.seconds),
+    hush: () => Smile.hush(),
     message: () => say(word.text),
     piece: () => {
       reply += word.text
@@ -87,7 +87,7 @@ function hear(word) {
 }
 
 function boot() {
-  Orb.start(node('blob'))
+  Smile.start(node('mouth'))
 
   // THE CAPSULE IS THE WAY IN: WHOEVER TAPS IT WANTED THE WHOLE THING AFTER ALL.
   node('pill').onclick = () => window.happy.show()

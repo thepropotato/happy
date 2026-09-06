@@ -44,7 +44,7 @@ function feel(name) {
   root.style.setProperty('--glow-soft', `${found.colours[0]}88`)
 
   Aurora.mood(name)
-  Orb.mood(name)
+  Smile.mood(name)
 
   working = name !== 'idle' && name !== 'gone'
   tucking()
@@ -91,12 +91,12 @@ function quiet() {
 
   sounding = null
 
-  Orb.hush()
+  Smile.hush()
   feel(resting)
   refresh()
 }
 
-// THREE THINGS WOULD MOVE THE ORB: HAPPY IS MID TURN, SOMETHING ARRIVED TO READ,
+// THREE THINGS WOULD MOVE THE MOUTH: HAPPY IS MID TURN, SOMETHING ARRIVED TO READ,
 // OR THE PERSON SAID SO. THE PERSON WINS, AND GOES ON WINNING UNTIL THEY SAY
 // OTHERWISE — A CHOICE UNDONE BY THE NEXT THING HAPPY DOES WAS NEVER A CHOICE.
 function tucking() {
@@ -158,9 +158,9 @@ function hear(word) {
       settle(word.state)
       refresh()
     },
-    level: () => Orb.level(word.level),
+    level: () => Smile.level(word.level),
     envelope: () => {
-      Orb.envelope(word.values, word.seconds)
+      Smile.envelope(word.values, word.seconds)
       riding(word.seconds)
     },
     hush: () => quiet(),
@@ -310,13 +310,13 @@ function buttons() {
   node('amissfix').onclick = () => fixing()
 
   // THE TWO HALVES OF ONE TOGGLE, AND EITHER ONE IS THE PERSON SAYING WHERE THE
-  // ORB BELONGS FROM NOW ON.
-  node('puck').onclick = () => {
+  // MOUTH BELONGS FROM NOW ON.
+  node('small').onclick = () => {
     chosen = 'out'
     tucking()
   }
 
-  node('orb').onclick = () => {
+  node('mouth').onclick = () => {
     chosen = 'tucked'
     tucking()
   }
@@ -331,12 +331,12 @@ function buttons() {
 
 function boot() {
   Aurora.start(node('aurora'))
-  Orb.start(node('orb'), node('puck'))
+  Smile.start(node('mouth'), node('small'))
   Talk.start(node('stream'))
   Prose.away(node('stream'))
   Knobs.start(node('rows'), ask)
 
-  // WHICH KEY IS NOT KNOWN YET AT BOOT, AND THE HINT UNDER THE ORB NAMES IT ANYWAY.
+  // WHICH KEY IS NOT KNOWN YET AT BOOT, AND THE HINT UNDER THE MOUTH NAMES IT ANYWAY.
   Talk.quiet('Nothing yet. Hold the key and talk, or type below.')
 
   composer()
