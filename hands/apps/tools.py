@@ -179,6 +179,12 @@ def open_url(url: str, because: Literal[SEEING, CHECKING]) -> str:
 
     address = opening.web_address(url)
 
+    # AN ADDRESS THIS TOOL PRINTS IS AN ADDRESS A TOOL GAVE. WITHOUT THIS THE NUMBER RESOLVED
+    # HERE WAS OPENED, NAMED BACK IN THE RESULT, AND THEN REFUSED AS INVENTED THE MOMENT
+    # read_page WAS HANDED THE SAME LINE — WHICH ENDED "show me the review of romanchakam" ON
+    # AN APOLOGY FOR A PAGE THAT WAS ALREADY UP.
+    handed.offer(address)
+
     return opening.hand_over(address) or f"Opened {address}."
 
 

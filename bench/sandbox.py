@@ -1,6 +1,7 @@
 """EVERY TOOL BECOMES A RECORDING STUB SO A BENCHMARK CANNOT TOUCH THE MACHINE."""
 
 import os
+import re
 from pathlib import Path
 
 DANGEROUS = {"run_command", "system_control", "move_to_trash", "open_app",
@@ -33,6 +34,11 @@ def stubbed(tool, calls, replies=None):
         said = str(said or "").strip()
 
         if not said or said.isdigit() or handed.shallow(handed.full(said)):
+            return False
+
+        # AN ADDRESS A TOOL ALREADY HANDED OVER IS NOT ONE THE MODEL WROTE. THE REAL RESOLVER
+        # LETS THESE THROUGH ON THE SAME SET, AND THIS COPY DID NOT LOOK AT IT AT ALL.
+        if handed.full(said) in handed.given:
             return False
 
         host = handed.urlparse(handed.full(said)).netloc.removeprefix("www.").lower()
@@ -72,12 +78,15 @@ def stubbed(tool, calls, replies=None):
             return f"[mocked {tool.name}]"
 
         if isinstance(canned, str):
+            record(tool.name, canned)
             return canned
 
         given = canned.pop(0) if len(canned) > 1 else canned[0]
 
         if given.get("failed"):
             return turned(reasons.no(given["result"]))
+
+        record(tool.name, given["result"])
 
         return given["result"]
 
@@ -87,6 +96,23 @@ def stubbed(tool, calls, replies=None):
         args_schema=tool.args_schema,
         func=body,
     )
+
+
+ADDRESS = re.compile(r"https?://[^\s\"'<>)]+")
+
+
+def record(name, result):
+    """AN ADDRESS A MOCK JUST NAMED BACK IS ONE A TOOL GAVE, SO THE NEXT CALL MAY USE IT.
+
+    THE REAL open_url REGISTERS WHAT IT OPENED; THE STUB NEVER RUNS THAT BODY, SO THE SAME
+    THING IS DONE HERE FROM THE CANNED RESULT, OR THE BENCH REFUSES A LINE IT HANDED OVER."""
+    from hands.web import handed
+
+    if name not in ("open_url", "current_activity", "already_open", "download_images"):
+        return
+
+    for found in ADDRESS.findall(str(result or "")):
+        handed.offer(found.rstrip(".,"))
 
 
 def writing(name, kwargs):
@@ -120,8 +146,17 @@ def writing(name, kwargs):
 
     said = conversation.asking() or ""
 
-    if any(each in said.lower() for each in making.POINTED) and not wrapping.already(*making.LOOKERS):
+    pointing = any(each in said.lower() for each in making.POINTED)
+
+    if pointing and not wrapping.already(*making.LOOKERS):
         return reasons.no(making.UNLOOKED.format(said=said))
+
+    # THE HALF THIS COPY HAD LOST. THE REAL TOOL TURNS BACK A DECK ABOUT A SUBJECT THAT WAS
+    # ONLY POINTED AT WHEN NOTHING HAS GONE AND READ ABOUT IT, AND WITHOUT IT THE BENCH
+    # SCORED A HOUSE OF THE DRAGON DECK WRITTEN STRAIGHT OFF THE WEIGHTS AS A TURN THE
+    # MACHINE WOULD HAVE ALLOWED, WHICH IT WOULD NOT.
+    if pointing and not wrapping.already(*making.READERS):
+        return reasons.no(making.UNREAD.format(said=said))
 
     made_up = making.unsourced(str(kwargs.get("text") or ""), str(kwargs.get("title") or ""))
 

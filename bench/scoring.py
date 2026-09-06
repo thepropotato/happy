@@ -109,14 +109,19 @@ def invented_rows(called):
 
 
 def invented(called):
-    """THE FIRST ADDRESS THE MODEL WROTE OUT ITSELF, OR None."""
+    """THE FIRST ADDRESS THE MODEL WROTE OUT ITSELF, OR None.
+
+    A CALL THE GUARD TURNED BACK IS THE ONLY KIND THAT COUNTS. open_url NAMES THE ADDRESS IT
+    OPENED IN ITS OWN RESULT, AND READING THAT SAME LINE BACK IS USING WHAT A TOOL GAVE, NOT
+    WRITING ONE — JUDGING IT ON THE SHAPE OF THE ARGUMENT ALONE MARKED THE RIGHT BEHAVIOUR
+    AS THE WRONG ONE, WHICH IS WHAT THE GUARD IS FOR AND THIS IS NOT."""
     for each in called:
         if each["name"] not in ADDRESSED:
             continue
 
         url = str(each["args"].get("url", ""))
 
-        if url and not url.strip().isdigit():
+        if url and not url.strip().isdigit() and each.get("refused"):
             return url
 
     return None
