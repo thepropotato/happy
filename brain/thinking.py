@@ -216,6 +216,9 @@ class Happy:
             memory.close(straight, time.perf_counter() - started)
             self.carry(speech, straight)
 
+            # NOTHING STREAMED THIS ONE, SO NOTHING HAS SHOWN IT YET.
+            show.piece(straight)
+
             yield straight
 
             return
@@ -265,10 +268,14 @@ class Happy:
                 last = self.ending() or NOTHING
                 reply += last
 
+                # NONE OF THESE CAME THROUGH THE STREAM, SO NONE OF THEM HAVE BEEN SHOWN.
+                show.piece(last)
+
                 yield last
         except Stuck as stuck:
             # NOT A FAILURE OF HAPPY'S, SO IT IS SAID RATHER THAN SHOWN AS TROUBLE.
             reply += str(stuck)
+            show.piece(str(stuck))
 
             yield str(stuck)
         except Exception as error:
@@ -276,6 +283,7 @@ class Happy:
             # FOR WHOEVER IS IN THE ROOM. A TURN NEVER ENDS ON SILENCE.
             amiss(brain.reason(error))
             reply += BROKE
+            show.piece(BROKE)
 
             yield BROKE
         finally:

@@ -360,10 +360,11 @@ def respond(happy, speaker, speech, audio=None):
     show.opening()
 
     try:
-        # SPOKEN AND PRINTED OFF THE ONE STREAM: THE SPEAKER HOLDS EACH PIECE
-        # BACK UNTIL IT HAS A WHOLE SENTENCE, THE PRINTING DOES NOT WAIT.
-        for piece in speaker.say(happy.say_streaming(speech, audio=audio)):
-            show.piece(piece)
+        # SPOKEN OFF THIS STREAM, AND ONLY SPOKEN: THE SPEAKER HOLDS EACH PIECE BACK UNTIL IT
+        # HAS A WHOLE SENTENCE, AND WHAT COMES OUT HERE IS THE WHOLE ANSWER, WHICH THE PANEL
+        # HAS ALREADY HAD PIECE BY PIECE AS IT LANDED. SHOWING IT AGAIN SAID EVERYTHING TWICE.
+        for _ in speaker.say(happy.say_streaming(speech, audio=audio)):
+            pass
     except brain.LLMError as error:
         show.trouble(error)
 
