@@ -1,4 +1,4 @@
-/* THE SHELL, THE LIGHT BEHIND IT, THE HEADER, AND THE ORB.
+/* THE SHELL, THE LIGHT BEHIND IT, THE HEADER, AND THE MOUTH.
 
    ONE SET OF SURFACES FOR THE WHOLE WINDOW. ONLY THE THING SOMEBODY HAS OPENED
    GETS A SURFACE; EVERYTHING ELSE IS SEPARATED BY A LINE. */
@@ -18,8 +18,19 @@
   --block: #13141d;
   --block-open: #191a26;
 
-  --glow: #7c5cf5;
-  --glow-soft: rgba(124, 92, 245, 0.5);
+  /* THE MOUTH'S OWN LIP COLOUR. app.js RESETS THESE TWO PER MOOD, SO THIS IS THE
+     VALUE EVERYTHING WEARS BEFORE THE FIRST STATE LANDS — IT HAS TO BE THE SAME
+     VIOLET THE MASCOT IS DRAWN IN, NOT THE ONE THE OLD ORB USED. */
+  --glow: #8b7cff;
+  --glow-soft: rgba(139, 124, 255, 0.5);
+
+  /* THE ACCENT AS A COMPONENT LIST, SO A RULE CAN ASK FOR IT AT ANY STRENGTH
+     WITHOUT RESTATING THE NUMBERS AND DRIFTING OUT OF STEP WITH IT.
+
+     UNLIKE --glow THIS ONE DOES NOT MOVE WITH THE MOOD. IT DRESSES THINGS THAT
+     ARE ALREADY ON THE PANEL AND FINISHED — A SENTENCE SOMEBODY SAID DOES NOT
+     CHANGE COLOUR BECAUSE HAPPY HAS STARTED THINKING ABOUT THE NEXT ONE. */
+  --accent: 139, 124, 255;
 
   /* THE ACCENT MOVES WITH HAPPY'S MOOD, SO WHAT IS WORKING AND WHAT WANTS MINDING
      CANNOT BE SAID IN IT. THESE THREE STAY PUT. */
@@ -112,12 +123,16 @@ body {
   }
 }
 
+/* IT WAS BUILT TO BE SEEN BEHIND A FACE THAT OWNED AN EMPTY PANEL. WITH A
+   CONVERSATION IN FRONT OF IT, THE SAME LIGHT WAS THE LOUDEST THING ON SCREEN —
+   A CLOUD FILLING THE EMPTY HALF AND COMPETING WITH EVERY WORD OVER IT. IT IS
+   ATMOSPHERE, SO IT SITS UNDER THE WORDS RATHER THAN AGAINST THEM. */
 .aurora {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: 0.85;
+  opacity: 0.28;
   pointer-events: none;
 }
 
@@ -131,6 +146,7 @@ body {
   gap: 9px;
   padding: 12px 12px 11px 14px;
   flex: 0 0 auto;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
   -webkit-app-region: drag;
 }
 
@@ -184,7 +200,7 @@ body {
 .icon.on {
   color: var(--ink);
   border-color: var(--glow-soft);
-  background: rgba(124, 92, 245, 0.16);
+  background: rgba(var(--accent), 0.16);
 }
 
 .composer-action {
@@ -210,7 +226,7 @@ body {
 .composer-action.send:hover,
 .composer-action.pause:hover {
   color: var(--ink);
-  background: rgba(124, 92, 245, 0.2);
+  background: rgba(var(--accent), 0.2);
 }
 
 .composer-action.send:active,
@@ -228,32 +244,33 @@ body {
 
 .composer-action.pause {
   color: var(--ink);
-  background: rgba(124, 92, 245, 0.16);
+  background: rgba(var(--accent), 0.16);
   border-color: var(--glow-soft);
 }
 
-/* THE ORB OWNS THE PANEL WHILE THERE IS NOTHING TO READ, AND GETS OUT OF THE WAY
-   THE MOMENT THERE IS. */
+/* THE MOUTH OWNS THE PANEL WHILE THERE IS NOTHING TO READ, AND GETS OUT OF THE
+   WAY THE MOMENT THERE IS. */
 .hero {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   flex: 0 0 auto;
-  height: 250px;
+  padding: 8px 0 18px;
   overflow: hidden;
-  transition: height var(--pane), opacity var(--pane);
+  transition: padding var(--pane), opacity var(--pane), max-height var(--pane);
+  max-height: 260px;
 }
 
 .glass.tucked .hero {
-  height: 0;
+  max-height: 0;
+  padding: 0;
   opacity: 0;
 }
 
-.orb {
-  width: 230px;
-  height: 230px;
-  margin: -14px 0 -18px;
+.mouth {
+  width: 250px;
+  height: 168px;
   cursor: pointer;
 }
 
@@ -280,19 +297,19 @@ body {
   font-weight: 600;
 }
 
-/* THE SAME ORB, SHRUNK INTO THE HEADER. TAPPING IT BRINGS THE BIG ONE BACK. */
-.puck {
+/* THE SAME MOUTH, SHRUNK INTO THE HEADER. TAPPING IT BRINGS THE BIG ONE BACK. */
+.small {
   -webkit-app-region: no-drag;
   width: 0;
-  height: 26px;
+  height: 20px;
   margin-left: -9px;
   opacity: 0;
   cursor: pointer;
   transition: width var(--pane), opacity var(--pane), margin var(--pane);
 }
 
-.glass.tucked .puck {
-  width: 26px;
+.glass.tucked .small {
+  width: 30px;
   margin-left: 0;
   opacity: 1;
 }

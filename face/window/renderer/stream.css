@@ -8,7 +8,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 6px 16px 8px;
+  padding: 16px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
   user-select: text;
@@ -24,17 +24,25 @@
 }
 
 /* THE EXCHANGE IS THE UNIT, SO ITS PARTS SIT CLOSE AND THE NEXT ONE STARTS WELL
-   CLEAR. EVENLY SPACED LINES CANNOT BE SKIMMED FOR WHERE A QUESTION ENDED. */
+   CLEAR. EVENLY SPACED LINES CANNOT BE SKIMMED FOR WHERE A QUESTION ENDED, AND
+   AIR ALONE WAS NOT ENOUGH ONCE A TURN CARRIED TWO TOOL ROWS AND AN ANSWER —
+   THE RULE IS WHAT MAKES THE END OF ONE FINDABLE WITHOUT READING IT. */
 .turn {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 9px;
-  margin-bottom: 26px;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
 }
 
+/* THE LAST ONE HAS NOTHING TO BE SEPARATED FROM, AND A RULE UNDER IT WOULD READ
+   AS A LINE WAITING FOR SOMETHING THAT HAS NOT ARRIVED. */
 .turn:last-child {
-  margin-bottom: 4px;
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .line {
@@ -43,14 +51,20 @@
 }
 
 /* WHAT WAS ASKED. THE ONE CORNER THAT IS NOT ROUNDED POINTS AT WHOEVER SAID IT,
-   WHICH IS THE WHOLE OF WHY THE LABEL IS NOT NEEDED. */
+   WHICH IS THE WHOLE OF WHY THE LABEL IS NOT NEEDED.
+
+   IT WEARS THE ACCENT, HELD WAY BACK. GREY WAS TRIED AND CAME OUT WITHIN A FIFTH
+   OF A PERCENT OF THE TOOL ROWS, SO THE THING A PERSON SAID AND THE MACHINERY
+   THAT ANSWERED IT READ AS ONE KIND OF OBJECT. THE ASKING IS THE ONE THING ON
+   THE PANEL SOMEBODY PUT THERE, SO IT IS TOLD APART BY HUE RATHER THAN BY A
+   BRIGHTNESS NOBODY CAN SEE — AND STILL SITS BACK BEHIND THE ANSWER. */
 .line.you {
   align-self: flex-end;
-  max-width: 86%;
-  border: 1px solid var(--line);
+  max-width: 82%;
+  border: 1px solid rgba(var(--accent), 0.22);
   border-radius: var(--r-lg) var(--r-lg) 4px var(--r-lg);
-  background: var(--raise);
-  padding: 8px 12px;
+  background: rgba(var(--accent), 0.14);
+  padding: 7px 11px;
 }
 
 .line .words {
@@ -59,9 +73,17 @@
   word-break: break-word;
 }
 
+/* THE ONE THING ON THE PANEL SOMEBODY IS ACTUALLY HERE TO READ, AND IT WAS SET
+   AT THE SAME SIZE AS THE MACHINERY AROUND IT. */
+.line.happy .words {
+  font-size: 13.5px;
+  line-height: 1.62;
+}
+
 /* SPOKEN, NOT WRITTEN: THE BREAKS ARE THE ONES THE MICROPHONE HEARD. */
 .line.you .words {
-  color: var(--dim);
+  color: #cfc7f5;
+  font-size: 12.5px;
   white-space: pre-wrap;
 }
 
@@ -194,11 +216,14 @@
    SHUT, IT IS ONE LINE: WHAT RAN AND WHY. OPENED, IT IS WHAT THE TOOL WAS HANDED
    AND WHAT IT SAID BACK. THE FOLD IS THE ROW'S OWN, NEVER A BOX ROUND A RUN OF
    THEM, AND ONLY THE DOT MOVES. */
+/* QUIETER THAN IT WAS. THESE ROWS ARE THE MACHINERY RATHER THAN THE
+   CONVERSATION, AND AT FULL WEIGHT THEY OUT-RANKED THE ANSWER THEY BELONG TO —
+   THEY STILL READ AT A GLANCE, THEY NO LONGER SHOUT. */
 .call {
   align-self: stretch;
-  border: 1px solid transparent;
+  border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: var(--r-md);
-  background: var(--block);
+  background: rgba(255, 255, 255, 0.028);
   animation: rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
   transition: border-color 180ms, background 180ms;
 }
@@ -215,7 +240,7 @@
 .call > .face {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   width: 100%;
   min-width: 0;
   border: 0;
@@ -223,7 +248,7 @@
   color: var(--ink);
   font: inherit;
   text-align: left;
-  padding: 4px 6px;
+  padding: 6px 10px;
   cursor: pointer;
 }
 
@@ -271,7 +296,7 @@
 .call .what {
   flex: 0 0 auto;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--dim);
 }
 
@@ -284,7 +309,7 @@
 .call > .face .why {
   flex: 1;
   min-width: 0;
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--faint);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -435,9 +460,13 @@
 
 /* ONE FAINT NUMBER UNTIL IT IS ASKED FOR: A BREAKDOWN UNDER EVERY ANSWER IS
    SOMETHING NOBODY READS AND EVERYBODY SEES. */
+/* THE LEFT EDGE, WITH EVERYTHING ELSE THE TURN OWNS. IT WAS TRIED OUT AT THE
+   RIGHT, WHERE MARGINALIA USUALLY GOES, AND IT READ AS BELONGING TO THE ASKING
+   ABOVE IT RATHER THAN TO THE ANSWER IT IS ACTUALLY ABOUT. */
 .spent {
-  font-size: 10.5px;
-  color: rgba(107, 113, 134, 0.75);
+  font-size: 10px;
+  color: rgba(107, 113, 134, 0.55);
+  font-variant-numeric: tabular-nums;
   animation: rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -478,12 +507,17 @@
   line-height: 1.6;
 }
 
+/* ITS OWN REGION, NOT THE BOTTOM OF THE CONVERSATION. NOTHING SAID WHERE THE
+   TALKING ENDED AND THE TYPING BEGAN, SO THE LAST ANSWER RAN STRAIGHT INTO THE
+   BOX UNDER IT. */
 .composer {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  padding: 10px 16px 15px;
+  padding: 12px 16px 16px;
   flex: 0 0 auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+  background: rgba(0, 0, 0, 0.22);
 }
 
 .composer textarea {
@@ -522,6 +556,6 @@
 .composer textarea:focus {
   border-color: var(--glow-soft);
   background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 0 0 3px rgba(124, 92, 245, 0.12);
+  box-shadow: 0 0 0 3px rgba(var(--accent), 0.12);
 }
 
