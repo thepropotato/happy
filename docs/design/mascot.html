@@ -1,0 +1,452 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Happy — the mascot</title>
+<style>
+  :root {
+    --ink: #f2f3f8;
+    --dim: #9aa0b4;
+    --faint: #6b7186;
+    --line: rgba(255,255,255,0.07);
+    --raise: rgba(255,255,255,0.045);
+    --r-lg: 13px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#07080c; color:var(--ink);
+    font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif;
+    font-size:13px; padding:38px 30px 90px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:1180px; margin:0 auto; }
+  h1 { font-size:19px; font-weight:600; }
+  .lede { color:var(--faint); font-size:12.5px; margin-top:7px; line-height:1.6; max-width:660px; }
+  h2 {
+    font-size:11px; font-weight:600; letter-spacing:0.12em; text-transform:uppercase;
+    color:var(--faint); margin:52px 0 16px; padding-bottom:9px; border-bottom:1px solid var(--line);
+  }
+  .note { color:var(--faint); font-size:12px; line-height:1.6; margin-bottom:20px; max-width:660px; }
+  .note b { color:var(--dim); font-weight:600; }
+  .states { display:grid; grid-template-columns:repeat(auto-fill, minmax(158px,1fr)); gap:12px; }
+  .state {
+    border:1px solid var(--line); border-radius:var(--r-lg); background:var(--raise);
+    padding:16px 12px 13px; display:flex; flex-direction:column; align-items:center; gap:11px;
+  }
+  .state canvas { width:118px; height:88px; }
+  .state .word { font-size:12.5px; font-weight:500; }
+  .state .what { font-size:10.5px; color:var(--faint); text-align:center; line-height:1.45; }
+  /* THE SIZES IT HAS TO SURVIVE: THE HERO, AND THE ONE IN THE HEADER. */
+  .sizes { display:flex; align-items:flex-end; gap:26px; }
+  .sizes .one { display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .sizes .one span { font-size:10.5px; color:var(--faint); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Happy — the mascot</h1>
+  <p class="lede">
+    The signed-off mascot on its own, so it can be worked on without the rest of the interface
+    moving underneath it. This file is the reference the panel designs draw from.
+  </p>
+
+  <h2>Every state</h2>
+  <p class="note">
+    <b>One palette for all seven.</b> The mouth is a lip band with a dark inside and two ball
+    corners, and it stays a smile in every state — what changes is how wide it opens and what is
+    going on around it. Only <b>stopped</b> leaves the palette, by draining out of it.
+  </p>
+  <div class="states" id="states"></div>
+
+  <h2>At the sizes it has to work</h2>
+  <p class="note">
+    The same drawing at hero size, at the size it sits in the header once there are words to read,
+    and at menu-bar size.
+  </p>
+  <div class="sizes" id="sizes"></div>
+</div>
+
+<script>
+// ── THE MASCOT ────────────────────────────────────────────────────────────
+// IT IS ONE FILLED MOUTH, NOT A STROKE. AN UPPER LIP AND A LOWER LIP MEET AT
+// TWO CORNERS; WHAT SITS BETWEEN THEM IS SOLID COLOUR. THE CORNERS ARE MUSCLES
+// AND EACH ONE MOVES ON ITS OWN — THAT IS WHERE EVERY EXPRESSION COMES FROM,
+// SO A SMIRK, A LEAN AND A LIP-WET ARE THE SAME DRAWING WITH DIFFERENT CORNERS.
+
+// ONE PALETTE FOR EVERY STATE. THE MOOD IS TOLD BY THE MOUTH AND BY WHAT IS
+// AROUND IT, NEVER BY RECOLOURING THE WHOLE FACE — SEVEN HUES READ AS SEVEN
+// BRANDS. ONLY "STOPPED" LEAVES THE PALETTE, BY DRAINING OUT OF IT.
+const SKIN = {
+  lip:   ['#8b7cff', '#6d5cf0'],   // THE LIP BAND ITSELF.
+  rim:   '#a99cff',                // THE LIT TOP EDGE.
+  deep:  '#241a52',                // INSIDE THE MOUTH.
+  tongue:['#f06ec0', '#c94fa8'],
+  dead:  ['#3a3c47', '#2c2e38'],   // WHAT IT ALL FADES TO WHEN NOTHING IS RUNNING.
+}
+
+const MOODS = {
+  loading:   { word:'waking up',     what:'loading…' },
+  idle:      { word:'ready',         what:'idle' },
+  listening: { word:'listening',     what:'recording audio' },
+  hearing:   { word:'making it out', what:'transcribing…' },
+  thinking:  { word:'thinking',      what:'generating…' },
+  speaking:  { word:'speaking',      what:'tts playing' },
+  gone:      { word:'stopped',       what:'not running' },
+}
+
+// THE MOUTH, AS A FRACTION OF THE DRAWING'S WIDTH. IT STAYS A SMILE IN EVERY
+// STATE — WHAT CHANGES IS HOW WIDE, HOW OPEN, AND WHAT IS GOING ON AROUND IT.
+//   wide  CORNER TO CORNER          open  HOW FAR THE LIPS PART
+//   curve HOW FAR IT BOWS           lip   THE THICKNESS OF THE BAND
+const SHAPES = {
+  loading:   { wide:0.34, curve:0.13, open:0.00,  lip:0.030, tilt:0 },
+  idle:      { wide:0.46, curve:0.20, open:0.00,  lip:0.038, tilt:0 },
+  listening: { wide:0.44, curve:0.19, open:0.155, lip:0.030, tilt:0 },
+  hearing:   { wide:0.44, curve:0.19, open:0.160, lip:0.030, tilt:0 },
+  thinking:  { wide:0.38, curve:0.17, open:0.015, lip:0.035, tilt:0 },
+  speaking:  { wide:0.42, curve:0.16, open:0.175, lip:0.030, tilt:0 },
+  gone:      { wide:0.40, curve:0.13, open:0.00,  lip:0.032, tilt:0 },
+}
+
+function rgb(hex){ const v=parseInt(hex.slice(1),16); return [(v>>16)&255,(v>>8)&255,v&255] }
+function tint(c,a){ return `rgba(${c[0]|0}, ${c[1]|0}, ${c[2]|0}, ${a})` }
+function toward(a,b,t){ return a.map((e,i)=>e+(b[i]-e)*t) }
+function among(vals, over, clock){
+  const p=((clock/over)%1)*vals.length, i=Math.floor(p), f=p-i
+  const a=vals[i], b=vals[(i+1)%vals.length]
+  return a+(b-a)*(0.5-0.5*Math.cos(f*Math.PI))
+}
+// ONE PULSE EVERY every SECONDS, LASTING for — FOR THE THINGS A FACE DOES ONCE
+// IN A WHILE RATHER THAN CONSTANTLY.
+function beat(clock, every, forHowLong, offset){
+  const t = ((clock + (offset||0)) % every) / forHowLong
+  return t > 1 ? 0 : Math.sin(t*Math.PI)
+}
+function mix(a, b, t){ return toward(rgb(a), rgb(b), t) }
+
+// THE SOUND ARCS EITHER SIDE OF THE MOUTH — THREE NESTED BRACKETS THAT BREATHE.
+function arcs(paint, x, span, sign, colour, strength, clock, w){
+  for (let i = 0; i < 3; i++){
+    const r = span * (0.55 + i*0.30)
+    const fade = Math.max(0, strength - i*0.22)
+    if (fade <= 0.01) continue
+    paint.beginPath()
+    paint.lineWidth = w*0.016
+    paint.lineCap = 'round'
+    paint.strokeStyle = tint(colour, fade*0.9)
+    paint.arc(x, 0, r, sign*-0.62, sign*0.62, sign < 0)
+    paint.stroke()
+  }
+}
+
+// HOW FAR EACH LIP SWELLS AT ITS MIDDLE, AS A MULTIPLE OF THE LIP THICKNESS.
+// THE LOWER LIP IS THE FULLER OF THE TWO, WHICH IS TRUE OF MOST MOUTHS. THIS IS
+// "READY" ONLY — EVERY OTHER STATE IS ONE WIDTH FROM CORNER TO CORNER.
+const FULLNESS = { upper: 1.30, lower: 1.70 }
+const FLAT = { upper: 0, lower: 0 }
+
+// ONE LIP, AS A FILLED SHAPE. IT WALKS THE CURVE FROM CORNER TO CORNER AND
+// OFFSETS EACH POINT PERPENDICULARLY BY A THICKNESS THAT IS FATTEST IN THE
+// MIDDLE AND ZERO AT BOTH ENDS, SO THE LIP MEETS THE CORNERS IN A POINT.
+function ribbon(paint, lx, ly, rx, ry, ctrlY, L, fullness){
+  const STEPS = 26
+  const at = (t) => {
+    const u = 1-t
+    return [u*u*lx + 2*u*t*0 + t*t*rx, u*u*ly + 2*u*t*ctrlY + t*t*ry]
+  }
+
+  const outer = [], inner = []
+
+  for (let i = 0; i <= STEPS; i++){
+    const t = i/STEPS
+    const [x, y] = at(t)
+    // THE TANGENT, SO THE THICKNESS IS LAID DOWN ACROSS THE CURVE, NOT DOWN THE PAGE.
+    const [ax, ay] = at(Math.max(0, t-0.01))
+    const [bx, by] = at(Math.min(1, t+0.01))
+    const len = Math.hypot(bx-ax, by-ay) || 1
+    const nx = -(by-ay)/len, ny = (bx-ax)/len
+    // A SINE IS ZERO AT BOTH ENDS AND ONE IN THE MIDDLE — EXACTLY THE TAPER WANTED.
+    // WITH NO FULLNESS THIS IS A CONSTANT, WHICH IS AN EVEN-WIDTH LIP.
+    const half = L*0.92 + L * fullness * Math.sin(t*Math.PI) * 0.42
+    outer.push([x + nx*half, y + ny*half])
+    inner.push([x - nx*half, y - ny*half])
+  }
+
+  paint.beginPath()
+  paint.moveTo(outer[0][0], outer[0][1])
+  for (const [x, y] of outer) paint.lineTo(x, y)
+  for (let i = inner.length-1; i >= 0; i--) paint.lineTo(inner[i][0], inner[i][1])
+  paint.closePath()
+  paint.fill()
+}
+
+// DRAWS THE MASCOT. energy IS A 0..1 LOUDNESS WHILE LISTENING OR SPEAKING.
+function mascot(paint, w, h, mood, clock, energy, _unused){
+  const S = SHAPES[mood] || SHAPES.idle
+  let { wide, curve, open, lip, tilt } = S
+  let shiftX = 0, shiftY = 0
+  let tongue = 0        // HOW FAR THE TONGUE RISES INTO THE OPENING.
+  let dead = 0          // HOW FAR THE COLOUR HAS DRAINED OUT.
+  let liftL = 0, liftR = 0
+
+  if (mood === 'loading'){
+    // COMING TO: THE SMILE IS SMALL AND KEEPS ALMOST ARRIVING.
+    const wake = 0.5+0.5*Math.sin(clock*1.15)
+    wide  += 0.05*wake
+    curve += 0.04*wake
+    dead   = 0.45 - 0.25*wake
+  }
+
+  if (mood === 'idle'){
+    // BREATHING, AND NOW AND THEN ONE CORNER GOES UP ON ITS OWN.
+    const breath = Math.sin(clock*1.2)
+    curve += 0.016*breath
+    wide  += 0.008*breath
+    liftR += 0.020*beat(clock, 7, 1.2)
+    liftL += 0.020*beat(clock, 7, 1.2, 3.5)
+  }
+
+  if (mood === 'listening'){
+    // THE KEY IS DOWN. IT OPENS ON YOUR VOICE AND THE ARCS COME UP EITHER SIDE.
+    open += 0.10*energy
+    curve += 0.02*energy
+  }
+
+  if (mood === 'hearing'){
+    // THE WORDS ARE BEING MADE OUT: A PALE BAND SWEEPS ACROSS THE OPENING.
+    open += 0.012*Math.sin(clock*4)
+  }
+
+  if (mood === 'thinking'){
+    // TILTED, PULLED TO ONE SIDE, WITH THE DOTS TICKING OVER ABOVE IT.
+    // PULLED UP AT ONE CORNER AND OVER TO ONE SIDE — CONSIDERING SOMETHING.
+    // THE MOUTH IS NOT ROTATED: TIPPING THE WHOLE SMILE MAKES IT A BANANA.
+    shiftX = 0.010*w*Math.sin(clock*0.7)
+    liftR += 0.055 + 0.012*Math.sin(clock*0.9)
+    liftL -= 0.008
+  }
+
+  if (mood === 'speaking'){
+    // A REAL MOUTH ON REAL SOUND, WITH THE TONGUE SHOWING IN THE OPENING.
+    // IT NARROWS AS IT OPENS, THE WAY A MOUTH ROUNDS ON A VOWEL.
+    open  += 0.15*energy
+    curve -= 0.03*energy
+    wide  -= 0.05*energy
+    tongue = 0.55 + 0.45*energy
+  }
+
+  if (mood === 'gone'){
+    // DRAINED, SLACK, AND KNOCKED SLIGHTLY OFF TRUE.
+    dead = 1
+    curve -= 0.03
+  }
+
+  const W = w*wide, C = w*curve, O = w*open, L = w*lip
+  const D = w*0.052  // THE CORNER BALLS, SIZED OFF THE DRAWING RATHER THAN THE LIP.
+  const lipTop = dead ? mix(SKIN.lip[0], SKIN.dead[0], dead) : rgb(SKIN.lip[0])
+  const lipBot = dead ? mix(SKIN.lip[1], SKIN.dead[1], dead) : rgb(SKIN.lip[1])
+  const rimCol = dead ? mix(SKIN.rim,    SKIN.dead[0], dead) : rgb(SKIN.rim)
+  const deepCol= dead ? mix(SKIN.deep,   '#1a1b22',    dead) : rgb(SKIN.deep)
+
+  paint.clearRect(0, 0, w, h)
+  paint.save()
+  paint.translate(w/2 + shiftX, h/2 + shiftY)
+  paint.rotate(tilt)
+
+  const lx = -W/2, ly = -w*liftL
+  const rx =  W/2, ry = -w*liftR
+  const mid = (ly+ry)/2 + C
+
+  // THE PATH THE LIPS ENCLOSE. THE UPPER LIP IS ALMOST STRAIGHT ACROSS AND THE
+  // LOWER ONE CARRIES THE SMILE, WHICH IS WHY IT STILL READS AS A SMILE WIDE OPEN.
+  const upperY = mid - O*0.75
+  const lowerY = mid + O*0.75
+  const cavity = () => {
+    paint.beginPath()
+    paint.moveTo(lx, ly)
+    paint.quadraticCurveTo(0, upperY, rx, ry)
+    paint.quadraticCurveTo(0, lowerY + L*1.1, lx, ly)
+    paint.closePath()
+  }
+
+  // THE HOLE THAT IS ACTUALLY VISIBLE ONCE THE LIP BAND HAS BEEN LAID ON TOP.
+  // ANYTHING INSIDE THE MOUTH IS CLIPPED TO THIS, NOT TO cavity().
+  const inside = () => {
+    paint.beginPath()
+    paint.moveTo(lx + D*0.5, ly)
+    paint.quadraticCurveTo(0, upperY + L*1.1, rx - D*0.5, ry)
+    paint.quadraticCurveTo(0, lowerY + L*0.2, lx + D*0.5, ly)
+    paint.closePath()
+  }
+
+  // 1 — THE DARK INSIDE, SO THE MOUTH HAS DEPTH RATHER THAN BEING A FLAT SHAPE.
+  paint.save()
+  paint.shadowColor = tint(rgb(SKIN.lip[1]), dead ? 0 : 0.5)
+  paint.shadowBlur = w*0.10
+  cavity()
+  paint.fillStyle = tint(deepCol, 1)
+  paint.fill()
+  paint.restore()
+
+  // 4 — THE LIP BAND, DRAWN AS A RIBBON RATHER THAN A STROKE, SO THAT READY CAN
+  //     BE FULLEST IN THE MIDDLE THE WAY A REAL LIP IS. EVERY OTHER STATE ASKS
+  //     FOR NO SWELL AND COMES OUT ONE EVEN WIDTH.
+  paint.save()
+  const band = paint.createLinearGradient(0, -W*0.3, 0, W*0.3)
+  band.addColorStop(0, tint(lipTop, 1))
+  band.addColorStop(1, tint(lipBot, 1))
+  paint.fillStyle = band
+  // ONLY READY HAS FULL LIPS. THE REST ARE AN EVEN BAND.
+  const full = mood === 'idle' ? FULLNESS : FLAT
+  ribbon(paint, lx, ly, rx, ry, upperY, L, full.upper)
+  ribbon(paint, lx, ly, rx, ry, lowerY + L*1.1, L, full.lower)
+  paint.restore()
+
+  // 5 — THE LIT TOP EDGE ALONG THE UPPER LIP, WHICH IS WHAT MAKES IT LOOK ROUND
+  //     RATHER THAN CUT OUT OF PAPER.
+  paint.save()
+  paint.fillStyle = tint(rimCol, dead ? 0.30 : 0.62)
+  ribbon(paint, lx, ly, rx, ry, upperY - L*0.30, L*0.30, full.upper*0.85)
+  paint.restore()
+
+  // 6 — WHAT IS INSIDE THE MOUTH, PAINTED AFTER THE LIPS AND CLIPPED TO THE HOLE
+  //     THEY LEAVE, SO THE BAND CAN NEVER COVER IT.
+  if (tongue > 0.02){
+    paint.save()
+    inside()
+    paint.clip()
+    const ty = lowerY - L*0.2
+    const grad = paint.createLinearGradient(0, ty - O*0.8, 0, ty + O*0.6)
+    grad.addColorStop(0, tint(rgb(SKIN.tongue[0]), 1))
+    grad.addColorStop(1, tint(rgb(SKIN.tongue[1]), 1))
+    paint.beginPath()
+    paint.ellipse(0, ty, W*0.32, O*0.85*tongue, 0, 0, Math.PI*2)
+    paint.fillStyle = grad
+    paint.fill()
+    paint.restore()
+  }
+
+  // TRANSCRIBING: A PALE BAND TRAVELLING THROUGH THE OPENING, LEFT TO RIGHT —
+  // THE AUDIO BEING READ THROUGH, NOT A MOOD.
+  if (mood === 'hearing'){
+    paint.save()
+    inside()
+    paint.clip()
+    const at = ((clock*0.75) % 1)
+    const x = -W*0.62 + at*W*1.24
+    const band = paint.createLinearGradient(x - W*0.20, 0, x + W*0.20, 0)
+    band.addColorStop(0,   tint(rgb(SKIN.rim), 0))
+    band.addColorStop(0.5, tint([255,255,255], 0.95))
+    band.addColorStop(1,   tint(rgb(SKIN.rim), 0))
+    paint.fillStyle = band
+    paint.fillRect(-W, -h, W*2, h*2)
+    paint.restore()
+  }
+
+  // 7 — THE CORNERS. A BALL AT EACH END OF THE MOUTH, WHICH IS THE DIMPLE.
+  for (const [x, y] of [[lx, ly], [rx, ry]]){
+    // A SOFT HALO FIRST, SO THE BALL SEPARATES FROM THE LIP IT SITS ON.
+    paint.save()
+    paint.shadowColor = tint(lipBot, dead ? 0 : 0.85)
+    paint.shadowBlur = D*0.8
+    const ball = paint.createRadialGradient(x - D*0.34, y - D*0.42, D*0.06, x, y, D*1.15)
+    ball.addColorStop(0, tint(toward(lipTop, [255,255,255], dead ? 0.15 : 0.55), 1))
+    ball.addColorStop(0.55, tint(toward(lipTop, [255,255,255], dead ? 0.05 : 0.12), 1))
+    ball.addColorStop(1, tint(lipBot, 1))
+    paint.beginPath()
+    paint.arc(x, y, D, 0, Math.PI*2)
+    paint.fillStyle = ball
+    paint.fill()
+    paint.restore()
+
+    // A SMALL SPECULAR ON TOP LEFT — WHAT ACTUALLY MAKES IT READ AS A SPHERE.
+    paint.beginPath()
+    paint.arc(x - D*0.33, y - D*0.38, D*0.26, 0, Math.PI*2)
+    paint.fillStyle = tint([255,255,255], dead ? 0.08 : 0.38)
+    paint.fill()
+  }
+
+  // ── WHAT IS GOING ON AROUND THE MOUTH ──
+
+  // LISTENING AND SPEAKING BOTH CARRY SOUND, SO BOTH GET ARCS: COMING IN WHILE
+  // IT LISTENS, GOING OUT WHILE IT TALKS.
+  if (mood === 'listening' || mood === 'speaking'){
+    const strength = 0.45 + 0.55*energy
+    arcs(paint, -W*0.62, W*0.30, -1, rgb(SKIN.lip[0]), strength, clock, w)
+    arcs(paint,  W*0.62, W*0.30,  1, rgb(SKIN.lip[0]), strength, clock, w)
+  }
+
+  // THINKING TICKS OVER ABOVE THE MOUTH, ONE DOT AT A TIME.
+  if (mood === 'thinking'){
+    for (let i = 0; i < 3; i++){
+      const on = 0.25 + 0.75*Math.max(0, Math.sin(clock*3.2 - i*0.7))
+      paint.beginPath()
+      paint.arc(W*0.34 + i*w*0.048, -W*0.42, w*0.017, 0, Math.PI*2)
+      paint.fillStyle = tint(rgb(SKIN.rim), on)
+      paint.fill()
+    }
+  }
+
+  // STOPPED IS KNOCKED OUT COLD: TWO SPEED-LINES WHERE THE LIFE WENT.
+  if (mood === 'gone'){
+    paint.save()
+    paint.lineWidth = w*0.018
+    paint.lineCap = 'round'
+    paint.strokeStyle = tint(rgb(SKIN.dead[0]), 0.9)
+    for (let i = 0; i < 2; i++){
+      const x = W*0.46 + i*w*0.052
+      paint.beginPath()
+      paint.moveTo(x, -W*0.52)
+      paint.lineTo(x + w*0.030, -W*0.34)
+      paint.stroke()
+    }
+    paint.restore()
+  }
+
+  paint.restore()
+}
+
+// EACH CANVAS RUNS ITSELF: ITS OWN MOOD AND CLOCK.
+function live(canvas, mood){
+  const paint = canvas.getContext('2d')
+  const scale = window.devicePixelRatio || 1
+  canvas.width = canvas.clientWidth*scale
+  canvas.height = canvas.clientHeight*scale
+  paint.scale(scale, scale)
+  const w = canvas.clientWidth, h = canvas.clientHeight
+  let clock = Math.random()*6, energy = 0
+
+  function frame(){
+    clock += 0.016
+    // A STAND-IN FOR A VOICE OR A SPOKEN CLIP, SO THE STATE READS AS LIVE.
+    const want = (mood==='listening'||mood==='speaking')
+      ? Math.max(0, Math.sin(clock*(mood==='speaking'?4.6:2.9))*0.5+0.42)
+      : 0
+    energy += (want-energy)*0.16
+    mascot(paint, w, h, mood, clock, energy)
+    requestAnimationFrame(frame)
+  }
+  requestAnimationFrame(frame)
+}
+
+const grid = document.getElementById('states')
+for (const [key, m] of Object.entries(MOODS)){
+  const cell = document.createElement('div')
+  cell.className = 'state'
+  cell.innerHTML =
+    `<canvas></canvas><div class="word">${m.word}</div><div class="what">${m.what}</div>`
+  grid.appendChild(cell)
+  live(cell.querySelector('canvas'), key)
+}
+
+// THE THREE SIZES IT HAS TO SURVIVE AT.
+const sizes = document.getElementById('sizes')
+for (const [label, w, h] of [['hero', 190, 130], ['header', 40, 28], ['menu bar', 22, 16]]){
+  const one = document.createElement('div')
+  one.className = 'one'
+  one.innerHTML = `<canvas style="width:${w}px;height:${h}px"></canvas><span>${label}</span>`
+  sizes.appendChild(one)
+  live(one.querySelector('canvas'), 'idle')
+}
+</script>
+</body>
+</html>
