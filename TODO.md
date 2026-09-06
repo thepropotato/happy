@@ -225,7 +225,7 @@ safety net, so it is not something to trim.
       of sending it, and did not ask which app. Both are in the standing prompt now.
 - [x] **Built the window** — `face/window/`, an Electron app that owns the process and runs
       Happy as a child over one JSON line at a time. An icon in the menu bar, a panel that
-      drops out of it, an orb that moves with the real microphone level and the real clip
+      drops out of it, a mouth that moves with the real microphone level and the real clip
       being played, the conversation, a box to type in, and every control.
 - [x] **Took the settings out of the code.** `memory/catalogue.py` is the only place a default
       lives now, and `memory/settings.py` the only place a value does. Every part that was

@@ -877,7 +877,7 @@ between the two ways of running Happy. The log is attached either way.
 into `data/happy.log` — the same account the terminal gives, kept, and the only account at all
 when Happy is running behind the window. Nothing anywhere has to remember to log, because it
 hears exactly what the other two hear. What it leaves out is the live part: how loud the room is
-and which mood the orb is in are not events, and both arrive ten times a second.
+and which mood the mouth is in are not events, and both arrive ten times a second.
 
 Every line is one line — a reply with newlines in it is flattened on the way in, because a log
 where one event can span six lines is a log nothing can grep. The kind column is the thing to
@@ -941,11 +941,15 @@ sides share.
 
 What the panel shows:
 
-- An **orb** that breathes when nothing is happening, swells with the microphone while you talk,
-  turns while Happy thinks, and rides the actual clip he is playing. The loudness is real:
-  `ears/microphone.py` reports the level of each 100 ms block while it is recording, and
-  `voice/speaker.py` sends the shape of every clip just before it plays. The colour behind
-  everything moves with it — amber for listening, violet for thinking, green for speaking.
+- **A mouth** — no eyes, no face, no circle. An upper and a lower lip meeting at two ball
+  corners, and it stays a smile in every state: what changes is how wide it opens and what is
+  going on around it. It breathes when nothing is happening, opens on the microphone while you
+  talk, ticks over while Happy thinks, and rides the actual clip he is playing. The loudness is
+  real: `ears/microphone.py` reports the level of each 100 ms block while it is recording, and
+  `voice/speaker.py` sends the shape of every clip just before it plays. It wears **one palette
+  throughout** — seven hues would read as seven brands — so the light behind it brightens and
+  dims with the mood rather than changing colour. Only "stopped" leaves the palette, by draining
+  out of it.
 - **What was said**, streaming a piece at a time, with the same stats line the terminal prints.
 - **Every tool call as one row**, on a solid surface rather than a wash over the moving colour
   behind it — it is a block of machine output in the middle of a conversation, and the aurora
@@ -961,19 +965,19 @@ What the panel shows:
 **None of his own plumbing.** "Loading models", `Answering in "Happy"`, a model being fetched:
 the terminal prints those and the log keeps every one of them, and the panel simply has no
 `note` method, so `show` skips it. The stream is what the two of you said to each other, and it
-was already saying "loading" twice over — the orb, the mood and the hint are the whole face of
+was already saying "loading" twice over — the mouth, the mood and the hint are the whole face of
 the panel while he wakes up, and a line of text under them repeating it is the second copy.
 Something going *wrong* still lands there, because that is about what you asked for.
 
 Sound outlives the words. Happy is still a sentence behind himself when the model has finished,
 so the panel goes quiet when the last clip ends and not when the last word arrives.
 
-**The orb yields.** It owns the panel while there is nothing to read and shrinks into the header
-the moment there is, which is 250 pixels won back for the conversation. What it was saying
-carries on beside his name. Tapping the small one brings the big one back.
+**The mouth yields.** It owns the panel while there is nothing to read and shrinks into the
+header the moment there is, which is the height of the hero won back for the conversation. What
+it was saying carries on beside his name. Tapping the small one brings the big one back.
 
-**The key he wakes to is under the orb**, in the hint, named as the key you actually press, and
-the orb itself moves with the room whenever a take is running. The hint is sent again whenever a
+**The key he wakes to is under the mouth**, in the hint, named as the key you actually press,
+and the mouth itself moves with the room whenever a take is running. The hint is sent again whenever a
 knob moves, because a hint still naming the old key is a hint that is wrong.
 
 **The controls are the whole panel**, not a drawer over part of one, and they are six sections
