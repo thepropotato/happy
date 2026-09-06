@@ -18,11 +18,13 @@ CHECKING = "read"
 # WHAT A READ SAYS BEFORE THE PAGE, WHEN READING IS WHAT WAS ASKED FOR.
 MOVED = "Their screen did not move. The page says:"
 
-# AND WHEN IT WAS AN OPEN THAT WAS TURNED INTO ONE, SO THE NEXT PAGE IS NOT OPENED EITHER.
+# AND WHEN IT WAS AN OPEN THAT WAS TURNED INTO ONE. IT SAYS WHAT WAS WEIGHED AND HOW TO GET
+# THE PAGE UP ANYWAY: A TURNED OPEN USED TO READ AS "STOP OPENING THINGS", AND A TURN TOLD
+# THAT SPENT ITS REMAINING GOES HUNTING FOR AN ADDRESS IT WAS NEVER GOING TO BE ALLOWED.
 TURNED = (
-    "That was a question rather than something to look at, so their screen was left alone and "
-    "the page was read here instead. Answer out of it and use \"read\" for the rest of this. "
-    "The page says:"
+    "{said!r} read as a question rather than something to look at, so their screen was left "
+    "alone and the page was read here instead. If they really did ask for the page itself, "
+    "say so and call this again with because=\"show\". The page says:"
 )
 
 
@@ -153,17 +155,25 @@ def open_url(url: str, because: Literal[SEEING, CHECKING]) -> str:
 
     # A PAGE OPENED TO ANSWER A QUESTION COVERS THEIR WORK OVER FOR NOTHING, AND THE WORDING
     # ABOVE HAS NEVER BEEN ENOUGH TO STOP IT, SO A SECOND AND MUCH SMALLER QUESTION DECIDES.
-    if because == SEEING and not judging.wanted(memory.asking()):
+    #
+    # IT DECIDES ON THIS TURN'S WORDS OR IT DOES NOT DECIDE AT ALL. THE JUDGE WEIGHS WHAT WAS
+    # SAID, AND WITH NOTHING TO WEIGH IT WOULD BE WEIGHING THE TURN BEFORE THIS ONE: "Oh yeah"
+    # AND "what show am i watching" BOTH COME BACK READ, WHICH IS HOW AN open_url("1", "show")
+    # THE MODEL GOT EXACTLY RIGHT CAME BACK AS A PAGE NOBODY SAW.
+    said = memory.asking()
+    turned = False
+
+    if because == SEEING and said and not judging.wanted(said):
         because = CHECKING
         turned = True
-    else:
-        turned = False
 
     if because == CHECKING:
         from hands.web.pages import page  # LATE: apps IS IMPORTED BEFORE web.
 
+        opening_words = TURNED.format(said=said) if turned else MOVED
+
         try:
-            return f"{TURNED if turned else MOVED}\n\n{page(url, 0)}"
+            return f"{opening_words}\n\n{page(url, 0)}"
         except Exception as error:
             return reasons.no(f"{error}")
 

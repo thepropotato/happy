@@ -150,6 +150,13 @@ def repeated(name, args):
         return None
 
     if name not in CHANGING:
+        # A CALL THAT WAS TURNED INTO A DIFFERENT ONE WAS NOT ANSWERED, AND "the answer is
+        # above, use it" IS A LIE ABOUT IT. open_url("1", "show") CAME BACK AS A PAGE READ
+        # RATHER THAN OPENED; THE ONE MOVE LEFT WAS TO ASK AGAIN AND MEAN IT, AND THIS SHUT
+        # THAT DOOR AND SPENT THE TURN'S LAST GO ON A REFUSAL.
+        if any(TURNED_BACK in each for each in got):
+            return None
+
         # A REFUSAL THAT WAS REALLY AN INSTRUCTION IS REPEATED IN FULL, BECAUSE POINTING BACK
         # AT IT IS WHAT LET A TURN READ "use it" AS LEAVE TO CARRY ON AND CLAIM IT WAS DONE.
         return UNCHANGED.format(undone=got[-1]) if CARRY_ON in got[-1] else REPEATED
@@ -283,6 +290,10 @@ OWNS = ("could not", "couldn't", "cannot", "can't", "not able", "did not", "didn
 # ON AN APOLOGY WHILE ONE OF THEM IS STILL OUTSTANDING.
 CARRY_ON = "not a refusal of it"
 
+# AND A CALL THAT RAN AS A DIFFERENT ONE THAN IT ASKED FOR MARKS ITSELF WITH THIS, SO ASKING
+# AGAIN AND MEANING IT IS STILL ALLOWED. TURNED IN hands/apps/tools.py CARRIES THE WORDS.
+TURNED_BACK = 'call this again with because="show"'
+
 # HOW A REPLY GIVES UP: IT IS SORRY, AND IT IS NOT TELLING THEM ANYTHING ELSE.
 GIVES_UP = ("i'm sorry", "im sorry", "i am sorry", "sorry,", "i can't", "i cannot", "i can not",
             "unable to", "not able to", "afraid i")
@@ -334,6 +345,18 @@ UNLOOKED_ALOUD = (
     "2. search_web or read_page about whatever that turns out to be.\n"
     "3. answer them out of what those two came back with, and nothing else.\n"
     "This is a step of the job, not a refusal of it. Do not apologise and do not stop."
+)
+
+# AND WHEN NOBODY ASKED AT ALL. THE ANSWER VOLUNTEERED WHAT IS ON THEIR SCREEN OFF THE BACK
+# OF A CONVERSATION, WHICH IS THE SAME GUESS WITHOUT EVEN A QUESTION BEHIND IT.
+UNASKED_ALOUD = (
+    "Stop — you have not looked. You were about to tell them what they are watching or "
+    "listening to, and no tool this turn has been and found out what that is. What was said "
+    "earlier in this conversation is what was true earlier, not what is on their screen now, "
+    "and a title you remember is not a thing you know.\n\n"
+    "Either call current_activity and answer out of what it says, or do not say what is in "
+    "front of them at all. They may simply have been talking to you. This is a step of the "
+    "job, not a refusal of it."
 )
 
 # AND THE SAME QUESTION ONCE THE LOOKING IS DONE: THE TITLE IS KNOWN AND THE ANSWER STILL IS
@@ -464,13 +487,31 @@ def keep_looking(request, handler):
     answered = handler(request)
     said = conversation.asking() or ""
 
-    if not answering(answered) or not any(each in said.lower() for each in POINTED):
+    if not answering(answered):
+        return answered
+
+    pointed = any(each in said.lower() for each in POINTED)
+
+    # THE QUESTION POINTS AT THE SCREEN, OR THE ANSWER DOES. "Oh yeah." POINTS AT NOTHING AND
+    # MATCHED NOTHING HERE, AND THE REPLY WAS STILL "You're watching House of the Dragon" —
+    # TAKEN OFF A current_activity RESULT FROM SEVEN HOURS EARLIER, WITH NO TOOL CALLED. WHAT
+    # MAKES THAT A LIE IS THE CLAIM, NOT THE WORDING OF THE QUESTION, SO THE CLAIM IS READ TOO.
+    if not pointed and not pointing(answered):
         return answered
 
     # LOOKING FIRST, THEN READING: THE TWO ARE ASKED FOR IN THE ORDER THEY HAVE TO HAPPEN, SO
     # A TURN THAT HAS LOOKED IS NOT SENT BACK TO LOOK AGAIN.
     if not already(*LOOKERS):
-        return again(request, handler, answered, UNLOOKED_ALOUD.format(said=said))
+        # THE QUESTION IS QUOTED BACK WHEN THE QUESTION IS WHAT POINTED. WHEN IT WAS THE
+        # ANSWER THAT POINTED, QUOTING "Oh yeah." AT THE MODEL EXPLAINS NOTHING.
+        return again(request, handler, answered,
+                     UNLOOKED_ALOUD.format(said=said) if pointed else UNASKED_ALOUD)
+
+    # NOBODY ASKED ANYTHING, SO THE LOOKING IS THE WHOLE OF IT. NAMING WHAT IS IN FRONT OF THEM
+    # IS EXACTLY WHAT current_activity ANSWERS, AND SENDING THAT OFF TO READ SOMETHING TOO SAYS
+    # "go and search the web about this show" TO A TURN THAT WAS ONLY EVER SAYING HELLO BACK.
+    if not pointed:
+        return answered
 
     # A QUESTION THE SCREEN ITSELF ANSWERS IS DONE NOW. ANYTHING ELSE — A COUNT, A YEAR, A
     # RUNTIME — IS NOT ON THE SCREEN AND HAS TO BE READ UP BEFORE IT IS SAID.
@@ -498,6 +539,31 @@ def again(request, handler, answered, telling):
         return told
 
     return answered
+
+
+# HOW A REPLY STATES, AS A FACT, WHAT IS IN FRONT OF THEM THIS MOMENT. THESE ARE CLAIMS ABOUT
+# THE SCREEN AND NOTHING ELSE: A TURN THAT SAYS ONE OF THEM HAS EITHER JUST LOOKED, OR IS
+# READING A TITLE OUT OF A CONVERSATION THAT HAS MOVED ON SINCE.
+CLAIMED = ("you're watching", "youre watching", "you are watching",
+           "you're listening to", "youre listening to", "you are listening to",
+           "you're on", "youre on", "you are on",
+           "you're reading", "youre reading", "you are reading",
+           "currently watching", "currently playing", "currently open",
+           "is playing right now", "is open right now", "on your screen right now")
+
+
+def pointing(answered):
+    """WHETHER THIS REPLY STATES WHAT IS IN FRONT OF THEM RIGHT NOW AS A FACT."""
+    said = getattr(answered, "result", None) or answered
+
+    if isinstance(said, list):
+        said = said[-1] if said else None
+
+    # str() FIRST: .text IS AN ACCESSOR OBJECT ON THESE MESSAGES, NOT A STRING, AND `in` AGAINST
+    # IT SILENTLY MATCHES NOTHING.
+    words = str(getattr(said, "text", "") or "").lower()
+
+    return any(each in words for each in CLAIMED)
 
 
 def answering(answered):
