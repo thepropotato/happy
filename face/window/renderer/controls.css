@@ -64,7 +64,7 @@
 }
 
 .part.open > .face .mark {
-  background: rgba(124, 92, 245, 0.22);
+  background: rgba(var(--accent), 0.22);
   color: var(--ink);
 }
 
@@ -248,7 +248,7 @@
 
 .options .option.on {
   color: var(--ink);
-  background: rgba(124, 92, 245, 0.22);
+  background: rgba(var(--accent), 0.22);
 }
 
 /* THE LIST CLIPS WHAT LEAVES IT, SO THE RING FOR THE OPTION TAB IS SITTING ON
@@ -295,7 +295,7 @@
 }
 
 .hear:hover {
-  background: rgba(124, 92, 245, 0.22);
+  background: rgba(var(--accent), 0.22);
   color: var(--ink);
 }
 
@@ -309,7 +309,7 @@
   width: 100%;
   border: 1px solid var(--glow-soft);
   border-radius: var(--r-md);
-  background: rgba(124, 92, 245, 0.18);
+  background: rgba(var(--accent), 0.18);
   color: var(--ink);
   font: inherit;
   font-size: 12px;
@@ -319,7 +319,7 @@
 }
 
 .doer:hover {
-  background: rgba(124, 92, 245, 0.28);
+  background: rgba(var(--accent), 0.28);
 }
 
 .doer:active {

@@ -34,7 +34,7 @@
 
 .segments button.on {
   color: var(--ink);
-  background: rgba(124, 92, 245, 0.28);
+  background: rgba(var(--accent), 0.28);
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -78,7 +78,7 @@
 }
 
 .slider input:focus-visible::-webkit-slider-thumb {
-  box-shadow: 0 0 0 3px rgba(124, 92, 245, 0.3), 0 0 12px var(--glow-soft);
+  box-shadow: 0 0 0 3px rgba(var(--accent), 0.3), 0 0 12px var(--glow-soft);
 }
 
 .switch {
@@ -105,7 +105,7 @@
 }
 
 .switch.on {
-  background: rgba(124, 92, 245, 0.4);
+  background: rgba(var(--accent), 0.4);
   border-color: var(--glow-soft);
 }
 
@@ -130,5 +130,5 @@
 
 .typed:focus {
   border-color: var(--glow-soft);
-  box-shadow: 0 0 0 3px rgba(124, 92, 245, 0.12);
+  box-shadow: 0 0 0 3px rgba(var(--accent), 0.12);
 }

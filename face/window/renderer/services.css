@@ -63,7 +63,7 @@
 
 .service.open {
   border-color: var(--glow-soft);
-  background: rgba(124, 92, 245, 0.07);
+  background: rgba(var(--accent), 0.07);
 }
 
 .service .face {
