@@ -1,11 +1,15 @@
+// ONE PALETTE, LIKE THE MOUTH ITSELF. WHAT MOVES BETWEEN STATES IS HOW LIT THE
+// ROOM IS, NEVER WHAT COLOUR IT IS: SEVEN HUES READ AS SEVEN BRANDS, AND AN
+// ORANGE PANEL BEHIND A VIOLET MOUTH IS TWO PRODUCTS ARGUING. ONLY "STOPPED"
+// LEAVES THE PALETTE, THE SAME WAY THE MOUTH DOES — BY DRAINING OUT OF IT.
 const MOODS = {
-  loading: { colours: ['#4b5166', '#343a4d'], word: 'waking up' },
-  idle: { colours: ['#7c5cf5', '#4a7fe0'], word: 'ready' },
-  listening: { colours: ['#f5a524', '#f5604c'], word: 'listening' },
-  hearing: { colours: ['#22d3ee', '#3b82f6'], word: 'making it out' },
-  thinking: { colours: ['#a855f7', '#6366f1'], word: 'thinking' },
-  speaking: { colours: ['#34d399', '#22d3ee'], word: 'speaking' },
-  gone: { colours: ['#ef4444', '#7f1d1d'], word: 'stopped' },
+  loading: { colours: ['#5b53a8', '#3a3568'], word: 'waking up' },
+  idle: { colours: ['#8b7cff', '#6d5cf0'], word: 'ready' },
+  listening: { colours: ['#a99cff', '#7c6bf5'], word: 'listening' },
+  hearing: { colours: ['#9182ff', '#6d5cf0'], word: 'making it out' },
+  thinking: { colours: ['#8b7cff', '#5b4bd8'], word: 'thinking' },
+  speaking: { colours: ['#a99cff', '#8b7cff'], word: 'speaking' },
+  gone: { colours: ['#3a3c47', '#2c2e38'], word: 'stopped' },
 }
 
 // HALF SIZE. IT IS ALL BLUR.
