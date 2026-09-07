@@ -36,6 +36,12 @@ from neonize.utils.enum import ParticipantChange
 
 RECEIPT_READ_SELF = _RECEIPT_RECEIPTTYPE.values_by_name["READ_SELF"].number
 
+# READING ON THE PHONE CLEARS THE BADGE THERE, SO IT HAS TO CLEAR IT HERE TOO.
+RECEIPTS_THAT_CLEAR_UNREAD = {
+    _RECEIPT_RECEIPTTYPE.values_by_name[n].number
+    for n in ("READ_SELF", "READ", "PLAYED_SELF")
+}
+
 
 
 app = Flask(__name__)
@@ -760,7 +766,7 @@ def register_events(session):
     @client.event(ReceiptEv)
     def on_receipt(c, evt):
         try:
-            if evt.Type != RECEIPT_READ_SELF:
+            if evt.Type not in RECEIPTS_THAT_CLEAR_UNREAD:
                 return
             chat_jid = resolve_lid(session, evt.MessageSource.Chat)
             with session.lock:
@@ -818,7 +824,7 @@ def handle_message(session, message):
                 if entry["fromMe"]:
                     contact = next((c for c in session.contacts if c["id"] == chat_jid), None)
                     chat_name = contact["name"] if contact else chat_jid.split("@")[0]
-            session.chats.append({"id": chat_jid, "name": chat_name, "isGroup": is_group, "unreadCount": 0, "lastMessage": entry["body"], "timestamp": entry["timestamp"]})
+            session.chats.append({"id": chat_jid, "name": chat_name, "isGroup": is_group, "unreadCount": 0, "lastMessage": entry["body"], "timestamp": entry["timestamp"], "lastMessageFromMe": entry["fromMe"], "lastMessageFrom": session.name if entry["fromMe"] else entry["from"]})
 
         if entry["hasMedia"]:
             store = session.media[chat_jid]
@@ -840,8 +846,17 @@ def handle_message(session, message):
 
         cidx = next((i for i, c in enumerate(session.chats) if c["id"] == chat_jid), -1)
         if cidx >= 0:
-            session.chats[cidx]["lastMessage"] = entry["body"]
+            # A STICKER OR A PHOTO HAS NO BODY, AND A BLANK LAST LINE TELLS HIM NOTHING.
+            session.chats[cidx]["lastMessage"] = entry["body"] or SHOWN.get(entry.get("mediaType") or entry.get("type"), "")
             session.chats[cidx]["timestamp"] = entry["timestamp"]
+            # THE BADGE ONLY EVER MEANT MESSAGES SOMEBODY ELSE SENT AND HE HAS NOT READ.
+            if entry["fromMe"]:
+                session.chats[cidx]["unreadCount"] = 0
+            elif entry.get("type") != "reaction":
+                session.chats[cidx]["unreadCount"] = session.chats[cidx].get("unreadCount", 0) + 1
+            # WHO SENT THE LAST ONE IS THE HALF OF "LAST MESSAGE" THAT WAS MISSING.
+            session.chats[cidx]["lastMessageFromMe"] = entry["fromMe"]
+            session.chats[cidx]["lastMessageFrom"] = session.name if entry["fromMe"] else entry["from"]
 
         # KEPT CURRENT HERE SO READING THE NEWEST NEVER SCANS EVERY CHAT.
         if entry.get("type") != "reaction" and not any(x in chat_jid for x in ("@newsletter", "@broadcast")):
@@ -993,9 +1008,17 @@ def previewed(session, chat, chat_id):
         return
 
     chat["lastMessage"] = newest.get("body") or SHOWN.get(newest.get("mediaType") or newest.get("type"), "")
+    # WITHOUT THESE THE LAST LINE READS AS THEIRS EVEN WHEN HE WROTE IT HIMSELF.
+    chat["lastMessageFromMe"] = bool(newest.get("fromMe"))
+    chat["lastMessageFrom"] = session.name if newest.get("fromMe") else newest.get("from")
 
     if newest.get("timestamp", 0) > chat.get("timestamp", 0):
         chat["timestamp"] = newest["timestamp"]
+
+    # A BADGE ON A CHAT WHOSE NEWEST LINE HE WROTE HIMSELF IS LEFT OVER FROM AN OLD
+    # SYNC: HE ANSWERED, SO THERE IS NOTHING OF THEIRS LEFT UNREAD UNDER IT.
+    if newest.get("fromMe") and chat.get("unreadCount", 0) > 0:
+        chat["unreadCount"] = 0
 
 
 def handle_history_sync(session, evt):
