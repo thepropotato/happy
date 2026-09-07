@@ -110,6 +110,36 @@ async def who_signed_in() -> str:
     return str(found.get("name") or "").strip()
 
 @mcp.tool()
+async def get_sync_status() -> str:
+    """Whether WhatsApp is up to date with the phone, and whether it is still catching up.
+    Use this for: "are the messages synced?", "is WhatsApp up to date?", "did it finish syncing?",
+    "is WhatsApp connected?". This is the ONLY tool that can answer that - reading messages
+    or chats tells you nothing about whether they are current.
+
+    "connected": true means the live socket is up and every new message arrives the instant
+    it is sent, so nothing is waiting. "syncing": true means old history is still loading in
+    the background; new messages still arrive live while that happens.
+    """
+    wa = get_client()
+    try:
+        found = await wa.get("/sync-status", timeout=5.0)
+    except Exception as e:
+        return _json({"error": f"Could not reach WhatsApp: {e}"})
+
+    if not isinstance(found, dict):
+        return _json({"error": "Could not read sync status"})
+
+    if not found.get("connected"):
+        found["user_message"] = "WhatsApp is not connected, so new messages are not arriving."
+    elif found.get("syncing"):
+        found["user_message"] = f"Connected - new messages arrive live. Still loading old history ({found.get('message') or 'syncing'})."
+    else:
+        found["user_message"] = "Connected and fully synced - new messages arrive the moment they are sent."
+
+    return _json(found)
+
+
+@mcp.tool()
 async def get_qr_code() -> str:
     """Get QR code for WhatsApp authentication. Returns base64 encoded QR image if not authenticated."""
     wa = get_client()

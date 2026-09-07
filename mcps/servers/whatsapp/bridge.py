@@ -1690,6 +1690,10 @@ def sync_status(username):
     messages_count = sum(len(v) for v in s.messages.values()) + sum(len(v) for v in s.media.values())
     still_syncing = not s.do_sync_done
 
+    # LIVE IS THE HALF THAT ANSWERS "ARE MESSAGES SYNCED": A SOCKET THAT IS UP
+    # GETS EVERY NEW MESSAGE THE INSTANT IT IS SENT, WITH NO CATCHING UP TO DO.
+    live = {"connected": s.connected, "authenticated": s.authenticated}
+
     if still_syncing:
         if chats_count > 0 or groups_count > 0:
             phase = "chats"
@@ -1700,11 +1704,11 @@ def sync_status(username):
         else:
             phase = "contacts"
             message = "Waiting for WhatsApp data..."
-        return jsonify({"syncing": True, "phase": phase, "contacts": contacts_count, "chats": chats_count, "groups": groups_count, "messages": messages_count, "message": message})
+        return jsonify({"syncing": True, "phase": phase, "contacts": contacts_count, "chats": chats_count, "groups": groups_count, "messages": messages_count, "message": message, **live})
     elif s.sync_status.get("phase") == "idle":
-        return jsonify({"syncing": False, "phase": "idle", "contacts": contacts_count, "chats": chats_count, "groups": groups_count, "messages": messages_count, "message": None})
+        return jsonify({"syncing": False, "phase": "idle", "contacts": contacts_count, "chats": chats_count, "groups": groups_count, "messages": messages_count, "message": None, **live})
     else:
-        return jsonify({"syncing": False, "phase": "done", "contacts": contacts_count, "chats": chats_count, "groups": groups_count, "messages": messages_count, "message": "Sync complete", "completedAt": s.sync_status.get("completedAt")})
+        return jsonify({"syncing": False, "phase": "done", "contacts": contacts_count, "chats": chats_count, "groups": groups_count, "messages": messages_count, "message": "Sync complete", "completedAt": s.sync_status.get("completedAt"), **live})
 
 
 @app.get("/<username>/qr")
