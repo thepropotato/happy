@@ -109,7 +109,7 @@ EYES = [
 ]
 
 CONNECTIONS = [
-    toggle("mcps.answering", "Answer in chats", False,
+    toggle("mcps.answering", "Answer in chats", True,
            "Everything in a group named Happy. Anywhere else, say @happy yourself."),
     number("mcps.timeout", "Give up after", 5, 120, 5, 20, "A service is not this computer.",
            "sec", whole=True),
