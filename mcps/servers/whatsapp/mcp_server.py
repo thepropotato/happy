@@ -158,6 +158,9 @@ async def remember_contact(said: str, means: str) -> str:
 async def get_chats(days: Optional[int] = None) -> str:
     """Get WhatsApp chats list with last-message previews. All returned timestamps are in UTC.
 
+    Each chat's "lastMessage" is its newest line, and "lastMessageFromMe" says who wrote it:
+    true means the USER sent it, so it is his own message and not one from that contact.
+
     Use this when the user explicitly asks to SEE or LIST their chats (e.g. "show my chats",
     "list all conversations"), and to read the real names when a lookup by name came back empty:
     a misheard name is not in the list, so find the one that is plainly the same person or group
@@ -203,6 +206,11 @@ async def get_messages(contact: list[str], limit: int = 10, order_newest: bool =
         limit: Number of messages to return per contact (default: 10).
         order_newest: If True (default), returns newest messages first. If False, returns oldest messages first.
         received_only: If True, only return messages received from the contact (excludes messages you sent). Defaults to False.
+
+    "The last message FROM someone" means the last one THEY sent. Pass received_only=True
+    for that: the newest line in a chat is often one the user sent himself, and reporting
+    his own words back to him as theirs is wrong. Every message says whose it is in
+    "fromMe" - true means the user wrote it. Never call a message theirs when fromMe is true.
     """
     order = "newest" if order_newest else "oldest"
     wa = get_client()
@@ -249,6 +257,14 @@ async def get_unread_messages(include_archived: bool = True) -> str:
     "what's new on WhatsApp?", "check WhatsApp", "unread messages".
     Returns chats sorted by unread count - this is the COMPLETE answer.
 
+    "lastMessage" is the chat's newest line and "lastMessageFromMe" says who wrote it.
+    When that is true the last line is one the USER sent, so it is not an unread message
+    from them and must never be described as something they said.
+
+    This says how many are unread and what the last line of each chat is. It does NOT
+    contain the unread messages themselves - to say what they actually are, call
+    get_messages for that contact with received_only=True. Never invent their contents.
+
     Args:
         include_archived: If True (default), also include archived chats with unread messages.
     """
@@ -262,6 +278,9 @@ async def get_unread_messages(include_archived: bool = True) -> str:
             "name": c.get("name") or c.get("id"),
             "unreadCount": c["unreadCount"],
             "lastMessage": c.get("lastMessage", ""),
+            # WHOSE LAST LINE IT IS, SO HIS OWN WORDS ARE NEVER READ BACK AS THEIRS.
+            "lastMessageFromMe": bool(c.get("lastMessageFromMe")),
+            "lastMessageFrom": c.get("lastMessageFrom") or "",
             "isGroup": c.get("isGroup", False),
             "archived": c.get("archived", False),
         }

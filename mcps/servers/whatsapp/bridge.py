@@ -1079,6 +1079,9 @@ def handle_history_sync(session, evt):
                 if conv_ts and conv_ts > session.chats[cidx].get("timestamp", 0):
                     session.chats[cidx]["timestamp"] = conv_ts
                 session.chats[cidx]["archived"] = archived
+                # THE PHONE IS THE AUTHORITY ON WHAT IS STILL UNREAD. WITHOUT THIS A COUNT
+                # FROM AN OLD SYNC OUTLIVES THE MESSAGES IT WAS COUNTING.
+                session.chats[cidx]["unreadCount"] = unread
             if chat_id not in session.messages:
                 session.messages[chat_id] = []
             if chat_id not in session.media:
