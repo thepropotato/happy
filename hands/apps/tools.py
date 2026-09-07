@@ -75,9 +75,14 @@ def open_app(name: str) -> str:
     This opens things. Never use it to find out whether an app is installed:
     that is list_installed_apps, and it changes nothing on screen.
 
-    This is for opening an application itself. If the user wants a web page, a
-    video, a search or anything else with an address, use open_url instead: it
-    goes to the browser they already use, and never opens the wrong one."""
+    This is for opening an application itself, empty, with nothing in it. To open
+    a particular file or folder in an app - "open korza in vs code" - use
+    open_path with its "app" argument instead. Starting the app here does NOT
+    put their folder in it, and saying it did would be untrue.
+
+    If the user wants a web page, a video, a search or anything else with an
+    address, use open_url instead: it goes to the browser they already use, and
+    never opens the wrong one."""
     match, sure = installed.resolve(name)
 
     if match is None:
@@ -112,22 +117,66 @@ def open_app(name: str) -> str:
 
 
 @tool
-def open_path(path: str) -> str:
+def open_path(path: str, app: str = "") -> str:
     """Open a file or folder in whatever application the system uses for it: a
     folder opens in the file browser, a document opens in its editor. Accepts
     paths like "~/Downloads" or "/Users/me/notes.txt". Use this when the user
-    asks to open, show or bring up a folder or a file."""
+    asks to open, show or bring up a folder or a file.
+
+    When they name the application to open it in - "open korza in vs code",
+    "open this in preview" - pass that name as "app". The folder then opens
+    inside that application, which is what was asked for. Opening the app on
+    its own afterwards does not put anything in it, and opening the folder
+    without "app" puts it in the file browser instead.
+
+    Args:
+        path: The file or folder to open.
+        app: The application to open it in, e.g. "Visual Studio Code". Leave
+            empty to use whatever the system normally opens this kind of thing with.
+    """
     target = Path(path).expanduser()
 
     if not target.exists():
         return reasons.no(f"There is nothing at {target}.")
 
-    how = opening.opener()
+    if not str(app).strip():
+        how = opening.opener()
+
+        if how is None:
+            return reasons.no("Opening paths is not supported on this platform.")
+
+        return launch(how + [str(target)]) or f"Opened {target}."
+
+    match, sure = installed.resolve(app)
+
+    if match is None:
+        return reasons.no(f"There is no app called {app} on this computer.")
+
+    if not sure:
+        return (
+            f"There is no app called {app} on this computer. The nearest one "
+            f"installed is {match}, which is a different app. Nothing was opened. "
+            f"Ask whether {match} is what was meant before opening it."
+        )
+
+    how = opening.path_in_app_opener(match)
 
     if how is None:
-        return reasons.no("Opening paths is not supported on this platform.")
+        return reasons.no("Opening a path inside a named app is not supported on this platform.")
 
-    return launch(how + [str(target)]) or f"Opened {target}."
+    complaint = launch(how + [str(target)])
+
+    if complaint:
+        return reasons.no(complaint)
+
+    # SAYING IT IS IN FRONT WITHOUT LOOKING IS HOW A WINDOW NOBODY SAW GOT CALLED OPEN.
+    if not opening.raised(match):
+        return (
+            f"I opened {target} in {match}, but {match} did not come to the front, so "
+            f"anything on screen right now belongs to another app. Do not click yet."
+        )
+
+    return f"Opened {target} in {match}. It is now the window in front."
 
 
 @tool

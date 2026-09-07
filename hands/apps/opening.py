@@ -49,6 +49,14 @@ def app_opener():
     return WINDOWS_OPEN if sys.platform == WINDOWS else None
 
 
+def path_in_app_opener(app):
+    """HOW THIS PLATFORM OPENS A PATH INSIDE ONE NAMED APPLICATION, OR None."""
+    if sys.platform == MACOS:
+        return MAC_OPEN_APP + [app]
+
+    return None
+
+
 def answering(name, front):
     """TRUE WHEN WHAT IS IN FRONT IS THE APPLICATION WE ASKED FOR."""
     here, wanted = (front or "").strip().lower(), (name or "").strip().lower()
