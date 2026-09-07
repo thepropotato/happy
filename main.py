@@ -339,10 +339,11 @@ def distant(happy, text, context=None):
 
 
 def stream(happy, text, context=None):
+    # THE PANEL HAS ALREADY HAD EVERY PIECE AS IT LANDED, SO SHOWING THE ANSWER AGAIN HERE
+    # PRINTED IT TWICE — "shut up.shut up." FOR A TURN THAT SAID IT ONCE. IT IS STILL YIELDED,
+    # BECAUSE THE CALLER JOINS THESE INTO WHAT GOES BACK INTO THE CHAT.
     try:
         for piece in happy.say_streaming(text, context):
-            show.piece(piece)
-
             yield piece
     except brain.LLMError as error:
         show.trouble(error)
