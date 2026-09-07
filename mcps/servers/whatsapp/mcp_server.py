@@ -276,6 +276,15 @@ async def download_media(message_id: str, chat: CoercedStr = "") -> str:
         message_id: The "id" field of the message the media is attached to.
         chat: Contact or group name that message is in. Helps find it when the file is not on disk yet.
     """
+    message_id = str(message_id or "").strip()
+
+    # AN ID WAS ONCE PASSED IN SHORTENED WITH AN ELLIPSIS, WHICH CAN ONLY EVER MISS.
+    if not message_id or "..." in message_id or "\u2026" in message_id:
+        return _json({
+            "error": "That is not a whole message id. Pass the message's \"id\" field exactly as it "
+                     "came back, with nothing trimmed off it.",
+        })
+
     wa = get_client()
     return _json(await wa.download_media_from_message(message_id, chat=chat))
 
