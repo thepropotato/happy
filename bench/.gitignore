@@ -5,8 +5,6 @@ runs/*
 
 # THE MEASUREMENTS WORTH KEEPING: THE NUMBERS A CHANGE IS ARGUED AGAINST LATER.
 !runs/regress-wide.log
-!runs/toolcall15.json
-!runs/toolcall15.log
 !runs/vb-parakeet.log
 !runs/vb-whisper.log
 !runs/voicebench-parakeet.json
