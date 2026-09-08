@@ -1,8 +1,28 @@
 # Benchmarks
 
-Two standard benchmarks, adapted to Happy. Both are safe to run on a real machine, because
-no tool ever executes.
+Four layers, cheapest first. All of them are safe to run on a real machine, because no tool
+ever executes.
 
+The layers exist because one test cannot answer two questions. `shape.py` asks whether the
+prompt and the tools are structurally what they were, and answers in a second, the same way
+every time. `choosing.py` asks whether one sentence reaches for the right tool. `replay.py`
+asks what survives across turns and across a restart, which is the only thing it can do that
+the others cannot, and it is also the slowest and the narrowest. Reach for the cheap one on
+every change and the dear one before a release.
+
+- **Shape** (`shape.py`, `golden/`) — no model at all. Every tool describes itself, no two
+  tools open alike, no name is registered twice, every tool asks for its `why`, the prompt
+  carries no XML, and neither the prompt nor the toolset has moved from the blessed copy in
+  `golden/`. That last one is the guard on the prefix cache: a prompt change is often right,
+  but not knowing one happened is how a docstring edit flips a routing nobody was looking at.
+  Run `--bless` to accept what is there now as what ought to be there.
+- **Choosing** (`choosing.py`) — forty-five single utterances, one turn each, on a thread of
+  their own. Six groups: the plain calls, the ones that must go and look, the `already_open`
+  discipline, the boundaries between two tools that are easy to confuse, the sequences, and
+  the ones whose right answer is to say something and call nothing. These carry nothing about
+  anybody — no project, no channel, no handle, no path — so they can be read by anyone. Every
+  boundary case names its neighbour as forbidden, because the failure is never "called
+  nothing", it is "called the neighbour".
 - **Replay** (`replay.py`, `suites/`) — a real evening from the log, played back on one
   continuous thread with every tool mocked and the real tool results handed back as canned
   replies. Each turn says which tools should have been reached for, which are forbidden, and
@@ -10,18 +30,30 @@ no tool ever executes.
   first, so it checks what survives a restart. Each suite is named for what it exercises
   rather than the day it was recorded, because the name is how you know whether the bug you
   are fixing is covered; the evening it came off is inside the file, as its `name`.
-  `suites/project-docs-and-shopping.json` is the first one, lifted from `messages` rows 1 to
-  26. The rule from here: a change to prompt.md, persona.md or a docstring ships with the
-  turn it fixes, and runs the whole suite.
-- **ToolCall-15** (`toolcall15.py`) — fifteen spoken instructions in five categories, scored
-  pass / partial / fail on which tool Happy reached for. Modelled on the ToolCall-15 in
-  OpenJarvis's suite, rewritten against Happy's own tools.
 - **Regression** (`regress.py`) — the phrases that drove the move to whisper-medium, plus the
   real command vocabulary, spoken by every English voice macOS ships. This is the one that
   decides the engine; VoiceBench measures general speech and disagrees with it.
 - **VoiceBench** (`run_voicebench.py`) — the real `hlt-lab/voicebench` dataset (Apache 2.0),
   spoken instructions through Happy's own ears. Reports word error rate and a realtime factor
   per accent split, Indian English included.
+
+## Held out, and why
+
+Half the choosing cases and every second replay row are marked held out: never tuned against,
+only checked. Both runners report the two halves apart. A change that lifts the rows it was
+written against and leaves the rest where they were is fitted to the suite rather than to
+Happy, and one number hides that completely. A harvested evening should default to held out.
+
+## One run is not a score
+
+The suites swing run to run. `run_choosing.py` runs everything three times by default and
+prints the low, the high and the spread, and it separates a case that failed **every** run
+from one that failed **some** — the first is a regression, the second is a coin flip. Do not
+compare a number to yesterday's without the spread beside it, and measure HEAD on the tree in
+front of you rather than trusting a number written down last week.
+
+Before measuring anything: `ollama ps`, because a running Happy evicts the bench model, and
+`ps` for another replay, because two runs against one Ollama double every turn.
 
 OSWorld is deliberately absent. It needs a real virtual machine and it is Ubuntu-first, while
 Happy is macOS and Windows only.
@@ -49,8 +81,12 @@ Verified rather than assumed: calling the mocked `run_command` with `rm -rf ~/De
     python3 bench/replay.py bench/suites/project-docs-and-shopping.json 21 26  # just those rows
     python3 bench/replay.py bench/suites/watching-and-documents.json --effort medium   # any brain knob
 
-    python3 bench/run_toolcall15.py               # all fifteen, about two minutes
-    python3 bench/run_toolcall15.py S2 L2         # just the named scenarios
+    python3 bench/shape.py                        # every structural check, one second
+    python3 bench/shape.py --bless                # accept the prompt as it now stands
+
+    python3 bench/run_choosing.py                 # forty-five cases, three times each
+    python3 bench/run_choosing.py --times 5       # five
+    python3 bench/run_choosing.py B1 B2 R3        # just the named cases
 
     export HF_HOME=~/.cache/huggingface           # anywhere with a few GB spare
     python3 bench/run_voicebench.py 40 whisper    # forty clips per split, per engine
@@ -68,13 +104,14 @@ Needs `pip install datasets`, and Ollama up with whatever `brain.model` is set t
 Reports land in `bench/runs/` as JSON and stay there: results, throwaway databases and clips
 are not committed. Compare runs on the machine that made them.
 
-A ToolCall-15 scenario lists `expect` (any one of these tools is right), optional `then` (a
-second call that must follow, or it scores partial), and `forbid` (`"*"` means the right answer
-was to say something and call nothing).
+A choosing case lists `expect` (any one of these tools is right), optional `then` (a second
+call that must follow, or it scores partial), and `forbid` (`"*"` means the right answer was to
+say something and call nothing). A call a guard turned back is not counted as a call the model
+got to make, because scoring a refusal as a choice marks the guard working as a fault.
 
 ## Where it stood on 2026-08-31
 
-ToolCall-15: 12 pass, 1 partial, 2 fail — 83%. Both failures were prompt discipline, not
+ToolCall-15, the fifteen cases that `choosing.py` grew out of: 12 pass, 1 partial, 2 fail — 83%. Both failures were prompt discipline, not
 plumbing: Happy said it could not skip a track when `media_control` maps `next` on macOS, and
 went straight to `open_url` for "open youtube" without the `already_open` check its own
 docstring asks for first.

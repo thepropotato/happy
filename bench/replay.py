@@ -76,6 +76,7 @@ def one(happy, turn, replies, calls):
         row=turn["row"], said=turn["said"], verdict=verdict, why=why,
         called=[each["name"] for each in called], args=[each["args"] for each in called],
         reply=reply[:400], seconds=round(seconds, 1), restart=bool(turn.get("restart")),
+        held=bool(turn.get("held")),
     )
 
 
@@ -117,6 +118,15 @@ def main():
         f"\n{counts['pass']} pass, {counts['partial']} partial, {counts['fail']} fail "
         f"-> {scored}/{len(results)} ({100 * scored / max(len(results), 1):.0f}%)"
     )
+
+    # THE TWO HALVES APART. A CHANGE THAT LIFTS THE ROWS IT WAS WRITTEN AGAINST AND LEAVES
+    # THE REST WHERE THEY WERE IS FITTED TO THE SUITE, AND ONE NUMBER HIDES THAT.
+    for name, half in (("tuned", False), ("held out", True)):
+        rows = [each for each in results if each["held"] is half]
+
+        if rows:
+            _, part = scoring.tally(rows)
+            print(f"  {name:<9} {part}/{len(rows)} ({100 * part / len(rows):.0f}%)")
 
     out = Path(__file__).resolve().parent / "runs" / f"replay-{Path(sys.argv[1]).stem}.json"
     out.write_text(json.dumps(dict(counts=counts, score=scored, results=results), indent=2))
