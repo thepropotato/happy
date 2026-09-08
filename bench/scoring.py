@@ -57,6 +57,21 @@ def checks(wanted, called, reply):
     if wanted.get("no_markdown") and MARKDOWN.search(reply or ""):
         found.append("answered in markdown")
 
+    # WHICH THING A TOOL WAS POINTED AT, WHEREVER IT WAS POINTED FROM. "SEND THE MOST RECENT
+    # DOWNLOAD" IS RIGHT OR WRONG IN AN ARGUMENT, NOT IN THE SENTENCE AFTER IT, AND IT IS THE
+    # SAME CHOICE WHICHEVER TOOL ENDS UP CARRYING IT.
+    handled = " ".join(
+        str(value) for each in called for value in each["args"].values()
+    ).lower()
+
+    for each in wanted.get("acted_on", []):
+        if each.lower() not in handled:
+            found.append(f"no call was pointed at {each}")
+
+    for each in wanted.get("never_acted_on", []):
+        if each.lower() in handled:
+            found.append(f"a call was pointed at {each}")
+
     words = wanted.get("contains_any")
 
     if words and not any(each.lower() in low for each in words):
