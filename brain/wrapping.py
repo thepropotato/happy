@@ -285,6 +285,18 @@ DENIED = (
     "turn came back saying so."
 )
 
+# AND THE OTHER WAY A TURN CLAIMS SOMETHING THAT DID NOT HAPPEN: BY DOING NOTHING AT ALL.
+# THE SAME WORDS ASKED TWICE PUT THE EARLIER TURN'S OWN CALLS AND THEIR SUCCESSES IN FRONT OF
+# THE MODEL, IN THE SHAPE A CALL MADE THIS TURN HAS, AND IT READ THEM AS THIS TURN'S WORK
+# ALREADY DONE AND SAID "just sent" WITHOUT REACHING FOR A TOOL. NOTHING WAS SENT.
+NOTHING_RAN = (
+    "Stop. You have not called a single tool this turn, so nothing has happened yet, and the "
+    "answer you just wrote tells them it has. Work above this line is from an earlier turn — "
+    "it is not this one, and it does not count for what they just asked. Do it now with the "
+    "tool that does it. If they are asking for something you already did, do it again unless "
+    "they said not to; if you truly cannot, say plainly that you have not done it."
+)
+
 # HOW A REPLY CLAIMS A THING HAPPENED, AND HOW IT OWNS THAT ONE DID NOT. A REPLY THAT OWNS IT
 # IS ALLOWED TO ALSO SAY WHAT IT DID MANAGE, SO OWNING IT ALWAYS WINS.
 CLAIMS = ("i've ", "i have ", "here's ", "here is ", "it's open", "its open", "saved", "created",
@@ -608,7 +620,8 @@ def surrendering(answered):
 
 @wrap_model_call
 def keep_honest(request, handler):
-    """A REPLY MAY NOT SAY A THING HAPPENED WHEN THE TOOL THAT WOULD HAVE DONE IT SAID NO.
+    """A REPLY MAY NOT SAY A THING HAPPENED WHEN NO TOOL THIS TURN DID IT — BECAUSE THE ONE
+    THAT WOULD HAVE SAID NO, OR BECAUSE NONE WAS EVER CALLED.
 
     THIS IS THE ONE PLACE IT CAN BE CAUGHT FOR EVERY TOOL AT ONCE. THE MODEL HAS ALREADY BEEN
     TOLD, IN THE TOOL'S OWN WORDS, THAT IT FAILED; WHAT THIS ADDS IS THAT IT CANNOT THEN GO ON
@@ -616,7 +629,17 @@ def keep_honest(request, handler):
     IT DID NOT HAPPEN, AND BOTH OF THOSE ARE HONEST ANSWERS."""
     answered = handler(request)
 
-    if not refused or not claiming(answered):
+    if not claiming(answered):
+        return answered
+
+    # A TURN THAT RAN NOTHING HAS NO REFUSAL TO POINT AT, WHICH IS WHY THIS WAS MISSED: THE
+    # CLAIM IS THE WHOLE OF THE EVIDENCE, AND IT IS ENOUGH.
+    if not ran:
+        told = request.override(messages=list(request.messages) + [HumanMessage(NOTHING_RAN)])
+
+        return handler(told)
+
+    if not refused:
         return answered
 
     told = request.override(

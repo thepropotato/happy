@@ -10,6 +10,8 @@ from mcps.session import Unreachable
 
 UNTIDY = re.compile(r"[^a-z0-9_]+")
 
+ADDRESS = re.compile(r"https?://[^\s\"'<>)]+")
+
 LONGEST = 64
 
 ANYTHING = {"type": "object", "properties": {}}
@@ -80,6 +82,26 @@ def calling(service, session, tool):
         except Exception:
             return reasons.no(BROKE.format(service=service))
 
-        return reasons.no(shortening.shortened(result)) if result.isError else shortening.shortened(result)
+        said = shortening.shortened(result)
+
+        if result.isError:
+            return reasons.no(said)
+
+        handing(said)
+
+        return said
 
     return call
+
+
+def handing(said):
+    """AN ADDRESS A SERVER JUST HANDED OVER IS ONE THE MODEL MAY OPEN.
+
+    A LINK SOMEBODY SENT IN A CHAT COMES FROM A TOOL LIKE A SEARCH RESULT DOES, BUT NOTHING
+    EVER REGISTERED IT, SO THE GUARD REFUSED IT AS INVENTED AND THE MESSAGE COULD NOT BE
+    OPENED AT ALL. WHAT THE MODEL CAN READ HERE IS WHAT IT MAY OPEN, AND NOTHING MORE:
+    AN ADDRESS IT WROTE ITSELF IS STILL IN NO RESULT."""
+    from hands.web import handed  # LATE: mcps IS IMPORTED BEFORE web.
+
+    for found in ADDRESS.findall(said or ""):
+        handed.offer(found.rstrip(".,"))
