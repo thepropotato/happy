@@ -6,7 +6,7 @@ from langchain_core.tools import tool
 
 from hands import reasons
 from hands.files import infront, trashing
-from hands.files.finding import describe, dig, hunt, locate
+from hands.files.finding import describe, dig, hunt, locate, newest
 from hands.files.making import TOOLS as MAKING
 from hands.files.readers import UNREADABLE, extract
 
@@ -140,21 +140,26 @@ def find_files(name: str) -> str:
 
 @tool
 def list_folder(path: str = "~") -> str:
-    """List what is directly inside a folder, with sizes. Use this for questions
-    like "what is in my downloads" or before reading something when you are not
-    sure of the exact file name."""
+    """List what is directly inside a folder, newest first, each with its size and
+    the time it last changed. Use this for questions like "what is in my downloads"
+    or before reading something when you are not sure of the exact file name.
+
+    Newest first means the first line is the answer to the most recent, the latest
+    and the one I just saved or just downloaded — for a folder or a file alike. Take
+    it from the top of this list, never from a name that looks like the thing they
+    were doing earlier, and never from what you remember putting there. The time on
+    each line is what it is: read it before you call anything the newest."""
     folder = Path(path).expanduser()
 
     if not folder.is_dir():
         return reasons.no(f"{folder} is not a folder.")
 
-    entries = sorted(folder.iterdir(), key=lambda p: p.name.lower())
-    shown = [p for p in entries if not p.name.startswith(".")]
+    shown = newest(p for p in folder.iterdir() if not p.name.startswith("."))
 
     if not shown:
         return reasons.no(f"{folder} is empty.")
 
-    return "\n".join(f"{p.name}/" if p.is_dir() else describe(p) for p in shown[:MAX_ENTRIES])
+    return "\n".join(describe(p) for p in shown[:MAX_ENTRIES])
 
 
 @tool
