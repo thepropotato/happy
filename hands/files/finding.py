@@ -1,6 +1,7 @@
 """FINDING A FILE FROM WHAT A PERSON CALLED IT."""
 
 import os
+from datetime import datetime
 from pathlib import Path
 
 # SEARCHED IN THIS ORDER, NEAREST FIRST.
@@ -16,6 +17,11 @@ MAX_DEPTH = 4
 MAX_HITS = 12
 
 DOWNLOADS = "Downloads"
+
+# THE TIME BESIDE A NAME, AS THE REMINDERS SAY IT: A CLOCK FOR TODAY, A DATE FOR ANY OTHER DAY.
+TODAY = "%H:%M"
+
+OTHER = "%-d %b"
 
 
 def home():
@@ -135,20 +141,52 @@ def folder(where):
     return named
 
 
+def changed(path):
+    """WHEN THE THING WAS LAST WRITTEN, AS A UNIX TIME, OR 0 IF IT WILL NOT SAY."""
+    try:
+        return path.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+def newest(paths):
+    """THE THINGS, NEWEST FIRST. "THE MOST RECENT DOWNLOAD" IS ANSWERED FROM THE ORDER OF A
+    LISTING, AND A LISTING IN ALPHABETICAL ORDER PUTS AN OLD FILE WHERE THE NEWEST ONE GOES."""
+    return sorted(paths, key=changed, reverse=True)
+
+
+def aged(path):
+    """THE WHEN, SHORT ENOUGH TO SIT BESIDE THE NAME."""
+    when = changed(path)
+
+    if not when:
+        return ""
+
+    at = datetime.now().astimezone()
+    when = datetime.fromtimestamp(when, at.tzinfo)
+
+    return when.strftime(TODAY if when.date() == at.date() else OTHER)
+
+
 def describe(path):
-    """A FILE WITH ITS SIZE, OR A FOLDER SAID TO BE ONE. A FOLDER GIVEN AS "0 KB" WAS ONCE
-    READ AS AN EMPTY PROJECT, AND A WHOLE CODEBASE WAS WRITTEN OFF ON THE STRENGTH OF IT."""
+    """A FILE WITH ITS SIZE AND WHEN IT LANDED, OR A FOLDER SAID TO BE ONE. A FOLDER GIVEN AS
+    "0 KB" WAS ONCE READ AS AN EMPTY PROJECT, AND A WHOLE CODEBASE WAS WRITTEN OFF ON THE
+    STRENGTH OF IT. THE TIME IS THERE BECAUSE WITHOUT IT NOTHING IN A LISTING SAYS WHICH OF
+    THEM IS THE NEWEST, AND THE ANSWER GETS GUESSED FROM THE NAMES."""
+    at = aged(path)
+    when = f", {at}" if at else ""
+
     if path.is_dir():
         try:
             inside = sum(1 for each in path.iterdir() if not each.name.startswith("."))
         except OSError:
             inside = 0
 
-        return f"{path}/ (a folder holding {inside} things)"
+        return f"{path}/ (a folder holding {inside} things{when})"
 
     size = path.stat().st_size
 
     if size < 1024**2:
-        return f"{path} ({size / 1024:.0f} KB)"
+        return f"{path} ({size / 1024:.0f} KB{when})"
 
-    return f"{path} ({size / 1024**2:.1f} MB)"
+    return f"{path} ({size / 1024**2:.1f} MB{when})"
