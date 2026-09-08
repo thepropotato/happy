@@ -34,7 +34,8 @@
       "forbid": [],
       "check": {
         "numbers_only": true
-      }
+      },
+      "held": false
     },
     {
       "row": 2,
@@ -58,7 +59,8 @@
         "contains_any": [
           "532"
         ]
-      }
+      },
+      "held": true
     },
     {
       "row": 3,
@@ -118,7 +120,8 @@
         "at_most": {
           "search_web": 2
         }
-      }
+      },
+      "held": false
     },
     {
       "row": 4,
@@ -165,7 +168,8 @@
           "netflix",
           "82995870"
         ]
-      }
+      },
+      "held": true
     },
     {
       "row": 5,
@@ -199,16 +203,17 @@
           "4E7nrVHdeiQ",
           "romanchakam"
         ]
-      }
+      },
+      "held": false
     },
     {
       "row": 6,
-      "said": "how many followers does maybe.venu have on instagram ?",
+      "said": "how many followers does someone.here have on instagram ?",
       "replies": {
         "search_web": [
           {
             "failed": false,
-            "result": "Results for maybe.venu instagram followers:\n1. maybe.venu • Instagram photos and videos — instagram.com\n   409 Followers, 670 Following, 17 Posts - @ maybe.venu on Instagram"
+            "result": "Results for someone.here instagram followers:\n1. someone.here • Instagram photos and videos — instagram.com\n   409 Followers, 670 Following, 17 Posts - @ someone.here on Instagram"
           }
         ]
       },
@@ -223,7 +228,8 @@
         "contains_any": [
           "409"
         ]
-      }
+      },
+      "held": true
     },
     {
       "row": 7,
@@ -233,13 +239,13 @@
         "search_web": [
           {
             "failed": false,
-            "result": "Results for maybe.venu instagram latest post:\n1. maybe.venu • Instagram photos and videos — instagram.com\n   409 Followers, 670 Following, 17 Posts - @ maybe.venu on Instagram : \"చిరాగ్గుంటే ఈ మరీ పెద్దతరహా, సరే అయితే విను ఇదో చిన్న సలహా\""
+            "result": "Results for someone.here instagram latest post:\n1. someone.here • Instagram photos and videos — instagram.com\n   409 Followers, 670 Following, 17 Posts - @ someone.here on Instagram : \"చిరాగ్గుంటే ఈ మరీ పెద్దతరహా, సరే అయితే విను ఇదో చిన్న సలహా\""
           }
         ],
         "read_page": [
           {
             "failed": false,
-            "result": "instagram.com\n\nTitle: maybe.venu • Instagram photos and videos\nThe page describes itself as: 408 Followers, 665 Following, 20 Posts - @maybe.venu on Instagram: \"చిరాగ్గుంటే ఈ మరీ పెద్దతరహా, సరే అయితే విను ఇదో చిన్న సలహా పరారైతే సరి మరోవైపు మరి\"\nThis is the page's own blurb, not anything posted on it."
+            "result": "instagram.com\n\nTitle: someone.here • Instagram photos and videos\nThe page describes itself as: 408 Followers, 665 Following, 20 Posts - @someone.here on Instagram: \"చిరాగ్గుంటే ఈ మరీ పెద్దతరహా, సరే అయితే విను ఇదో చిన్న సలహా పరారైతే సరి మరోవైపు మరి\"\nThis is the page's own blurb, not anything posted on it."
           }
         ]
       },
@@ -257,7 +263,8 @@
           "most recent post is",
           "posted a photo"
         ]
-      }
+      },
+      "held": false
     },
     {
       "row": 8,
@@ -279,13 +286,13 @@
         "write_file": [
           {
             "failed": false,
-            "result": "Wrote /Users/venupulagam/Desktop/barbell_pitch_views.csv (6 lines)."
+            "result": "Wrote /Users/owner/Desktop/barbell_pitch_views.csv (6 lines)."
           }
         ],
         "write_document": [
           {
             "failed": false,
-            "result": "Wrote /Users/venupulagam/Desktop/BarbellViews.xlsx (5 rows)."
+            "result": "Wrote /Users/owner/Desktop/BarbellViews.xlsx (5 rows)."
           }
         ]
       },
@@ -306,7 +313,8 @@
           "write_document": 1
         },
         "no_invented_rows": true
-      }
+      },
+      "held": true
     },
     {
       "row": 9,
@@ -362,7 +370,8 @@
         "at_most": {
           "search_web": 2
         }
-      }
+      },
+      "held": false
     },
     {
       "row": 10,
@@ -395,7 +404,8 @@
           "xxxx",
           "4E7nrVHdeiQ"
         ]
-      }
+      },
+      "held": true
     },
     {
       "row": 11,
@@ -429,7 +439,7 @@
         "write_document": [
           {
             "failed": false,
-            "result": "Wrote /Users/venupulagam/Desktop/Pride and Prejudice.pptx (5 slides)."
+            "result": "Wrote /Users/owner/Desktop/Pride and Prejudice.pptx (5 slides)."
           }
         ]
       },
@@ -456,7 +466,8 @@
           "17,358",
           "Simon Curtis"
         ]
-      }
+      },
+      "held": false
     },
     {
       "row": 12,
@@ -484,7 +495,7 @@
         "write_document": [
           {
             "failed": false,
-            "result": "Wrote /Users/venupulagam/Desktop/CurrentShow.pptx (4 slides)."
+            "result": "Wrote /Users/owner/Desktop/CurrentShow.pptx (4 slides)."
           }
         ]
       },
@@ -517,7 +528,8 @@
       "then": [
         "search_web",
         "read_page"
-      ]
+      ],
+      "held": true
     },
     {
       "row": 13,
@@ -527,13 +539,13 @@
         "open_path": [
           {
             "failed": true,
-            "result": "There is nothing at /Users/venupulagam/Downloads/Ormund_Hightower.jpg."
+            "result": "There is nothing at /Users/owner/Downloads/Ormund_Hightower.jpg."
           }
         ],
         "download_images": [
           {
             "failed": false,
-            "result": "Saved 1 into /Users/venupulagam/Downloads. They are:\n- /Users/venupulagam/Downloads/ormund-hightower.webp\nNow put the first of these in front of them with open_path, by its exact path above."
+            "result": "Saved 1 into /Users/owner/Downloads. They are:\n- /Users/owner/Downloads/ormund-hightower.webp\nNow put the first of these in front of them with open_path, by its exact path above."
           }
         ]
       },
@@ -547,7 +559,8 @@
           "already open on your screen",
           "it's already open"
         ]
-      }
+      },
+      "held": false
     },
     {
       "row": 14,
@@ -592,7 +605,8 @@
           "season three",
           "s3"
         ]
-      }
+      },
+      "held": true
     }
   ]
 }
