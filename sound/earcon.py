@@ -9,8 +9,13 @@ from sound.device import quiet, surrender
 
 RATE = 44100
 CHANNELS = 1
-SECONDS = 1.1
+SECONDS = 2.6
 STEP = RATE // 20
+
+# THE TWO THUDS OF ONE BEAT, AS HOW FAR INTO THE LOOP EACH FALLS AND HOW HARD IT LANDS.
+BEATS = ((0.0, 1.0), (0.34, 0.62))
+THUD = 0.20
+PITCH = 62
 
 lock = threading.RLock()
 ending = threading.Event()
@@ -93,17 +98,25 @@ def shut():
 
 
 def tone():
-    """A ZERO-ENDED PULSE LOOPS WITHOUT A CLICK, AND ITS LOW LEVEL KEEPS IT UNDER SPEECH."""
-    count = int(RATE * SECONDS)
-    times = np.arange(count, dtype=np.float32) / RATE
-    wave = np.sin(2 * np.pi * 220 * times)
-    envelope = np.ones(count, dtype=np.float32)
-    attack = int(RATE * 0.18)
-    decay = int(RATE * 0.28)
-    envelope[:attack] = np.linspace(0, 1, attack, endpoint=False)
-    envelope[-decay:] = np.linspace(1, 0, decay, endpoint=True)
+    """TWO SOFT THUDS AND A LONG REST, WHICH IS A RHYTHM THE BODY READS WITHOUT LISTENING.
 
-    return np.ascontiguousarray((wave * envelope * 0.3), dtype=np.float32)
+    A HELD TONE IS THE WORST THING TO PUT UNDER A CONVERSATION: A PURE PITCH HAS NOTHING FOR
+    THE EAR TO HABITUATE TO, SO IT KEEPS CATCHING ATTENTION BACK FOR AS LONG AS IT RUNS. A
+    BEAT SPENDS MOST OF ITS LOOP SILENT, AND EVERY THUD DIES INSIDE ITS OWN LENGTH, SO THERE
+    IS NEVER A CONTINUOUS SOUND TO WEAR ON ANYBODY."""
+    count = int(RATE * SECONDS)
+    pulse = np.zeros(count, dtype=np.float32)
+    length = int(RATE * 0.30)
+    times = np.arange(length, dtype=np.float32) / RATE
+
+    # A LOW SINE UNDER A STEEP DECAY IS A THUD; THE DECAY IS WHAT KEEPS IT FROM RINGING.
+    thud = np.sin(2 * np.pi * PITCH * times) * np.exp(-np.linspace(0, 7, length))
+
+    for offset, level in BEATS:
+        at = int(offset * RATE)
+        pulse[at : at + length] += thud * level
+
+    return np.ascontiguousarray(pulse * THUD, dtype=np.float32)
 
 
 surrender(stop)
