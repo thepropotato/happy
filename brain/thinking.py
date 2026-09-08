@@ -14,6 +14,7 @@ from face import show
 from brain import model as brain, persona, resuming
 from brain.model import LLMError
 from brain.prompt import system_prompt
+from sound import earcon
 from brain.wrapping import (
     LIMIT,
     MODEL,
@@ -31,6 +32,7 @@ from brain.wrapping import (
     keep_recent,
     keep_record,
     keep_trying,
+    keep_thinking,
     tell,
     troubles,
     watches,
@@ -126,6 +128,7 @@ class Happy:
                 # LAST, SO IT SITS CLOSEST TO THE MODEL: A GO THROWN AWAY OVER BAD
                 # JSON IS NOT A ROUND ANYBODY ASKED FOR AND IS NOT COUNTED AS ONE.
                 keep_trying,
+                keep_thinking,
             ],
             checkpointer=self.kept,
         )
@@ -177,37 +180,50 @@ class Happy:
         fresh()
         started = time.perf_counter()
 
-        straight = self.direct(speech, context)
-
-        if straight is not None:
-            memory.close(straight, time.perf_counter() - started)
-            self.carry(speech, straight)
-
-            return straight
-
         try:
-            done = graph.invoke(self.turn(speech, context), self.config())
-        except Stuck as stuck:
-            memory.close(str(stuck), time.perf_counter() - started)
+            straight = self.direct(speech, context)
 
-            return str(stuck)
-        except Exception as error:
-            raise LLMError(brain.reason(error))
+            if straight is not None:
+                memory.close(straight, time.perf_counter() - started)
+                self.carry(speech, straight)
 
-        # A ROUND THAT THOUGHT AND THEN SAID NOTHING, NOR ASKED FOR A TOOL, STILL ENDS ON WORDS.
-        reply = worded(done["messages"][-1].text.strip()) or NOTHING
-        memory.close(reply, time.perf_counter() - started)
+                return straight
 
-        return reply
+            try:
+                done = graph.invoke(self.turn(speech, context), self.config())
+            except Stuck as stuck:
+                memory.close(str(stuck), time.perf_counter() - started)
+
+                return str(stuck)
+            except Exception as error:
+                raise LLMError(brain.reason(error))
+
+            # A ROUND THAT THOUGHT AND THEN SAID NOTHING, NOR ASKED FOR A TOOL, STILL ENDS ON WORDS.
+            reply = worded(done["messages"][-1].text.strip()) or NOTHING
+            memory.close(reply, time.perf_counter() - started)
+
+            return reply
+        finally:
+            earcon.stop()
 
     def say_streaming(self, speech, context=None, **about):
-        """THE REPLY IN PIECES, FOR HANDING SENTENCES TO THE VOICE AS THEY LAND."""
+        """THE REPLY IN PIECES, FOR HANDING SENTENCES TO THE VOICE AS THEY LAND.
+
+        EACH ROUND'S ANSWER IS SPOKEN AS ITS OWN UTTERANCE THE MOMENT IT IS COMPLETE, RATHER
+        THAN ONLY THE LAST ONE OF THE WHOLE TURN — SO A THREE-TOOL TURN IS HEARD AS THREE
+        SEPARATE ANSWERS, WITH THE EARCON FILLING THE THINKING AND TOOL-CALLING GAPS BETWEEN
+        THEM RATHER THAN SILENCE."""
         graph, prompt, bound = self.ready()
         memory.begin(speech, **about)
         fresh()
+
+        # EVERYTHING SAID ACROSS THE WHOLE TURN, FOR THE ENDING() FALLBACK AND MEMORY.
         reply = ""
-        # HOW MUCH OF reply IS PREAMBLE TO A TOOL RATHER THAN THE ANSWER ITSELF.
-        aside = 0
+
+        # WHAT HAS BEEN SHOWN SINCE THE LAST TIME SOMETHING WAS SPOKEN. FLUSHED AND SPOKEN
+        # THE MOMENT A ROUND DECIDES TO CALL A TOOL, SO IT IS HEARD BEFORE THE TOOL RUNS
+        # RATHER THAN DROPPED AS PREAMBLE.
+        unspoken = ""
         started = time.perf_counter()
 
         straight = self.direct(speech, context)
@@ -230,73 +246,56 @@ class Happy:
                 if self.stopping.is_set():
                     break
 
-                # A ROUND THAT ENDS BY ASKING FOR A TOOL WAS TALKING TO ITSELF ON THE WAY
-                # THERE — "Let me open it for you" — AND WHAT IT SAID IS NOT THE ANSWER. IT
-                # IS SHOWN AS IT ARRIVES, BECAUSE THE PANEL WOULD OTHERWISE GO QUIET FOR AS
-                # LONG AS THE TOOL TAKES, AND THEN DROPPED. LEAVING IT IN IS WHAT GLUED
-                # THREE ANSWERS TOGETHER, THE LAST CONTRADICTING THE FIRST.
-                if asking(chunk, note):
-                    aside = len(reply)
+                # A ROUND DECIDING TO CALL A TOOL: WHATEVER IT SAID ON THE WAY THERE IS A
+                # REAL ANSWER NOW, NOT PREAMBLE TO BE GLUED ONTO A LATER ONE — SO IT IS
+                # SPOKEN NOW, ONCE, BEFORE THE TOOL RUNS.
+                if asking(chunk, note) and unspoken.strip() and not self.stopping.is_set():
+                    yield unspoken
+                    unspoken = ""
 
                 piece = spoken(chunk, note)
 
                 if piece:
                     reply += piece
+                    unspoken += piece
                     memory.progress(len(reply))
 
-                    # SHOWN AS IT ARRIVES, NEVER YIELDED AS IT ARRIVES. A PIECE REACHES THE
-                    # STREAM BEFORE ITS ROUND HAS SAID WHETHER IT IS CALLING A TOOL, AND THE
-                    # VOICE SPEAKS WHATEVER IT IS HANDED THE MOMENT IT HAS A SENTENCE — SO
-                    # "just let me know which one you'd like" WAS OUT OF THE SPEAKER LONG
-                    # BEFORE aside COULD DROP IT, AND YOUTUBE THEN OPENED ANYWAY. THE PANEL
-                    # STILL GETS EVERY PIECE HERE; THE ANSWER GOES OUT WHOLE, BELOW, ONCE
-                    # THERE IS SOMETHING TO SAY.
+                    # SHOWN AS IT ARRIVES, NEVER YIELDED AS IT ARRIVES.
                     show.piece(piece)
 
                 if self.stopping.is_set():
                     break
 
-            # NOT ONE WORD CAME OUT, SO WHATEVER ENDED THE RUN ENDED IT SOMEWHERE THE STREAM
-            # CANNOT SEE.
-            # WHAT WAS SAID ON THE WAY TO A TOOL IS DROPPED NOW THE REAL ANSWER IS IN.
-            reply = answer(reply, aside)
+            # WHATEVER THE LAST ROUND SAID AND NEVER GOT FLUSHED YET IS THE TURN'S CLOSING
+            # ANSWER.
+            if unspoken.strip() and not self.stopping.is_set():
+                yield unspoken
+                unspoken = ""
 
-            if reply.strip() and not self.stopping.is_set():
-                yield reply
-
+            # NOT ONE WORD CAME OUT ACROSS THE WHOLE TURN, SO WHATEVER ENDED THE RUN ENDED
+            # IT SOMEWHERE THE STREAM CANNOT SEE.
             if not reply.strip() and not self.stopping.is_set():
                 last = self.ending() or NOTHING
                 reply += last
 
-                # NONE OF THESE CAME THROUGH THE STREAM, SO NONE OF THEM HAVE BEEN SHOWN.
                 show.piece(last)
 
                 yield last
         except Stuck as stuck:
-            # NOT A FAILURE OF HAPPY'S, SO IT IS SAID RATHER THAN SHOWN AS TROUBLE.
             reply += str(stuck)
             show.piece(str(stuck))
 
             yield str(stuck)
         except Exception as error:
-            # SHOWN IN THE BACKEND'S WORDS FOR WHOEVER READS THE LOG, SAID IN HAPPY'S
-            # FOR WHOEVER IS IN THE ROOM. A TURN NEVER ENDS ON SILENCE.
             amiss(brain.reason(error))
             reply += BROKE
             show.piece(BROKE)
 
             yield BROKE
         finally:
+            earcon.stop()
             taken = time.perf_counter() - started
             tell(MODEL, None, taken)
-
-            # THE YIELDS ABOVE CANNOT RUN WHEN THE CONSUMER LET GO OF THIS GENERATOR PART WAY
-            # THROUGH, AND A ROW WITH NO REPLY IN IT READS AS HAPPY SAYING NOTHING AT ALL. SO
-            # THE LAST WORD IS SETTLED HERE, WHERE IT IS WRITTEN DOWN, AS WELL AS THERE.
-            reply = answer(reply, aside)
-
-            if not reply.strip() and not self.stopping.is_set():
-                reply = self.ending() or NOTHING
 
             said = reply.strip()
 

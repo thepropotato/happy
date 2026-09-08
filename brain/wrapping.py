@@ -13,6 +13,7 @@ import memory
 from brain.history import recent
 from hands import reasons
 from memory import conversation, settings
+from sound import earcon
 
 TOOL = "tool"
 
@@ -79,6 +80,14 @@ refused = {}
 # EVERY TOOL THAT HAS RUN THIS TURN, IN ORDER. A TOOL THAT MUST NOT BE THE FIRST THING A
 # TURN DOES CAN ASK WHAT CAME BEFORE IT.
 ran = []
+
+
+@wrap_model_call
+def keep_thinking(request, handler):
+    """A MODEL CALL MAY TAKE A WHILE, SO A SMALL PULSE KEEPS SILENCE FROM READING AS A HANG."""
+    earcon.start()
+
+    return handler(request)
 
 
 class Stuck(Exception):
@@ -377,7 +386,7 @@ UNREAD_ALOUD = (
 # FOR A VIDEO IT WAS ALREADY LOOKING AT, WHICH IS THE ONE THING THAT ROW EXISTS TO CATCH.
 ON_SCREEN = ("link", "url", "address", "what is this", "what's this", "whats this",
              "what am i", "what im", "what i'm", "which video", "which show", "what show",
-             "what video", "what song", "what page", "called", "title", "name of", "open",
+             "what video", "what song", "what page","screen", "called", "title", "name of", "open",
              "playing", "tab", "window",
              # AND THE WORD FOR THE THING ITSELF. TOLD "the video im watching right now" AFTER
              # NAMING THE WRONG FILE, THE TURN LOOKED, MATCHED NOTHING HERE, WAS SENT OFF TO
@@ -767,6 +776,7 @@ def claim():
 @wrap_tool_call
 def keep_record(request, handler):
     """EVERY TOOL CALL GOES ON ITS EXCHANGE, WITH ITS REASON, ARGUMENTS AND TIME."""
+    earcon.start()
     call = request.tool_call
 
     # READ, NOT TAKEN: THE CALL ITSELF GOES ON UNTOUCHED.
