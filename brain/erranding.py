@@ -14,6 +14,10 @@ import dspy
 
 from brain.prompt import system_prompt
 
+# WHAT ONE TOOL CALL TAKES UP IN A TRAJECTORY: THE THOUGHT, THE NAME, THE ARGUMENTS AND WHAT
+# CAME BACK.
+STEP = 4
+
 
 class Errand(dspy.Signature):
     """THE STANDING PROMPT IS PUT ON THIS AT BUILD TIME, BECAUSE IT IS READ OFF prompt.md AND
@@ -24,8 +28,41 @@ class Errand(dspy.Signature):
 
 
 def tooled(tools):
-    """THE LANGCHAIN TOOLS AS DSPy ONES. ALL 38 CROSS OVER WITHOUT A LOSS."""
-    return [dspy.Tool.from_langchain(each) for each in tools]
+    """THE LANGCHAIN TOOLS AS DSPy ONES, EACH WITH ITS CALL WRITTEN DOWN AROUND IT.
+
+    dspy.Tool.from_langchain WRAPS EVERY TOOL AS A COROUTINE, AND THE SYNCHRONOUS ReAct NEVER
+    AWAITS ONE: EVERY CALL COMES BACK "Execution error" WITH THE COROUTINE THROWN AWAY. SO
+    THE CROSSING IS DONE IN guarding.recorded, WHICH ALSO CARRIES keep_record AND keep_named:
+    THE EXCHANGE, THE PANEL, THE TIMING, AND A REPEAT TURNED BACK WITH WHAT IT ALREADY HAS."""
+    from brain import guarding  # LATE: guarding READS wrapping, WHICH READS memory.
+
+    known = [each.name for each in tools]
+
+    return [guarding.recorded(each, known) for each in tools]
+
+
+class Errands(dspy.ReAct):
+    """THE ERRAND LOOP, WITH THE OLDEST CALLS DROPPED THE WAY THE PREFIX WANTS THEM DROPPED."""
+
+    def truncate_trajectory(self, trajectory):
+        """THE OLDEST HALF OF THE CALLS DROPPED AT ONCE, RATHER THAN ONE AT A TIME.
+
+        keep_recent, WHOSE WHOLE POINT IS THE PREFIX: THE BACKEND RE-READS EVERYTHING FROM
+        THE FIRST CHANGED BYTE ON, AT A FEW HUNDRED TOKENS A SECOND. DROPPING ONE CALL MOVES
+        THAT BYTE AND COSTS THE WHOLE CONTEXT, AND DOING IT AGAIN NEXT ROUND COSTS IT AGAIN.
+        DROPPING HALF COSTS THE SAME ONCE AND THEN BUYS MANY ROUNDS OF QUIET."""
+        keys = list(trajectory.keys())
+
+        # EVERY CALL IS FOUR KEYS: THE THOUGHT, THE NAME, THE ARGUMENTS AND WHAT CAME BACK.
+        calls = len(keys) // STEP
+
+        if calls <= 1:
+            return super().truncate_trajectory(trajectory)
+
+        for key in keys[:(calls // 2) * STEP]:
+            trajectory.pop(key)
+
+        return trajectory
 
 
 def built(tools, wording=None, most=None):
@@ -35,4 +72,4 @@ def built(tools, wording=None, most=None):
     THE SAME TEXT prompt.md HOLDS AND NOT A REPHRASING OF IT."""
     signature = Errand.with_instructions(wording or system_prompt())
 
-    return dspy.ReAct(signature, tools=tooled(tools), max_iters=most or 14)
+    return Errands(signature, tools=tooled(tools), max_iters=most or 14)

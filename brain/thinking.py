@@ -61,6 +61,14 @@ NOTHING = (
 BROKE = "Something went wrong at my end on that one, so I did not get it done."
 
 
+def said(done):
+    """THE WORDS OUT OF WHICHEVER LOOP ANSWERED."""
+    if isinstance(done, dict):
+        return done["messages"][-1].text.strip()
+
+    return (getattr(done, "reply", "") or "").strip()
+
+
 def stamp():
     """WHERE EVERY GROUP THE GRAPH IS MADE OF STANDS RIGHT NOW."""
     return (*(settings.version(each) for each in GROUPS), routines.version())
@@ -190,7 +198,7 @@ class Happy:
                 return straight
 
             try:
-                done = graph.invoke(self.turn(speech, context), self.config())
+                done = self.round(graph, speech, context)
             except Stuck as stuck:
                 memory.close(str(stuck), time.perf_counter() - started)
 
@@ -199,12 +207,30 @@ class Happy:
                 raise LLMError(brain.reason(error))
 
             # A ROUND THAT THOUGHT AND THEN SAID NOTHING, NOR ASKED FOR A TOOL, STILL ENDS ON WORDS.
-            reply = worded(done["messages"][-1].text.strip()) or NOTHING
+            reply = worded(said(done)) or NOTHING
             memory.close(reply, time.perf_counter() - started)
 
             return reply
         finally:
             earcon.stop()
+
+    def round(self, graph, speech, context):
+        """ONE TURN, RUN BY WHICHEVER LOOP THE SETTINGS NAME.
+
+        BOTH ARE BUILT AND BOTH CARRY THE SAME GUARDS; WHICH ONE ANSWERS IS ONE SETTING, SO
+        bench/replay.py CAN SCORE EITHER WITHOUT THE CODE MOVING."""
+        if not settings.get("brain.signatures"):
+            return graph.invoke(self.turn(speech, context), self.config())
+
+        from brain import asking, erranding  # LATE: erranding READS THE PROMPT AND THE TOOLS.
+
+        import dspy
+
+        dspy.configure(lm=asking.ready(asking.THINKING))
+
+        loop = erranding.built(self.tools, self.prompt, settings.get("brain.calls"))
+
+        return loop(said=speech)
 
     def say_streaming(self, speech, context=None, **about):
         """THE REPLY IN PIECES, FOR HANDING SENTENCES TO THE VOICE AS THEY LAND.

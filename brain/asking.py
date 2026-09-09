@@ -7,6 +7,7 @@ SHOULD HAVE, SO THE SETTINGS ARE READ AND DSPy IS TOLD. IT IS TOLD AGAIN WHENEVE
 import threading
 
 import dspy
+
 from memory import settings
 
 # DSPy NAMES A MODEL PROVIDER-FIRST, THE WAY LITELLM DOES.
@@ -38,6 +39,16 @@ lock = threading.Lock()
 trouble = None
 
 
+
+
+def guarded(kind):
+    """THE MODEL CLASS ONE KIND IS BUILT FROM: THE THINKING ONE CARRIES THE GUARDS.
+
+    A LOOKING MODEL ANSWERS ONE QUESTION ABOUT ONE PICTURE AND CALLS NOTHING, SO THERE IS NO
+    TURN FOR A GUARD TO HOLD; THE THINKING ONE RUNS THE ERRAND AND NEEDS EVERY ONE OF THEM."""
+    from brain.guarding import Guarded  # LATE: guarding READS wrapping, WHICH READS memory.
+
+    return Guarded if kind == THINKING else dspy.LM
 
 
 def facts(kind):
@@ -80,7 +91,7 @@ def ready(kind=THINKING):
         # EFFORT IS SENT ONLY WHEN IT IS SET, AND NAMED THE WAY THE BACKEND WANTS IT.
         extra = {"reasoning_effort": effort} if effort not in ("", None, False, "off") else {}
 
-        made = dspy.LM(
+        made = guarded(kind)(
             f"{NAMING.get(provider, provider)}/{model}",
             api_base=url or "http://localhost:11434",
             api_key="",

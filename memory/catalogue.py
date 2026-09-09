@@ -70,6 +70,10 @@ BRAIN = [
            whole=True, rare=True),
     number("brain.timeout", "Timeout", 30, 900, 10, 300, "A cold load is not a dead server.",
            "sec", whole=True, rare=True),
+    # BOTH LOOPS RUN THE SAME PROMPT, THE SAME TOOLS AND THE SAME GUARDS. THE ONE THAT IS OFF
+    # IS STILL BUILT, SO bench/replay.py CAN SCORE EITHER WITHOUT THE CODE MOVING.
+    toggle("brain.signatures", "Signature loop", False,
+           "The errand runs as a DSPy signature instead of a LangChain agent.", rare=True),
     # WHAT THE BACKEND WORKED OUT ABOUT THE STANDING PROMPT AND THE TOOLS IS THROWN OUT WITH
     # THE MODEL, AND THAT IS THE FRONT OF EVERY REQUEST.
     number("brain.resident", "Stays loaded", 0, 240, 5, 0, RESIDENT, "min", whole=True,
