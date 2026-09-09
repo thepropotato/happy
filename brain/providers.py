@@ -51,7 +51,7 @@ def ollama(model, url, key, temperature, context, effort, timeout, resident):
         model=model,
         temperature=temperature,
         num_ctx=context,
-        reasoning=effort,  # SENT AS think.
+        reasoning=quietest(model, effort),  # SENT AS think.
         keep_alive=resident,
         client_kwargs={"timeout": timeout},
     )
@@ -69,6 +69,30 @@ def openai(model, url, key, temperature, context, effort, timeout, resident):
         timeout=timeout,
         **({"reasoning_effort": effort} if effort else {}),
     )
+
+
+# OFF IS NOT A LEVEL A REASONING MODEL HAS. TELLING OLLAMA think=false DROPS THE "Reasoning:"
+# LINE OUT OF THE TEMPLATE ALTOGETHER, AND A MODEL TRAINED TO REASON THEN FALLS BACK TO ITS
+# OWN DEFAULT, WHICH ON gpt-oss IS medium — SO OFF IS MEASURABLY THE SLOWEST SETTING THERE IS.
+# THE QUIETEST A MODEL LIKE THAT WILL ACTUALLY GO IS ITS LOWEST NAMED LEVEL, SO OFF ASKS FOR
+# THAT INSTEAD OF ASKING FOR NOTHING.
+QUIETEST = "low"
+
+# THE MODELS THAT REASON WHETHER OR NOT THEY ARE ASKED TO, BY THE NAME OLLAMA LISTS THEM
+# UNDER. A MODEL THAT IS NOT ONE OF THESE HAS NO REASONING TO LEAVE ON, AND IS TOLD false
+# THE WAY IT ALWAYS WAS.
+REASONS_ANYWAY = ("gpt-oss",)
+
+
+def quietest(model, effort):
+    """WHAT OFF MEANS TO A MODEL THAT REASONS ANYWAY: THE LOWEST LEVEL, NOT THE ABSENCE OF ONE.
+
+    A MODEL THAT HAS NO REASONING TO LEAVE ON IS STILL TOLD false, BECAUSE ASKING ONE OF
+    THOSE FOR A LEVEL PUTS A SETTING ON THE WIRE THAT MEANS NOTHING TO IT."""
+    if effort is not False:
+        return effort
+
+    return QUIETEST if any(each in model for each in REASONS_ANYWAY) else False
 
 
 PROVIDERS = {OLLAMA: ollama, OPENAI: openai}
