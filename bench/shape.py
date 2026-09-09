@@ -42,6 +42,19 @@ TOO_ALIKE = 0.75
 TAGS = ("<system>", "<instructions>", "<example>", "<task>", "<context>", "<rules>")
 
 
+def ours(found):
+    """THE TOOLS WRITTEN IN THIS REPO, WHICH ARE THE ONLY ONES ANY CHECK HERE CAN ACT ON.
+
+    A CONNECTED SERVICE'S TOOLS ARE ITS OWN: LINEAR SHIPS SEVENTY-THREE AND WORDS THEM HOW IT
+    LIKES, AND "linear_list_cycles is described in 50 characters" IS A COMPLAINT ABOUT LINEAR
+    THAT NOBODY HERE CAN FIX. FAILING ON THOSE MAKES THE BENCH RED FOR REASONS NOTHING IN THIS
+    TREE CAN ANSWER, WHICH IS HOW A BENCH STOPS BEING READ. THEY ARE STILL COUNTED, AND
+    reaching.py IS WHERE A SERVICE IS HELD TO ANYTHING."""
+    import mcps
+
+    return [each for each in found if mcps.whose(each.name) is None]
+
+
 def first(text):
     """THE OPENING SENTENCE OF A DOCSTRING, WHICH IS THE PART THAT DECIDES A CHOICE.
 
@@ -162,11 +175,14 @@ def the_toolset_has_not_moved(found):
     return troubles
 
 
+# "ours" JUDGES ONLY WHAT IS WRITTEN IN THIS REPO; "tools" JUDGES EVERY TOOL BOUND, WHICH IS
+# WHAT THE PREFIX GUARD HAS TO SEE — A SERVICE CONNECTING MOVES THE PREFIX AND THAT IS THE
+# WHOLE THING IT IS WATCHING FOR.
 CHECKS = [
-    ("every tool describes itself", every_tool_describes_itself, "tools"),
-    ("no two tools read alike", no_two_tools_read_alike, "tools"),
+    ("every tool describes itself", every_tool_describes_itself, "ours"),
+    ("no two tools read alike", no_two_tools_read_alike, "ours"),
     ("every name is its own", every_name_is_its_own, "tools"),
-    ("every tool asks why", every_tool_asks_why, "tools"),
+    ("every tool asks why", every_tool_asks_why, "ours"),
     ("the toolset has not moved", the_toolset_has_not_moved, "tools"),
     ("the prompt is plain", the_prompt_is_plain, "prompt"),
     ("the prompt has not moved", the_prompt_has_not_moved, "prompt"),
@@ -189,12 +205,23 @@ def main():
     if "--bless" in sys.argv:
         return bless(text, found)
 
-    print(f"{len(found)} tools, {len(text)} characters of prompt\n")
+    mine = ours(found)
+    theirs = len(found) - len(mine)
+    counted = f"{len(mine)} tools of ours"
+
+    if theirs:
+        # NAMED APART BECAUSE THE CHECKS BELOW ONLY JUDGE OURS, AND A COUNT THAT HID THAT
+        # WOULD READ AS THE BENCH PASSING ON WORDING NOBODY HERE WROTE.
+        counted += f" and {theirs} from connected services, whose wording is theirs"
+
+    print(f"{counted}, {len(text)} characters of prompt\n")
 
     failed = 0
 
+    given = {"prompt": text, "ours": mine, "tools": found}
+
     for name, check, against in CHECKS:
-        troubles = check(text if against == "prompt" else found)
+        troubles = check(given[against])
 
         if troubles:
             failed += 1
