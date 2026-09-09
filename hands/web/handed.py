@@ -5,22 +5,34 @@ from urllib.parse import urlparse
 
 from memory import conversation
 
-# THE PART OF A PATH THAT PICKS ONE VIDEO OR ONE PRODUCT IS NEVER GUESSABLE, AND IT IS NEVER
-# THIS SHALLOW. A SITE'S OWN NAME AND A SECTION OF IT ARE, SO THOSE ARE LET THROUGH.
-SHALLOW = 2
+# A SITE'S OWN NAME IS GUESSABLE AND SO IS ONE ORDINARY WORD OF SECTION AFTER IT. ANYTHING
+# THAT PICKS OUT ONE PARTICULAR THING IS NOT, AND THAT IS WHAT A NAME IN A PATH ALWAYS IS.
+# THIS WAS TWO SEGMENTS OF ANY LETTERS AT ALL, WHICH LET A CODE HOST'S NAME FOLLOWED BY AN
+# INVENTED PROJECT PATH THROUGH: NOBODY HAD SEARCHED FOR IT, THE MODEL ASSEMBLED IT OUT OF
+# THE NAME IT WAS ASKED ABOUT, AND IT WAS OPENED AND REPORTED AS THE PAGE THEY WANTED.
+SHALLOW = 1
 
+# THIS NAMES THE NEXT STEP, SO IT CARRIES THE MARK THAT KEEPS A TURN ALIVE: WITHOUT IT THE
+# REFUSAL COUNTS TOWARDS "ENOUGH SAID NO, STOP", AND A TURN BEING PUT RIGHT ON ITS WAY TO
+# DOING THE JOB WOULD BE ENDED FOR BEING PUT RIGHT.
 REFUSED = (
     "{said} is not an address any tool gave you, so nothing was opened. Never write an "
-    "address yourself: search for the thing and use the result's number, so \"2\" opens or "
-    "reads the second result."
+    "address yourself: search_web for the thing now, then open the result you want by its "
+    "number, so \"2\" opens or reads the second result. This is a step of the job, not a "
+    "refusal of it. Do not apologise and do not stop."
 )
 
 SEVERAL = (
     "{said} is not an address any tool gave you. Results {numbers} are on {host}: give the "
-    "number of the one you mean instead."
+    "number of the one you mean instead. This is a step of the job, not a refusal of it. "
+    "Do not apologise and do not stop."
 )
 
-NONE = "There are no results to pick from yet. Search first, then use the number."
+NONE = (
+    "There are no results to pick from yet. Call search_web now, then use the number of the "
+    "result you want. This is a step of the job, not a refusal of it. Do not apologise and "
+    "do not stop."
+)
 
 lock = threading.Lock()
 
@@ -96,14 +108,18 @@ def spoken(said):
 
 
 def shallow(address):
-    """A SITE OR A SECTION OF ONE, WITH NOTHING IN IT THAT ONLY A SEARCH COULD HAVE TOLD YOU."""
+    """A SITE OR A SECTION OF ONE, WITH NOTHING IN IT THAT ONLY A SEARCH COULD HAVE TOLD YOU.
+
+    A SECTION IS AN ORDINARY LOWERCASE WORD THE SITE PUT THERE — trending, newest, explore.
+    A NAME IS NOT: CAPITALS, DIGITS, HYPHENS AND UNDERSCORES ALL MARK SOMETHING PICKED OUT
+    OF MANY, AND THE ONLY WAY TO KNOW IT WAS RIGHT IS TO HAVE BEEN HANDED IT."""
     parsed = urlparse(address)
     parts = [each for each in parsed.path.split("/") if each]
 
     if parsed.query or parsed.fragment or len(parts) > SHALLOW:
         return False
 
-    return all(each.replace("-", "").replace("_", "").isalpha() for each in parts)
+    return all(each.isalpha() and each.islower() for each in parts)
 
 
 def full(said):
