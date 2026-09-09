@@ -59,16 +59,6 @@ KNOWN = [
         "client is what gets numbers banned.",
     },
     {
-        "name": "weather",
-        "label": "Weather",
-        "folder": "weather",
-        # NOTHING TO SIGN INTO.
-        "kind": NONE,
-        "also": ["forecast", "openmeteo"],
-        "hint": "Forecasts from Open-Meteo, which wants no account and no key. Connect it and "
-        "it works. Ask about anywhere by name; nothing here knows where you are.",
-    },
-    {
         "name": "instagram",
         "label": "Instagram",
         "folder": "instagram",

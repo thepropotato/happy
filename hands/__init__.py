@@ -4,13 +4,13 @@ import eyes
 import mcps
 from hands import (
     apps, browser, coder, controls, desktop, files, memory, owner, reasons, reminders, routines,
-    shell, web, wording,
+    shell, weather, web, wording,
 )
 
 # EVERY MODULE, EVERY TURN.
 MODULES = [
     apps, controls, files, memory, owner, mcps, web, eyes, desktop, browser, coder, shell, wording,
-    routines, reminders,
+    routines, reminders, weather,
 ]
 
 

@@ -97,6 +97,7 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `hands/files/` | Finding files and reading what is inside them, whatever the format. Describing a whole project in one call, and creating or editing a file without ever wiping one. |
 | `hands/shell/` | The shell. One command in, what it printed back out. |
 | `hands/desktop/` | The pointer and the keyboard, and checking that they worked. |
+| `hands/weather/` | The forecast anywhere, from the one that wants no account. |
 | `hands/web/` | Searching the web, and reading whichever result holds the answer, by number. Results never show an address, and one the model writes itself is refused. Pages are read in tiers: plain fetch, the facts inside the HTML, then Happy's own headless browser. |
 | `hands/browser/` | The browser errand. **Blank — being rebuilt.** |
 | `eyes/systems.py` | Asking each system to describe its own screen. macOS and Windows side by side. |
@@ -153,7 +154,6 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `mcps/servers/slack/` | Channels, messages, canvases, lists and files. Thirty-one tools. |
 | `mcps/servers/linear/` | The board and all of it: issues, labels, initiatives, releases. Sixty-five tools. |
 | `mcps/servers/jira/` | The backlog, its projects, and the moves a workflow allows. |
-| `mcps/servers/weather/` | The forecast anywhere, from the one that wants no account. |
 | `mcps/servers/instagram/` | This account's own posts, their comments, and replying to one. |
 | `mcps/bridging.py` | The bridge from Happy's side: starting it, asking it, putting it down. |
 | `mcps/servers/whatsapp/` | Reads your chats over a local bridge, and sends on them. |
@@ -453,7 +453,15 @@ A service that signs in as somebody answers `who_signed_in()` too, returning the
 account and nothing else. It is in `OURS`, so it costs the model nothing; `mcps.signed_in()`
 asks every server that offers one, all at once on the shared loop, and `hands/owner` turns
 that into the name Happy calls the person he works for. A service with no account of its own —
-Weather — simply does not write one, and nothing has to be told that.
+WhatsApp, which is linked by scanning rather than signed into — simply does not write one, and
+nothing has to be told that.
+
+**A capability with nothing to connect is not a connector.** Weather was a server in `mcps/`
+for a while and the panel offered to "Connect Weather", which signed into nothing: Open-Meteo
+wants no account and no key. It is `hands/weather/` now, on from the first run like every
+other thing Happy can simply do. The test is whether a person has anything to hand over — a
+token, a consent screen, a QR — and not whether the code happens to talk to somebody else's
+machine.
 
 ## Things that are easy to get wrong here
 
