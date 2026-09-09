@@ -82,6 +82,14 @@ def dishonest(words):
     if not wrapping.ran:
         return wrapping.NOTHING_RAN
 
+    # SOMETHING RAN, BUT NOT NECESSARILY ANYTHING THAT COULD HAVE DONE WHAT WAS CLAIMED.
+    missing = wrapping.unbacked(words, wrapping.ran)
+
+    if missing:
+        return wrapping.UNBACKED.format(
+            claim=" and ".join(missing), ran=", ".join(dict.fromkeys(wrapping.ran))
+        )
+
     if not wrapping.refused:
         return None
 

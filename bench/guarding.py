@@ -52,6 +52,45 @@ def main():
     wrong += report("a claim after a tool ran is left alone",
                     guarding.dishonest("i have sent that message") is not None, False)
 
+    # AND THE SAME CLAIM WITHOUT THE "I". A TURN THAT CALLED NOTHING AT ALL SAID "GITHUB'S
+    # OPEN, AND THE PROJECT PAGE IS UP AND READY TO GO" AND WENT STRAIGHT OUT: EVERY WORD OF
+    # THE CLAIM LIST WAS FIRST PERSON OR POSSESSIVE, AND THIS NAMED THE THING INSTEAD.
+    for why, said, want in (
+        ("a claim about the thing rather than the doing is sent back",
+         "Got it, the site is open, and the project page is up and ready to go.", True),
+        ("a bare report of a page being up is sent back", "The page is up.", True),
+        ("a plain fact is left alone", "It is half past four.", False),
+        ("a count is left alone", "There are three unread messages.", False),
+        ("owning it is left alone", "I could not find a project by that name.", False),
+        ("a question is left alone", "Which one do you want?", False),
+    ):
+        clean()
+        wrong += report(why, guarding.dishonest(said.lower()) is not None, want)
+
+    # AND THE HALF-WAY CASE: A TOOL RAN, BUT NOT ONE THAT COULD HAVE DONE WHAT WAS CLAIMED.
+    # A TURN CHECKED WHATSAPP AND THEN SAID THE PROJECT PAGE WAS UP AND READY TO VIEW. THE
+    # HONESTY CHECK ASKED ONLY WHETHER *A* TOOL HAD RUN, AND ONE HAD.
+    for why, said, already, want in (
+        ("a page claimed up with only a chat checked is sent back",
+         "Two chats have unread messages. And the project page is up and ready to view.",
+         ["whatsapp_get_latest_received_message"], True),
+        ("the same claim with an opening tool is left alone",
+         "The project page is up.", ["open_url"], False),
+        ("a send claimed with only a read is sent back",
+         "I sent that to Jane.", ["whatsapp_get_unread_messages"], True),
+        ("a send with a sending tool is left alone",
+         "I sent that to Jane.", ["whatsapp_send_message"], False),
+        ("a document claimed with only a search is sent back",
+         "I saved the document.", ["search_web"], True),
+        ("a count off a reading tool is left alone",
+         "There are three unread messages.", ["whatsapp_get_unread_messages"], False),
+        ("owning that it did not happen is left alone",
+         "I could not open it.", ["open_url"], False),
+    ):
+        clean()
+        wrapping.ran.extend(already)
+        wrong += report(why, guarding.dishonest(said.lower()) is not None, want)
+
     # keep_at_it: GIVING UP WITH A DOOR STILL OPEN.
     clean()
     wrapping.refused = {"open_app": f"nothing yet. {wrapping.CARRY_ON}"}

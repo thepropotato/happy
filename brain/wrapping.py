@@ -344,8 +344,64 @@ NOTHING_RAN = (
 
 # HOW A REPLY CLAIMS A THING HAPPENED, AND HOW IT OWNS THAT ONE DID NOT. A REPLY THAT OWNS IT
 # IS ALLOWED TO ALSO SAY WHAT IT DID MANAGE, SO OWNING IT ALWAYS WINS.
+# THE SECOND ROW IS THE SAME CLAIM WITHOUT THE "I": A TURN THAT CALLED NOTHING SAID "GITHUB'S
+# OPEN, AND THE PROJECT PAGE IS UP AND READY TO GO" AND WALKED PAST ALL OF THE FIRST ROW,
+# BECAUSE EVERY WORD THERE IS FIRST PERSON OR POSSESSIVE AND THIS NAMED THE THING INSTEAD.
 CLAIMS = ("i've ", "i have ", "here's ", "here is ", "it's open", "its open", "saved", "created",
-          "made ", "opened", "sent ", "written", "wrote ", "done", "all set", "ready for you")
+          "made ", "opened", "sent ", "written", "wrote ", "done", "all set", "ready for you",
+          "'s open", "s open", "is open", " is up", "now up", "is ready", "ready to go",
+          "up and running")
+
+# A CLAIM IS ABOUT A KIND OF DOING, AND ONLY SOME TOOLS CAN HAVE DONE IT. WITHOUT THIS THE
+# HONESTY CHECK ASKS ONLY WHETHER *A* TOOL RAN, SO A TURN THAT CHECKED WHATSAPP AND THEN SAID
+# "the project page is up and ready to view" WAS WAVED THROUGH: SOMETHING HAD RUN, AND IT WAS
+# NOT ANYTHING THAT COULD OPEN A PAGE.
+BACKED = {
+    "open": ("open_url", "open_app", "open_path", "bring_to_front", "already_open",
+             "play_pause", "control_app"),
+    "send": ("send_", "_send", "send", "draft", "post_", "reply"),
+    "write": ("write_", "download", "move_", "copy_", "rename", "trash", "restore", "remember"),
+    "play": ("play_pause", "open_url", "control_app"),
+}
+
+# HOW A REPLY SAYS EACH OF THOSE HAPPENED.
+DOINGS = {
+    "open": ("is up", "is open", "'s open", "opened", "now up", "up and ready",
+             "ready to view", "ready to explore", "pulled up"),
+    "send": ("sent", "message sent"),
+    "write": ("saved", "created", "written", "wrote ", "made "),
+    "play": ("playing", "is on now", "started"),
+}
+
+UNBACKED = (
+    "Stop. You said {claim}, and nothing you called this turn could have done that. What ran "
+    "was: {ran}.\n\n"
+    "A tool that checked one thing has not done another, however alike they sound. Either "
+    "call the tool that actually does it now, in this turn, and say what it came back with, "
+    "or drop that part of your answer and say only what you really did. Never tell them a "
+    "thing happened because you meant to do it."
+)
+
+
+def unbacked(said, ran):
+    """WHICH KINDS OF DOING THIS REPLY CLAIMS THAT NOTHING THIS TURN COULD HAVE DONE.
+
+    ran IS A LIST OF NAMES, BUT IS READ AS A PLAIN YES-OR-NO IN PLACES; WITH NO NAMES TO
+    WEIGH THERE IS NOTHING TO SAY, AND THE OLDER CHECKS BELOW STILL HAVE THEIR GO."""
+    if not isinstance(ran, (list, tuple, set)):
+        return []
+
+    found = []
+
+    for kind, words in DOINGS.items():
+        if not any(each in said for each in words):
+            continue
+
+        if not any(any(tool in name for tool in BACKED[kind]) for name in ran):
+            found.append(kind)
+
+    return found
+
 
 OWNS = ("could not", "couldn't", "cannot", "can't", "not able", "did not", "didn't", "unable",
         "failed", "no luck", "nothing was", "wasn't able", "was not able", "not there",
@@ -798,6 +854,16 @@ def keep_honest(request, handler):
 
         return handler(told)
 
+    # AND THE HALF-WAY CASE: SOMETHING RAN, BUT NOTHING THAT COULD HAVE DONE WHAT WAS CLAIMED.
+    missing = unbacked(claimed(answered), ran)
+
+    if missing:
+        told = request.override(messages=list(request.messages) + [HumanMessage(
+            UNBACKED.format(claim=" and ".join(missing), ran=", ".join(dict.fromkeys(ran)))
+        )])
+
+        return handler(told)
+
     if not refused:
         return answered
 
@@ -806,6 +872,16 @@ def keep_honest(request, handler):
     )
 
     return handler(told)
+
+
+def claimed(answered):
+    """THE WORDS OF A REPLY, LOWERCASED, FOR THE CHECKS THAT READ THEM."""
+    said = getattr(answered, "result", None) or answered
+
+    if isinstance(said, list):
+        said = said[-1] if said else None
+
+    return (getattr(said, "text", "") or "").lower()
 
 
 def claiming(answered):
