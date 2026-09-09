@@ -25,9 +25,36 @@ REPO = " It is a git repository."
 # HOW MANY OF THE THINGS OPEN BEHIND THE FRONT ONE ARE WORTH NAMING.
 MOST_BEHIND = 2
 
-CUT = "\n\n[...cut. Ask again with start set past here to read on.]"
+CUT = "\n\n[...cut. Call this again with start={next} to read on from exactly where this stopped.]"
+
+# HOW FAR BACK FROM A HARD CUT TO LOOK FOR A CLEAN BREAK, SO A CHUNK NEVER ENDS
+# MID-WORD OR MID-SENTENCE. A PAGE OF DENSE TEXT RARELY GOES THIS LONG WITHOUT ONE.
+SOFT_MARGIN = 2000
 
 MAX_ENTRIES = 200
+
+
+def boundary(text, end):
+    """THE NEAREST CLEAN PLACE TO STOP AT OR BEFORE end, SO A CHUNK NEVER SPLITS A WORD OR
+    A SENTENCE IN HALF. A PARAGRAPH BREAK IS BEST; A SENTENCE END IS GOOD ENOUGH; NOTHING
+    FOUND NEARBY MEANS THE TEXT HAS NO NATURAL BREAKS HERE, SO THE HARD CUT STANDS."""
+    if end >= len(text):
+        return end
+
+    nearby = text[max(0, end - SOFT_MARGIN) : end]
+
+    paragraph = nearby.rfind("\n\n")
+
+    if paragraph != -1:
+        return max(0, end - SOFT_MARGIN) + paragraph + 2
+
+    for mark in (". ", "! ", "? ", "\n"):
+        sentence = nearby.rfind(mark)
+
+        if sentence != -1:
+            return max(0, end - SOFT_MARGIN) + sentence + len(mark)
+
+    return end
 
 
 @tool
@@ -90,7 +117,9 @@ def read_file(path: str, start: int = 0) -> str:
     Use this whenever you are asked about the contents of something: to read,
     summarise, check, review or answer questions about a document. Do not say
     you cannot read files. If the text comes back cut short, call this again
-    with start set to carry on from there."""
+    with the exact start value it gives you, and keep doing that until nothing
+    is cut, before you answer or summarise — a summary made from only the first
+    part of a document is not a summary of the document."""
     found, note = locate(path)
 
     if found is None:
@@ -114,8 +143,9 @@ def read_file(path: str, start: int = 0) -> str:
     if not text.strip():
         return reasons.no(f"{found.name} opened, but there is no text in it.")
 
-    window = text[start : start + MAX_CHARS]
-    more = CUT if len(text) > start + MAX_CHARS else ""
+    stop = boundary(text, start + MAX_CHARS)
+    window = text[start:stop]
+    more = CUT.format(next=stop) if stop < len(text) else ""
     header = f"{describe(found)}\n" + (f"{note}\n" if note else "")
 
     return f"{header}\n{window}{more}"

@@ -92,6 +92,11 @@ refused = {}
 # TURN DOES CAN ASK WHAT CAME BEFORE IT.
 ran = []
 
+# WHETHER THE LAST read_file RESULT WAS CUT SHORT AND THE POSITION TO RESUME FROM. CLEARED
+# EACH TURN BY fresh(), UPDATED BY keep_record() WHEN A read_file TOOL COMES BACK.
+file_was_cut = False
+file_cut_resume = None
+
 
 @wrap_model_call
 def keep_thinking(request, handler):
@@ -107,10 +112,12 @@ class Stuck(Exception):
 
 def fresh():
     """A NEW TURN. THE STREAK IS ABOUT THIS ERRAND, NOT THE LAST ONE."""
-    global missed, spend
+    global missed, spend, file_was_cut, file_cut_resume
 
     missed = 0
     spend = None
+    file_was_cut = False
+    file_cut_resume = None
     asked.clear()
     tried.clear()
     refused.clear()
@@ -1014,6 +1021,10 @@ def keep_record(request, handler):
     noting(name, said, nope)
     remember(name, args, said)
 
+    # TRACK WHETHER read_file LEFT TEXT UNREAD, SO THE MODEL CANNOT ANSWER WITHOUT GETTING IT.
+    if name == "read_file":
+        check_file_cut(said)
+
     memory.used(name, args, said, taken, why, failed=nope, spent=cost)
 
     tell(
@@ -1096,4 +1107,61 @@ def reason(request):
 def text(result):
     """WHAT A TOOL ACTUALLY SAID, OUT OF WHATEVER WRAPPER IT CAME BACK IN."""
     return getattr(result, "content", result)
+
+
+def check_file_cut(said):
+    """WHETHER THIS read_file RESULT WAS CUT SHORT AND WHAT THE NEXT start= IS."""
+    global file_was_cut, file_cut_resume
+
+    # THE CUT MARKER SAYS "[...cut. Call this again with start={next} to read on..."
+    # SO IF SAID ENDS WITH IT, EXTRACT THAT next VALUE.
+    if "[...cut" not in said or "start=" not in said:
+        file_was_cut = False
+        file_cut_resume = None
+        return
+
+    # EXTRACT THE start= VALUE FROM THE CUT MARKER.
+    match = re.search(r"start=(\d+)", said)
+
+    if match:
+        file_was_cut = True
+        file_cut_resume = int(match.group(1))
+    else:
+        file_was_cut = False
+        file_cut_resume = None
+
+
+UNREAD_FILE = (
+    "That file was cut short. You read only part of it. Call read_file again with the exact "
+    "start={start} it named, and keep reading until nothing is cut, before you answer or "
+    "summarise — a summary made from only the first chunk is not a summary of the whole file."
+)
+
+
+@wrap_model_call
+def keep_reading(request, handler):
+    """A TURN MAY NOT ANSWER ABOUT A FILE WITHOUT READING ALL OF IT.
+
+    read_file RETURNS TEXT IN CHUNKS FOR LONG FILES AND SAYS IN THE RETURNED TEXT ITSELF
+    EXACTLY WHAT TO CALL IT WITH TO GET THE NEXT CHUNK. THE MODEL OFTEN READS ONE CHUNK
+    AND ANSWERS OUT OF THAT ALONE, IGNORING THE INSTRUCTION. STOPPING HERE CATCHES THAT:
+    IF THE LAST read_file WAS CUT SHORT AND THE MODEL'S ANSWER DID NOT CALL IT AGAIN,
+    THE ANSWER IS SENT BACK WITH AN INSTRUCTION TO FINISH READING FIRST.
+
+    IT IS SENT BACK ONCE. WHAT COMES BACK EITHER CALLS read_file OR ANSWERS ANYWAY, AND A
+    SECOND TURNING BACK WOULD ONLY SPEND ANOTHER ROUND ON THE SAME REPLY."""
+    answered = handler(request)
+
+    # ONLY CHECK FINAL ANSWERS, NOT ROUNDS ASKING FOR ANOTHER TOOL.
+    if not answering(answered):
+        return answered
+
+    # IF NO FILE WAS CUT, OR IF IT WAS BUT WAS ALREADY FOLLOWED UP, NOTHING TO CORRECT.
+    if not file_was_cut or file_cut_resume is None:
+        return answered
+
+    # IF THE ANSWER ASKED FOR ANOTHER TOOL, LET IT GO — THE TOOL MIGHT BE read_file.
+    # A SECOND CHECK WOULD ONLY INTERRUPT THE CORRECTION.
+    return again(request, handler, answered,
+                 UNREAD_FILE.format(start=file_cut_resume))
 
