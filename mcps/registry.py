@@ -100,6 +100,16 @@ KNOWN = [
         "grained one only reaches the repositories you tick.",
     },
     {
+        "name": "linear",
+        "label": "Linear",
+        "folder": "linear",
+        "kind": TOKEN,
+        "where": "https://linear.app/settings/api",
+        "also": ["issues", "linearapp", "tickets"],
+        "hint": "Issues, projects and cycles, read and moved along. Make a personal API key in "
+        "Linear's own settings and paste it; it is one key and it needs nothing else.",
+    },
+    {
         "name": "slack",
         "label": "Slack",
         "folder": "slack",

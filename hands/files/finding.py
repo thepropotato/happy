@@ -4,6 +4,8 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+from hands.files import held
+
 # SEARCHED IN THIS ORDER, NEAREST FIRST.
 PLACES = ["Desktop", "Documents", "Downloads", "Pictures", "Movies", "Music"]
 
@@ -172,7 +174,12 @@ def describe(path):
     """A FILE WITH ITS SIZE AND WHEN IT LANDED, OR A FOLDER SAID TO BE ONE. A FOLDER GIVEN AS
     "0 KB" WAS ONCE READ AS AN EMPTY PROJECT, AND A WHOLE CODEBASE WAS WRITTEN OFF ON THE
     STRENGTH OF IT. THE TIME IS THERE BECAUSE WITHOUT IT NOTHING IN A LISTING SAYS WHICH OF
-    THEM IS THE NEWEST, AND THE ANSWER GETS GUESSED FROM THE NAMES."""
+    THEM IS THE NEWEST, AND THE ANSWER GETS GUESSED FROM THE NAMES.
+
+    EVERY PATH THE MODEL IS SHOWN IS REGISTERED HERE, WHICH IS WHAT LETS IT BE ACTED ON: THIS
+    IS THE ONE PLACE EVERY LISTING TOOL PUTS A PATH IN FRONT OF IT."""
+    held.offer(path)
+
     at = aged(path)
     when = f", {at}" if at else ""
 

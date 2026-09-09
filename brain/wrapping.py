@@ -11,7 +11,7 @@ from langchain.agents.middleware import wrap_model_call, wrap_tool_call
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 import memory
-from brain import mending
+from brain import mending, sourcing
 from brain.history import recent
 from hands import reasons
 from memory import conversation, settings
@@ -1393,7 +1393,7 @@ def keep_record(request, handler):
     # IS THE SHAPE EVERY STUCK RUN TAKES. THE ANSWER IT ALREADY HAS IS POINTED AT INSTEAD.
     # AND THE SAME QUESTION IN NEW WORDS, WHICH IS THE SHAPE THE OTHER HALF OF THEM TAKE: A
     # TURN ONCE PUT THE SAME SEARCH THROUGH FOURTEEN REWORDINGS AND THEN GAVE UP ANYWAY.
-    refusal = repeated(name, args) or circling(name, args)
+    refusal = repeated(name, args) or circling(name, args) or sourcing.checked(name, args)
 
     if refusal is not None:
         global missed

@@ -15,7 +15,7 @@ import time
 import dspy
 
 import memory
-from brain import mending, wrapping
+from brain import mending, sourcing, wrapping
 from hands import reasons
 from memory import conversation
 from sound import earcon
@@ -266,7 +266,8 @@ def recorded(tool, known):
 
         # THE SAME TOOL WITH THE SAME ARGUMENTS GIVES THE SAME ANSWER, AND ASKING TWICE IN ONE
         # TURN IS THE SHAPE EVERY STUCK RUN TAKES.
-        refusal = wrapping.repeated(name, args) or wrapping.circling(name, args)
+        refusal = (wrapping.repeated(name, args) or wrapping.circling(name, args)
+                   or sourcing.checked(name, args))
 
         if refusal:
             wrapping.remember(name, args, refusal)

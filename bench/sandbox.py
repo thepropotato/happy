@@ -105,6 +105,15 @@ def stubbed(tool, calls, replies=None):
         if blocked:
             return turned(blocked)
 
+        # NOT COPIED, CALLED: THE SAME FUNCTION THE REAL LOOP ASKS, SO A PATH THE MODEL
+        # INVENTED IS REFUSED HERE EXACTLY WHEN THE MACHINE WOULD REFUSE IT.
+        from brain import sourcing
+
+        made_up = sourcing.checked(tool.name, kwargs)
+
+        if made_up:
+            return turned(reasons.no(made_up))
+
         canned = (replies or {}).get(tool.name)
 
         if canned is None:
@@ -133,13 +142,28 @@ def stubbed(tool, calls, replies=None):
 
 ADDRESS = re.compile(r"https?://[^\s\"'<>)]+")
 
+# A PATH IN A CANNED LISTING, WHICH IS WRITTEN "/somewhere/a file.pdf (88 KB, 23 Jun)" OR
+# "/somewhere/a folder/ (a folder holding 3 things)". THE NAME MAY HOLD SPACES AND EVEN
+# BRACKETS — "image (2).png" IS A REAL DOWNLOAD — SO IT RUNS UP TO THE SIZE OR THE FOLDER
+# NOTE THAT CLOSES THE LINE, AND ONLY THOSE.
+PATHS = re.compile(
+    r"(/(?:[^\s/(][^/(\n]*?/)*[^/\n]*?)\s*(?:\((?:\d[\d.]*\s*(?:KB|MB|GB|B)\b|a folder)|$)",
+    re.M,
+)
+
 
 def record(name, result):
-    """AN ADDRESS A MOCK JUST NAMED BACK IS ONE A TOOL GAVE, SO THE NEXT CALL MAY USE IT.
+    """AN ADDRESS OR A PATH A MOCK JUST NAMED BACK IS ONE A TOOL GAVE, SO THE NEXT CALL MAY
+    USE IT.
 
-    THE REAL open_url REGISTERS WHAT IT OPENED; THE STUB NEVER RUNS THAT BODY, SO THE SAME
-    THING IS DONE HERE FROM THE CANNED RESULT, OR THE BENCH REFUSES A LINE IT HANDED OVER."""
+    THE REAL open_url REGISTERS WHAT IT OPENED AND THE REAL describe() REGISTERS EVERY PATH
+    IT LISTS; THE STUB NEVER RUNS EITHER BODY, SO THE SAME THING IS DONE HERE FROM THE CANNED
+    RESULT, OR THE BENCH REFUSES A LINE IT HANDED OVER."""
+    from hands.files import held
     from hands.web import handed
+
+    for found in PATHS.findall(str(result or "")):
+        held.offer(found.rstrip(".,"))
 
     if name not in ("open_url", "current_activity", "already_open", "download_images"):
         return
