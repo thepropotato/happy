@@ -1,6 +1,6 @@
 # Benchmarks
 
-Four layers, cheapest first. All of them are safe to run on a real machine, because no tool
+Nine layers, cheapest first. All of them are safe to run on a real machine, because no tool
 ever executes.
 
 The layers exist because one test cannot answer two questions. `shape.py` asks whether the
@@ -30,6 +30,24 @@ every change and the dear one before a release.
   first, so it checks what survives a restart. Each suite is named for what it exercises
   rather than the day it was recorded, because the name is how you know whether the bug you
   are fixing is covered; the evening it came off is inside the file, as its `name`.
+- **Guards** (`guarding.py`) — every guard handed the words that should trip it and the words
+  that should not, with the judgement read off `brain/` rather than restated here: a guard
+  that repeats its own rule in the bench passes while the real one rots. No model runs.
+- **Reaching** (`reaching_guards.py`) — every guard and every judgement simply *called* once,
+  scoring nothing. It sounds too cheap to be worth a file until `brain/wrapping.py` is split
+  and three functions quietly lose a name they were reading off the old module. An `import`
+  catches none of those, because the name is only looked up when the line runs and the line
+  only runs on the evening the guard is needed. The turn is given a call and a refusal first
+  so both sides of each branch run.
+- **Mending** (`mending.py`) — the raw lines off a real evening where four goes at reading one
+  WhatsApp thread all died on the same punctuation, each with what `brain/mending.py` must turn
+  it back into. A mend is only allowed where there is exactly one way to read the call, so the
+  cases that must be *left alone* matter as much as the ones that must be fixed. No model runs,
+  and the answer is the same every time.
+- **Knowing** (`knowing.py`) — what the knowledge base learns and what it refuses: a name put
+  to them on one turn and confirmed on the next, and whether a path was handed over by a tool
+  before anything acts on it. Both are things a replay cannot ask, because it mocks the client
+  that saves the name and its canned paths are not real files.
 - **Regression** (`regress.py`) — the phrases that drove the move to whisper-medium, plus the
   real command vocabulary, spoken by every English voice macOS ships. This is the one that
   decides the engine; VoiceBench measures general speech and disagrees with it.
@@ -84,6 +102,11 @@ Verified rather than assumed: calling the mocked `run_command` with `rm -rf ~/De
     python3 bench/shape.py                        # every structural check, one second
     python3 bench/shape.py --bless                # accept the prompt as it now stands
 
+    python3 bench/guarding.py                     # every guard, tripped and not tripped
+    python3 bench/reaching_guards.py              # every guard and judgement called once
+    python3 bench/mending.py                      # the malformed calls, mended or left alone
+    python3 bench/knowing.py                      # what the knowledge base learns and refuses
+
     python3 bench/run_choosing.py                 # forty-five cases, three times each
     python3 bench/run_choosing.py --times 5       # five
     python3 bench/run_choosing.py B1 B2 R3        # just the named cases
@@ -126,16 +149,16 @@ VoiceBench, 40 clips per split, word error rate (lower is better):
 | sd-qa British         | 0.043    | 0.075   |
 | realtime factor       | 0.02     | 0.25    |
 
-Parakeet is better on three of four splits and about ten times faster. Whisper is the one
-configured in `ears.engine`, so this is worth acting on — but note whisper here is
-whisper-medium, the bigger ear that transcribes well and misnames the language, and neither
-engine was asked to detect language in this run.
+Parakeet is better on three of four splits and about ten times faster. This was acted on:
+`ears.engine` now ships **parakeet**, with whisper kept beside it as the other engine. Note
+whisper here is whisper-medium, the bigger ear that transcribes well and misnames the
+language, and neither engine was asked to detect language in this run.
 
-## Which ear, and why not the faster one
+## Which ear, and what the slower one is still right about
 
 VoiceBench says parakeet: better word error rate on three of four splits and about ten times
-faster. `regress.py` says whisper, and regress is the one that counts, because it asks in the
-words this house actually uses.
+faster. `regress.py` disagreed, and the disagreement is recorded here rather than settled,
+because regress asks in the words this house actually uses and that is the harder test.
 
 Over 200 clips and eight voices, substantive misses: whisper 36, parakeet 44. The whole gap is
 one family of words — "unread", 20 misses out of 22 against whisper's 14 — and it is the
@@ -145,5 +168,9 @@ letters in "how many r's are in strawberry" on three voices of eight, which quie
 count_letters. On the three Indian English voices it is whisper 10 misses to parakeet 15.
 
 Parakeet is genuinely better at general speech and wins five of the eighteen disagreements
-(GitHub, receipt). It is worse at the twenty words that get said every day, so whisper stays,
-and the 0.25 realtime factor is a speed problem to solve on whisper's own terms.
+(GitHub, receipt). It is worse at the twenty words that get said every day — and it ships
+anyway, because whisper's 0.25 realtime factor is a pause on every single take while
+parakeet's misses are a handful of words that `ears/hearing.py` puts back by name. **That is
+the trade, and it is only sound while that list is maintained**: a new everyday word parakeet
+mishears is a bug in the ear, not in the person saying it. Whisper stays selectable in
+`ears.engine` for an accent it handles better.

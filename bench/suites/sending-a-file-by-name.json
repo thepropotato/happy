@@ -3,7 +3,7 @@
   "turns": [
     {
       "row": 1,
-      "said": "send the latest file from my downloads to Suri on whatsapp",
+      "said": "send the latest file from my downloads to Wren on whatsapp",
       "note": "THE SETUP. THE LISTING IS WHERE EVERY REAL PATH COMES FROM. THE NAME NEEDS CONFIRMING, AND BOTH DOORS TO IT SAY SO, SO THE TURN ENDS ON THE QUESTION.",
       "replies": {
         "list_folder": [
@@ -15,13 +15,13 @@
         "whatsapp_search_contacts": [
           {
             "failed": true,
-            "result": "'Suri' isn't a known exact match for whatsapp. The closest guess is 'Suripriya', but this must be confirmed directly by the person before using or remembering it \u2014 browsing a list or a fuzzy match is not confirmation on its own. Ask them whether 'Suripriya' is who they meant. If they say it is, remember it against 'Suri' and then carry on with what they originally asked for, on this same service."
+            "result": "'Wren' isn't a known exact match for whatsapp. The closest guess is 'Wrenfield', but this must be confirmed directly by the person before using or remembering it \u2014 browsing a list or a fuzzy match is not confirmation on its own. Ask them whether 'Wrenfield' is who they meant. If they say it is, remember it against 'Wren' and then carry on with what they originally asked for, on this same service."
           }
         ],
         "whatsapp_send_media_message": [
           {
             "failed": true,
-            "result": "'Suri' isn't a known exact match for whatsapp. The closest guess is 'Suripriya', but this must be confirmed directly by the person before using or remembering it. Ask them whether 'Suripriya' is who they meant."
+            "result": "'Wren' isn't a known exact match for whatsapp. The closest guess is 'Wrenfield', but this must be confirmed directly by the person before using or remembering it. Ask them whether 'Wrenfield' is who they meant."
           }
         ]
       },
@@ -32,8 +32,8 @@
       "forbid": [],
       "check": {
         "contains_any": [
-          "suripriya",
-          "suri"
+          "wrenfield",
+          "wren"
         ]
       },
       "held": false
@@ -46,7 +46,7 @@
         "whatsapp_send_media_message": [
           {
             "failed": false,
-            "result": "{\"Suripriya\": {\"jid\": \"1000@lid\", \"mediaType\": \"image\", \"messageId\": \"AAA\", \"success\": true}}"
+            "result": "{\"Wrenfield\": {\"jid\": \"1000@lid\", \"mediaType\": \"image\", \"messageId\": \"AAA\", \"success\": true}}"
           }
         ]
       },
@@ -87,7 +87,7 @@
         "whatsapp_send_media_message": [
           {
             "failed": false,
-            "result": "{\"Suripriya\": {\"jid\": \"1000@lid\", \"mediaType\": \"document\", \"messageId\": \"BBB\", \"success\": true}}"
+            "result": "{\"Wrenfield\": {\"jid\": \"1000@lid\", \"mediaType\": \"document\", \"messageId\": \"BBB\", \"success\": true}}"
           }
         ]
       },
@@ -125,7 +125,7 @@
         "whatsapp_send_media_message": [
           {
             "failed": false,
-            "result": "{\"Suripriya\": {\"jid\": \"1000@lid\", \"mediaType\": \"document\", \"messageId\": \"CCC\", \"success\": true}}"
+            "result": "{\"Wrenfield\": {\"jid\": \"1000@lid\", \"mediaType\": \"document\", \"messageId\": \"CCC\", \"success\": true}}"
           }
         ],
         "list_folder": [
@@ -148,7 +148,7 @@
     },
     {
       "row": 5,
-      "said": "send that offer letter to Suri again",
+      "said": "send that offer letter to Wren again",
       "restart": true,
       "note": "HELD OUT, AND AFTER A RESTART. THE PATH MUST STILL BE FETCHED RATHER THAN ASSEMBLED WHEN NOTHING OF THE EARLIER LISTING IS LEFT IN THE THREAD. WHETHER THE NAME ITSELF IS REMEMBERED IS NOT ASKED HERE: THE CLIENT THAT SAVES IT IS MOCKED AWAY, SO THAT IS memory/__main__.py's TO CHECK.",
       "replies": {
@@ -161,7 +161,7 @@
         "whatsapp_send_media_message": [
           {
             "failed": false,
-            "result": "{\"Suripriya\": {\"jid\": \"1000@lid\", \"mediaType\": \"document\", \"messageId\": \"DDD\", \"success\": true}}"
+            "result": "{\"Wrenfield\": {\"jid\": \"1000@lid\", \"mediaType\": \"document\", \"messageId\": \"DDD\", \"success\": true}}"
           }
         ]
       },

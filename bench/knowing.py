@@ -32,28 +32,28 @@ WHERE = "whatsapp"
 def learning():
     """A NAME PUT TO THEM ON ONE TURN AND CONFIRMED ON THE NEXT IS LEARNED WITHOUT BEING ASKED.
 
-    THIS IS THE WHOLE OF WHAT WENT WRONG WITH "SUSI": THE GUESS WAS QUEUED IN MEMORY ON A
-    CLIENT THAT WAS THROWN AWAY WITH THE REQUEST, SO THE CONFIRMATION ARRIVED TO AN EMPTY
-    DICT AND THE SAME QUESTION WAS ASKED THREE NIGHTS RUNNING."""
+    THIS IS THE WHOLE OF WHAT WENT WRONG ONCE: THE GUESS WAS QUEUED IN MEMORY ON A CLIENT
+    THAT WAS THROWN AWAY WITH THE REQUEST, SO THE CONFIRMATION ARRIVED TO AN EMPTY DICT AND
+    THE SAME QUESTION WAS ASKED THREE NIGHTS RUNNING."""
     rows, wrong = [], 0
 
-    knowledge.expect("Suri", "Suripriya", WHERE)
+    knowledge.expect("Wren", "Wrenfield", WHERE)
 
-    rows.append(("the guess is waiting", knowledge.awaiting("Suripriya", WHERE), "Suri"))
-    rows.append(("nothing learned yet", knowledge.recall("Suri", WHERE), None))
+    rows.append(("the guess is waiting", knowledge.awaiting("Wrenfield", WHERE), "Wren"))
+    rows.append(("nothing learned yet", knowledge.recall("Wren", WHERE), None))
 
     # THE NEXT TURN, WHICH IN A CONNECTOR IS A DIFFERENT PROCESS ENTIRELY: THE ONLY THING
     # CARRYING THE GUESS ACROSS IS THAT IT WAS WRITTEN DOWN.
-    spoken = knowledge.awaiting("Suripriya", WHERE)
+    spoken = knowledge.awaiting("Wrenfield", WHERE)
 
     if spoken:
-        knowledge.remember_fact(spoken, WHERE, "Suripriya")
-        knowledge.settle("Suripriya", WHERE)
+        knowledge.remember_fact(spoken, WHERE, "Wrenfield")
+        knowledge.settle("Wrenfield", WHERE)
 
-    rows.append(("learned after the yes", knowledge.recall("Suri", WHERE), "Suripriya"))
-    rows.append(("learned whatever the case", knowledge.recall("suri", WHERE), "Suripriya"))
-    rows.append(("no longer waiting", knowledge.awaiting("Suripriya", WHERE), None))
-    rows.append(("another service is its own", knowledge.recall("Suri", "gmail"), None))
+    rows.append(("learned after the yes", knowledge.recall("Wren", WHERE), "Wrenfield"))
+    rows.append(("learned whatever the case", knowledge.recall("wren", WHERE), "Wrenfield"))
+    rows.append(("no longer waiting", knowledge.awaiting("Wrenfield", WHERE), None))
+    rows.append(("another service is its own", knowledge.recall("Wren", "gmail"), None))
 
     for said, got, want in rows:
         wrong += got != want

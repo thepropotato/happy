@@ -71,6 +71,11 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `main.py` | The loop. The key, what was asked, an answer. Nothing else. |
 | `brain/thinking.py` | The graph. Speech in, spoken answer out, tools called along the way. |
 | `brain/wrapping.py` | What wraps every call: what goes in, what is kept, how long it took. |
+| `brain/words.py` | The vocabulary the reply guards judge by: what a reply claims, disowns, or puts off. |
+| `brain/staleness.py` | Whether an answer is this moment's or an old sitting's, and what a question is about. |
+| `brain/repeats.py` | The same question twice, and the same question reworded, with the two dicts it keeps. |
+| `brain/malformed.py` | A tool call the backend could not read, and what the model is shown about it. |
+| `brain/sourcing.py` | Whether the values in a tool call came from a tool, or the model wrote them itself. |
 | `brain/history.py` | The backchat behind a turn: finished turns compacted, the oldest dropped in halves. |
 | `brain/resuming.py` | The conversation before this session, read back off the messages table. |
 | `brain/model.py` | Which model, at which URL, with which settings. |
@@ -83,7 +88,10 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `ears/transcribing.py` | Speech to text. |
 | `ears/hearing.py` | The handful of words this ear reliably mishears, put back. |
 | `voice/engines.py` | Which engine speaks, and loading only that one. |
-| `voice/kokoro.py` | The voice model itself. |
+| `voice/supertonic.py` | The voice that speaks: a sentence in, sound out, pauses where the words put them. |
+| `voice/kokoro.py` | The other engine, and the one that speaks when the picked one will not load. |
+| `voice/numbers.py` | Figures and shorthand written out as the words they are said with. |
+| `voice/stripping.py` | Markdown taken back out, so nothing is read aloud as a symbol. |
 | `voice/styles.py` | The voice files: what is here, which one speaks, and getting more. |
 | `voice/phonemes.py` | Words turned into the sounds they are made of. |
 | `voice/clips.py` | Sound tidied at its edges, so one piece runs into the next. |
@@ -96,10 +104,15 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `hands/controls/` | The machine's settings: sound, brightness, media, display, power, Wi-Fi, clipboard. |
 | `hands/files/` | Finding files and reading what is inside them, whatever the format. Describing a whole project in one call, and creating or editing a file without ever wiping one. |
 | `hands/shell/` | The shell. One command in, what it printed back out. |
+| `hands/coder/` | A coder run on a folder that is never wherever Happy happens to be, and its stream read while it still runs. |
+| `hands/memory/` | What Happy has been told and can be asked back: the facts, and the turns behind them. |
+| `hands/owner/` | The name of the person this computer belongs to, off whatever they are signed in to. |
+| `hands/reminders/` | Asking to be told something later, and being told it. |
+| `hands/routines/` | Saving a way of doing something, and doing it again on the word. |
 | `hands/desktop/` | The pointer and the keyboard, and checking that they worked. |
 | `hands/weather/` | The forecast anywhere, from the one that wants no account. |
 | `hands/web/` | Searching the web, and reading whichever result holds the answer, by number. Results never show an address, and one the model writes itself is refused. Pages are read in tiers: plain fetch, the facts inside the HTML, then Happy's own headless browser. |
-| `hands/browser/` | The browser errand. **Blank — being rebuilt.** |
+| `hands/browser/` | Bringing a page that is already open back in front of somebody. |
 | `eyes/systems.py` | Asking each system to describe its own screen. macOS and Windows side by side. |
 | `eyes/naming.py` | What each system calls a thing, and what a person calls it. |
 | `eyes/elements.py` | The controls in the window in front, filtered down to the real ones. |
@@ -115,7 +128,15 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `hands/desktop/expecting.py` | What should be true after an act. |
 | `hands/desktop/verifying.py` | Waiting for the screen, judging it, and saying what happened. |
 | `hands/desktop/acting.py` | One act, start to finish. |
+| `heart/` | The part that keeps time on its own, and says so when something comes round: the words for when, taken apart, and the soonest future moment they could mean. |
+| `tongue/` | The name somebody meant, out of the names there are. |
+| `sound/` | The audio device itself, which hearing and speaking share, torn down and built back up for both at once. |
 | `memory/conversation.py` | The conversation: every message ever, and how to read it back. |
+| `memory/knowledge.py` | The facts Happy has been told, and the guesses waiting on a yes that has not come yet. |
+| `memory/reminders.py` | Things the person asked to be told later, and when later is. |
+| `memory/routines.py` | Things the person has taught Happy to do the same way every time. |
+| `memory/lifting.py` | A routine taken off a turn that already worked, rather than one imagined. |
+| `memory/transcript.py` | The conversation laid out for a person to read. |
 | `memory/storage.py` | The database. Owns the file and the schema, nothing else. |
 | `memory/catalogue.py` | Every knob Happy has, and what it shipped as. The defaults live here and nowhere else. |
 | `memory/kinds.py` | What a setting *is*: a kind, a default, and enough for a control to draw itself. |
@@ -157,6 +178,7 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `mcps/servers/instagram/` | This account's own posts, their comments, and replying to one. |
 | `mcps/bridging.py` | The bridge from Happy's side: starting it, asking it, putting it down. |
 | `mcps/servers/whatsapp/` | Reads your chats over a local bridge, and sends on them. |
+| `bones/` | Everything that has to be on this machine before Happy will start: the environment, the programs that are not Python, the model weights, and Happy as something you click. |
 | `AGENTS.md` | How to write code in this repo. Read it before you write any. |
 | `TODO.md` | What is still pending. |
 
@@ -178,9 +200,10 @@ clicks, each one decided by what the last one put on screen, and that does not b
 main loop where it would bury every other tool under page text. So it gets its own loop, its
 own model and its own context — and it *still* exports one ordinary tool. The main graph
 hands it a sentence and gets an answer back, and never sees the clicks. **The shape of the
-registry does not change.** `hands/browser/` is blank right now and being rebuilt; the
-registry skips a module with no `TOOLS` rather than breaking, so it can stay in the list
-while it is empty.
+registry does not change.** `hands/browser/` holds no such loop today: it is two ordinary
+tools that bring an already-open page to the front and press play or pause on it. The
+registry skips a module with no `TOOLS` rather than breaking, so a module can sit in the list
+while it is being written.
 
 ### MCP, in one direction only
 
@@ -502,6 +525,37 @@ app, finding a chat, typing and sending is six rounds with nothing going wrong, 
 to see where the click landed makes seven. The default is fourteen, and it costs a short answer
 nothing — a cap only bites when the work is long.
 
+**A path is a fact, and a fact is fetched.** The prompt has always said a screen you did not
+look at is one you are inventing, and the same is true of a filename — but nothing enforced it,
+so a turn asked to send "my offer letter" wrote `~/Downloads/offer_letter.pdf` out of the words
+of the request, while the real file — named in full, with spaces, the way a bank or an employer
+writes one — sat in its own context from a listing two turns earlier. Nothing was sent and the turn said the file was not there.
+`brain/sourcing.py` asks, at the one point both loops put a call through, whether every argument
+that names something in the world was handed over by a tool; `hands/files/held.py` is the
+register, filled by `describe()` in `hands/files/finding.py`, which is the single place every
+listing tool puts a path in front of the model. A guess is turned back with the real names in
+front of it.
+
+**Write the check for the kind, not for the tool.** This is the difference between a guard and
+a framework. Fifteen reply guards grew one per evening that went wrong, each matching the
+phrasing of one failure, and the pile could not scale: a rule written for `send_media_message`
+would not cover the next connector, and `hands/web/handed.py` had already solved exactly this
+problem for addresses without anybody noticing it generalised. So the question is asked of the
+*kind of value* — a path, an address — and every tool that takes one is covered, including the
+ones not written yet. Connectors especially: an MCP server is a subprocess over stdio and cannot
+see what this process was handed, so the asking has to happen here, and asking it generically is
+what makes seventy-three of Linear's tools free.
+
+**A confirmation has to outlive the turn that asked for it.** A contact called by a short form
+of their name was confirmed as the longer one on three separate nights and learned none of them. The machinery was all there —
+`remember_contact`, `knowledge.remember_fact`, eight call sites reading it back — but the pending
+guess was queued in memory on a `WhatsAppClient` built fresh per request, and the yes arrives on
+the *next* turn, in a different process. It read an empty dict every time and the nudge to
+remember was never emitted. Pending guesses live in `memory/knowledge.py` now, beside the facts,
+and the alias is written by the code that watched the send succeed rather than asked for from a
+model that is already speaking. **Anything that spans two turns cannot live in a connector's
+memory**, and a nudge that lands on a finished turn is a nudge that does not happen.
+
 **History is trimmed, not kept.** `recent()` keeps the last `brain.history`
 messages, starting on a human message so a tool reply never appears whose tool call was
 trimmed away. That orphan is an API error, not a degradation.
@@ -569,17 +623,30 @@ Nothing imports torch, which is 55 packages and a gigabyte not installed.
 
 ## The voice
 
-**Kokoro** speaks, and **Piper** is kept beside it as the other engine. `voice/engines.py` names
-both and imports only whichever is asked for. Both speak English and nothing else.
+**Supertonic** speaks, and **Kokoro** is kept beside it as the other engine and as the fallback.
+`voice/engines.py` names both and imports only whichever is asked for; when the picked one will
+not load, Kokoro speaks rather than nothing does. Both speak English and nothing else.
 
-*This reverses an earlier decision, on purpose.* Piper was picked first on speed and Kokoro was
-rejected for being slow, and the numbers were right — measured on this machine, warmed, Piper is
-**20 ms to first word** and 54x realtime, Kokoro is **234 ms** and 4.4x. What that reasoning got
-wrong is what the slowness costs. Piper is intelligible and metallic, and a person asked to
-listen to it all day hears a machine every time; the quarter second before Happy starts talking
-is roughly the pause a person leaves before answering anyway, and 4.4x realtime is still four
-times faster than the mouth it is feeding. Speed only reads as competence while the voice is one
-somebody wants to keep listening to.
+*This has reversed twice, both times on purpose, and the reasoning is worth keeping.* Piper was
+picked first on speed and Kokoro rejected for being slow, and those numbers were right — measured
+on this machine, warmed, Piper is **20 ms to first word** and 54x realtime, Kokoro **234 ms** and
+4.4x. What that reasoning got wrong is what slowness costs. Piper is intelligible and metallic,
+and a person asked to listen to it all day hears a machine every time. Speed only reads as
+competence while the voice is one somebody wants to keep listening to, so Kokoro won.
+
+Supertonic then won on both counts at once, which is why it is not a trade. It is pure ONNX with
+nothing extra to install, it is measurably faster than Kokoro, and it is the more expressive of
+the two — it puts the pauses where the words put them rather than reading a flat line.
+`STEPS = 4` in `voice/supertonic.py` is the diffusion budget and is **not** to be dropped to 2;
+two steps is audibly worse and the time it buys back is not time anybody notices. Its length
+prediction wanders, so pace is evened per sentence rather than fixed globally — reaching for
+`voice.pace` to fix a sentence that sounded rushed is fixing the wrong thing.
+
+**Measure first-audio, not total.** A voice that finishes a paragraph quickly but takes half a
+second to start talking is the slow one, because the silence before the first word is the only
+part a person standing in their kitchen actually experiences. **And measure on the target OS**:
+CoreML was tried on Kokoro and came out *slower* than plain CPU here, 432 ms against 408 ms, so
+an accelerator is a thing to measure rather than a thing to assume.
 
 **macOS `say` was tried and rejected; do not reach for it again.** Asked to write a WAV so the
 speaker keeps barge-in, it is 330 ms warmed and flat at that whatever the sentence. Its fast
@@ -591,8 +658,8 @@ failed.
 Phonemes come from an espeak-ng that ships inside a wheel, so there is nothing to install by hand
 and it behaves the same on Windows.
 
-It is **one 326 MB model** plus a half-megabyte style per voice, so a voice costs almost nothing
-once the model is down. The style is a table indexed by how many sounds are in the sentence,
+The voice is **385 MB** into `models/supertonic`, and Kokoro behind it is one 326 MB model plus
+a half-megabyte style per voice, so a voice costs almost nothing once the model is down. The style is a table indexed by how many sounds are in the sentence,
 which is why `sound()` picks its row off the token count rather than loading anything, and why
 the model is loaded once per run and shared by every voice rather than per voice.
 
@@ -729,12 +796,20 @@ otherwise needs none. Reading the HTML costs nothing and needs nobody's account.
 engines start refusing in earnest, that is the trade to revisit — and it is a new entry in
 `ENGINES`, not a rewrite.
 
-## The browser — blank, being rebuilt
+## The browser — two tools now, and the agent that is not coming back yet
 
-> `hands/browser/` is empty on purpose and is being written again from scratch. None of what
-> follows is code, and all of it is still true about this machine, so read it before writing
-> the next one. Unprompted speech went with it: `face.console.unprompted()` is still there
-> waiting, and nothing sets the `unprompted` column.
+`hands/browser/` is **not** the agentic browser described below. What ships is two tools:
+`bring_to_front` finishes what `already_open` found, switching to that tab and filling the
+screen, and `play_pause` checks what the player is doing before it presses anything and
+checks again afterwards. That second check is the whole design, because a streaming site
+blanks its own picture and the video reads as pure black on screen even while it plays — so
+the only honest answer about playback is the one the player gave, never one read off pixels.
+
+> The rest of this section is the **agentic** browser, which was removed and has not been
+> written again. None of what follows is code, and all of it is still true about this
+> machine, so read it before writing the next one. Unprompted speech went with it:
+> `face.console.unprompted()` is still there waiting, and nothing sets the `unprompted`
+> column.
 
 The first one was built on [browser-use](https://github.com/browser-use/browser-use), driving the local model
 text-only (`use_vision=False`) — the accessibility/DOM representation is read as text, so no
@@ -1723,7 +1798,7 @@ pip install python-magic-bin                    # Windows, which carries the DLL
 .venv/bin/python -m ears --get
 .venv/bin/python -m ears               # transcribe everything in recordings/, with timings
 
-# the voice. 326 MB of model into models/kokoro, plus a style per voice.
+# the voice. 385 MB into models/supertonic, plus Kokoro's model and a style per voice.
 .venv/bin/python -m voice --get       # the voice model and its styles
 .venv/bin/python -m voice --voices    # which voices are installed
 .venv/bin/python -m voice "say this"  # hear it without the rest of Happy

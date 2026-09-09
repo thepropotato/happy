@@ -14,7 +14,7 @@ import difflib
 import json
 import re
 
-from brain.words import TURNED_BACK
+from brain.words import CARRY_ON, TURNED_BACK
 
 
 
