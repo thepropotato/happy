@@ -22,6 +22,10 @@ ending = threading.Event()
 worker = None
 stream = None
 
+# WHICH PULSE IS THE CURRENT ONE. A WORKER WHOSE ERA HAS PASSED STOPS, SO THE ONE LEAVING
+# CANNOT BEAT OVER THE ONE ARRIVING.
+era = 0
+
 # HOW FAR INTO THE LOOP THE LAST PULSE GOT. A TURN IS MANY CALLS, AND EACH ONE START()S: FROM
 # ZERO EVERY TIME, A RUN OF SHORT TOOL CALLS WOULD SOUND THE LOUD DOWNBEAT OVER AND OVER,
 # WHICH IS A HAMMER RATHER THAN A HEARTBEAT. CARRYING THE POSITION KEEPS ONE STEADY RHYTHM
@@ -34,11 +38,21 @@ def start():
     global worker
 
     with lock:
-        if worker is not None and worker.is_alive():
+        # A WORKER THAT IS ALIVE BUT ENDING IS ON ITS WAY OUT AND WILL NOT PLAY AGAIN, SO IT
+        # IS NOT ONE TO STAND ASIDE FOR. STANDING ASIDE FOR IT LEAVES THE TURN SILENT: stop()
+        # AND THE NEXT TOOL CALL ARE A MOMENT APART, AND FOR THAT MOMENT THE OLD LOOP IS
+        # STILL DRAINING ITS LAST BLOCK.
+        if worker is not None and worker.is_alive() and not ending.is_set():
             return
 
+        # AN OLD WORKER MAY STILL BE DRAINING ITS LAST BLOCK. IT OWNS ITS OWN STREAM AND
+        # SHUTS IT ON THE WAY OUT, SO THE NEW ONE NEED NOT WAIT: WAITING WOULD PUT THAT BLOCK
+        # IN FRONT OF THE MODEL CALL, WHICH IS THE DELAY THIS WHOLE ARRANGEMENT AVOIDS. THE
+        # ERA IS WHAT KEEPS THEM APART, SO THE LEAVING ONE CANNOT SPEAK OVER THE ARRIVING ONE.
+        global era
+        era += 1
         ending.clear()
-        worker = threading.Thread(target=loop, daemon=True)
+        worker = threading.Thread(target=loop, args=(era,), daemon=True)
         worker.start()
 
 
@@ -49,70 +63,85 @@ def stop():
     THIS SIDE FREES A STREAM THE WRITER MAY BE INSIDE OF, AND PORTAUDIO TAKES THAT AS A
     SEGMENTATION FAULT RATHER THAN AN EXCEPTION. THE FLAG IS SET AND THE LOOP SHUTS ITS OWN
     STREAM, WHICH IS WITHIN ONE BLOCK. NOTHING WAITS ON IT: THE POINT OF RETURNING AT ONCE IS
-    THAT THE FIRST SPOKEN WORD DOES NOT QUEUE BEHIND A BLOCK OF PULSE.""" 
+    THAT THE FIRST SPOKEN WORD DOES NOT QUEUE BEHIND A BLOCK OF PULSE."""
     ending.set()
 
 
-def loop():
-    global stream, position
+def loop(mine):
+    """ONE PULSE, HELD BY THE WORKER THAT OPENED IT.
+
+    THE STREAM IS A LOCAL AND NEVER READ BACK OFF THE MODULE. A TURN START()S ON EVERY CALL,
+    SO A LEAVING WORKER AND AN ARRIVING ONE OVERLAP BY A BLOCK; SHARING ONE GLOBAL THERE MEANS
+    THE ARRIVING ONE REPLACES A STREAM THE LEAVING ONE IS STILL INSIDE, AND CLOSING THAT IS A
+    SEGMENTATION FAULT RATHER THAN AN EXCEPTION."""
+    global position
 
     pulse = tone()
+    mine_stream = None
 
     try:
         with lock:
-            if ending.is_set():
+            if ending.is_set() or mine != era:
                 return
 
             try:
                 with quiet():
-                    stream = sd.OutputStream(
+                    mine_stream = sd.OutputStream(
                         samplerate=RATE, channels=CHANNELS, dtype="float32"
                     )
-                    stream.start()
+                    mine_stream.start()
             except Exception:
                 # NO DEVICE, OR ONE THAT WILL NOT OPEN. THE PULSE IS A COMFORT, NOT THE TURN.
+                mine_stream = None
+
                 return
 
-        while not ending.is_set():
+            keep(mine, mine_stream)
+
+        # THE WRITE IS MADE OUTSIDE THE LOCK. IT BLOCKS FOR THE LENGTH OF THE BLOCK IT IS
+        # GIVEN, AND stop() WANTS THE SAME LOCK: HELD ACROSS THE WRITE, IT WOULD PUT THAT WHOLE
+        # BLOCK IN FRONT OF THE FIRST SPOKEN WORD, WHICH IS THE VERY DELAY voice/speaker.py
+        # DROPS ITS OWN LOCK BETWEEN BLOCKS TO AVOID.
+        while not ending.is_set() and mine == era:
             part = pulse[position : position + STEP]
             position = (position + len(part)) % len(pulse)
 
-            # THE STREAM IS TAKEN UNDER THE LOCK AND WRITTEN TO OUTSIDE IT. A WRITE BLOCKS FOR
-            # THE LENGTH OF THE BLOCK IT IS GIVEN, AND stop() WANTS THE SAME LOCK: HELD ACROSS
-            # THE WRITE, IT PUTS THAT WHOLE BLOCK IN FRONT OF THE FIRST SPOKEN WORD, WHICH IS
-            # THE VERY DELAY voice/speaker.py DROPS ITS OWN LOCK BETWEEN BLOCKS TO AVOID.
-            with lock:
-                current = stream
-
-                if ending.is_set() or current is None:
-                    return
-
             try:
-                current.write(part)
+                mine_stream.write(part)
             except Exception:
                 # THE DEVICE WENT AWAY MID-BEAT, WHICH IS HEADPHONES COMING OUT. THE TURN
                 # CARRIES ON WITHOUT IT AND SAYS NOTHING, BECAUSE NOTHING WAS LOST.
                 return
     finally:
-        shut()
+        drop(mine, mine_stream)
 
 
-def shut():
+def keep(mine, opened):
+    """THE LIVE STREAM, NAMED SO A RESET CAN FIND IT WITHOUT TAKING IT FROM ITS WRITER."""
     global stream
 
     with lock:
-        current = stream
-        stream = None
+        if mine == era:
+            stream = opened
 
-        if current is None:
-            return
 
-        try:
-            with quiet():
-                current.abort()
-                current.close()
-        except Exception:
-            pass
+def drop(mine, opened):
+    """ONE WORKER'S STREAM, SHUT BY THAT WORKER AND NOBODY ELSE."""
+    global stream
+
+    with lock:
+        if stream is opened:
+            stream = None
+
+    if opened is None:
+        return
+
+    try:
+        with quiet():
+            opened.abort()
+            opened.close()
+    except Exception:
+        pass
 
 
 def tone():
@@ -147,8 +176,6 @@ def release():
 
     if current is not None and current is not threading.current_thread():
         current.join(timeout=1.0)
-
-    shut()
 
 
 surrender(release)
