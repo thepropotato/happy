@@ -94,7 +94,7 @@ def one(known, row):
         careful=bool(known.get("care")),
         ready=poised(name, kind),
         note=wording.story(known, row),
-        fields=boxes(name, kind),
+        fields=boxes(name, kind, known),
         action=again,
     )
 
@@ -123,11 +123,16 @@ def tally(live):
     return f"{len(live)} · {wording.numbered(tools)}"
 
 
-def boxes(name, kind):
-    """THE PASTE FIELDS FOR ONE SERVICE, SAYING WHICH OF THEM IT ALREADY HAS."""
+def boxes(name, kind, known=None):
+    """THE PASTE FIELDS FOR ONE SERVICE, SAYING WHICH OF THEM IT ALREADY HAS.
+
+    A SERVICE MAY NAME ITS OWN IN wants: JIRA IS THE ONE THAT NEEDS SOMETHING BESIDES A
+    TOKEN, BECAUSE ITS API LIVES AT A DIFFERENT ADDRESS FOR EVERY COMPANY."""
+    asked = (known or {}).get("wants") or ASKED.get(kind, [])
+
     return [
         text(f"{PASTE}{name}.{field}", label, "", hint, HELD if given(name, field) else "")
-        for field, label, hint in ASKED.get(kind, [])
+        for field, label, hint in asked
     ]
 
 
@@ -141,7 +146,11 @@ def given(name, field):
     except Exception:
         return False
 
-    return bool(held.get("client_secret" if field == "secret" else "client_id"))
+    if field == "secret":
+        return bool(held.get("client_secret"))
+
+    # ANYTHING ELSE A SERVICE ASKS FOR IS KEPT BESIDE THE CLIENT UNDER ITS OWN NAME.
+    return bool(held.get("client_id" if field == "client" else field))
 
 
 def poised(name, kind):

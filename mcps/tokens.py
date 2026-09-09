@@ -37,12 +37,29 @@ def signed(name):
 def ready(name, kind):
     """TRUE WHEN PRESSING CONNECT WOULD ACTUALLY GET SOMEWHERE."""
     if kind == registry.TOKEN:
-        return signed(name)
+        # A SERVICE THAT ASKED FOR MORE THAN A TOKEN NEEDS ALL OF IT: JIRA WITH ONLY THE
+        # TOKEN IN WOULD LIGHT UP CONNECT AND THEN FAIL ON THE SITE IT WAS NEVER GIVEN.
+        return signed(name) and all(filled(name, field) for field in besides(name))
 
     if kind == registry.OAUTH:
         return bool(client(name).get("client_id"))
 
     return True
+
+
+def besides(name):
+    """THE BOXES THIS SERVICE ASKED FOR THAT ARE NOT THE TOKEN ITSELF."""
+    known = registry.one(name) or {}
+
+    return [field for field, *_ in known.get("wants") or [] if field != "token"]
+
+
+def filled(name, field):
+    """TRUE WHEN ONE OF THOSE HAS SOMETHING IN IT. NEVER WHAT."""
+    try:
+        return bool(str(client(name).get(field) or "").strip())
+    except Exception:
+        return False
 
 
 def pasted(name, field, value):
@@ -55,6 +72,12 @@ def pasted(name, field, value):
         return
 
     held = client(name)
-    held["client_id" if field == "client" else "client_secret"] = value
+
+    # THE TWO OAUTH BOXES HAVE THE NAMES OAUTH GAVE THEM; ANYTHING ELSE A SERVICE ASKS FOR
+    # IS KEPT BESIDE THEM UNDER THE NAME THAT SERVICE USED — JIRA'S site AND email.
+    if field in ("client", "secret"):
+        held["client_id" if field == "client" else "client_secret"] = value
+    else:
+        held[field] = value
 
     put(name, client=held)

@@ -54,7 +54,6 @@ class WhatsAppClient:
 
     def __init__(self, username: str = "default"):
         self.username = username
-        self.pending_corrections: dict[str, str] = {}
         self.unreachable = False
 
     async def get(self, path: str, timeout: float = 5.0) -> Any:
@@ -184,19 +183,21 @@ class WhatsAppClient:
         return {"jid": None, "source": "none", "said": asked, "resolved": None}
 
     def pending_original(self, said: str) -> str | None:
-        return self.pending_corrections.get(str(said or "").strip().lower())
+        return knowledge.awaiting(said, "whatsapp")
 
     def clear_pending(self, said: str) -> None:
-        self.pending_corrections.pop(str(said or "").strip().lower(), None)
+        knowledge.settle(said, "whatsapp")
 
     def queue_pending(self, said: str, candidate: str) -> None:
-        spoken = str(said or "").strip()
-        guessed = str(candidate or "").strip()
-
-        if spoken and guessed:
-            self.pending_corrections[guessed.lower()] = spoken
+        knowledge.expect(said, candidate, "whatsapp")
 
     def remember_note(self, resolved: dict[str, str | None]) -> str | None:
+        """THE ALIAS IS SAVED HERE, NOT ASKED FOR.
+
+        THIS ONCE RETURNED A SENTENCE TELLING THE MODEL TO CALL remember_contact ITSELF, AND
+        IN THREE CONFIRMATIONS IT NEVER ONCE DID: THE NUDGE ARRIVES ATTACHED TO A SEND THAT
+        ALREADY WORKED, WHICH IS THE MOMENT A TURN IS FINISHED AND SPEAKING. THE CODE KNOWS
+        BOTH NAMES AND THAT IT WORKED, SO THE CODE WRITES IT DOWN."""
         if resolved.get("source") != "fresh_confirmation":
             return None
 
@@ -206,10 +207,12 @@ class WhatsAppClient:
         if not said or not means:
             return None
 
+        knowledge.remember_fact(said, "whatsapp", means)
+        knowledge.settle(means, "whatsapp")
+
         return (
-            "This was a new correction, not previously known. You MUST call "
-            f"remember_contact(said='{said}', means='{means}') right now, before "
-            "responding to the person, so this doesn't need asking again next time."
+            f"Remembered that '{said}' means '{means}' here, so it will not need asking "
+            "again."
         )
 
     def real_jid(self, value: str | None) -> bool:

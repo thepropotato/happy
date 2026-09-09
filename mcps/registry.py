@@ -110,6 +110,23 @@ KNOWN = [
         "Linear's own settings and paste it; it is one key and it needs nothing else.",
     },
     {
+        "name": "jira",
+        "label": "Jira",
+        "folder": "jira",
+        "kind": TOKEN,
+        "where": "https://id.atlassian.com/manage-profile/security/api-tokens",
+        "also": ["atlassian", "backlog", "sprint"],
+        # THE ONE SERVICE THAT NEEDS MORE THAN A TOKEN: ITS API IS AT A DIFFERENT ADDRESS
+        # FOR EVERY COMPANY, AND THE TOKEN IS ONLY HALF OF WHAT SIGNS THE CALL.
+        "wants": [
+            ("site", "Site", "The one ending atlassian.net, without the https:// in front."),
+            ("email", "Email", "The account the token was made on."),
+            ("token", "API token", "Kept in Happy's database, on this machine."),
+        ],
+        "hint": "Issues, projects and boards. Make an API token at id.atlassian.com, then paste "
+        "your site, the email you made it on, and the token itself.",
+    },
+    {
         "name": "slack",
         "label": "Slack",
         "folder": "slack",

@@ -1,6 +1,7 @@
 """FINDING A FILE FROM WHAT A PERSON CALLED IT."""
 
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -63,13 +64,14 @@ def crawl(root, depth):
 
 
 def dig(wanted, depth=MAX_DEPTH, limit=MAX_HITS):
-    """FOLDERS WHOSE NAME CONTAINS wanted, NEAREST PLACES FIRST, NO REPEATS."""
-    needle = wanted.lower().strip()
+    """FOLDERS WHOSE NAME ANSWERS TO wanted, NEAREST PLACES FIRST, NO REPEATS."""
+    needle = str(wanted or "").lower().strip()
+    asked = words(wanted)
     seen, hits = set(), []
 
     for root in roots():
         for path in crawl(root, depth):
-            if needle in path.name.lower() and path not in seen:
+            if matches(path.name.lower(), needle, asked) and path not in seen:
                 seen.add(path)
                 hits.append(path)
 
@@ -79,14 +81,39 @@ def dig(wanted, depth=MAX_DEPTH, limit=MAX_HITS):
     return hits
 
 
+def words(wanted):
+    """THE WORDS IN A NAME, HOWEVER IT WAS JOINED UP, WITHOUT THE EXTENSION.
+
+    "offer_letter.pdf" AND "Offer Letter.pdf" ARE THE SAME REQUEST WRITTEN TWO WAYS, AND A
+    PLAIN SUBSTRING SAYS THEY ARE NOT: THE MODEL ASKED FOR THE FIRST, THE SECOND WAS SITTING
+    IN DOWNLOADS, AND THE ANSWER CAME BACK "nothing found" TWICE."""
+    plain = str(wanted or "").lower().strip().strip('"').strip("'")
+    plain = re.sub(r"\.[a-z0-9]{1,5}$", "", plain)
+
+    return [each for each in re.split(r"[^a-z0-9]+", plain) if each]
+
+
+def matches(name, needle, wanted):
+    """WHETHER ONE FILE NAME ANSWERS TO wanted, AS WRITTEN OR WORD BY WORD."""
+    if needle and needle in name:
+        return True
+
+    return bool(wanted) and all(each in name for each in wanted)
+
+
 def hunt(wanted, depth=MAX_DEPTH, limit=MAX_HITS):
-    """FILES WHOSE NAME CONTAINS wanted, NEAREST PLACES FIRST, NO REPEATS."""
-    needle = wanted.lower().strip()
+    """FILES WHOSE NAME ANSWERS TO wanted, NEAREST PLACES FIRST, NO REPEATS.
+
+    THE WHOLE STRING IS TRIED FIRST SO AN EXACT ASK STILL RANKS THE WAY IT ALWAYS DID; THE
+    WORDS ARE THE FALLBACK, WHICH IS WHAT LETS A NAME JOINED BY UNDERSCORES FIND ONE
+    WRITTEN WITH SPACES."""
+    needle = str(wanted or "").lower().strip()
+    asked = words(wanted)
     seen, hits = set(), []
 
     for root in roots():
         for path in walk(root, depth):
-            if needle in path.name.lower() and path not in seen:
+            if matches(path.name.lower(), needle, asked) and path not in seen:
                 seen.add(path)
                 hits.append(path)
 

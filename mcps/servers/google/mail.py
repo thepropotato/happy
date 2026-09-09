@@ -183,6 +183,15 @@ def resolved_addresses(value, known):
             resolved.append(held)
             continue
 
+        # THEIR YES CAME BACK ON THIS TURN FOR A GUESS PUT TO THEM ON THE LAST ONE, SO THE
+        # ALIAS IS WRITTEN DOWN HERE RATHER THAN ASKED FOR: THE SAME NUDGE ON WHATSAPP WENT
+        # UNHEEDED THREE TIMES BECAUSE IT LANDS ON A TURN THAT IS ALREADY FINISHING.
+        spoken = knowledge.awaiting(each, "gmail")
+
+        if spoken:
+            knowledge.remember_fact(spoken, "gmail", each)
+            knowledge.settle(each, "gmail")
+
         match = matching.resolve(each, list(known))[0]
         candidate = known.get(match) if match else None
         chosen = knowledge.resolve_or_confirm(each, "gmail", candidate)

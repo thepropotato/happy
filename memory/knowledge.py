@@ -10,6 +10,7 @@ from memory import embedding, storage
 
 FACTS = "facts.pkl"
 MEMORIES = "memories.pkl"
+PENDING = "pending.pkl"
 DUPLICATE_MINIMUM = 0.9
 
 
@@ -34,6 +35,10 @@ def resolve_or_confirm(said_name, service, candidate):
         return known
 
     if candidate:
+        # KEPT WHERE THE NEXT TURN CAN FIND IT, BECAUSE THEIR YES ARRIVES ON THE NEXT TURN
+        # AND IN A CONNECTOR'S CASE IN A DIFFERENT PROCESS ENTIRELY.
+        expect(said_name, candidate, service)
+
         raise KnowledgeError(
             f"'{said_name}' isn't a known exact match for {service}. The closest "
             f"guess is '{candidate}', but this must be confirmed directly "
@@ -60,6 +65,56 @@ async def resolved(query, service, searcher):
         result = await result
 
     return result, False
+
+
+def awaiting(candidate, service):
+    """WHAT THEY ORIGINALLY SAID, IF candidate IS A GUESS STILL WAITING ON THEIR YES.
+
+    THIS OUTLIVES THE TURN THAT ASKED, WHICH IS THE WHOLE POINT: THE QUESTION GOES OUT ON
+    ONE TURN AND THE ANSWER COMES BACK ON THE NEXT, AND A CONNECTOR IS A SUBPROCESS THAT IS
+    HANDED A FRESH CLIENT EVERY REQUEST. HELD IN MEMORY THIS WAS ALWAYS EMPTY BY THE TIME
+    IT WAS READ, SO "SUSI IS SUSIPRIYA" WAS CONFIRMED THREE TIMES AND LEARNED NONE."""
+    where = named(service)
+    guess = folded(candidate)
+
+    if not where or not guess:
+        return None
+
+    return loaded_pending().get(where, {}).get(guess)
+
+
+def expect(said, candidate, service):
+    """KEEP THAT candidate IS THE GUESS WE PUT TO THEM FOR said, UNTIL THEY ANSWER."""
+    where = named(service)
+    guess = folded(candidate)
+    spoken = str(said or "").strip()
+
+    if not where or not guess or not spoken:
+        return
+
+    kept = loaded_pending()
+    held = kept.get(where, {})
+
+    held[guess] = spoken
+    kept[where] = held
+
+    saved(pending_file(), kept)
+
+
+def settle(candidate, service):
+    """THE GUESS IS ANSWERED, SO IT IS NO LONGER WAITING."""
+    where = named(service)
+    guess = folded(candidate)
+
+    if not where or not guess:
+        return
+
+    kept = loaded_pending()
+    held = kept.get(where, {})
+
+    if held.pop(guess, None) is not None:
+        kept[where] = held
+        saved(pending_file(), kept)
 
 
 def remember_fact(entity, service, value):
@@ -150,6 +205,10 @@ def loaded_facts():
     return loaded(facts_file(), {})
 
 
+def loaded_pending():
+    return loaded(pending_file(), {})
+
+
 def loaded_memories():
     empty = {"notes": [], "vectors": np.empty((0, 0), dtype=np.float32)}
     kept = loaded(memories_file(), empty)
@@ -182,6 +241,10 @@ def facts_file():
 
 def memories_file():
     return root() / MEMORIES
+
+
+def pending_file():
+    return root() / PENDING
 
 
 def root():
