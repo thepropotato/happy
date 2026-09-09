@@ -557,6 +557,11 @@ def format_message(session, message):
         body = ""
         msg_type = "viewonce"
         has_media = True
+    # THE THIRD SHAPE A VIEW-ONCE HAS BEEN SENT IN, WHICH NOTHING HERE READ BEFORE.
+    elif msg.HasField('viewOnceMessageV2Extension') and msg.viewOnceMessageV2Extension.HasField('message'):
+        body = ""
+        msg_type = "viewonce"
+        has_media = True
     elif msg.HasField('protocolMessage'):
         return None
 
@@ -607,7 +612,25 @@ def format_message(session, message):
     # HAPPENING.
     if not body and not has_media and msg_type == "chat":
         carried = ", ".join(sorted(field.name for field, _ in msg.ListFields())) or "nothing"
-        logger.info(f"[message] user={session.username} nothing readable in: {carried}")
+
+        # A POLL, AN EVENT, A PAYMENT OR A VIDEO NOTE, WHICH THE CHAIN ABOVE HAS NO BRANCH
+        # FOR AND WHICH ARE STILL THINGS SOMEBODY SENT.
+        body, kind = otherwise(msg)
+
+        if kind == "ptv":
+            has_media, media_type, msg_type = True, "video", "video"
+            mime_type = getattr(msg.ptvMessage, "mimetype", None) or "video/mp4"
+            file_size = getattr(msg.ptvMessage, "fileLength", 0) or 0
+        elif kind:
+            msg_type = kind
+
+        # NOBODY SENT IT, SO IT IS NOT KEPT AND NOT COUNTED. None IS ALREADY WHAT THIS
+        # RETURNS FOR A protocolMessage AND EVERY CALLER KNOWS TO DROP IT.
+        if not body and not has_media and nobody_said_it(msg):
+            return None
+
+        if not body and not has_media:
+            logger.info(f"[message] user={session.username} nothing readable in: {carried}")
 
     display_phone = session.phone if from_me else (phone_number if phone_number and len(phone_number) <= 15 else None)
 
@@ -985,6 +1008,89 @@ def auto_download(session, message, entry):
 
 
 
+# WHAT WHATSAPP SENDS ITSELF RATHER THAN SENDING FOR SOMEBODY: KEY HANDOVER, A VOTE ON
+# SOMEONE ELSE'S POLL, A BARE CONTEXT HEADER. THESE WERE STORED AS EMPTY "chat" LINES AND
+# COUNTED AS MESSAGES, SO A GROUP READ BACK AS FORTY-TWO UNREAD WITH NOTHING IN ANY OF THEM
+# AND THE NEWEST ONE HAD TO BE DESCRIBED AS "an empty message". THEY ARE NOT MESSAGES.
+UNSPOKEN = {"senderKeyDistributionMessage", "messageContextInfo",
+            "protocolMessage", "keepInChatMessage"}
+
+
+def said_something(entry):
+    """TRUE WHEN A STORED LINE HAS ANYTHING IN IT FOR A PERSON TO HEAR.
+
+    ONLY A PLAIN "chat" WITH NEITHER WORDS NOR MEDIA IS DROPPED. A viewonce, A LOCATION, A
+    POLL AND THE REST ALL SAY WHAT THEY ARE IN type EVEN WHEN body IS EMPTY, AND THROWING
+    ONE OF THOSE AWAY WOULD LOSE A REAL MESSAGE TO FIX A FAKE ONE."""
+    if entry.get("body") or entry.get("hasMedia"):
+        return True
+
+    return entry.get("type") != "chat"
+
+
+# EVERY SHAPE A POLL HAS BEEN SENT IN. WHATSAPP MADE A NEW ONE EACH TIME IT CHANGED POLLS,
+# AND ONLY THE FIRST WAS EVER READ HERE, SO A POLL SENT BY A CURRENT PHONE WENT INTO THE
+# STORE AS A BLANK LINE AND CAME BACK OUT AS "an empty message".
+POLLS = ("pollCreationMessage", "pollCreationMessageV2", "pollCreationMessageV3",
+         "pollCreationMessageV4", "pollCreationMessageV5", "pollCreationMessageV6")
+
+# WHAT A MESSAGE NOBODY WROTE WORDS INTO IS CALLED WHEN IT IS SAID OUT LOUD. A POLL IS ITS
+# QUESTION, AN EVENT ITS TITLE; THE REST HAVE NO NAME OF THEIR OWN AND ARE SAID AS WHAT THEY
+# ARE, THE SAME WAY A STICKER IS.
+NAMED = {
+    "eventMessage": "[event: {name}]",
+    "pollResultSnapshotMessage": "[poll results]",
+    "pollResultSnapshotMessageV3": "[poll results]",
+    "albumMessage": "[album]",
+    "sendPaymentMessage": "[payment]",
+    "requestPaymentMessage": "[payment request]",
+    "paymentReminderMessage": "[payment reminder]",
+    "paymentInviteMessage": "[payment invite]",
+    "splitPaymentMessage": "[split payment]",
+    "declinePaymentRequestMessage": "[payment request declined]",
+    "cancelPaymentRequestMessage": "[payment request cancelled]",
+    "eventInviteMessage": "[event invite]",
+}
+
+
+def otherwise(msg):
+    """WHAT THIS MESSAGE SAYS WHEN THE MAIN CHAIN HAD NO BRANCH FOR IT, AND ITS KIND.
+
+    A POLL, AN EVENT, A VIDEO NOTE OR A PAYMENT IS A REAL THING SOMEBODY SENT. STORING ONE
+    AS AN EMPTY LINE IS WHAT MADE A GROUP READ BACK AS FORTY-TWO MESSAGES WITH NOTHING IN
+    ANY OF THEM."""
+    for name in POLLS:
+        if msg.HasField(name):
+            asked = getattr(getattr(msg, name), "name", "") or ""
+
+            return (f"[poll: {asked}]" if asked else "[poll]"), "poll"
+
+    if msg.HasField("pollUpdateMessage"):
+        return "[a vote on a poll]", "poll"
+
+    if msg.HasField("pollAddOptionMessage"):
+        return "[an option added to a poll]", "poll"
+
+    # A VIDEO NOTE IS THE ROUND ONE, AND IT IS MEDIA LIKE ANY OTHER VIDEO.
+    if msg.HasField("ptvMessage") and getattr(msg.ptvMessage, "URL", ""):
+        return getattr(msg.ptvMessage, "caption", "") or "[video note]", "ptv"
+
+    for name, shown in NAMED.items():
+        if msg.HasField(name):
+            titled = getattr(getattr(msg, name), "name", "") or ""
+
+            return shown.format(name=titled) if "{name}" in shown else shown, "event" if "event" in name else "chat"
+
+    return "", ""
+
+
+def nobody_said_it(msg):
+    """TRUE WHEN EVERY FIELD ON THIS MESSAGE IS WHATSAPP'S OWN PLUMBING."""
+    carried = {field.name for field, _ in msg.ListFields()}
+
+    return bool(carried) and carried <= UNSPOKEN
+
+
 # WHAT A CHAT WHOSE LAST WORD WAS A PICTURE SAYS INSTEAD OF NOTHING.
 SHOWN = {
     "image": "[photo]", "video": "[video]", "audio": "[voice message]",
@@ -1172,13 +1278,35 @@ def handle_history_sync(session, evt):
                             if edited.conversation: body = edited.conversation
                             elif edited.HasField('extendedTextMessage') and edited.extendedTextMessage.text: body = edited.extendedTextMessage.text
                             elif edited.HasField('imageMessage'): body = edited.imageMessage.caption or ""
+                        # A VIEW-ONCE IN SYNCED HISTORY WAS READ BY NOTHING AT ALL AND WENT
+                        # IN AS A BLANK LINE, IN ALL THREE OF THE SHAPES IT IS SENT IN.
+                        elif any(actual_msg.HasField(each) and getattr(actual_msg, each).HasField('message')
+                                 for each in ("viewOnceMessage", "viewOnceMessageV2",
+                                              "viewOnceMessageV2Extension")):
+                            msg_type, has_media = "viewonce", True
                         elif actual_msg.HasField('protocolMessage'):
                             continue
 
                     # THE SAME BLIND SPOT AS THE LIVE PARSE, NAMED THE SAME WAY.
                     if actual_msg and not body and not has_media and msg_type == "chat":
                         carried = ", ".join(sorted(f.name for f, _ in actual_msg.ListFields())) or "nothing"
-                        unread[carried] = unread.get(carried, 0) + 1
+
+                        # THE SAME READING OF A POLL, AN EVENT OR A PAYMENT. THE FORTY-TWO
+                        # UNREAD IN THE PG GROUP CAME DOWN THIS PATH, NOT THE LIVE ONE.
+                        body, kind = otherwise(actual_msg)
+
+                        if kind == "ptv":
+                            has_media, media_type_val, msg_type = True, "video", "video"
+                            mime = getattr(actual_msg.ptvMessage, "mimetype", None) or "video/mp4"
+                            fsize = getattr(actual_msg.ptvMessage, "fileLength", 0) or 0
+                        elif kind:
+                            msg_type = kind
+
+                        if not body and not has_media:
+                            if nobody_said_it(actual_msg):
+                                continue
+
+                            unread[carried] = unread.get(carried, 0) + 1
 
                     push_name_hist = str(getattr(web_msg, 'pushName', "") or "")
                     sender_name = "unknown"
@@ -1463,6 +1591,20 @@ def remembered(session):
 
     session.failed_downloads = set(state.get("failed_downloads") or [])
 
+    # THE PLUMBING THAT WAS STORED AS EMPTY LINES BEFORE IT WAS RECOGNISED IS STILL IN
+    # HERE, AND ONLY A RELINK WOULD BRING THE HISTORY DOWN AGAIN, SO IT IS SWEPT ON LOAD
+    # INSTEAD. A LINE WITH NO WORDS, NO MEDIA AND NOTHING TO SHOW FOR ITSELF IS ONE OF THEM.
+    swept = 0
+
+    for store in (session.messages, session.media):
+        for chat_id, held in list(store.items()):
+            kept = [m for m in held if said_something(m)]
+            swept += len(held) - len(kept)
+            store[chat_id] = kept
+
+    if swept:
+        logger.info(f"[persist] user={session.username} dropped {swept} lines nobody sent")
+
     # A CACHE WRITTEN BEFORE previewed() EXISTED HAS A BLANK BESIDE EVERY NAME,
     # AND THE HISTORY THAT WOULD FILL THEM IN ONLY COMES AGAIN ON A RELINK.
     for chat in session.chats:
@@ -1536,6 +1678,16 @@ def stop_session(session):
     session.connect_thread = None
 
 
+def spoken_to(session, found):
+    """OF SEVERAL CONTACTS UNDER ONE NAME, THE ONE THERE IS A CONVERSATION WITH."""
+    def held(contact):
+        jid = contact["id"]
+
+        return len(session.messages.get(jid, [])) + len(session.media.get(jid, []))
+
+    return max(found, key=held)["id"]
+
+
 def resolve_recipient(session, input_str):
     if not input_str:
         raise ValueError("Recipient is required")
@@ -1544,12 +1696,17 @@ def resolve_recipient(session, input_str):
     if re.match(r'^\+?\d[\d\s\-(). ]+$', input_str):
         return resolve_jid(session, input_str)
     q = input_str.strip().lower()
-    for c in session.contacts:
-        if c.get("name", "").lower() == q:
-            return c["id"]
-    for c in session.contacts:
-        if q in c.get("name", "").lower():
-            return c["id"]
+
+    # TWO PEOPLE SAVED UNDER ONE NAME IS ORDINARY, AND THE FIRST IN THE LIST IS NOT THE
+    # ONE MEANT: "Athul" MATCHED A NUMBER WITH NO CHAT AT ALL WHILE THE Athul WHO HAD JUST
+    # SENT SOMETHING SAT SECOND, SO A REAL UNREAD MESSAGE CAME BACK AS NONE AND WAS
+    # RETRACTED TO HIM AS A MISTAKE. THE ONE HE HAS ACTUALLY TALKED TO IS THE ONE HE MEANS.
+    exact = [c for c in session.contacts if c.get("name", "").lower() == q]
+    loose = [c for c in session.contacts if q in c.get("name", "").lower()]
+
+    for found in (exact, loose):
+        if found:
+            return spoken_to(session, found)
     for g in session.groups:
         if g["name"].lower() == q:
             return g["id"]
@@ -1996,6 +2153,13 @@ def with_media(s, entry):
     """A MESSAGE WITH localPath ON IT WHEN ITS MEDIA IS ALREADY ON THIS DISK."""
     if not entry.get("hasMedia"):
         return entry
+
+    # A STICKER OR A VOICE NOTE CARRIES NO WORDS, SO ITS body IS "" AND A READER TAKES THAT
+    # FOR AN EMPTY MESSAGE: THE CHAT LIST SAID "[sticker]" FROM Athul AND get_messages SAID
+    # NOTHING, SO A REAL STICKER WAS RETRACTED AS A MISTAKE. WHAT THE LIST SAYS IS WHAT THE
+    # MESSAGE SAYS.
+    if not entry.get("body"):
+        entry = {**entry, "body": SHOWN.get(entry.get("mediaType") or entry.get("type"), "")}
 
     mid = entry.get("id", "")
     name = entry.get("filename", "")

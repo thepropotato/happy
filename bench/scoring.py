@@ -43,9 +43,23 @@ def score(turn, called, reply):
     return "pass", f"called {names}" if names else "answered without calling anything"
 
 
+# THE SPACES A MODEL PUTS INSIDE A TITLE WHEN IT IS BEING TIDY: NARROW NO-BREAK, NO-BREAK,
+# THIN. "Breaking\u202fBad" IS BREAKING BAD, AND A CHECK LOOKING FOR "breaking bad" MARKED A
+# RIGHT ANSWER WRONG OVER THE WIDTH OF ONE SPACE.
+SPACES = {"\u202f": " ", "\u00a0": " ", "\u2009": " ", "\u2007": " "}
+
+
+def flattened(said):
+    """TEXT WITH EVERY KIND OF SPACE MADE THE ORDINARY ONE."""
+    for odd, plain in SPACES.items():
+        said = said.replace(odd, plain)
+
+    return said
+
+
 def checks(wanted, called, reply):
     """EVERY CHECK THAT DID NOT HOLD, IN WORDS."""
-    low = (reply or "").lower()
+    low = flattened((reply or "").lower())
     found = []
 
     if wanted.get("numbers_only") and invented(called):
@@ -60,9 +74,9 @@ def checks(wanted, called, reply):
     # WHICH THING A TOOL WAS POINTED AT, WHEREVER IT WAS POINTED FROM. "SEND THE MOST RECENT
     # DOWNLOAD" IS RIGHT OR WRONG IN AN ARGUMENT, NOT IN THE SENTENCE AFTER IT, AND IT IS THE
     # SAME CHOICE WHICHEVER TOOL ENDS UP CARRYING IT.
-    handled = " ".join(
+    handled = flattened(" ".join(
         str(value) for each in called for value in each["args"].values()
-    ).lower()
+    ).lower())
 
     for each in wanted.get("acted_on", []):
         if each.lower() not in handled:

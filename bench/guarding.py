@@ -16,11 +16,12 @@ from bench import sandbox
 DB = sandbox.throwaway("guarding.db")
 
 from brain import guarding, wrapping
+from memory import conversation
 
 
 def clean():
     """NOTHING RAN, NOTHING REFUSED: THE STATE A TURN STARTS IN."""
-    wrapping.ran = False
+    wrapping.ran = []
     wrapping.refused = {}
 
 
@@ -59,6 +60,28 @@ def main():
     wrong += report("an apology with no tool waiting is left alone",
                     guarding.gave_up("sorry, i was not able to do that") is not None, False)
 
+    # keep_fresh: A QUESTION ABOUT SOMETHING THAT MOVES, ANSWERED OUT OF THE BACKCHAT. THE
+    # MORNING'S "no unread messages" WAS STILL SITTING THERE AT THREE IN THE SHAPE A FRESH
+    # ANSWER HAS, AND IT WAS SAID AGAIN WITH NOTHING CALLED.
+    for why, said, want in (
+        ("unread messages asked cold is sent back",
+         "are there any unread messages on whatsapp ?", True),
+        ("the screen asked cold is sent back", "whats on my screen", True),
+        ("the calendar asked cold is sent back", "what's on my calendar today", True),
+        ("a question with no moving answer is left alone", "who made you", False),
+        ("an errand is left alone", "send athul a message saying hello", False),
+    ):
+        clean()
+        conversation.here.set(conversation.begin(said))
+        wrong += report(why, guarding.unchecked("no unread messages") is not None, want)
+
+    # AND THE SAME QUESTION ONCE SOMETHING HAS ACTUALLY BEEN CALLED.
+    clean()
+    conversation.here.set(conversation.begin("are there any unread messages on whatsapp ?"))
+    wrapping.ran.append("whatsapp_get_unread_messages")
+    wrong += report("unread messages after a tool ran is left alone",
+                    guarding.unchecked("no unread messages") is not None, False)
+
     # THE SHAPES DSPy HANDS BACK, WHICH ARE NOT THE ONES LANGCHAIN DID.
     for why, answer, want in (
         ("a bare string is read as what was said", ["it is four o'clock"], "it is four o'clock"),
@@ -74,7 +97,8 @@ def main():
                     guarding.reaching([{"role": "assistant", "content": "hello"}]), False)
 
     # THE GUARDS MUST CALL THE REAL RULE AND NEVER A COPY OF IT.
-    for name in ("DISOWNED_TOLD", "CARRY_ON", "GIVES_UP", "CLAIMED", "CLAIMS", "NOTHING_RAN"):
+    for name in ("DISOWNED_TOLD", "CARRY_ON", "GIVES_UP", "CLAIMED", "CLAIMS", "NOTHING_RAN",
+                 "ASKED_FRESH", "ASKED_TOLD"):
         wrong += report(f"{name} is read off brain.wrapping", hasattr(wrapping, name), True)
 
     # keep_recent: THE OLDEST HALF GOES AT ONCE, BECAUSE ONE AT A TIME MOVES THE PREFIX

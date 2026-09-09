@@ -57,6 +57,23 @@ def unlooked(words):
     return wrapping.UNLOOKED_ALOUD
 
 
+def unchecked(words):
+    """A QUESTION ABOUT SOMETHING THAT MOVES, ANSWERED WITH NOTHING CALLED THIS TURN.
+
+    THE ANSWER TO "any unread messages" IS DIFFERENT AT TEN AND AT THREE, BUT THE MORNING'S
+    ANSWER SITS IN THE BACKCHAT IN THE SAME SHAPE A FRESH ONE HAS, AND THE MODEL READ IT AS
+    ITS OWN WORK AND SAID IT AGAIN WITHOUT CALLING ANYTHING."""
+    if wrapping.ran:
+        return None
+
+    said = (conversation.asking() or "").lower()
+
+    if not said or not wrapping.asked_fresh(said):
+        return None
+
+    return wrapping.ASKED_TOLD.format(said=said)
+
+
 def dishonest(words):
     """A REPLY SAYING A THING HAPPENED WHEN NO TOOL THIS TURN DID IT. keep_honest."""
     if not any(each in words for each in wrapping.CLAIMS):
@@ -72,7 +89,7 @@ def dishonest(words):
 
 
 # EVERY ONE OF THEM, IN THE ORDER THEY RAN.
-REPLY_GUARDS = (disowned, gave_up, unlooked, dishonest)
+REPLY_GUARDS = (disowned, gave_up, unlooked, unchecked, dishonest)
 
 
 class Guarded(dspy.LM):

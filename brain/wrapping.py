@@ -402,6 +402,40 @@ UNREAD_ALOUD = (
     "turns out to be about the wrong show. This is a step of the job, not a refusal of it."
 )
 
+# A QUESTION ABOUT SOMETHING THAT MOVES ON ITS OWN WHILE HAPPY IS NOT WATCHING: A MAILBOX, A
+# CHAT, A SCREEN, A CALENDAR, THE WEATHER, THE TIME. THE ANSWER TO EVERY ONE OF THESE HAS A
+# SHELF LIFE OF ABOUT A MINUTE, AND NONE OF THEM IS SOMETHING A MODEL CAN KNOW BY THINKING.
+# ASKED AT TEN AND AGAIN AT THREE, THE TEN O'CLOCK ANSWER WAS STILL SITTING IN THE BACKCHAT
+# IN THE EXACT SHAPE A FRESH ONE HAS, AND IT WAS READ BACK OUT WITH NOTHING CALLED AT ALL.
+ASKED_FRESH = (
+    "unread", "new message", "new messages", "any messages", "messaged me", "messages from",
+    "notification", "notifications", "any email", "my email", "my emails", "inbox",
+    "on my screen", "on screen", "what am i", "what's on", "whats on", "what is on",
+    "what's playing", "whats playing", "what is playing", "currently watching",
+    "currently playing", "currently open", "what time", "what day", "what's the date",
+    "whats the date", "weather", "temperature", "my calendar", "my schedule",
+    "my meetings", "what's open", "whats open", "what is open", "how much battery",
+)
+
+# AND WHAT A TURN THAT DID LOOK IS SAYING. A QUESTION ABOVE ANSWERED WITHOUT ONE OF THESE
+# HAVING RUN THIS TURN IS AN ANSWER OUT OF MEMORY, WHATEVER ELSE THE TURN DID.
+ASKED_TOLD = (
+    "Stop — nothing was checked. They asked {said!r}, and the answer to that changes while you "
+    "are not looking: it is different in an hour and different again tomorrow. No tool has run "
+    "this turn, so what you were about to tell them comes from earlier in this conversation, "
+    "and earlier is a different day's answer wearing today's words.\n\n"
+    "Call the tool that goes and finds out, now, in this turn, and answer out of what it comes "
+    "back with. If it says the same thing the old one did, say it — but say it because it was "
+    "just checked. This is a step of the job, not a refusal of it. Do not apologise and do not "
+    "stop."
+)
+
+
+def asked_fresh(said):
+    """WHETHER THIS QUESTION IS ABOUT SOMETHING THAT MOVES WHILE NOBODY IS LOOKING."""
+    return any(each in said for each in ASKED_FRESH)
+
+
 # WHAT LOOKING ITSELF ANSWERS. A WINDOW SAYS WHAT IS OPEN, WHAT IT IS CALLED AND WHERE IT IS,
 # SO A QUESTION ASKING ONLY THAT IS FINISHED THE MOMENT current_activity COMES BACK. SENDING
 # THOSE OFF TO READ SOMETHING TOO IS NOT CAUTION, IT IS THE WRONG ANSWER: TOLD TO GO AND READ
