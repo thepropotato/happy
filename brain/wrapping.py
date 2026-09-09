@@ -505,6 +505,20 @@ ASKED_FRESH = (
     "currently playing", "currently open", "what time", "what day", "what's the date",
     "whats the date", "weather", "temperature", "my calendar", "my schedule",
     "my meetings", "what's open", "whats open", "what is open", "how much battery",
+    # AND THE SAME QUESTIONS AS A PERSON ACTUALLY ASKS THEM. THE LIST ABOVE WAS WRITTEN OFF
+    # THE WORDINGS THAT HAPPENED TO GO WRONG, SO "did anyone message me" AND "what show is
+    # this" WALKED PAST IT AND WERE ANSWERED OUT OF A SESSION FIVE HOURS OLD. THE PROMPT
+    # ITSELF NAMES "did anyone message me" AS A THING TO GO AND CHECK, AND THE GUARD DID NOT
+    # KNOW THE PHRASE.
+    "message me", "messaged", "messaging me", "texted", "any texts", "any text",
+    "anything new", "anyone message", "anybody message", "who messaged",
+    "who's messaging", "whos messaging", "my messages", "read my message",
+    "any mail", "got any mail", "get any mail", "my mail",
+    "check whatsapp", "check my",
+    "the screen", "my screen", "what show", "which show", "what episode",
+    "which episode", "how far in", "still playing", "still watching",
+    "still on", "what movie", "which movie", "what song", "which song",
+    "am i watching", "am i playing", "am i on",
 )
 
 # AND WHAT A TURN THAT DID LOOK IS SAYING. A QUESTION ABOVE ANSWERED WITHOUT ONE OF THESE
@@ -714,10 +728,109 @@ def keep_fresh(request, handler):
 
     said = conversation.asking() or ""
 
-    if not said or not asked_fresh(said.lower()):
+    if not said:
+        return answered
+
+    # THE LIST ABOVE, OR THE BACKSTOP UNDER IT. A LIST OF PHRASINGS ALWAYS HAS HOLES, AND THE
+    # HOLES ARE WHERE THIS FAILS: THE ONE THING THAT IS TRUE OF EVERY FAILURE, WHATEVER THE
+    # WORDS, IS THAT THE ONLY MATERIAL FOR THE ANSWER CAME OUT OF A SITTING THAT IS OVER.
+    if not asked_fresh(said.lower()) and not stale_answer(request, said.lower()):
         return answered
 
     return again(request, handler, answered, ASKED_TOLD.format(said=said))
+
+
+def stale_answer(request, said):
+    """WHETHER THIS QUESTION IS ABOUT THE VERY THING A DEAD SITTING'S TOOL WENT AND FOUND.
+
+    THE PHRASE LIST CATCHES THE WORDINGS SOMEBODY THOUGHT OF. THIS CATCHES THE REST BY GOING
+    THE OTHER WAY ROUND: NOT "DOES THE QUESTION SOUND LIKE ONE OF OURS" BUT "IS THE ONLY
+    THING THAT COULD ANSWER IT A RESULT FROM A SITTING THAT IS OVER". A QUESTION NEEDING NO
+    TOOL AT ALL IS UNTOUCHED, HOWEVER OLD THE CONVERSATION BEHIND IT."""
+    # AN ERRAND IS NOT A QUESTION. "send jane a message" IS ABOUT MESSAGES AND IS A JOB TO DO,
+    # AND TURNING ONE BACK TO GO AND CHECK SOMETHING WOULD BE THE GUARD BREAKING THE ERRAND.
+    if instructing(said):
+        return False
+
+    return bool(stale_moving(request) & about(said))
+
+
+# HOW AN INSTRUCTION OPENS. MATCHED ONLY AT THE START, SO "did anyone send me anything" IS
+# STILL THE QUESTION IT IS.
+DOING = ("send", "message ", "text ", "tell ", "call ", "write", "reply", "forward",
+         "ask ", "remind ", "play ", "open ", "turn ", "make ", "delete", "search",
+         "book ", "buy ", "email ", "put ", "add ", "set ", "close ", "download")
+
+
+def instructing(said):
+    """WHETHER THIS IS A JOB TO GO AND DO RATHER THAN A QUESTION TO ANSWER."""
+    return said.strip().startswith(DOING)
+
+
+def stale_moving(request):
+    """WHAT THE MOVING TOOLS OF A DEAD SITTING WENT AND FOUND, AS THE THINGS THEY WERE ABOUT.
+
+    NOTHING RAN THIS TURN — keep_fresh HAS ALREADY ESTABLISHED THAT — SO A TOOL RESULT STILL
+    IN THE MESSAGES CAME BACK WITH THE CONVERSATION WHEN HAPPY STARTED, AND resuming STAMPS
+    EVERY ONE OF THOSE. A STAMP SURVIVES REWORDING, WHICH IS WHAT THE PHRASE LIST CANNOT DO."""
+    from brain.resuming import STALE
+
+    mark = STALE.split("{", 1)[0]
+    old = [each for each in (request.messages or [])
+           if getattr(each, "type", "") == "tool" and mark in (each.content or "")]
+    found = set()
+
+    for each in old:
+        found |= subjects((getattr(each, "name", "") or "").lower())
+
+    return found
+
+
+def subjects(name):
+    """WHICH MOVING THINGS A TOOL NAME IS ABOUT."""
+    found = {each for each in MOVING if each in name}
+
+    return found | ({"screen"} if name in CHANGING else set())
+
+
+def about(said):
+    """WHICH MOVING THINGS A QUESTION IS ABOUT, IN THE SAME WORDS."""
+    found = {each for each in MOVING if each in said}
+
+    # THE WORDS A PERSON USES FOR THESE ARE NOT THE WORDS A TOOL IS NAMED WITH.
+    for word, means in SAME.items():
+        if word in said:
+            found.add(means)
+
+    return found
+
+
+# WHAT A PERSON CALLS THE THING, AGAINST WHAT THE TOOL THAT FINDS IT IS CALLED.
+SAME = {
+    "chat": "message", "text": "message", "whatsapp": "message", "wrote": "message",
+    "hear from": "message", "get hold of": "message", "reach me": "message",
+    "inbox": "mail", "gmail": "mail",
+    "miss anything": "message", "word from": "message", "heard from": "message",
+    "middle of": "screen", "up to": "screen",
+    "watching": "screen", "playing": "screen", "show": "screen", "episode": "screen",
+    "movie": "screen", "song": "screen", "front of me": "screen", "doing": "screen",
+    "calendar": "event", "agenda": "event", "diary": "event",
+}
+
+
+# WHAT A TOOL'S ANSWER IS ABOUT WHEN IT GOES OFF AS SOON AS IT IS WRITTEN DOWN. MATCHED ON
+# THE NAME SO A NEWLY CONNECTED SERVICE IS COVERED THE DAY IT ARRIVES, RATHER THAN THE DAY
+# SOMEBODY REMEMBERS TO ADD IT HERE.
+MOVING = ("unread", "message", "mail", "email", "inbox", "notification", "event", "calendar",
+          "schedule", "meeting", "screen", "activity", "window", "open", "play", "weather",
+          "battery", "reminder", "status", "latest", "recent")
+
+
+def moving(name):
+    """WHETHER THIS TOOL'S ANSWER HAS A SHELF LIFE."""
+    low = name.lower()
+
+    return low in CHANGING or any(each in low for each in MOVING)
 
 
 def again(request, handler, answered, telling):

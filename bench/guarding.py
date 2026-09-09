@@ -116,6 +116,43 @@ def main():
         conversation.here.set(conversation.begin(said))
         wrong += report(why, guarding.unchecked("no unread messages") is not None, want)
 
+    # AND THE WORDINGS THE PHRASE LIST NEVER HELD. THE LIST WAS WRITTEN OFF THE SENTENCES THAT
+    # HAPPENED TO GO WRONG, SO "did anyone message me" — WHICH THE PROMPT ITSELF NAMES AS A
+    # THING TO GO AND CHECK — WALKED STRAIGHT PAST IT.
+    for why, said in (
+        ("did anyone message me is a question about something that moves", "did anyone message me"),
+        ("what show is this is one too", "what show is this"),
+        ("how far in am i is one too", "how far in am i"),
+        ("any texts is one too", "any texts"),
+        ("did i get any mail is one too", "did i get any mail"),
+    ):
+        wrong += report(why, wrapping.asked_fresh(said), True)
+
+    # AND WHAT MUST NOT BE: AN ERRAND IS A JOB TO DO, NEVER A QUESTION TO GO AND CHECK.
+    for why, said in (
+        ("sending a message is an errand", "send athul a message saying hello"),
+        ("placing a call is an errand", "call priya on whatsapp"),
+        ("texting is an errand", "text dad i will be home by eight"),
+    ):
+        wrong += report(why, wrapping.instructing(said), True)
+
+    # THE BACKSTOP UNDER THE LIST: A QUESTION ABOUT THE VERY THING A DEAD SITTING'S TOOL WENT
+    # AND FOUND, WHATEVER WORDS IT IS ASKED IN. THIS IS WHAT SURVIVES REWORDING.
+    stale = {"message", "unread", "screen", "activity", "mail"}
+
+    def backstopped(said):
+        return not wrapping.instructing(said) and bool(wrapping.about(said) & stale)
+
+    for why, said, want in (
+        ("a reworded question about the chats is caught", "gimme the rundown on my chats", True),
+        ("a reworded question about the screen is caught", "whats the story with my screen", True),
+        ("a reworded question about mail is caught", "so hows my inbox looking", True),
+        ("a question needing no tool is left alone", "what is the capital of france", False),
+        ("an errand about messages is left alone", "send athul a message saying hello", False),
+        ("a plain fact is left alone", "who made you", False),
+    ):
+        wrong += report(why, backstopped(said), want)
+
     # AND THE SAME QUESTION ONCE SOMETHING HAS ACTUALLY BEEN CALLED.
     clean()
     conversation.here.set(conversation.begin("are there any unread messages on whatsapp ?"))
