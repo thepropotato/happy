@@ -15,6 +15,7 @@ from brain import model as brain, persona, resuming
 from brain.model import LLMError
 from brain.prompt import system_prompt
 from sound import earcon
+from brain import wrapping
 from brain.wrapping import (
     LIMIT,
     MODEL,
@@ -34,7 +35,6 @@ from brain.wrapping import (
     keep_record,
     keep_trying,
     keep_thinking,
-    taken,
     tell,
     troubles,
     watches,
@@ -281,7 +281,7 @@ class Happy:
                 # MORE. IT IS TAKEN OFF THE PANEL AND NEVER SPOKEN: unspoken IS ONLY HANDED
                 # TO THE VOICE WHEN A TOOL STARTS OR THE STREAM ENDS, AND BOTH COME AFTER
                 # THIS, SO A WITHDRAWN ROUND DIES BEFORE IT IS EVER HEARD.
-                given = taken()
+                given = wrapping.taken()
 
                 if given:
                     reply = reply[:-given] if given < len(reply) else ""

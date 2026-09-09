@@ -163,6 +163,49 @@ def main():
     wrong += report("a turned-back round is taken back off the screen",
                     withdrawn(guessed), len(guessed))
 
+    # A NAME A FUNCTION BOTH ASSIGNS AND CALLS IS LOCAL FOR THE WHOLE FUNCTION, SO THE CALL
+    # THROWS "cannot access local variable" NO MATTER THAT A MODULE-LEVEL ONE EXISTS.
+    # say_streaming CALLS taken() AT THE TOP AND ASSIGNS taken FOR THE CLOCK AT THE BOTTOM,
+    # WHICH BROKE EVERY GUARDED TURN WHILE EVERY TEST HERE WENT ON PASSING — THE MIDDLEWARE
+    # SWALLOWS WHAT THE GUARD RAISES, SO NOTHING THAT CALLS A GUARD CAN SEE IT. READING THE
+    # SOURCE IS THE ONLY THING THAT CAN.
+    import ast
+    import inspect
+
+    def shadowed(module):
+        """EVERY FUNCTION IN module THAT ASSIGNS A NAME IT ALSO CALLS."""
+        tree = ast.parse(inspect.getsource(module))
+        known = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
+
+        for node in tree.body:
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                known |= {each.asname or each.name.split(".")[0] for each in node.names}
+
+        found = []
+
+        for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+            declared = set()
+
+            for sub in ast.walk(fn):
+                if isinstance(sub, ast.Global):
+                    declared |= set(sub.names)
+
+            assigned = {t.id for s in ast.walk(fn) if isinstance(s, ast.Assign)
+                        for t in s.targets if isinstance(t, ast.Name)}
+            called = {s.func.id for s in ast.walk(fn)
+                      if isinstance(s, ast.Call) and isinstance(s.func, ast.Name)}
+
+            for name in sorted((assigned & called & known) - declared):
+                found.append(f"{fn.name}() assigns and calls {name}")
+
+        return found
+
+    from brain import thinking
+
+    for module in (wrapping, guarding, thinking):
+        wrong += report(f"nothing in {module.__name__} shadows a name it calls",
+                        shadowed(module), [])
+
     # A SEND-BACK THAT CAME TO NOTHING KEEPS THE FIRST ANSWER, SO THERE IS NOTHING TO UNSAY.
     wrong += report("a send-back that came to nothing withdraws nothing",
                     withdrawn(guessed, reaching=False), 0)

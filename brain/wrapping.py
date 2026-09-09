@@ -649,9 +649,10 @@ def again(request, handler, answered, telling):
     SO NOTHING IS ONLY EVER TRADED FOR SOMETHING."""
     global withdrawn
 
-    # WHAT THE ROUND BEING TURNED BACK ALREADY PUT ON THE SCREEN. TAKEN BACK BEFORE THE NEXT
-    # ROUND RUNS, SO THE WORDS IT WRITES ARE NOT COUNTED INTO IT.
-    taken = len(wording(answered))
+    # WHAT THE ROUND BEING TURNED BACK ALREADY PUT ON THE SCREEN. NOT NAMED taken: THAT IS
+    # THE FUNCTION THE STREAM READS THIS BACK WITH, AND A LOCAL OF THAT NAME MAKES EVERY
+    # MENTION OF IT IN HERE LOCAL TOO.
+    shown = len(wording(answered))
 
     told = handler(request.override(messages=list(request.messages) + [HumanMessage(telling)]))
     said = getattr(told, "result", None) or told
@@ -661,7 +662,7 @@ def again(request, handler, answered, telling):
 
     if getattr(said, "tool_calls", None) or (getattr(said, "text", "") or "").strip():
         # THE ANSWER THAT WAS SHOWN IS NOT THE ANSWER ANY MORE, SO THE STREAM UNSAYS IT.
-        withdrawn += taken
+        withdrawn += shown
 
         return told
 
