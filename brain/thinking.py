@@ -26,11 +26,13 @@ from brain.wrapping import (
     keep_able,
     keep_at_it,
     keep_count,
+    keep_finishing,
     keep_fresh,
     keep_going,
     keep_honest,
     keep_looking,
     keep_named,
+    keep_opening,
     keep_reading,
     keep_recent,
     keep_record,
@@ -132,6 +134,10 @@ class Happy:
                 keep_at_it,
                 # AND A TURN MAY NOT TALK ITSELF OUT OF A JOB IT HAS A TOOL FOR.
                 keep_able,
+                # NOR END ON WHAT IT IS ABOUT TO DO, WITH THE DOING LEFT UNDONE.
+                keep_finishing,
+                # NOR HAND THE JOB BACK BY NAMING A LINK ONLY IT CAN SEE.
+                keep_opening,
                 # NOR ANSWER A QUESTION ABOUT WHAT IS IN FRONT OF THEM OUT OF ITS OWN MEMORY.
                 # THE WRITING TOOLS GUARD THIS FOR FILES; A SPOKEN ANSWER PASSES ONLY HERE.
                 keep_looking,
@@ -246,10 +252,11 @@ class Happy:
     def say_streaming(self, speech, context=None, **about):
         """THE REPLY IN PIECES, FOR HANDING SENTENCES TO THE VOICE AS THEY LAND.
 
-        EACH ROUND'S ANSWER IS SPOKEN AS ITS OWN UTTERANCE THE MOMENT IT IS COMPLETE, RATHER
-        THAN ONLY THE LAST ONE OF THE WHOLE TURN — SO A THREE-TOOL TURN IS HEARD AS THREE
-        SEPARATE ANSWERS, WITH THE EARCON FILLING THE THINKING AND TOOL-CALLING GAPS BETWEEN
-        THEM RATHER THAN SILENCE."""
+        ONLY THE CLOSING ROUND IS SPOKEN. A ROUND THAT GOES ON TO CALL A TOOL IS MID-JOB
+        WHATEVER IT WROTE, AND WHAT IT WROTE READS AS AN ANNOUNCEMENT OF SOMETHING NOT DONE
+        YET — "THE SITE IS UP, LET ME PULL UP THE PROJECT" WHILE THAT PAGE IS STILL A TOOL
+        CALL AWAY. THAT SOUNDS LIKE THE END OF THE TURN AND IS NOT ONE, SO IT IS SHOWN ON THE
+        PANEL AND NEVER HANDED TO THE VOICE. THE EARCON FILLS THE WHOLE GAP INSTEAD."""
         graph, prompt, bound = self.ready()
         memory.begin(speech, **about)
         fresh()
@@ -257,15 +264,19 @@ class Happy:
         # EVERYTHING SAID ACROSS THE WHOLE TURN, FOR THE ENDING() FALLBACK AND MEMORY.
         reply = ""
 
-        # WHAT HAS BEEN SHOWN SINCE THE LAST TIME SOMETHING WAS SPOKEN. FLUSHED AND SPOKEN
-        # THE MOMENT A ROUND DECIDES TO CALL A TOOL, SO IT IS HEARD BEFORE THE TOOL RUNS
-        # RATHER THAN DROPPED AS PREAMBLE.
+        # WHAT THE ROUND IN HAND HAS WRITTEN. THROWN AWAY UNSPOKEN THE MOMENT THAT ROUND
+        # DECIDES TO CALL A TOOL, AND SPOKEN ONLY IF THE STREAM ENDS WITH IT STILL HERE,
+        # WHICH IS WHAT MAKES IT THE CLOSING ANSWER.
         unspoken = ""
 
         # WHAT HAS BEEN WRITTEN BUT NOT YET DRAWN. ON A TURN A GUARD MAY HOLD, WORDS WAIT
         # HERE UNTIL THE ROUND IS PAST THE GUARDS RATHER THAN GOING STRAIGHT ONTO THE PANEL
         # TO BE TAKEN OFF AGAIN A SECOND LATER.
         undrawn = ""
+
+        # WHETHER ANYTHING AT ALL HAS GONE TO THE VOICE. reply CANNOT ANSWER THIS ANY MORE:
+        # IT HOLDS THE MID-TURN WORDS TOO, AND THOSE ARE SHOWN AND NEVER SAID.
+        said_aloud = False
         waiting = wrapping.held(speech)
         started = time.perf_counter()
 
@@ -291,8 +302,8 @@ class Happy:
 
                 # A GUARD TURNED THE LAST ROUND BACK, SO WHAT IT SAID IS NOT THE ANSWER ANY
                 # MORE. IT IS TAKEN OFF THE PANEL AND NEVER SPOKEN: unspoken IS ONLY HANDED
-                # TO THE VOICE WHEN A TOOL STARTS OR THE STREAM ENDS, AND BOTH COME AFTER
-                # THIS, SO A WITHDRAWN ROUND DIES BEFORE IT IS EVER HEARD.
+                # TO THE VOICE WHEN THE STREAM ENDS, WHICH COMES AFTER THIS, SO A WITHDRAWN
+                # ROUND DIES BEFORE IT IS EVER HEARD.
                 given = wrapping.taken()
 
                 if given:
@@ -307,25 +318,34 @@ class Happy:
                     if given > kept:
                         show.unsay(given - kept)
 
-                # A ROUND DECIDING TO CALL A TOOL: WHATEVER IT SAID ON THE WAY THERE IS A
-                # REAL ANSWER NOW, NOT PREAMBLE TO BE GLUED ONTO A LATER ONE — SO IT IS
-                # SPOKEN NOW, ONCE, BEFORE THE TOOL RUNS.
-                if asking(chunk, note) and unspoken.strip() and not self.stopping.is_set():
+                # A ROUND DECIDING TO CALL A TOOL IS NOT FINISHED, SO WHATEVER IT WROTE ON
+                # THE WAY THERE IS AN ANNOUNCEMENT OF A STEP AND NOT AN ANSWER. IT IS SHOWN
+                # AND THEN DROPPED UNSPOKEN, AND THE TURN'S ONE SPOKEN ANSWER IS WHATEVER
+                # THE ROUND THAT CALLS NOTHING SAYS AT THE END.
+                # A CHUNK MAY CARRY TEXT AND A TOOL CALL AT ONCE, SO THE ROUND IS JUDGED
+                # BEFORE ITS OWN WORDS ARE TAKEN IN: OTHERWISE THE CLEAR BELOW RUNS AND THEN
+                # THIS VERY CHUNK PUTS THE ANNOUNCEMENT STRAIGHT BACK.
+                reaching = asking(chunk, note)
+
+                if reaching and unspoken.strip():
                     # THIS ROUND IS PAST THE GUARDS: IT ASKED FOR A TOOL, WHICH IS THE ONE
                     # THING NONE OF THEM TURNS BACK. WHAT IT SAID CAN BE DRAWN NOW.
                     if undrawn:
                         show.piece(undrawn)
                         undrawn = ""
 
-                    yield unspoken
                     unspoken = ""
 
                 piece = spoken(chunk, note)
 
                 if piece:
                     reply += piece
-                    unspoken += piece
                     memory.progress(len(reply))
+
+                    # THE WORDS OF A ROUND THAT IS ALREADY REACHING FOR A TOOL ARE SHOWN AND
+                    # NEVER HEARD, SO THEY GO NOWHERE NEAR THE VOICE.
+                    if not reaching:
+                        unspoken += piece
 
                     # SHOWN AS IT ARRIVES, NEVER YIELDED AS IT ARRIVES — UNLESS THIS IS A
                     # TURN A GUARD MAY TURN BACK, IN WHICH CASE IT WAITS RATHER THAN BEING
@@ -344,15 +364,18 @@ class Happy:
                 show.piece(undrawn)
                 undrawn = ""
 
-            # WHATEVER THE LAST ROUND SAID AND NEVER GOT FLUSHED YET IS THE TURN'S CLOSING
-            # ANSWER.
+            # THE ROUND IN HAND CALLED NOTHING AND THE STREAM IS OVER, WHICH IS WHAT MAKES
+            # IT THE CLOSING ANSWER AND THE ONE THING SPOKEN ALL TURN.
             if unspoken.strip() and not self.stopping.is_set():
+                said_aloud = True
+
                 yield unspoken
                 unspoken = ""
 
-            # NOT ONE WORD CAME OUT ACROSS THE WHOLE TURN, SO WHATEVER ENDED THE RUN ENDED
-            # IT SOMEWHERE THE STREAM CANNOT SEE.
-            if not reply.strip() and not self.stopping.is_set():
+            # NOTHING WAS SPOKEN ALL TURN. EITHER NO ROUND SAID ANYTHING, OR EVERY ROUND
+            # THAT DID WENT ON TO CALL A TOOL AND WAS DROPPED, WHICH LEAVES THE LAST TOOL'S
+            # RESULT SITTING THERE WITH NOBODY SAYING WHAT CAME OF IT.
+            if not said_aloud and not self.stopping.is_set():
                 last = self.ending() or NOTHING
                 reply += last
 
@@ -367,6 +390,7 @@ class Happy:
                 undrawn = ""
 
             reply += str(stuck)
+            said_aloud = True
             show.piece(str(stuck))
 
             yield str(stuck)

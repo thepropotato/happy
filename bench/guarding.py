@@ -19,6 +19,13 @@ from brain import guarding, wrapping
 from memory import conversation
 
 
+def messaged(said, calls=None):
+    """ONE ROUND'S ANSWER, AS THE LANGCHAIN GUARDS SEE IT."""
+    from langchain_core.messages import AIMessage
+
+    return AIMessage(content=said, tool_calls=calls or [])
+
+
 def clean():
     """NOTHING RAN, NOTHING REFUSED, NOTHING CORRECTED: THE STATE A TURN STARTS IN."""
     wrapping.ran = []
@@ -100,6 +107,55 @@ def main():
     clean()
     wrong += report("an apology with no tool waiting is left alone",
                     guarding.gave_up("sorry, i was not able to do that") is not None, False)
+
+    # keep_opening: THE JOB HANDED BACK AS A LINK TO CLICK. THE NUMBERED RESULTS ARE SHOWN TO
+    # THE MODEL AND TO NOBODY ELSE, SO NAMING ONE POINTS AT SOMETHING THAT IS NOT ON THEIR
+    # SCREEN. ASKED TO PULL UP A PROJECT PAGE, A TURN SEARCHED, FOUND IT, AND SAID "click the
+    # first link" INSTEAD OF OPENING IT.
+    for why, said, want in (
+        ("naming the first link is sent back",
+         "Here is the project: click the first link on that site.", True),
+        ("naming a result number is sent back", "The first result is the one you want.", True),
+        ("inviting them to click is sent back", "You can click on the second one.", True),
+        ("having opened it is left alone", "I opened the project page.", False),
+        ("a page being up is left alone", "The project page is up.", False),
+        ("asking which one is left alone", "Which one do you want?", False),
+        ("having clicked something itself is left alone",
+         "I clicked the video call button and it is ringing.", False),
+    ):
+        clean()
+        wrong += report(why, guarding.handed_back(said.lower()) is not None, want)
+
+    # keep_finishing: A TURN ENDING ON WHAT IT WAS ABOUT TO DO. ASKED FOR ONE PROJECT'S PAGE,
+    # A TURN OPENED THE SITE'S FRONT PAGE, SAID "THE SITE IS UP, LET ME PULL UP THE PROJECT",
+    # AND STOPPED WITH THAT PAGE NEVER OPENED. THE LAST SENTENCE IS WHAT IS JUDGED, SO A REPORT
+    # FOLLOWED BY AN ANNOUNCEMENT IS STILL UNFINISHED AND A REPORT FOLLOWED BY A COURTESY IS
+    # NOT — THE TWO ARE TOLD APART BY WHO HAS TO ACT NEXT.
+    for why, said, want in (
+        ("a report then an announcement is sent back",
+         "Got it, the site is up. Let me pull up the project page for you.", True),
+        ("a bare announcement is sent back", "I'll open that for you.", True),
+        ("a stall is sent back", "One moment while I look.", True),
+        ("a finished report is left alone", "The project page is up.", False),
+        ("a report then a courtesy is left alone",
+         "I opened the project page. Let me know if you want the issues.", False),
+        ("asking which one is left alone",
+         "I found a live version and a lyric video. Which one do you want?", False),
+        ("a plain no is left alone", "I could not find a project by that name.", False),
+    ):
+        clean()
+        wrong += report(why, guarding.announced(said.lower()) is not None, want)
+
+    # AND THE SAME JUDGEMENT ON THE LANGCHAIN SIDE, WHICH IS THE LOOP HAPPY ACTUALLY RUNS.
+    for why, said, calls, want in (
+        ("a round still calling a tool may announce freely",
+         "Let me pull up the page.", [{"name": "open_url", "args": {}, "id": "1"}], False),
+        ("the same words ending a turn are sent back", "Let me pull up the page.", None, True),
+    ):
+        clean()
+        wrong += report(why, wrapping.announcing(
+            messaged(said, calls)
+        ), want)
 
     # keep_fresh: A QUESTION ABOUT SOMETHING THAT MOVES, ANSWERED OUT OF THE BACKCHAT. THE
     # MORNING'S "no unread messages" WAS STILL SITTING THERE AT THREE IN THE SHAPE A FRESH

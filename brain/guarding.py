@@ -44,6 +44,21 @@ def gave_up(words):
     return wrapping.GAVE_UP.format(undone="\n\n".join(waiting))
 
 
+def handed_back(words):
+    """A TURN TELLING THEM WHICH LINK TO CLICK, ABOUT A LIST THEY CANNOT SEE. keep_opening."""
+    if not any(each in words for each in wrapping.HANDBACK):
+        return None
+
+    return wrapping.HANDED_BACK
+
+
+def announced(words):
+    """A TURN ENDING ON WHAT IT IS ABOUT TO DO, WITH THE DOING LEFT UNDONE. keep_finishing.
+
+    THE JUDGEMENT IS wrapping.announced AND IS NOT WRITTEN TWICE."""
+    return wrapping.ANNOUNCED if wrapping.announced(words) else None
+
+
 def unlooked(words):
     """A TURN ANSWERING ABOUT WHAT IS IN FRONT OF THEM OUT OF ITS OWN MEMORY. keep_looking."""
     if not any(each in words for each in wrapping.CLAIMED):
@@ -97,7 +112,7 @@ def dishonest(words):
 
 
 # EVERY ONE OF THEM, IN THE ORDER THEY RAN.
-REPLY_GUARDS = (disowned, gave_up, unlooked, unchecked, dishonest)
+REPLY_GUARDS = (disowned, gave_up, handed_back, announced, unlooked, unchecked, dishonest)
 
 
 class Guarded(dspy.LM):

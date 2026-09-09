@@ -429,6 +429,52 @@ GAVE_UP = (
 )
 
 
+# A TURN THAT ENDS ON ONE OF THESE HAS SAID WHAT IT IS ABOUT TO DO INSTEAD OF DOING IT. THEY
+# ARE ONLY EVER WRONG AT THE END OF A TURN: MID-JOB THE SAME WORDS ARE FINE, AND THE ROUND
+# THAT WRITES THEM IS ON ITS WAY TO A TOOL, WHICH IS WHY THIS IS CHECKED ONLY ON A ROUND THAT
+# CALLED NOTHING.
+ANNOUNCING = ("let me ", "i'll ", "i will ", "i am going to", "i'm going to", "going to ",
+              "now i ", "next i", "one moment", "just a moment", "hold on", "give me a sec",
+              "let's ", "lets ", "i can pull", "i can open", "shall i", "want me to")
+
+# THE OPPOSITE: WORDS THAT REPORT A FINISHED THING.
+FINISHED = ("i've ", "i have ", "opened", "open now", "is up", "it's up", "its up", "playing",
+            "sent", "saved", "created", "made ", "written", "wrote ", "done", "here is",
+            "here's", "found", "there are", "there is", "it says", "shows")
+
+# WHAT A COURTESY ENDS ON. "I OPENED IT, LET ME KNOW IF YOU WANT MORE" ANNOUNCES NOTHING: THE
+# NEXT MOVE IS THEIRS AND THE JOB IS DONE. "LET ME PULL IT UP" IS THE OPPOSITE, SO THE TWO
+# ARE TOLD APART BY WHO ACTS NEXT.
+COURTESIES = ("let me know", "let me know if", "tell me if", "say the word", "just say")
+
+# TELLING THEM TO GO AND CLICK SOMETHING IS THE JOB HANDED BACK. THEY CANNOT SEE THE RESULTS
+# AT ALL — THE LIST IS SOMETHING ONLY THE MODEL WAS SHOWN — SO "click the first link" NAMES A
+# THING THAT IS NOT IN FRONT OF THEM, AND THE PROMPT HAS FORBIDDEN IT ALL ALONG WITH NOTHING
+# TO ENFORCE IT.
+HANDBACK = ("click the first", "click the second", "click the third", "click on the first",
+            "click on the second", "click the link", "click that link", "click this link",
+            "click on it", "click it", "the first link", "the second link", "first result",
+            "second result", "you can click", "just click", "click through", "tap the first",
+            "open the first link", "select the first")
+
+HANDED_BACK = (
+    "Stop. They cannot see any search results — the numbered list was shown to you and to "
+    "nobody else — so telling them which link to click names something that is not in front "
+    "of them, and leaves the job with them.\n\n"
+    "Open it yourself now: call open_url with the number of the result you mean and "
+    'because="show". Then say what is up, from what the tool came back with. This is a step '
+    "of the job, not a refusal of it. Do not apologise and do not stop."
+)
+
+ANNOUNCED = (
+    "Stop. You just said what you were about to do and then stopped without doing it, which "
+    "leaves them waiting for something that is never coming. Saying it is not doing it.\n\n"
+    "Do that very thing now, in this turn, with the tools for it, and keep going until the "
+    "job they asked for is actually finished. Then say what happened, in the past tense, "
+    "from what the tools told you. Never end a turn on what you are about to do."
+)
+
+
 # WORDS THAT POINT AT SOMETHING IN FRONT OF THEM RATHER THAN NAMING IT. WHAT THEY POINT AT IS
 # ONLY KNOWABLE BY LOOKING, AND THE CONVERSATION IS NOT LOOKING — IT IS WHAT WAS TRUE EARLIER.
 # THESE LIVE HERE, NOT WITH THE WRITING TOOLS, BECAUSE A SPOKEN ANSWER POINTS JUST AS OFTEN AS
@@ -505,6 +551,7 @@ ASKED_FRESH = (
     "currently playing", "currently open", "what time", "what day", "what's the date",
     "whats the date", "weather", "temperature", "my calendar", "my schedule",
     "my meetings", "what's open", "whats open", "what is open", "how much battery",
+
     # AND THE SAME QUESTIONS AS A PERSON ACTUALLY ASKS THEM. THE LIST ABOVE WAS WRITTEN OFF
     # THE WORDINGS THAT HAPPENED TO GO WRONG, SO "did anyone message me" AND "what show is
     # this" WALKED PAST IT AND WERE ANSWERED OUT OF A SESSION FIVE HOURS OLD. THE PROMPT
@@ -651,6 +698,102 @@ def keep_at_it(request, handler):
     told = request.override(
         messages=list(request.messages) + [HumanMessage(GAVE_UP.format(undone="\n\n".join(waiting)))]
     )
+
+    return handler(told)
+
+
+def announced(words):
+    """WHETHER THESE WORDS END ON WHAT IS ABOUT TO HAPPEN RATHER THAN WHAT DID.
+
+    JUDGED ON THE LAST SENTENCE, NOT THE WHOLE REPLY. "THE SITE IS UP, LET ME PULL UP THE
+    PROJECT" REPORTS A REAL THING AND THEN LEAVES THE JOB HANGING, AND IT IS THE HANGING HALF
+    THAT THE PERSON IS LEFT WAITING ON. "I OPENED IT, LET ME KNOW IF YOU WANT MORE" ALSO SAYS
+    BOTH AND IS FINISHED, BECAUSE WHAT IT ENDS ON IS THEIRS TO ANSWER AND NOT HAPPY'S TO DO."""
+    last = ending(words)
+
+    if not last:
+        return False
+
+    if any(each in last for each in COURTESIES):
+        return False
+
+    return any(each in last for each in ANNOUNCING) and not any(
+        each in last for each in FINISHED
+    )
+
+
+def ending(words):
+    """THE LAST REAL SENTENCE OF A REPLY, LOWERCASED, OR "" IF THERE IS NONE."""
+    said = [each.strip() for each in re.split(r"[.!?\n]+", (words or "").lower())]
+    said = [each for each in said if each]
+
+    return said[-1] if said else ""
+
+
+def announcing(answered):
+    """WHETHER THIS ROUND ENDS THE TURN ON WHAT IT IS ABOUT TO DO RATHER THAN WHAT IT DID."""
+    said = getattr(answered, "result", None) or answered
+
+    if isinstance(said, list):
+        said = said[-1] if said else None
+
+    # STILL REACHING FOR A TOOL, SO IT IS MID-JOB AND MAY SAY WHATEVER IT LIKES.
+    if getattr(said, "tool_calls", None):
+        return False
+
+    return announced((getattr(said, "text", "") or "").lower())
+
+
+def handing_back(answered):
+    """WHETHER THIS REPLY TELLS THEM TO GO AND CLICK SOMETHING THEY CANNOT SEE."""
+    said = getattr(answered, "result", None) or answered
+
+    if isinstance(said, list):
+        said = said[-1] if said else None
+
+    if getattr(said, "tool_calls", None):
+        return False
+
+    words = (getattr(said, "text", "") or "").lower()
+
+    return bool(words.strip()) and any(each in words for each in HANDBACK)
+
+
+@wrap_model_call
+def keep_opening(request, handler):
+    """A TURN MAY NOT END BY TELLING THEM WHICH LINK TO CLICK.
+
+    THE RESULTS ARE NUMBERED FOR THE MODEL AND SHOWN TO NOBODY: THE PERSON HEARS THE ANSWER
+    AND SEES NO LIST AT ALL. ASKED TO PULL UP ONE PROJECT'S PAGE, A TURN SEARCHED, FOUND IT,
+    AND SAID "click the first link" — WHICH IS THE WHOLE JOB HANDED STRAIGHT BACK, ABOUT A
+    LIST THAT DOES NOT EXIST ON THEIR SCREEN."""
+    answered = handler(request)
+
+    if not handing_back(answered):
+        return answered
+
+    told = request.override(messages=list(request.messages) + [HumanMessage(HANDED_BACK)])
+
+    return handler(told)
+
+
+@wrap_model_call
+def keep_finishing(request, handler):
+    """A TURN MAY NOT END ON WHAT IT IS ABOUT TO DO.
+
+    ASKED TO OPEN ONE PROJECT'S PAGE, A TURN OPENED THE SITE'S FRONT PAGE, SAID "THE SITE IS
+    UP, LET ME PULL UP THE PROJECT", AND STOPPED. THAT PAGE WAS NEVER OPENED. THE WORDS ARE THE TELL
+    AND NOT THE FAULT: THE MODEL TOOK THE FIRST STEP FOR THE WHOLE JOB, AND THE ONE PLACE THAT
+    IS CATCHABLE FOR EVERY TOOL AT ONCE IS THE ANSWER ON ITS WAY OUT.
+
+    IT IS SENT BACK ONCE, WHICH IS ENOUGH: WHAT COMES BACK EITHER GOES AND DOES THE THING OR
+    SAYS PLAINLY THAT IT DID NOT, AND BOTH OF THOSE ARE HONEST ENDINGS."""
+    answered = handler(request)
+
+    if not announcing(answered):
+        return answered
+
+    told = request.override(messages=list(request.messages) + [HumanMessage(ANNOUNCED)])
 
     return handler(told)
 

@@ -1,0 +1,98 @@
+{
+  "name": "2026-09-09 the project page that was never opened",
+  "turns": [
+    {
+      "row": 1,
+      "said": "can you pull up the page for the repository or the project called blue lantern ?",
+      "note": "THE SHAPE THIS SUITE IS WRITTEN FOR. THE SITE'S FRONT PAGE WENT UP, THE TURN SAID \"THE SITE IS UP, LET ME PULL UP THE PROJECT\" AND STOPPED. THE PROJECT PAGE WAS NEVER OPENED. THE FRONT PAGE IS NOT THE PAGE ASKED FOR, AND A TURN MAY NOT END ON WHAT IT IS ABOUT TO DO.",
+      "replies": {
+        "already_open": [
+          {
+            "failed": false,
+            "result": "Nothing about blue lantern is open. What is open:\nCode — \"happy\"\nGoogle Chrome tab — \"New Tab\""
+          }
+        ],
+        "search_web": [
+          {
+            "failed": false,
+            "result": "Results for blue lantern project repository:\n1. bluelantern/blue-lantern: a small task runner — codehost.example\n   Blue Lantern. a small task runner. 41 stars, 6 forks.\n2. bluelantern.example — bluelantern.example\n   Blue Lantern, a small task runner.\n3. Blue Lantern — packages.example\n   package blue-lantern."
+          }
+        ],
+        "open_url": [
+          {
+            "failed": false,
+            "result": "Opened https://codehost.example/bluelantern/blue-lantern."
+          }
+        ]
+      },
+      "was_called": [
+        "already_open",
+        "search_web",
+        "open_url"
+      ],
+      "expect": [
+        "open_url"
+      ],
+      "forbid": [],
+      "check": {
+        "numbers_only": true,
+        "no_question": true,
+        "acted_on": [
+          "1"
+        ],
+        "not_contains": [
+          "let me",
+          "i'll",
+          "i will",
+          "one moment",
+          "going to"
+        ],
+        "contains_any": [
+          "blue lantern",
+          "blue-lantern",
+          "up",
+          "opened"
+        ]
+      },
+      "held": false
+    },
+    {
+      "row": 2,
+      "said": "open the page for a project called zzqx nonsense name",
+      "note": "NOTHING BY THAT NAME EXISTS. SAYING SO PLAINLY IS A FINISHED TURN; THE GUARD MUST NOT PUSH IT INTO OPENING SOMETHING THAT IS NOT IT.",
+      "replies": {
+        "already_open": [
+          {
+            "failed": false,
+            "result": "Nothing about that is open. What is open:\nGoogle Chrome tab — \"codehost.example/bluelantern/blue-lantern\""
+          }
+        ],
+        "search_web": [
+          {
+            "failed": false,
+            "result": "No results for zzqx nonsense name project."
+          }
+        ]
+      },
+      "was_called": [
+        "already_open",
+        "search_web"
+      ],
+      "expect": [
+        "search_web"
+      ],
+      "forbid": [
+        "open_url"
+      ],
+      "check": {
+        "numbers_only": true,
+        "not_contains": [
+          "let me",
+          "i'll",
+          "one moment"
+        ]
+      },
+      "held": true
+    }
+  ]
+}
