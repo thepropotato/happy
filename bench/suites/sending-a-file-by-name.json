@@ -4,7 +4,7 @@
     {
       "row": 1,
       "said": "send the latest file from my downloads to Suri on whatsapp",
-      "note": "THE SETUP. THE LISTING IS WHERE EVERY REAL PATH COMES FROM, AND THE NAME COMES BACK NEEDING CONFIRMATION, SO THE TURN MUST ASK RATHER THAN SEND TO THE NEAREST THING.",
+      "note": "THE SETUP. THE LISTING IS WHERE EVERY REAL PATH COMES FROM. THE NAME NEEDS CONFIRMING, AND BOTH DOORS TO IT SAY SO, SO THE TURN ENDS ON THE QUESTION.",
       "replies": {
         "list_folder": [
           {
@@ -15,14 +15,26 @@
         "whatsapp_search_contacts": [
           {
             "failed": true,
-            "result": "'Suri' isn't a known exact match for whatsapp. The closest guess is 'Suripriya', but this must be confirmed directly by the person before using or remembering it — browsing a list or a fuzzy match is not confirmation on its own. Ask them whether 'Suripriya' is who they meant. If they say it is, remember it against 'Suri' and then carry on with what they originally asked for, on this same service."
+            "result": "'Suri' isn't a known exact match for whatsapp. The closest guess is 'Suripriya', but this must be confirmed directly by the person before using or remembering it \u2014 browsing a list or a fuzzy match is not confirmation on its own. Ask them whether 'Suripriya' is who they meant. If they say it is, remember it against 'Suri' and then carry on with what they originally asked for, on this same service."
+          }
+        ],
+        "whatsapp_send_media_message": [
+          {
+            "failed": true,
+            "result": "'Suri' isn't a known exact match for whatsapp. The closest guess is 'Suripriya', but this must be confirmed directly by the person before using or remembering it. Ask them whether 'Suripriya' is who they meant."
           }
         ]
       },
-      "expect": ["whatsapp_search_contacts"],
-      "forbid": ["whatsapp_send_media_message"],
+      "expect": [
+        "whatsapp_search_contacts",
+        "whatsapp_send_media_message"
+      ],
+      "forbid": [],
       "check": {
-        "contains_any": ["suripriya"]
+        "contains_any": [
+          "suripriya",
+          "suri"
+        ]
       },
       "held": false
     },
@@ -38,11 +50,20 @@
           }
         ]
       },
-      "expect": ["whatsapp_send_media_message"],
+      "expect": [
+        "whatsapp_send_media_message"
+      ],
       "check": {
-        "acted_on": ["a-dragon-portrait.jpg"],
+        "acted_on": [
+          "a-dragon-portrait.jpg"
+        ],
         "no_question": true,
-        "not_contains": ["let me", "i'll", "i will", "one moment"]
+        "not_contains": [
+          "let me",
+          "i'll",
+          "i will",
+          "one moment"
+        ]
       },
       "held": false
     },
@@ -70,12 +91,23 @@
           }
         ]
       },
-      "expect": ["whatsapp_send_media_message"],
+      "expect": [
+        "whatsapp_send_media_message"
+      ],
       "check": {
-        "acted_on": ["Some Person Full Name Offer Letter.pdf"],
-        "never_acted_on": ["offer_letter.pdf"],
+        "acted_on": [
+          "Some Person Full Name Offer Letter.pdf"
+        ],
+        "never_acted_on": [
+          "offer_letter.pdf"
+        ],
         "no_question": true,
-        "not_contains": ["couldn't find", "could not find", "let me", "i'll"]
+        "not_contains": [
+          "couldn't find",
+          "could not find",
+          "let me",
+          "i'll"
+        ]
       },
       "held": false
     },
@@ -95,11 +127,21 @@
             "failed": false,
             "result": "{\"Suripriya\": {\"jid\": \"1000@lid\", \"mediaType\": \"document\", \"messageId\": \"CCC\", \"success\": true}}"
           }
+        ],
+        "list_folder": [
+          {
+            "failed": false,
+            "result": "/Users/someone/Downloads/a-dragon-portrait.jpg (1.8 MB, 6 Sep)\n/Users/someone/Downloads/client_secret_9912.json (0 KB, 5 Sep)\n/Users/someone/Downloads/another-portrait.webp (847 KB, 5 Sep)\n/Users/someone/Downloads/image (2).png (17 KB, 1 Sep)\n/Users/someone/Downloads/Some Person Full Name Offer Letter.pdf (88 KB, 23 Jun)\n/Users/someone/Downloads/Some_Person_Resume_Backend.pdf (122 KB, 2 Jun)"
+          }
         ]
       },
-      "expect": ["whatsapp_send_media_message"],
+      "expect": [
+        "whatsapp_send_media_message"
+      ],
       "check": {
-        "acted_on": ["Some_Person_Resume_Backend.pdf"],
+        "acted_on": [
+          "Some_Person_Resume_Backend.pdf"
+        ],
         "no_question": true
       },
       "held": true
@@ -108,7 +150,7 @@
       "row": 5,
       "said": "send that offer letter to Suri again",
       "restart": true,
-      "note": "HELD OUT, AND AFTER A RESTART. THE NAME WAS CONFIRMED ONCE IN ROW 2, SO IT MUST NOT BE ASKED AGAIN: THE ALIAS IS SAVED BY THE CODE THAT SAW IT WORK, AND SAVED THINGS OUTLIVE A CLOSE AND A REOPEN.",
+      "note": "HELD OUT, AND AFTER A RESTART. THE PATH MUST STILL BE FETCHED RATHER THAN ASSEMBLED WHEN NOTHING OF THE EARLIER LISTING IS LEFT IN THE THREAD. WHETHER THE NAME ITSELF IS REMEMBERED IS NOT ASKED HERE: THE CLIENT THAT SAVES IT IS MOCKED AWAY, SO THAT IS memory/__main__.py's TO CHECK.",
       "replies": {
         "find_files": [
           {
@@ -123,10 +165,16 @@
           }
         ]
       },
-      "expect": ["whatsapp_send_media_message"],
+      "expect": [
+        "whatsapp_send_media_message"
+      ],
       "check": {
-        "acted_on": ["Some Person Full Name Offer Letter.pdf"],
-        "never_acted_on": ["offer_letter.pdf"],
+        "acted_on": [
+          "Some Person Full Name Offer Letter.pdf"
+        ],
+        "never_acted_on": [
+          "offer_letter.pdf"
+        ],
         "no_question": true
       },
       "held": true

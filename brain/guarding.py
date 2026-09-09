@@ -111,8 +111,38 @@ def dishonest(words):
     return wrapping.DENIED.format(undone="\n".join(wrapping.unfinished()))
 
 
+def unfinished_file(words):
+    """A TURN ANSWERING ABOUT A FILE IT ONLY READ THE FIRST CHUNK OF. keep_reading.
+
+    read_file SAYS IN ITS OWN RESULT WHAT TO CALL IT WITH TO READ ON, AND THE MODEL OFTEN
+    ANSWERS OUT OF THE FIRST CHUNK ALONE. A SUMMARY MADE FROM THE FRONT OF A DOCUMENT IS NOT
+    A SUMMARY OF THE DOCUMENT."""
+    if not wrapping.file_was_cut or wrapping.file_cut_resume is None:
+        return None
+
+    return wrapping.UNREAD_FILE.format(start=wrapping.file_cut_resume)
+
+
+def stale(words, messages=None):
+    """A QUESTION ABOUT SOMETHING THAT MOVES, ANSWERED OUT OF A DEAD SITTING'S TOOL. keep_fresh.
+
+    unchecked CATCHES THE WORDINGS SOMEBODY THOUGHT OF; THIS CATCHES THE REST BY ASKING WHAT
+    THE RESUMED RESULTS WERE ABOUT AGAINST WHAT THIS QUESTION IS ABOUT. A RESUMED TURN
+    CARRIES NO AGE: THE MORNING'S ANSWER READS AS FRESH AT THREE IN THE AFTERNOON."""
+    if wrapping.ran:
+        return None
+
+    said = (conversation.asking() or "").lower()
+
+    if not said or not wrapping.stale_moving(messages):
+        return None
+
+    return wrapping.ASKED_TOLD.format(said=said)
+
+
 # EVERY ONE OF THEM, IN THE ORDER THEY RAN.
-REPLY_GUARDS = (disowned, gave_up, handed_back, announced, unlooked, unchecked, dishonest)
+REPLY_GUARDS = (disowned, gave_up, handed_back, announced, unlooked, unchecked,
+                stale, unfinished_file, dishonest)
 
 
 class Guarded(dspy.LM):
@@ -174,7 +204,9 @@ class Guarded(dspy.LM):
             return answered
 
         for guard in REPLY_GUARDS:
-            telling = guard(words)
+            # ONE OF THEM ASKS WHAT THE RESUMED RESULTS WERE ABOUT, WHICH ONLY THE MESSAGES
+            # THEMSELVES CAN SAY. THE REST JUDGE THE WORDS ALONE.
+            telling = guard(words, messages) if guard is stale else guard(words)
 
             if not telling:
                 continue
