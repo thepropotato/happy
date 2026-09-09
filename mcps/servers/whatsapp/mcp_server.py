@@ -251,6 +251,12 @@ async def get_messages(contact: list[str], limit: int = 10, order_newest: bool =
 
     async def fetch_one(c: str):
         result = await wa.get_messages(c, limit, order=order, received_only=received_only)
+
+        # A FAILURE SAYS SO NOW. IT MUST NOT BE TRADED FOR A SYNC MESSAGE THAT
+        # GUESSES AT A DIFFERENT CAUSE.
+        if isinstance(result, dict) and "error" in result:
+            return c, result
+
         if not result:
             sync_status = await check_sync_status(wa)
             if sync_status:
@@ -310,7 +316,9 @@ async def get_unread_messages(include_archived: bool = True) -> str:
     wa = get_client()
     chats = await wa.get_chats()
     if not isinstance(chats, list):
-        return _json({"error": "Could not fetch chats"})
+        # THE READER SAYS WHY IT FAILED NOW, AND THAT REASON IS WORTH MORE THAN
+        # A FLAT "COULD NOT FETCH CHATS".
+        return _json(chats if isinstance(chats, dict) else {"error": "Could not fetch chats"})
 
     unread = [
         {

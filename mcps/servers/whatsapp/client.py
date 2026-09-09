@@ -55,10 +55,21 @@ class WhatsAppClient:
     def __init__(self, username: str = "default"):
         self.username = username
         self.pending_corrections: dict[str, str] = {}
+        self.unreachable = False
 
     async def get(self, path: str, timeout: float = 5.0) -> Any:
         async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
-            r = await client.get(f"{BRIDGE_BASE}/{self.username}{path}", headers=BRIDGE_HEADERS)
+            try:
+                r = await client.get(f"{BRIDGE_BASE}/{self.username}{path}", headers=BRIDGE_HEADERS)
+            except Exception:
+                # SET HERE AND CLEARED HERE, SO ONE DEAD CALL CANNOT OUTLIVE THE
+                # BRIDGE COMING BACK.
+                self.unreachable = True
+
+                raise
+
+            self.unreachable = False
+
             if r.status_code >= 400:
                 try:
                     return clean_surrogates(r.json())
@@ -81,6 +92,26 @@ class WhatsAppClient:
         if extra:
             msg += f" ({extra})"
         return {"error": msg}
+
+    # AN EMPTY LIST IS AN ANSWER — THIS CHAT HAS NOTHING — AND A BRIDGE THAT NEVER
+    # ANSWERED IS NOT. THEY LOOKED THE SAME FOR EVERY READ HERE, SO A DEAD BRIDGE
+    # READ AS AN EMPTY WHATSAPP AND WAS REPORTED AS ONE.
+    def failed(self, doing: str, error: Exception) -> dict:
+        return {"error": f"Could not {doing}: {self.reason(error)}"}
+
+    def reason(self, error: Exception) -> str:
+        said = str(error).strip()
+
+        if isinstance(error, httpx.ConnectError) or "connection attempts failed" in said.lower():
+            return (
+                "the WhatsApp bridge is not answering, so nothing could be read. It is not "
+                "that there is nothing there. Say this rather than reporting an empty result."
+            )
+
+        if isinstance(error, httpx.TimeoutException):
+            return "the WhatsApp bridge took too long to answer, so nothing could be read."
+
+        return said or error.__class__.__name__
 
     async def get_status(self) -> dict[str, Any]:
         try:
@@ -204,9 +235,11 @@ class WhatsAppClient:
 
     async def get_contacts(self) -> list[dict[str, str]]:
         try:
-            return await self.get("/contacts")
+            found = await self.get("/contacts")
         except Exception:
             return []
+
+        return found if isinstance(found, list) else []
 
     async def search_contacts(self, query: str) -> list[dict[str, str]]:
         asked = (query or "").strip()
@@ -268,17 +301,20 @@ class WhatsAppClient:
     def contact_name(self, contact: dict[str, Any]) -> str:
         return str(contact.get("name") or contact.get("number") or contact.get("id") or "that contact").strip()
 
-    async def get_chats(self) -> list[dict[str, Any]]:
+    async def get_chats(self) -> list[dict[str, Any]] | dict[str, Any]:
         try:
             return await self.get("/chats")
-        except Exception:
-            return []
+        except Exception as e:
+            return self.failed("read your chats", e)
 
     async def get_messages(self, contact: str, limit: int = 20, media_only: bool = False, order: str = "newest", received_only: bool = False) -> list[dict[str, Any]]:
         jid = await self.resolve_contact(contact)
 
         if not jid:
-            return []
+            if self.unreachable:
+                return self.failed(f"read messages from '{contact}'", httpx.ConnectError(""))
+
+            return {"error": f"No contact matching '{contact}' was found, so nothing was read."}
 
         if "@" not in jid:
             jid = f"{jid}@s.whatsapp.net"
@@ -287,18 +323,22 @@ class WhatsAppClient:
             order_param = f"&order={order}" if order != "newest" else ""
             received_param = "&received=true" if received_only else ""
             return await self.get(f"/messages/{jid}?limit={limit}{media_param}{order_param}{received_param}", timeout=10.0)
-        except Exception:
-            return []
+        except Exception as e:
+            return self.failed(f"read messages from '{contact}'", e)
 
 
-    async def get_groups(self) -> list[dict[str, Any]]:
+    async def get_groups(self) -> list[dict[str, Any]] | dict[str, Any]:
         try:
             return await self.get("/groups")
-        except Exception:
-            return []
+        except Exception as e:
+            return self.failed("read your groups", e)
 
     async def search_groups(self, query: str) -> list[dict[str, Any]]:
         groups = await self.get_groups()
+
+        if not isinstance(groups, list):
+            return []
+
         q = query.lower()
         found = [
             g for g in groups
@@ -342,6 +382,10 @@ class WhatsAppClient:
 
     async def get_group_by_id(self, group_id: str) -> dict[str, Any]:
         groups = await self.get_groups()
+
+        if not isinstance(groups, list):
+            return groups
+
         for g in groups:
             if g.get("id") == group_id:
                 return g
@@ -439,11 +483,11 @@ class WhatsAppClient:
         except Exception as e:
             return {"error": str(e)}
 
-    async def get_recent_sent(self, limit: int = 25) -> list[dict[str, Any]]:
+    async def get_recent_sent(self, limit: int = 25) -> list[dict[str, Any]] | dict[str, Any]:
         try:
             return await self.get(f"/recent-sent?limit={limit}")
-        except Exception:
-            return []
+        except Exception as e:
+            return self.failed("read what you recently sent", e)
 
     async def get_latest_sent_message(self) -> dict[str, Any]:
         try:
