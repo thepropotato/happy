@@ -38,8 +38,13 @@ COMING_TRIES = 20
 WATCH_SECONDS = 3
 WATCH_TRIES = 100
 
+# HOW LONG linked() TRUSTS ITS LAST ANSWER. THE PANEL REDRAWS FAR FASTER THAN A
+# LINK COMES OR GOES.
+FRESH_SECONDS = 5
+
 ours = None
 noted = None
+asked = None
 tried = None
 started = False
 seen = None
@@ -101,13 +106,35 @@ def configured():
 
 
 def linked():
-    """TRUE WHEN THE BRIDGE LAST SAID A REAL ACCOUNT IS ON THE END OF IT."""
-    return seen == "connected"
+    """TRUE WHEN A REAL ACCOUNT IS ON THE END OF THE BRIDGE, ASKED RATHER THAN RECALLED."""
+    # A BRIDGE THAT DIED WITHOUT GOING THROUGH stop() LEAVES seen SAYING connected
+    # FOREVER, AND THE ROW GOES ON CLAIMING A LINK THAT IS NOT THERE. THIS SITS ON
+    # THE PANEL'S DRAW, WHICH REPEATS EVERY COUPLE OF SECONDS, SO THE ANSWER IS
+    # HELD FOR A MOMENT RATHER THAN ASKED FOR ON EVERY ROW.
+    global seen, asked
+
+    now = time.monotonic()
+
+    if asked is not None and now - asked < FRESH_SECONDS:
+        return seen == "connected"
+
+    asked = now
+
+    if not answering():
+        seen = None
+
+        return False
+
+    return progress() == "connected"
 
 
 def progress():
     """WHERE THE BRIDGE IS UP TO, REMEMBERED SO THE PANEL NEED NOT ASK EVERY DRAW."""
-    global seen
+    global seen, asked
+
+    # THE WATCHER CALLS THIS THE INSTANT A SCAN LANDS, AND THAT IS FRESHER THAN
+    # WHATEVER linked() IS HOLDING.
+    asked = time.monotonic()
 
     try:
         answer = httpx.get(f"{BASE}/default/qr", headers=HEADERS, timeout=3, trust_env=False)
@@ -233,9 +260,10 @@ def clear():
 
 def stop():
     """PUT THE BRIDGE DOWN: THE ONE WE HOLD, AND ANYTHING LEFT SITTING ON THE PORT."""
-    global ours, seen
+    global ours, seen, asked
 
     seen = None
+    asked = None
 
     with lock:
         here, ours = ours, None
