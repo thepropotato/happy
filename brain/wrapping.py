@@ -100,6 +100,23 @@ ran = []
 # EXISTS TO STOP, AND IT WAS RIGHT ONLY BY LUCK. THE STREAM READS THIS AND DROPS THAT MUCH.
 withdrawn = 0
 
+# WHETHER A GUARD IN THIS TURN HAS EVER TURNED A ROUND BACK.
+corrected = False
+
+
+def held(said):
+    """WHETHER THIS TURN'S WORDS WAIT FOR THE GUARDS BEFORE THEY ARE DRAWN.
+
+    UNDRAWING IS STILL A FLICKER: THE WORDS WERE ON THE SCREEN, AND THAT IS WHAT WAS SEEN.
+    THE ONLY WAY NOT TO SHOW A WRONG ANSWER IS NOT TO DRAW IT, AND WHETHER A TURN IS THE KIND
+    THAT GETS CORRECTED IS KNOWN FROM THE QUESTION BEFORE THE MODEL HAS SAID A WORD: A
+    QUESTION ABOUT SOMETHING THAT MOVES IS ONE keep_fresh WILL HOLD IF NOTHING IS CALLED.
+
+    THESE ARE THE TURNS THAT TYPE, GET CORRECTED AND TYPE AGAIN. THEY LOSE THE WORD-BY-WORD
+    DRAW AND GAIN NEVER SHOWING AN ANSWER NOBODY STANDS BEHIND. EVERY OTHER TURN — WHICH IS
+    NEARLY ALL OF THEM — DRAWS AS IT ALWAYS DID."""
+    return corrected or asked_fresh((said or "").lower())
+
 
 @wrap_model_call
 def keep_thinking(request, handler):
@@ -115,11 +132,12 @@ class Stuck(Exception):
 
 def fresh():
     """A NEW TURN. THE STREAK IS ABOUT THIS ERRAND, NOT THE LAST ONE."""
-    global missed, spend, withdrawn
+    global missed, spend, withdrawn, corrected
 
     missed = 0
     spend = None
     withdrawn = 0
+    corrected = False
     asked.clear()
     tried.clear()
     refused.clear()
@@ -647,7 +665,7 @@ def again(request, handler, answered, telling):
     AND THEN IT COMES BACK EMPTY, AND HANDING THAT UP THE CHAIN ENDS THE TURN ON THE "I got
     tangled up" FALLBACK — SILENCE, WHICH IS WORSE THAN THE ANSWER IT WAS BEING CORRECTED FOR.
     SO NOTHING IS ONLY EVER TRADED FOR SOMETHING."""
-    global withdrawn
+    global withdrawn, corrected
 
     # WHAT THE ROUND BEING TURNED BACK ALREADY PUT ON THE SCREEN. NOT NAMED taken: THAT IS
     # THE FUNCTION THE STREAM READS THIS BACK WITH, AND A LOCAL OF THAT NAME MAKES EVERY
@@ -661,8 +679,10 @@ def again(request, handler, answered, telling):
         said = said[-1] if said else None
 
     if getattr(said, "tool_calls", None) or (getattr(said, "text", "") or "").strip():
-        # THE ANSWER THAT WAS SHOWN IS NOT THE ANSWER ANY MORE, SO THE STREAM UNSAYS IT.
+        # THE ANSWER THAT WAS SHOWN IS NOT THE ANSWER ANY MORE, SO THE STREAM UNSAYS IT,
+        # AND FROM HERE ON IT HOLDS EACH ROUND RATHER THAN DRAWING ANOTHER ONE TO UNDRAW.
         withdrawn += shown
+        corrected = True
 
         return told
 

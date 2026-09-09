@@ -20,9 +20,11 @@ from memory import conversation
 
 
 def clean():
-    """NOTHING RAN, NOTHING REFUSED: THE STATE A TURN STARTS IN."""
+    """NOTHING RAN, NOTHING REFUSED, NOTHING CORRECTED: THE STATE A TURN STARTS IN."""
     wrapping.ran = []
     wrapping.refused = {}
+    wrapping.withdrawn = 0
+    wrapping.corrected = False
 
 
 def main():
@@ -162,6 +164,29 @@ def main():
 
     wrong += report("a turned-back round is taken back off the screen",
                     withdrawn(guessed), len(guessed))
+
+    # WHICH TURNS WAIT BEFORE THEY DRAW. UNDRAWING IS STILL A FLICKER — THE WORDS WERE ON
+    # THE SCREEN AND THAT IS WHAT WAS SEEN — SO A QUESTION A GUARD MAY HOLD IS NOT DRAWN
+    # UNTIL IT IS PAST THE GUARDS. EVERY OTHER TURN MUST STILL TYPE AS IT ALWAYS DID.
+    clean()
+
+    for why, said, want in (
+        ("the unread question waits before it draws",
+         "are there any unread messages on whatsapp ?", True),
+        ("a bare check waits", "check", True),
+        ("the screen question waits", "whats on my screen", True),
+        ("an errand draws as it types", "send priya a message", False),
+        ("playing something draws as it types", "play badass on youtube", False),
+        ("an ordinary question draws as it types", "who made you", False),
+    ):
+        wrong += report(why, wrapping.held(said), want)
+
+    # AND ONCE A TURN HAS BEEN CORRECTED, EVERY LATER ROUND OF IT WAITS TOO.
+    clean()
+    wrapping.corrected = True
+    wrong += report("a turn already corrected waits from then on",
+                    wrapping.held("play badass on youtube"), True)
+    clean()
 
     # A NAME A FUNCTION BOTH ASSIGNS AND CALLS IS LOCAL FOR THE WHOLE FUNCTION, SO THE CALL
     # THROWS "cannot access local variable" NO MATTER THAT A MODULE-LEVEL ONE EXISTS.

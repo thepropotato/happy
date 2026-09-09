@@ -255,6 +255,12 @@ class Happy:
         # THE MOMENT A ROUND DECIDES TO CALL A TOOL, SO IT IS HEARD BEFORE THE TOOL RUNS
         # RATHER THAN DROPPED AS PREAMBLE.
         unspoken = ""
+
+        # WHAT HAS BEEN WRITTEN BUT NOT YET DRAWN. ON A TURN A GUARD MAY HOLD, WORDS WAIT
+        # HERE UNTIL THE ROUND IS PAST THE GUARDS RATHER THAN GOING STRAIGHT ONTO THE PANEL
+        # TO BE TAKEN OFF AGAIN A SECOND LATER.
+        undrawn = ""
+        waiting = wrapping.held(speech)
         started = time.perf_counter()
 
         straight = self.direct(speech, context)
@@ -287,12 +293,24 @@ class Happy:
                     reply = reply[:-given] if given < len(reply) else ""
                     unspoken = unspoken[:-given] if given < len(unspoken) else ""
 
-                    show.unsay(given)
+                    # WORDS STILL WAITING WERE NEVER DRAWN, SO THEY ARE DROPPED RATHER THAN
+                    # UNSAID, AND ONLY WHAT REALLY REACHED THE PANEL IS TAKEN BACK OFF IT.
+                    kept = min(given, len(undrawn))
+                    undrawn = undrawn[:-kept] if kept else undrawn
+
+                    if given > kept:
+                        show.unsay(given - kept)
 
                 # A ROUND DECIDING TO CALL A TOOL: WHATEVER IT SAID ON THE WAY THERE IS A
                 # REAL ANSWER NOW, NOT PREAMBLE TO BE GLUED ONTO A LATER ONE — SO IT IS
                 # SPOKEN NOW, ONCE, BEFORE THE TOOL RUNS.
                 if asking(chunk, note) and unspoken.strip() and not self.stopping.is_set():
+                    # THIS ROUND IS PAST THE GUARDS: IT ASKED FOR A TOOL, WHICH IS THE ONE
+                    # THING NONE OF THEM TURNS BACK. WHAT IT SAID CAN BE DRAWN NOW.
+                    if undrawn:
+                        show.piece(undrawn)
+                        undrawn = ""
+
                     yield unspoken
                     unspoken = ""
 
@@ -303,11 +321,22 @@ class Happy:
                     unspoken += piece
                     memory.progress(len(reply))
 
-                    # SHOWN AS IT ARRIVES, NEVER YIELDED AS IT ARRIVES.
-                    show.piece(piece)
+                    # SHOWN AS IT ARRIVES, NEVER YIELDED AS IT ARRIVES — UNLESS THIS IS A
+                    # TURN A GUARD MAY TURN BACK, IN WHICH CASE IT WAITS RATHER THAN BEING
+                    # DRAWN NOW AND UNDRAWN IN A SECOND.
+                    if waiting:
+                        undrawn += piece
+                    else:
+                        show.piece(piece)
 
                 if self.stopping.is_set():
                     break
+
+            # THE STREAM IS OVER, SO NOTHING IS GOING TO TURN THIS BACK NOW: WHATEVER WAS
+            # HELD IS THE ANSWER AND GOES ON THE PANEL.
+            if undrawn:
+                show.piece(undrawn)
+                undrawn = ""
 
             # WHATEVER THE LAST ROUND SAID AND NEVER GOT FLUSHED YET IS THE TURN'S CLOSING
             # ANSWER.
@@ -325,11 +354,21 @@ class Happy:
 
                 yield last
         except Stuck as stuck:
+            # WHATEVER WAS BEING HELD WHEN THIS LANDED IS STILL WHAT WAS SAID, AND LOSING IT
+            # WOULD LEAVE THE PANEL SHOWING NOTHING AT ALL.
+            if undrawn:
+                show.piece(undrawn)
+                undrawn = ""
+
             reply += str(stuck)
             show.piece(str(stuck))
 
             yield str(stuck)
         except Exception as error:
+            if undrawn:
+                show.piece(undrawn)
+                undrawn = ""
+
             amiss(brain.reason(error))
             reply += BROKE
             show.piece(BROKE)
