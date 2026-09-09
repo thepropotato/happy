@@ -14,7 +14,6 @@ from face import show
 from brain import model as brain, persona, resuming
 from brain.model import LLMError
 from brain.prompt import system_prompt
-from sound import earcon
 from brain import wrapping
 from brain.wrapping import (
     LIMIT,
@@ -38,7 +37,6 @@ from brain.wrapping import (
     keep_recent,
     keep_record,
     keep_trying,
-    keep_thinking,
     tell,
     troubles,
     watches,
@@ -158,7 +156,6 @@ class Happy:
                 # LAST, SO IT SITS CLOSEST TO THE MODEL: A GO THROWN AWAY OVER BAD
                 # JSON IS NOT A ROUND ANYBODY ASKED FOR AND IS NOT COUNTED AS ONE.
                 keep_trying,
-                keep_thinking,
             ],
             checkpointer=self.kept,
         )
@@ -210,31 +207,28 @@ class Happy:
         fresh()
         started = time.perf_counter()
 
+        straight = self.direct(speech, context)
+
+        if straight is not None:
+            memory.close(straight, time.perf_counter() - started)
+            self.carry(speech, straight)
+
+            return straight
+
         try:
-            straight = self.direct(speech, context)
+            done = self.round(graph, speech, context)
+        except Stuck as stuck:
+            memory.close(str(stuck), time.perf_counter() - started)
 
-            if straight is not None:
-                memory.close(straight, time.perf_counter() - started)
-                self.carry(speech, straight)
+            return str(stuck)
+        except Exception as error:
+            raise LLMError(brain.reason(error))
 
-                return straight
+        # A ROUND THAT THOUGHT AND THEN SAID NOTHING, NOR ASKED FOR A TOOL, STILL ENDS ON WORDS.
+        reply = worded(said(done)) or NOTHING
+        memory.close(reply, time.perf_counter() - started)
 
-            try:
-                done = self.round(graph, speech, context)
-            except Stuck as stuck:
-                memory.close(str(stuck), time.perf_counter() - started)
-
-                return str(stuck)
-            except Exception as error:
-                raise LLMError(brain.reason(error))
-
-            # A ROUND THAT THOUGHT AND THEN SAID NOTHING, NOR ASKED FOR A TOOL, STILL ENDS ON WORDS.
-            reply = worded(said(done)) or NOTHING
-            memory.close(reply, time.perf_counter() - started)
-
-            return reply
-        finally:
-            earcon.stop()
+        return reply
 
     def round(self, graph, speech, context):
         """ONE TURN, RUN BY WHICHEVER LOOP THE SETTINGS NAME.
@@ -410,7 +404,6 @@ class Happy:
 
             yield BROKE
         finally:
-            earcon.stop()
             taken = time.perf_counter() - started
             tell(MODEL, None, taken)
 

@@ -15,7 +15,6 @@ from brain import mending, repeats, sourcing
 from brain.history import recent
 from hands import reasons
 from memory import conversation, settings
-from sound import earcon
 
 TOOL = "tool"
 
@@ -135,14 +134,6 @@ def keep_opened(request, handler):
     showing = [each for each in request.tools if each.name not in shut or each.name in through]
 
     return handler(request.override(tools=showing))
-
-
-@wrap_model_call
-def keep_thinking(request, handler):
-    """A MODEL CALL MAY TAKE A WHILE, SO A SMALL PULSE KEEPS SILENCE FROM READING AS A HANG."""
-    earcon.start()
-
-    return handler(request)
 
 
 class Stuck(Exception):
@@ -846,7 +837,6 @@ def claim():
 @wrap_tool_call
 def keep_record(request, handler):
     """EVERY TOOL CALL GOES ON ITS EXCHANGE, WITH ITS REASON, ARGUMENTS AND TIME."""
-    earcon.start()
     call = request.tool_call
 
     # READ, NOT TAKEN: THE CALL ITSELF GOES ON UNTOUCHED.

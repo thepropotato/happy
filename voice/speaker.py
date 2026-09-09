@@ -9,7 +9,7 @@ import sounddevice as sd
 
 from face import show
 from memory import settings
-from sound import earcon, quiet, reset, surrender
+from sound import quiet, reset, surrender
 from voice import clips, engines, numbers, stripping
 from voice.sentences import Sentences
 
@@ -255,7 +255,6 @@ class Speaker:
         SLEEP. ONE STREAM IS KEPT INSTEAD AND WRITTEN INTO, WHICH BLOCKS FOR THE LENGTH OF THE
         SOUND WITHOUT SITTING INSIDE PORTAUDIO FOR IT: THE LOCK IS LET GO BETWEEN BLOCKS, SO
         BARGING IN LANDS WITHIN ONE OF THEM RATHER THAN AT THE END OF THE CLIP."""
-        earcon.stop()
         step = max(1, int(rate * BLOCK_MS / 1000))
         samples = np.ascontiguousarray(samples, dtype=np.float32).reshape(-1, CHANNELS)
 

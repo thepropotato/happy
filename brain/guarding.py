@@ -18,7 +18,6 @@ import memory
 from brain import mending, sourcing, wrapping
 from hands import reasons
 from memory import conversation
-from sound import earcon
 
 # THE REPLY GUARDS, IN THE ORDER LANGCHAIN RAN THEM: EACH IS A REASON TO SEND ONE ROUND BACK
 # WITH ONE MORE THING SAID TO IT, AND EACH SENDS IT BACK ONCE AND ONLY ONCE.
@@ -153,10 +152,6 @@ class Guarded(dspy.LM):
         # ENDS HERE RATHER THAN PART WAY THROUGH A TOOL. keep_going.
         if wrapping.missed >= wrapping.ENOUGH:
             raise wrapping.Stuck(wrapping.NOWHERE)
-
-        # A MODEL CALL MAY TAKE A WHILE, SO A SMALL PULSE KEEPS SILENCE FROM READING AS A
-        # HANG. keep_thinking.
-        earcon.start()
 
         answered = self.trying(prompt, messages, kwargs)
 
@@ -306,7 +301,6 @@ def recorded(tool, known):
 
             return refusal
 
-        earcon.start()
         wrapping.ran.append(name)
         wrapping.tell(wrapping.STARTED, name, None, {"id": which, "args": args})
 
