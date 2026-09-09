@@ -47,6 +47,8 @@ JUDGEMENTS = (
     (repeats.learned, ()),
     (repeats.signature, ("read_file", {"path": "a"})),
     (repeats.repeated, ("read_file", {"path": "a"})),
+    (repeats.repeated, ("open_url", {"url": "1"})),
+    (repeats.circling, ("search_web", {"query": "a thing or other"})),
     (repeats.circling, ("search_web", {"query": "a"})),
     (repeats.remember, ("read_file", {"path": "a"}, "some answer")),
     (sourcing.checked, ("read_file", {"path": "x"})),
@@ -60,6 +62,17 @@ JUDGEMENTS = (
 def walked():
     wrapping.fresh()
     wrong = 0
+
+    # A JUDGEMENT WITH NOTHING BEHIND IT TAKES THE FIRST WAY OUT AND NEVER REACHES THE LINES
+    # THAT READ A NAME. THE TURN IS GIVEN A CALL AND A REFUSAL FIRST SO BOTH SIDES RUN —
+    # WITHOUT THIS, repeats.repeated LOOKED FINE HERE AND DIED ON A REAL EVENING OVER A NAME
+    # THAT HAD MOVED TO ANOTHER MODULE.
+    repeats.remember("open_url", {"url": "1"}, 'call this again with because="show"')
+    repeats.remember("search_web", {"query": "a thing"}, "some answer")
+    wrapping.ran.append("read_file")
+    wrapping.refused["open_url"] = f"nothing yet. {wrapping.CARRY_ON}"
+    wrapping.file_was_cut = True
+    wrapping.file_cut_resume = 4000
 
     for guard in guarding.REPLY_GUARDS:
         for said in SAYINGS:

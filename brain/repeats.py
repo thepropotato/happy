@@ -14,6 +14,8 @@ import difflib
 import json
 import re
 
+from brain.words import TURNED_BACK
+
 
 
 # EVERY CALL MADE THIS TURN, BY TOOL AND ARGUMENTS, WITH WHAT IT GOT BACK.

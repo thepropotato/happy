@@ -24,7 +24,8 @@ class Service:
     def patch(self, path, body=None):
         return self.sent("PATCH", path, json=body)
 
-    def sent(self, way, path, **asked):
+    def sent(self, way, path, raw=False, **asked):
+        """raw HANDS BACK THE BODY AS TEXT: A BUILD LOG IS NOT JSON AND PARSING IT FAILS."""
         answer = httpx.request(
             way,
             f"{self.base}/{path.lstrip('/')}",
@@ -36,6 +37,9 @@ class Service:
 
         if answer.status_code >= 400:
             raise PermissionError(f"{self.name} said no. {complaint(answer)}")
+
+        if raw:
+            return answer.text
 
         return answer.json() if answer.text else {}
 

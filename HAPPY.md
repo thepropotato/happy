@@ -148,9 +148,9 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `mcps/permission.py` | The browser, and the loopback door the service sends you back through. |
 | `mcps/servers/shared/` | What every server shares: its credentials, its HTTP, its answers. |
 | `mcps/servers/google/` | Mail, calendar and drive on one sign in. One server, not three. |
-| `mcps/servers/notion/` | Searching a workspace, reading a page, and writing one. |
-| `mcps/servers/github/` | Repositories, the files in them, their issues and their commits. |
-| `mcps/servers/slack/` | Channels, what was said in them, and saying something. |
+| `mcps/servers/notion/` | A workspace searched, read, written and shared. Twenty-six tools. |
+| `mcps/servers/github/` | Repositories, issues, pulls, actions, security and the rest. Ninety-one tools. |
+| `mcps/servers/slack/` | Channels, messages, canvases, lists and files. Thirty-one tools. |
 | `mcps/servers/linear/` | The board and all of it: issues, labels, initiatives, releases. Sixty-five tools. |
 | `mcps/servers/jira/` | The backlog, its projects, and the moves a workflow allows. |
 | `mcps/servers/weather/` | The forecast anywhere, from the one that wants no account. |
