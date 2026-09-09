@@ -18,6 +18,39 @@ def throwaway(name="bench.db"):
     return where
 
 
+def connected(where):
+    """THE CONNECTOR ROWS COPIED OFF THE REAL DATABASE, SCHEMAS ONLY, NO SECRETS.
+
+    A SERVICE'S TOOLS ONLY EXIST ONCE IT IS CONNECTED, AND A THROWAWAY DATABASE IS
+    CONNECTED TO NOTHING — SO WITHOUT THIS EVERY MCP TOOL IS SIMPLY ABSENT AND A SUITE
+    ABOUT WHATSAPP OR GMAIL SCORES A MODEL FOR NOT CALLING A TOOL IT WAS NEVER GIVEN.
+    THE BODIES ARE STUBBED LIKE EVERY OTHER TOOL, SO ONLY THE SHAPE CROSSES OVER."""
+    import sqlite3
+
+    real = Path(__file__).resolve().parent.parent / "data" / "happy.db"
+
+    if not real.exists():
+        return []
+
+    try:
+        source = sqlite3.connect(f"file:{real}?mode=ro", uri=True)
+        rows = source.execute("SELECT name, tools, state, at FROM connections").fetchall()
+        source.close()
+    except sqlite3.Error:
+        return []
+
+    scratch = sqlite3.connect(where)
+    scratch.execute(
+        "CREATE TABLE IF NOT EXISTS connections ("
+        "name TEXT PRIMARY KEY, tools TEXT, state TEXT, at TEXT NOT NULL)"
+    )
+    scratch.executemany("INSERT OR REPLACE INTO connections VALUES (?, ?, ?, ?)", rows)
+    scratch.commit()
+    scratch.close()
+
+    return [row[0] for row in rows]
+
+
 def stubbed(tool, calls, replies=None):
     """THE SAME SCHEMA AND DOCSTRING, BUT THE BODY ONLY WRITES DOWN THAT IT WAS CALLED.
 

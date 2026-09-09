@@ -1135,7 +1135,7 @@ def handle_history_sync(session, evt):
     pushnames = list(getattr(data, 'pushnames', []))
 
     # TALLIED RATHER THAN LOGGED ONE BY ONE: A BUNDLE CARRIES THOUSANDS.
-    unread = {}
+    unreadable = {}
 
     with session.lock:
         session.last_history_sync_at = time.time()
@@ -1167,7 +1167,7 @@ def handle_history_sync(session, evt):
                 continue
             chat_id = resolve_lid_str(session, raw_chat_id)
             is_group = "@g.us" in chat_id
-            unread = getattr(conv, 'unreadCount', 0)
+            unread_count = getattr(conv, 'unreadCount', 0)
             conv_name = getattr(conv, 'displayName', chat_id.split("@")[0])
             archived = bool(getattr(conv, 'archived', False))
 
@@ -1179,7 +1179,7 @@ def handle_history_sync(session, evt):
 
             cidx = next((i for i, c in enumerate(session.chats) if c["id"] == chat_id), -1)
             if cidx < 0:
-                session.chats.append({"id": chat_id, "name": clean(conv_name) or chat_id.split("@")[0], "isGroup": is_group, "unreadCount": unread, "lastMessage": "", "timestamp": conv_ts, "archived": archived})
+                session.chats.append({"id": chat_id, "name": clean(conv_name) or chat_id.split("@")[0], "isGroup": is_group, "unreadCount": unread_count, "lastMessage": "", "timestamp": conv_ts, "archived": archived})
                 cidx = len(session.chats) - 1
             else:
                 if conv_ts and conv_ts > session.chats[cidx].get("timestamp", 0):
@@ -1187,7 +1187,7 @@ def handle_history_sync(session, evt):
                 session.chats[cidx]["archived"] = archived
                 # THE PHONE IS THE AUTHORITY ON WHAT IS STILL UNREAD. WITHOUT THIS A COUNT
                 # FROM AN OLD SYNC OUTLIVES THE MESSAGES IT WAS COUNTING.
-                session.chats[cidx]["unreadCount"] = unread
+                session.chats[cidx]["unreadCount"] = unread_count
             if chat_id not in session.messages:
                 session.messages[chat_id] = []
             if chat_id not in session.media:
@@ -1306,7 +1306,7 @@ def handle_history_sync(session, evt):
                             if nobody_said_it(actual_msg):
                                 continue
 
-                            unread[carried] = unread.get(carried, 0) + 1
+                            unreadable[carried] = unreadable.get(carried, 0) + 1
 
                     push_name_hist = str(getattr(web_msg, 'pushName', "") or "")
                     sender_name = "unknown"
@@ -1365,7 +1365,7 @@ def handle_history_sync(session, evt):
         session.sync_status["chats"] = len(session.chats)
         session.sync_status["groups"] = len(session.groups)
 
-    for carried, many in sorted(unread.items(), key=lambda pair: -pair[1]):
+    for carried, many in sorted(unreadable.items(), key=lambda pair: -pair[1]):
         logger.info(f"[history] user={session.username} {many} with nothing readable in: {carried}")
 
     persist(session)
@@ -2124,12 +2124,17 @@ def chats(username):
         # THE PHONE SENDS A COUNT, THE BODIES ARRIVE SEPARATELY, AND HISTORY SYNC
         # CAN LEAVE A COUNT WITH NOTHING BEHIND IT. SAYING HOW MANY RECEIVED LINES
         # ARE ACTUALLY HELD STOPS AN EMPTY READ BEING TAKEN FOR "NOTHING UNREAD".
-        held = [
+        stored = s.messages.get(cid, []) + s.media.get(cid, [])
+        held = [m for m in stored if not m.get("fromMe")]
+        # THE BADGE CAN ONLY MEAN MESSAGES SINCE HE LAST WROTE: ANYTHING OLDER THAN
+        # HIS OWN LAST LINE HE HAD ALREADY OPENED THE CHAT TO SEND.
+        mine = max((m.get("timestamp", 0) for m in stored if m.get("fromMe")), default=0)
+        since = [
             m
-            for m in s.messages.get(cid, []) + s.media.get(cid, [])
-            if not m.get("fromMe")
+            for m in held
+            if m.get("timestamp", 0) > mine and m.get("type") != "reaction"
         ]
-        chat = {**chat, "receivedHeld": len(held)}
+        chat = {**chat, "receivedHeld": len(held), "heldSinceMine": len(since)}
         result.append(chat)
 
     # NEWEST FIRST, EVERY TIME IT IS ASKED.

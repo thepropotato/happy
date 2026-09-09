@@ -316,6 +316,13 @@ async def get_unread_messages(include_archived: bool = True) -> str:
     there does NOT mean the chat has nothing unread - say the messages have not arrived
     yet.
 
+    "unreadCount" is a badge off the phone, not a count of messages. It survives an old
+    sync and only ever climbs, so it can claim far more than the chat holds.
+    "heldSinceMine" is how many received messages are here that are newer than the last
+    line the USER sent - the most the badge can honestly mean. When "count_warning" is
+    present, say the held number for those chats, never the badge, and never add the
+    badges into one total.
+
     Args:
         include_archived: If True (default), also include archived chats with unread messages.
     """
@@ -339,6 +346,8 @@ async def get_unread_messages(include_archived: bool = True) -> str:
             # THE COUNT COMES FROM THE PHONE AND THE BODIES ARRIVE SEPARATELY, SO A
             # CHAT CAN BE COUNTED UNREAD WITH NOTHING HERE TO SHOW FOR IT.
             "bodiesHeld": c.get("receivedHeld", 0),
+            # RECEIVED SINCE HIS OWN LAST LINE: THE MOST THE BADGE CAN HONESTLY MEAN.
+            "heldSinceMine": c.get("heldSinceMine", 0),
         }
         for c in chats
         if c.get("unreadCount", 0) > 0 and (include_archived or not c.get("archived"))
@@ -348,12 +357,37 @@ async def get_unread_messages(include_archived: bool = True) -> str:
 
     empty = [c["name"] for c in unread if not c["bodiesHeld"]]
 
+    # A BADGE FROM AN OLD SYNC OUTLIVES THE MESSAGES IT COUNTED, SO A CHAT CAN CLAIM
+    # FIFTY-ONE WITH NINE LINES BEHIND IT. THE HELD COUNT IS THE ONE THAT WAS CHECKED.
+    stale = [
+        c for c in unread
+        if c["bodiesHeld"] and c["unreadCount"] > c["heldSinceMine"]
+    ]
+
     answer = {
         "total_unread_chats": len(unread),
-        "total_unread_messages": sum(c["unreadCount"] for c in unread),
+        "total_held_here": sum(c["heldSinceMine"] for c in unread),
         "archived_chats_with_unread": sum(1 for c in unread if c["archived"]),
         "unread_chats": unread,
     }
+
+    if not stale:
+        # NOTHING IS STALE, SO THE BADGES ADD UP TO SOMETHING TRUE AND CAN BE SAID.
+        answer["total_unread_messages"] = sum(c["unreadCount"] for c in unread)
+
+    if stale:
+        worst = ", ".join(
+            f"{c['name']} says {c['unreadCount']} with {c['heldSinceMine']} here"
+            for c in stale
+        )
+        answer["count_warning"] = (
+            "These chats claim more unread than there are messages behind them: "
+            f"{worst}. The badge came off the phone in an old sync and was never "
+            "cleared, so it is not a message count. Say the smaller, held number for "
+            "these chats. Never say the badge total out loud, as a total or beside the "
+            "held one: there are not that many messages. Say how many chats, and the "
+            "held count."
+        )
 
     if empty:
         answer["note"] = (
@@ -631,7 +665,11 @@ def tally(sent):
 
 @mcp.tool()
 async def send_group_message(groups: list[str], message: str) -> str:
-    """Send a text message to one or more groups.
+    """Send to a named group chat only, never to a person.
+
+    This is for a group by its name: the PG group, the family group, a team.
+    A person, a phone number, or a name that is somebody rather than somewhere,
+    is send_message instead, even when several people are named at once.
 
     Args:
         groups: Group name(s) to send to. Can be a single name or a list.
