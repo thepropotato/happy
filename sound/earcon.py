@@ -59,7 +59,8 @@ def loop():
                         samplerate=RATE, channels=CHANNELS, dtype="float32"
                     )
                     stream.start()
-            except Exception as error:
+            except Exception:
+                # NO DEVICE, OR ONE THAT WILL NOT OPEN. THE PULSE IS A COMFORT, NOT THE TURN.
                 return
 
         while not ending.is_set():
@@ -72,8 +73,9 @@ def loop():
 
                 try:
                     stream.write(part)
-                except Exception as error:
-                    print(f"[earcon] write failed: {error}")  # TEMPORARY
+                except Exception:
+                    # THE DEVICE WENT AWAY MID-BEAT, WHICH IS HEADPHONES COMING OUT. THE TURN
+                    # CARRIES ON WITHOUT IT AND SAYS NOTHING, BECAUSE NOTHING WAS LOST.
                     return
     finally:
         shut()
