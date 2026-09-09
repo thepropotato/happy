@@ -129,6 +129,47 @@ def main():
     ):
         wrong += report(why, rounds(said, "no unread messages", already, reaching), want)
 
+    # AND WHAT A TURNED-BACK ROUND LEAVES ON THE SCREEN. THE STREAM DRAWS EACH ROUND AS THE
+    # MODEL TYPES IT, SO A GUARD ALWAYS ARRIVES AFTER THE WORDS ARE ALREADY SHOWN: WITHOUT
+    # THE WITHDRAWAL THE PANEL READ "56 unread", THEN THE TOOL, THEN "56 unread" AGAIN, AND
+    # THE FIRST ONE WAS THE GUESS THE GUARD EXISTS TO STOP.
+    def withdrawn(reply, reaching=True):
+        """HOW MANY CHARACTERS THE GUARD TAKES BACK AFTER TURNING A ROUND BACK."""
+        sent = []
+
+        def handler(request):
+            sent.append(request)
+
+            if len(sent) == 1:
+                return AIMessage(reply)
+
+            if reaching:
+                asking = AIMessage("")
+                asking.tool_calls = [{"name": "x", "args": {}, "id": "1", "type": "tool_call"}]
+
+                return asking
+
+            return AIMessage("")
+
+        conversation.here.set(conversation.begin("are there any unread messages on whatsapp ?"))
+        clean()
+        wrapping.withdrawn = 0
+        wrapping.keep_fresh.wrap_model_call(Asked(), handler)
+
+        return wrapping.taken()
+
+    guessed = "Yep—56 unread WhatsApp messages across five chats."
+
+    wrong += report("a turned-back round is taken back off the screen",
+                    withdrawn(guessed), len(guessed))
+
+    # A SEND-BACK THAT CAME TO NOTHING KEEPS THE FIRST ANSWER, SO THERE IS NOTHING TO UNSAY.
+    wrong += report("a send-back that came to nothing withdraws nothing",
+                    withdrawn(guessed, reaching=False), 0)
+
+    # AND IT IS READ ONCE: A SECOND READ WOULD UNSAY WORDS NOBODY WROTE.
+    wrong += report("a withdrawal is read once and then gone", wrapping.taken(), 0)
+
     # THE SHAPES DSPy HANDS BACK, WHICH ARE NOT THE ONES LANGCHAIN DID.
     for why, answer, want in (
         ("a bare string is read as what was said", ["it is four o'clock"], "it is four o'clock"),

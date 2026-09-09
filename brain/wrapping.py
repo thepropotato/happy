@@ -92,6 +92,14 @@ refused = {}
 # TURN DOES CAN ASK WHAT CAME BEFORE IT.
 ran = []
 
+# HOW MANY CHARACTERS OF THIS TURN'S WORDS A GUARD HAS TAKEN BACK. THE STREAM SHOWS AND
+# SPEAKS A ROUND AS THE MODEL TYPES IT, WHICH IS WHAT MAKES HAPPY FEEL QUICK, AND A GUARD
+# ONLY SEES THAT ROUND ONCE IT IS FINISHED — SO THE ANSWER IT TURNS BACK IS ALREADY ON THE
+# SCREEN. ASKED ABOUT UNREAD MESSAGES, THE PANEL SHOWED "56 unread" OFF THE MORNING'S
+# BACKCHAT, THEN THE TOOL, THEN "56 unread" AGAIN: THE FIRST ONE WAS THE GUESS THE GUARD
+# EXISTS TO STOP, AND IT WAS RIGHT ONLY BY LUCK. THE STREAM READS THIS AND DROPS THAT MUCH.
+withdrawn = 0
+
 
 @wrap_model_call
 def keep_thinking(request, handler):
@@ -107,10 +115,11 @@ class Stuck(Exception):
 
 def fresh():
     """A NEW TURN. THE STREAK IS ABOUT THIS ERRAND, NOT THE LAST ONE."""
-    global missed, spend
+    global missed, spend, withdrawn
 
     missed = 0
     spend = None
+    withdrawn = 0
     asked.clear()
     tried.clear()
     refused.clear()
@@ -638,6 +647,12 @@ def again(request, handler, answered, telling):
     AND THEN IT COMES BACK EMPTY, AND HANDING THAT UP THE CHAIN ENDS THE TURN ON THE "I got
     tangled up" FALLBACK — SILENCE, WHICH IS WORSE THAN THE ANSWER IT WAS BEING CORRECTED FOR.
     SO NOTHING IS ONLY EVER TRADED FOR SOMETHING."""
+    global withdrawn
+
+    # WHAT THE ROUND BEING TURNED BACK ALREADY PUT ON THE SCREEN. TAKEN BACK BEFORE THE NEXT
+    # ROUND RUNS, SO THE WORDS IT WRITES ARE NOT COUNTED INTO IT.
+    taken = len(wording(answered))
+
     told = handler(request.override(messages=list(request.messages) + [HumanMessage(telling)]))
     said = getattr(told, "result", None) or told
 
@@ -645,9 +660,37 @@ def again(request, handler, answered, telling):
         said = said[-1] if said else None
 
     if getattr(said, "tool_calls", None) or (getattr(said, "text", "") or "").strip():
+        # THE ANSWER THAT WAS SHOWN IS NOT THE ANSWER ANY MORE, SO THE STREAM UNSAYS IT.
+        withdrawn += taken
+
         return told
 
     return answered
+
+
+def taken():
+    """HOW MANY CHARACTERS A GUARD HAS JUST TAKEN BACK, AND ZERO EVERY TIME AFTER.
+
+    READ ONCE BY THE STREAM AND CLEARED, SO ONE WITHDRAWAL IS UNSAID ONCE."""
+    global withdrawn
+
+    given, withdrawn = withdrawn, 0
+
+    return given
+
+
+def wording(answered):
+    """THE WORDS IN A ROUND'S ANSWER, WHATEVER SHAPE IT CAME BACK IN.
+
+    NOT text(): THAT NAME IS ALREADY TAKEN IN HERE, BY THE ONE THAT UNWRAPS A TOOL RESULT.
+    DEFINING IT TWICE MEANT THE SECOND QUIETLY REPLACED THE FIRST AND EVERY TOOL IN THE
+    SUITE STOPPED BEING READ."""
+    said = getattr(answered, "result", None) or answered
+
+    if isinstance(said, list):
+        said = said[-1] if said else None
+
+    return str(getattr(said, "text", "") or "")
 
 
 # HOW A REPLY STATES, AS A FACT, WHAT IS IN FRONT OF THEM THIS MOMENT. THESE ARE CLAIMS ABOUT

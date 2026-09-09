@@ -34,6 +34,7 @@ from brain.wrapping import (
     keep_record,
     keep_trying,
     keep_thinking,
+    taken,
     tell,
     troubles,
     watches,
@@ -275,6 +276,18 @@ class Happy:
             ):
                 if self.stopping.is_set():
                     break
+
+                # A GUARD TURNED THE LAST ROUND BACK, SO WHAT IT SAID IS NOT THE ANSWER ANY
+                # MORE. IT IS TAKEN OFF THE PANEL AND NEVER SPOKEN: unspoken IS ONLY HANDED
+                # TO THE VOICE WHEN A TOOL STARTS OR THE STREAM ENDS, AND BOTH COME AFTER
+                # THIS, SO A WITHDRAWN ROUND DIES BEFORE IT IS EVER HEARD.
+                given = taken()
+
+                if given:
+                    reply = reply[:-given] if given < len(reply) else ""
+                    unspoken = unspoken[:-given] if given < len(unspoken) else ""
+
+                    show.unsay(given)
 
                 # A ROUND DECIDING TO CALL A TOOL: WHATEVER IT SAID ON THE WAY THERE IS A
                 # REAL ANSWER NOW, NOT PREAMBLE TO BE GLUED ONTO A LATER ONE — SO IT IS

@@ -54,6 +54,13 @@ const Prose = (() => {
       this.write(node, (node.raw || '') + more)
     },
 
+    // A GUARD TOOK THAT ROUND BACK AFTER IT WAS DRAWN, SO ITS WORDS COME OFF AGAIN.
+    shrink(node, many) {
+      const had = node.raw || ''
+
+      this.write(node, many < had.length ? had.slice(0, -many) : '')
+    },
+
     // AN ADDRESS BELONGS IN THEIR BROWSER. FOLLOWED IN HERE IT WOULD REPLACE THE
     // PANEL WITH A WEB PAGE AND THERE IS NO WAY BACK FROM THAT.
     away(root) {

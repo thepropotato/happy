@@ -173,6 +173,10 @@ function hear(word) {
       showing()
       refresh()
     },
+    unsay: () => {
+      Talk.unsay(word.many)
+      refresh()
+    },
     began: () => {
       Talk.began(word)
       showing()
