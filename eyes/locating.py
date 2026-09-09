@@ -3,7 +3,7 @@
 from eyes import masking
 from eyes.agreeing import PICKED, POINTED, READ, TOLD
 from eyes.deciphering import look
-from eyes.describing import PICK, POINT, asked, digits, listing, numbers, smaller
+from eyes.describing import digits, listing, numbers, picked, pointed_at, smaller
 from eyes.elements import tree
 from eyes.matching import CLICK_CUTOFF, likeness, middle, span, spot, tidy, typing
 from eyes.screen import grab
@@ -126,7 +126,7 @@ def chosen(shot, seen, target):
     if not lines:
         return None
 
-    number = digits(asked(smaller(shot.image)[0], PICK.format(menu=menu, target=target)))
+    number = digits(picked(smaller(shot.image)[0], menu, target))
 
     if number is None or not 0 <= number < len(lines):
         return None
@@ -140,7 +140,7 @@ def chosen(shot, seen, target):
 def pointed(shot, target):
     """THE MODEL GIVING A PLACE OUTRIGHT, FOR WHAT HAS NO TEXT TO PICK."""
     small, ratio = smaller(shot.image)
-    pair = numbers(asked(small, POINT.format(target=target, width=small.width, height=small.height)))
+    pair = numbers(pointed_at(small, target))
 
     if not pair:
         return None

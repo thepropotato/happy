@@ -8,7 +8,7 @@ from langchain_core.tools import tool
 
 from eyes import attention, identifying, ongoing, tabs, titling
 from eyes.deciphering import look
-from eyes.describing import QUESTION, asked, smaller
+from eyes.describing import answered, smaller
 from eyes.framing import framed
 from eyes.screen import grab
 from eyes.shapes import VisionError
@@ -164,9 +164,7 @@ def looked_at(question):
     try:
         shot = grab()
         seen = look(shot.image)
-        about = QUESTION.format(text=seen.text[:MAX_CHARS], question=question)
-
-        return asked(smaller(shot.image)[0], about)
+        return answered(smaller(shot.image)[0], seen.text[:MAX_CHARS], question)
     except VisionError as problem:
         return reasons.no(str(problem))
 

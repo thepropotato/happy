@@ -28,6 +28,7 @@ defusedxml==0.7.1
 distro==1.9.0
 dlinfo==2.0.0
 docstring_parser==0.18.0
+dspy==3.3.1
 espeakng-loader==0.2.4
 et_xmlfile==2.0.0
 extruct==0.18.0
