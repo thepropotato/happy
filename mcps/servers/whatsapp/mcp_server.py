@@ -344,8 +344,10 @@ async def get_unread_messages(include_archived: bool = True) -> str:
         {
             "name": c.get("name") or c.get("id"),
             # THE PHONE'S COUNT FOR THIS CHAT, WHICH IS THE ONE THAT MATCHES WHAT HE
-            # SEES ON HIS PHONE.
-            "unread": c.get("unreadHere", 0),
+            # SEES ON HIS PHONE. THE BRIDGE RESTARTS SEPARATELY FROM THIS SERVER, SO A
+            # BRIDGE STILL RUNNING OLDER CODE SENDS NO unreadHere AND THE BADGE ITSELF
+            # IS THE ANSWER RATHER THAN A ZERO.
+            "unread": c.get("unreadHere", c.get("unreadCount", 0)),
             "lastMessage": c.get("lastMessage", ""),
             # WHOSE LAST LINE IT IS, SO HIS OWN WORDS ARE NEVER READ BACK AS THEIRS.
             "lastMessageFromMe": bool(c.get("lastMessageFromMe")),
@@ -355,7 +357,6 @@ async def get_unread_messages(include_archived: bool = True) -> str:
             # THE COUNT COMES FROM THE PHONE AND THE BODIES ARRIVE SEPARATELY, SO A
             # CHAT CAN BE COUNTED UNREAD WITH NOTHING HERE TO SHOW FOR IT.
             "bodiesHeld": c.get("receivedHeld", 0),
-            # VOTES ARE NOT MESSAGES, SO THEY ARE COUNTED APART FROM THEM.
         }
         for c in chats
         # A CHAT WHOSE NEW THINGS ARE ALL VOTES ON A POLL IS NOT AN UNREAD CHAT. THE PG
@@ -372,7 +373,7 @@ async def get_unread_messages(include_archived: bool = True) -> str:
         if votes_only(c) and (include_archived or not c.get("archived"))
     ]
 
-    unread.sort(key=lambda x: (-x["unread"], -x["pollVotes"]))
+    unread.sort(key=lambda x: -x["unread"])
 
     # NOTHING SYNCED DOWN, SO THERE IS NOTHING HERE TO COUNT AND NOTHING TO SHOW.
     empty = [c["name"] for c in unread if not c["bodiesHeld"]]
