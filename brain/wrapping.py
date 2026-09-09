@@ -124,6 +124,32 @@ def held(said):
 
 
 @wrap_model_call
+def keep_opened(request, handler):
+    """A BIG SERVICE'S TOOLS ARE NOT SHOWN UNTIL THE TURN HAS ASKED FOR THAT SERVICE.
+
+    LINEAR HANDS OVER SEVENTY-THREE TOOLS AND GOOGLE SIXTEEN. FLAT, THAT IS EIGHTY-NINE
+    SCHEMAS IN FRONT OF THE PREFIX CACHE ON EVERY TURN INCLUDING THE ONES ABOUT THE WEATHER,
+    AND THE PREFIX CACHE IS THE WHOLE OF WHY AN ANSWER TAKES HALF A SECOND.
+
+    SO THE GRAPH IS BUILT WITH EVERY TOOL — ANY OF THEM MUST BE ABLE TO RUN THE MOMENT IT IS
+    ASKED FOR — AND WHAT THE MODEL IS *SHOWN* IS TRIMMED HERE: THE DOOR ALWAYS, AND WHAT IS
+    BEHIND IT ONLY ONCE THIS TURN HAS OPENED IT. A TURN THAT NEVER MENTIONS LINEAR NEVER
+    PAYS FOR LINEAR."""
+    from mcps import opening
+
+    shut = opening.hidden()
+
+    if not shut:
+        return handler(request)
+
+    # WHICH DOORS THIS TURN HAS ALREADY GONE THROUGH, OFF THE TOOLS IT HAS ACTUALLY CALLED.
+    through = opening.opened(set(ran))
+    showing = [each for each in request.tools if each.name not in shut or each.name in through]
+
+    return handler(request.override(tools=showing))
+
+
+@wrap_model_call
 def keep_thinking(request, handler):
     """A MODEL CALL MAY TAKE A WHILE, SO A SMALL PULSE KEEPS SILENCE FROM READING AS A HANG."""
     earcon.start()

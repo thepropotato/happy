@@ -139,6 +139,7 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `mcps/loop.py` | The one event loop the servers live on. The async side of the wall. |
 | `mcps/binding.py` | A tool on one of those servers, as one the graph calls like any other. |
 | `mcps/shortening.py` | What came back, squeezed down to something that can be said out loud. |
+| `mcps/opening.py` | A service with too many tools, behind one door until it is wanted. |
 | `mcps/panel.py` | Every service as one row somebody can read, for the window to draw. |
 | `mcps/wording.py` | The words a row says about a service, and nothing about its shape. |
 | `mcps/store.py` | What is connected, which is whatever remembers tools, and what those are. |
@@ -350,6 +351,28 @@ refreshing mends that. When the renewal itself fails, or when a token has run ou
 service has no way to get another, the call is refused with `credentials.STALE`, which names
 the service and says to connect it again in the panel. That is the one thing that fixes it, and
 it is what the person hears.
+
+### A big service goes behind a door
+
+Connecting Linear took the toolset from 67 to 140 in one press. Seventy-three schemas then sit
+in front of the prefix cache on every turn, including the turns about the weather, and that cache
+is the whole of why an answer takes half a second rather than ten.
+
+So a service offering more than twenty tools also gets **one** tool in the standing prompt,
+saying what the service is for. The model calls that when the errand is about that service, and
+what comes back is the real list — name, what it does, what it takes — which it calls on the next
+round. One extra round trip, and only on the turns that reach for that service at all.
+
+Two details matter. **Every tool is still bound to the graph**, because one must be able to run
+the moment it is asked for; what is trimmed is only what the model is *shown*, and `keep_opened`
+in `brain/wrapping.py` does that per call off the doors this turn has already opened. And **a
+small service gets no door**: Google's sixteen and WhatsApp's fifteen cost less to show than a
+round trip would, and a stall before every "any unread messages" is exactly what Happy does not
+do. Twenty is the line, in `mcps/opening.py`.
+
+The matching inside a door is plain word overlap and nothing cleverer. An embedding there would
+be a model call inside a tool call, which is the stall this exists to avoid; a miss costs one more
+go at the door with better words, and the whole list is the fallback.
 
 ### Adding a capability
 

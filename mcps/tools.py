@@ -35,8 +35,8 @@ HALVES = [("client_id", "client ID"), ("client_secret", "client secret")]
 def connections(service: str = "") -> str:
     """Say which outside services are connected and which are not, how many tools each
     connected one brings, and exactly what the person does to connect or sign out of
-    each one. The services are Google, WhatsApp, Weather, Instagram, Notion, GitHub and
-    Slack. Name one to hear about only that one.
+    each one. Name one service to hear about only that one, and call it with nothing to
+    hear about all of them.
 
     Use this when you are asked what you can reach, what is connected, how many are,
     or how one of them is connected or disconnected. It says nothing about this

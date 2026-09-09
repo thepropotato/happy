@@ -4,7 +4,7 @@ import time
 
 from mcp.types import Tool
 
-from mcps import binding, bridging, loop, pool, registry, store
+from mcps import binding, bridging, loop, opening, pool, registry, store
 from mcps.bridging import whenever
 from mcps.joining import connect, disconnect, paste, stir
 from mcps.tools import TOOLS
@@ -26,25 +26,49 @@ MENTION = (
 
 
 def offering():
-    """EVERY TOOL FROM EVERY CONNECTED SERVICE, READY FOR THE GRAPH."""
+    """EVERY TOOL FROM EVERY CONNECTED SERVICE, READY FOR THE GRAPH.
+
+    A SERVICE WITH MORE TOOLS THAN ANYBODY CAN READ IN A PROMPT ALSO GETS A DOOR, AND ITS OWN
+    TOOLS ARE MARKED AS SITTING BEHIND IT. THEY ARE STILL BOUND — THE GRAPH MUST BE ABLE TO
+    RUN ONE THE MOMENT IT IS ASKED FOR — BUT THE MODEL IS NOT SHOWN THEM UNTIL IT HAS OPENED
+    THE DOOR. mcps/opening.py HOLDS THE LIST AND brain/wrapping.py DOES THE HIDING."""
     found = []
     taken = local_names()
+    doors = {}
 
     for row in store.every():
         if not row["tools"]:
             continue
 
-        built = binding.bind(
-            registry.label(row["name"]),
-            pool.session(row),
-            remembered(row["tools"]),
-            taken=taken,
-        )
+        label = registry.label(row["name"])
+        session = pool.session(row)
+        offered = remembered(row["tools"])
+
+        built = binding.bind(label, session, offered, taken=taken)
 
         taken.update(each.name for each in built)
+
+        if opening.wanted(built):
+            gate = opening.door(label, session, offered, blurb=summary(row["name"]))
+
+            # THE DOOR ITSELF IS ALWAYS SHOWN; WHAT IT GUARDS IS EVERY TOOL OF THAT SERVICE.
+            doors[gate.name] = {each.name for each in built}
+            taken.add(gate.name)
+            found.append(gate)
+
         found.extend(built)
 
+    opening.shut(doors)
+
     return found
+
+
+def summary(name):
+    """THE ONE LINE A DOOR SAYS ABOUT ITS SERVICE, OFF THE ROW THAT SHIPPED IT."""
+    known = registry.one(name) or {}
+    said = (known.get("hint") or "").split(".")
+
+    return f"{said[0].strip()}." if said and said[0].strip() else ""
 
 
 def whose(name):

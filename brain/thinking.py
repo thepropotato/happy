@@ -32,6 +32,7 @@ from brain.wrapping import (
     keep_honest,
     keep_looking,
     keep_named,
+    keep_opened,
     keep_opening,
     keep_reading,
     keep_recent,
@@ -148,6 +149,10 @@ class Happy:
 
                 # AND NOR SUMMARISE A FILE WITHOUT READING ALL OF IT WHEN IT CAME IN CHUNKS.
                 keep_reading,
+
+                # A BIG SERVICE'S TOOLS ARE HIDDEN UNTIL THIS TURN HAS ASKED FOR THAT
+                # SERVICE, SO A PROMPT DOES NOT CARRY SEVENTY-THREE SCHEMAS NOBODY WANTED.
+                keep_opened,
 
                 ModelCallLimitMiddleware(run_limit=settings.get("brain.calls")),
                 # LAST, SO IT SITS CLOSEST TO THE MODEL: A GO THROWN AWAY OVER BAD
