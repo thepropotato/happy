@@ -431,9 +431,23 @@ ASKED_TOLD = (
 )
 
 
+# ASKING FOR THE SAME THING AGAIN IN ONE WORD. "check" AFTER "are there any unread messages"
+# IS THAT QUESTION ASKED A SECOND TIME AND WAS ANSWERED "still no reply from WhatsApp" WITH
+# NOTHING CALLED EITHER TIME. THESE ARE ONLY EVER READ AS THE WHOLE OF WHAT WAS SAID, SO
+# "check the file" IS NOT ONE OF THEM, AND "do it" AND "continue" ARE DELIBERATELY NOT HERE:
+# THEY FOLLOW ERRANDS AS OFTEN AS QUESTIONS.
+ASKED_AGAIN = ("check", "check again", "look again", "try again", "check now", "recheck",
+               "check it", "have another look", "look now")
+
+
 def asked_fresh(said):
     """WHETHER THIS QUESTION IS ABOUT SOMETHING THAT MOVES WHILE NOBODY IS LOOKING."""
-    return any(each in said for each in ASKED_FRESH)
+    if any(each in said for each in ASKED_FRESH):
+        return True
+
+    # A ONE-WORD "check" CARRIES ITS SUBJECT FROM THE QUESTION BEFORE IT, WHICH IS WHY IT IS
+    # MATCHED WHOLE RATHER THAN ANYWHERE INSIDE A LONGER SENTENCE.
+    return said.strip().strip("?.! ") in ASKED_AGAIN
 
 
 # WHAT LOOKING ITSELF ANSWERS. A WINDOW SAYS WHAT IS OPEN, WHAT IT IS CALLED AND WHERE IT IS,
@@ -585,6 +599,35 @@ def keep_looking(request, handler):
         return again(request, handler, answered, UNREAD_ALOUD.format(said=said))
 
     return answered
+
+
+@wrap_model_call
+def keep_fresh(request, handler):
+    """A QUESTION ABOUT SOMETHING THAT MOVES MAY NOT BE ANSWERED WITH NOTHING CALLED.
+
+    THE OTHER HALF OF keep_looking, FOR THE THINGS THAT CHANGE WHERE NOBODY IS LOOKING: A
+    MAILBOX, A CHAT, A CALENDAR. ASKED "are there any unread messages on whatsapp" AT TEN AND
+    AGAIN AT THREE, THE MORNING'S ANSWER SITS IN THE BACKCHAT IN THE EXACT SHAPE A FRESH ONE
+    HAS, AND IT WAS READ BACK OUT — TWICE, WITH NOT ONE TOOL CALLED EITHER TIME.
+
+    keep_looking WILL NOT CATCH IT: THAT ONE ASKS WHETHER THE QUESTION POINTS AT THE SCREEN,
+    AND A MAILBOX IS NOT THE SCREEN. SENT BACK ONCE, THE SAME AS EVERY OTHER GUARD HERE."""
+    answered = handler(request)
+
+    # A ROUND THAT ASKED FOR A TOOL IS ALREADY GOING TO LOOK, WHICH IS THE WHOLE POINT.
+    if not answering(answered):
+        return answered
+
+    # SOMETHING RAN THIS TURN, SO THE ANSWER HAS A SOURCE THAT IS NOT MEMORY.
+    if ran:
+        return answered
+
+    said = conversation.asking() or ""
+
+    if not said or not asked_fresh(said.lower()):
+        return answered
+
+    return again(request, handler, answered, ASKED_TOLD.format(said=said))
 
 
 def again(request, handler, answered, telling):

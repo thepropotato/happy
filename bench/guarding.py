@@ -82,6 +82,53 @@ def main():
     wrong += report("unread messages after a tool ran is left alone",
                     guarding.unchecked("no unread messages") is not None, False)
 
+    # AND THE SAME GUARD ON THE LANGCHAIN SIDE. THE TWO LOOPS ARE ONE SETTING APART AND THE
+    # ONE HAPPY ACTUALLY RUNS IS brain.signatures FALSE, SO A GUARD ADDED ONLY TO THE DSPy
+    # SIDE IS A GUARD THAT NEVER RUNS — WHICH IS EXACTLY WHAT HAPPENED: THE UNREAD QUESTION
+    # WAS ANSWERED FROM THE MORNING'S BACKCHAT TWICE MORE WITH keep_fresh SITTING UNUSED.
+    from langchain_core.messages import AIMessage, HumanMessage
+
+    class Asked:
+        def __init__(self, messages=None):
+            self.messages = messages or [HumanMessage("q")]
+
+        def override(self, messages=None):
+            return Asked(messages)
+
+    def rounds(said, reply, already, reaching=False):
+        """HOW MANY TIMES THE MODEL WAS ASKED: TWO MEANS THE TURN WAS SENT BACK."""
+        sent = []
+
+        def handler(request):
+            sent.append(request)
+
+            if reaching and len(sent) == 1:
+                asking = AIMessage("")
+                asking.tool_calls = [{"name": "x", "args": {}, "id": "1", "type": "tool_call"}]
+
+                return asking
+
+            return AIMessage(reply)
+
+        conversation.here.set(conversation.begin(said))
+        clean()
+        wrapping.ran.extend(already)
+        wrapping.keep_fresh.wrap_model_call(Asked(), handler)
+
+        return len(sent)
+
+    for why, said, already, reaching, want in (
+        ("unread asked with nothing run is sent back",
+         "are there any unread messages on whatsapp ?", [], False, 2),
+        ("a bare check is sent back", "check", [], False, 2),
+        ("unread after a tool ran is left alone",
+         "are there any unread messages on whatsapp ?", ["whatsapp_get_unread_messages"], False, 1),
+        ("a round reaching for a tool is left alone",
+         "are there any unread messages on whatsapp ?", [], True, 1),
+        ("an errand is left alone", "send priya a message", [], False, 1),
+    ):
+        wrong += report(why, rounds(said, "no unread messages", already, reaching), want)
+
     # THE SHAPES DSPy HANDS BACK, WHICH ARE NOT THE ONES LANGCHAIN DID.
     for why, answer, want in (
         ("a bare string is read as what was said", ["it is four o'clock"], "it is four o'clock"),
@@ -98,7 +145,7 @@ def main():
 
     # THE GUARDS MUST CALL THE REAL RULE AND NEVER A COPY OF IT.
     for name in ("DISOWNED_TOLD", "CARRY_ON", "GIVES_UP", "CLAIMED", "CLAIMS", "NOTHING_RAN",
-                 "ASKED_FRESH", "ASKED_TOLD"):
+                 "ASKED_FRESH", "ASKED_TOLD", "ASKED_AGAIN"):
         wrong += report(f"{name} is read off brain.wrapping", hasattr(wrapping, name), True)
 
     # keep_recent: THE OLDEST HALF GOES AT ONCE, BECAUSE ONE AT A TIME MOVES THE PREFIX
