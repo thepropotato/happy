@@ -8,7 +8,7 @@
     "whatsapp_get_unread_messages": [
      {
       "failed": false,
-      "result": "{\n  \"total_unread_chats\": 6,\n  \"total_held_here\": 23,\n  \"archived_chats_with_unread\": 0,\n  \"unread_chats\": [\n    {\n      \"name\": \"Sri Vinayaka co-live pg\",\n      \"unreadCount\": 51,\n      \"lastMessage\": \"[a vote on a poll]\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"Keyur Raval\",\n      \"isGroup\": true,\n      \"archived\": false,\n      \"bodiesHeld\": 9,\n      \"heldSinceMine\": 9\n    },\n    {\n      \"name\": \"919022690226\",\n      \"unreadCount\": 3,\n      \"lastMessage\": \"\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"919022690226\",\n      \"isGroup\": false,\n      \"archived\": false,\n      \"bodiesHeld\": 0,\n      \"heldSinceMine\": 0\n    },\n    {\n      \"name\": \"ROOTS of PULAGAM😍\",\n      \"unreadCount\": 2,\n      \"lastMessage\": \"Many more happy returns of the day Prakash 🥳🥳\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"Abhinav Pulagam\",\n      \"isGroup\": true,\n      \"archived\": false,\n      \"bodiesHeld\": 108,\n      \"heldSinceMine\": 12\n    },\n    {\n      \"name\": \"916366354676\",\n      \"unreadCount\": 2,\n      \"lastMessage\": \"\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"Swish\",\n      \"isGroup\": false,\n      \"archived\": false,\n      \"bodiesHeld\": 0,\n      \"heldSinceMine\": 0\n    },\n    {\n      \"name\": \"919398117373\",\n      \"unreadCount\": 1,\n      \"lastMessage\": \"Ok\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"madhavreddy allampati73\",\n      \"isGroup\": false,\n      \"archived\": false,\n      \"bodiesHeld\": 4,\n      \"heldSinceMine\": 1\n    },\n    {\n      \"name\": \"919567886455\",\n      \"unreadCount\": 1,\n      \"lastMessage\": \"[sticker]\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"Athul\",\n      \"isGroup\": false,\n      \"archived\": false,\n      \"bodiesHeld\": 131,\n      \"heldSinceMine\": 1\n    }\n  ],\n  \"note\": \"These chats are counted unread but their messages have not been synced down yet: 919022690226, 916366354676. get_messages will come back empty for them. That is not the same as having nothing unread — say the messages have not arrived on this computer yet, and never report these chats as having no unread messages.\",\n  \"count_warning\": \"These chats claim more unread than there are messages behind them: Sri Vinayaka co-live pg says 51 with 9 here. The badge came off the phone in an old sync and was never cleared, so it is not a message count. Say the smaller, held number for these chats. Never say the badge total out loud, as a total or beside the held one: there are not that many messages. Say how many chats, and the held count.\"\n}"
+      "result": "{\n  \"unread_chats_count\": 5,\n  \"unread_messages\": 9,\n  \"poll_votes\": 9,\n  \"archived_chats_with_unread\": 0,\n  \"unread_chats\": [\n    {\n      \"name\": \"919022690226\",\n      \"unread\": 3,\n      \"lastMessage\": \"\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"919022690226\",\n      \"isGroup\": false,\n      \"archived\": false,\n      \"bodiesHeld\": 0,\n      \"pollVotes\": 0\n    },\n    {\n      \"name\": \"ROOTS of PULAGAM😍\",\n      \"unread\": 2,\n      \"lastMessage\": \"Many more happy returns of the day Prakash 🥳🥳\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"Abhinav Pulagam\",\n      \"isGroup\": true,\n      \"archived\": false,\n      \"bodiesHeld\": 108,\n      \"pollVotes\": 0\n    },\n    {\n      \"name\": \"916366354676\",\n      \"unread\": 2,\n      \"lastMessage\": \"\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"Swish\",\n      \"isGroup\": false,\n      \"archived\": false,\n      \"bodiesHeld\": 0,\n      \"pollVotes\": 0\n    },\n    {\n      \"name\": \"919398117373\",\n      \"unread\": 1,\n      \"lastMessage\": \"Ok\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"madhavreddy allampati73\",\n      \"isGroup\": false,\n      \"archived\": false,\n      \"bodiesHeld\": 4,\n      \"pollVotes\": 0\n    },\n    {\n      \"name\": \"919567886455\",\n      \"unread\": 1,\n      \"lastMessage\": \"[sticker]\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"Athul\",\n      \"isGroup\": false,\n      \"archived\": false,\n      \"bodiesHeld\": 131,\n      \"pollVotes\": 0\n    }\n  ],\n  \"poll_votes_only\": [\n    {\n      \"name\": \"Sri Vinayaka co-live pg\",\n      \"pollVotes\": 9\n    }\n  ],\n  \"poll_note\": \"These chats are NOT unread chats and are not counted above: the only new thing in them is votes on a poll, and a vote is not a message to read: Sri Vinayaka co-live pg. Mention them only if asked what else happened, and as votes, never as unread messages.\",\n  \"not_synced_note\": \"These chats are counted unread but their messages have not been synced down yet: 919022690226, 916366354676. get_messages will come back empty for them. That is not the same as having nothing unread — say the messages have not arrived on this computer yet, and never report these chats as having no unread messages.\"\n}"
      }
     ]
    },
@@ -20,15 +20,15 @@
    ],
    "check": {
     "contains_any": [
-     "6 chats",
-     "six chats",
+     "5 chats",
+     "five chats",
      "9",
      "nine"
     ],
     "not_contains": [
      "60",
      "sixty",
-     "51 unread messages"
+     "51"
     ]
    },
    "held": false
@@ -43,7 +43,9 @@
    ],
    "check": {
     "contains_any": [
-     "sri vinayaka"
+     "roots of pulagam",
+     "919398117373",
+     "919567886455"
     ],
     "at_most": {
      "whatsapp_get_unread_messages": 0
@@ -62,10 +64,12 @@
    "check": {
     "contains_any": [
      "919022690226",
-     "916366354676"
+     "916366354676",
+     "swish",
+     "state bank"
     ],
     "not_contains": [
-     "sri vinayaka"
+     "roots of pulagam"
     ]
    },
    "held": false
