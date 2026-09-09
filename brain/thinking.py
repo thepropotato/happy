@@ -477,6 +477,14 @@ class Happy:
         """A CLEAN SLATE. A NEW THREAD IS CHEAPER THAN EMPTYING THE OLD ONE."""
         self.thread = f"{THREAD}-{id(object())}"
 
+        # AND THE SERVICES THE OLD CONVERSATION HAD OPENED ARE NOT THIS ONE'S.
+        try:
+            from mcps import opening
+
+            opening.forget()
+        except Exception:
+            pass
+
     def turn(self, speech, context=None):
         """WHAT WAS SAID, WITH WHERE IT WAS SAID IN FRONT OF IT AND HOW TO SAY IT BACK BEHIND."""
         said = f"{context}\n\n{speech}" if context else speech

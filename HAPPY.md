@@ -358,10 +358,25 @@ Connecting Linear took the toolset from 67 to 140 in one press. Seventy-three sc
 in front of the prefix cache on every turn, including the turns about the weather, and that cache
 is the whole of why an answer takes half a second rather than ten.
 
-So a service offering more than twenty tools also gets **one** tool in the standing prompt,
-saying what the service is for. The model calls that when the errand is about that service, and
-what comes back is the real list — name, what it does, what it takes — which it calls on the next
-round. One extra round trip, and only on the turns that reach for that service at all.
+So a service offering more than twenty tools is not shown to the model until the turn is about
+that service. There are two ways in, and the first is the one that matters:
+
+**The sentence names it.** "Make me a Linear issue" has already said which service it means, so
+Linear's tools are there from the first round and nothing is spent asking. Only the service's own
+names count — its label and the nicknames its registry row already carries — never what its tools
+do, because every service has something called `search` and matching on that would open all of
+them at once, which is the flat list again.
+
+**Nothing names it.** "File a bug about the login page" names no service, so the model is shown
+one door tool per big service saying what it is for. It calls that, gets the real list back, and
+calls the tool it wants next round. One extra round trip, and only on the turns that need it.
+
+**A door stays open for the rest of the conversation.** "Make me a Linear issue" and then "add a
+comment to it" is one errand, and the second sentence names nothing at all — without this the
+tools would vanish mid-conversation and the follow-up would be answered by a model that could no
+longer see the service it was just using. It is cleared when the conversation is, never per turn:
+holding one open too long costs a prompt that stays big until the subject really changes, and
+shutting it too soon costs a turn that cannot finish what the one before it started.
 
 Two details matter. **Every tool is still bound to the graph**, because one must be able to run
 the moment it is asked for; what is trimmed is only what the model is *shown*, and `keep_opened`

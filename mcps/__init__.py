@@ -35,6 +35,7 @@ def offering():
     found = []
     taken = local_names()
     doors = {}
+    names = {}
 
     for row in store.every():
         if not row["tools"]:
@@ -53,14 +54,33 @@ def offering():
 
             # THE DOOR ITSELF IS ALWAYS SHOWN; WHAT IT GUARDS IS EVERY TOOL OF THAT SERVICE.
             doors[gate.name] = {each.name for each in built}
+
+            # AND WHAT SOMEBODY WOULD CALL THAT SERVICE OUT LOUD, SO A SENTENCE NAMING IT
+            # OPENS IT WITHOUT THE ROUND TRIP.
+            names[gate.name] = nicknames(row["name"])
+
             taken.add(gate.name)
             found.append(gate)
 
         found.extend(built)
 
-    opening.shut(doors)
+    opening.shut(doors, names)
 
     return found
+
+
+def nicknames(name):
+    """EVERY WORD SOMEBODY MIGHT USE FOR THIS SERVICE: ITS NAME, ITS LABEL, ITS NICKNAMES.
+
+    THESE COME OFF THE REGISTRY ROW, WHICH ALREADY CARRIES "also" FOR EXACTLY THIS — IT IS
+    HOW "my gmail" FINDS GOOGLE WHEN SOMEBODY ASKS TO CONNECT ONE."""
+    known = registry.one(name) or {}
+    said = {name, *(known.get("also") or ())}
+
+    if known.get("label"):
+        said.add(known["label"].lower())
+
+    return {each for each in said if len(each) > 2}
 
 
 def summary(name):
