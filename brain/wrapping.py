@@ -5,11 +5,13 @@ import difflib
 import json
 import re
 import time
+import uuid
 
 from langchain.agents.middleware import wrap_model_call, wrap_tool_call
-from langchain_core.messages import HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 import memory
+from brain import mending
 from brain.history import recent
 from hands import reasons
 from memory import conversation, settings
@@ -53,6 +55,15 @@ AGAIN = (
     "Your last tool call could not be read: {trouble}. Tool arguments must be "
     "finished JSON values and never expressions — write the whole string out in "
     'full instead of anything like "hello" * 100 or "a" + "b". Make the call again.'
+)
+
+# THE SAME, FOR WHEN THE BACKEND QUOTED WHAT THE MODEL WROTE. SHOWING IT ITS OWN OUTPUT IS
+# WORTH MORE THAN ANY RULE, AND THE ONE MISTAKE IT KEEPS MAKING IS WORTH NAMING OUTRIGHT.
+SHOWN = (
+    "Your last tool call could not be read: {trouble}\n\nYou wrote: {raw}\n\nThe arguments "
+    "must be one flat JSON object: a single {{ at the start, a single }} at the end, and "
+    "nothing but \"key\": value pairs in between. Never open a second {{ where a key should "
+    "be. Write every value out in full and finish the object. Make the call again."
 )
 
 # WHAT A CALL IS TOLD WHEN THE TOOL BEHIND IT THREW INSTEAD OF ANSWERING.
@@ -676,23 +687,81 @@ def keep_recent(request, handler):
 
 @wrap_model_call
 def keep_trying(request, handler):
-    """A TOOL CALL THE BACKEND COULD NOT READ IS A MISTAKE TO NAME, NOT THE END OF A TURN."""
+    """A TOOL CALL THE BACKEND COULD NOT READ IS MENDED WHERE THERE IS ONLY ONE WAY TO READ
+    IT, AND OTHERWISE NAMED AS A MISTAKE. NEITHER IS THE END OF A TURN."""
     for left in range(TRIES - 1, -1, -1):
         try:
             return handler(request)
         except Exception as error:
             said = str(error)
 
-            if not left or not unparsed(said):
+            if not unparsed(said):
                 raise
 
             amiss(said)
 
+            meant = intended(said, request.tools)
+
+            # PUNCTUATION IS NOT WORTH A WHOLE ROUND: A CALL THAT COULD ONLY HAVE MEANT ONE
+            # THING IS MADE AS THAT THING.
+            if meant:
+                name, args = meant
+                amiss(f"{name} mended and run as {json.dumps(args)}")
+
+                return AIMessage(
+                    content="",
+                    tool_calls=[{"name": name, "args": args, "id": minted(), "type": "tool_call"}],
+                )
+
+            if not left:
+                raise
+
             # THE MODEL'S BAD ANSWER NEVER MADE IT ONTO THE CONVERSATION, SO THE
             # CORRECTION GOES ON AS THE NEXT THING SAID TO IT.
             request = request.override(
-                messages=list(request.messages) + [HumanMessage(AGAIN.format(trouble=said))]
+                messages=list(request.messages) + [HumanMessage(telling(said))]
             )
+
+
+def minted():
+    """AN ID FOR A CALL THE BACKEND NEVER GOT AS FAR AS GIVING ONE."""
+    return f"mended_{uuid.uuid4().hex[:8]}"
+
+
+def telling(said):
+    """WHAT TO SAY BACK ABOUT AN UNREADABLE CALL: THE MISTAKE IT MADE, IN ITS OWN OUTPUT.
+
+    TEMPERATURE IS 0, SO AN UNCHANGED REQUEST COMES BACK WORD FOR WORD THE SAME. SHOWING THE
+    MODEL WHAT IT WROTE IS WHAT MAKES THE NEXT GO DIFFERENT."""
+    raw = mending.wrote(said)
+
+    return (SHOWN if raw else AGAIN).format(trouble=said, raw=raw)
+
+
+def intended(said, tools):
+    """THE ONE CALL AN UNREADABLE ONE CAN ONLY HAVE MEANT, AS (name, args), OR None.
+
+    THE BACKEND SAYS WHAT THE MODEL WROTE BUT NOT WHICH TOOL IT WAS FOR, SO THE ARGUMENTS
+    HAVE TO NAME IT: WHERE TWO TOOLS WOULD TAKE THEM THERE IS NO WAY TO CHOOSE, AND ASKING
+    AGAIN BEATS CALLING THE WRONG ONE."""
+    args = mending.mended(mending.wrote(said))
+
+    if args is None:
+        return None
+
+    fits = [each.name for each in tools or [] if mending.fitting(args, wanted(each))]
+
+    return (fits[0], args) if len(fits) == 1 else None
+
+
+def wanted(tool):
+    """A TOOL'S JSON SCHEMA, WHATEVER THE BINDING CALLS IT."""
+    schema = getattr(tool, "args_schema", None)
+
+    if schema is not None and hasattr(schema, "model_json_schema"):
+        return schema.model_json_schema()
+
+    return getattr(tool, "args", None) or {}
 
 
 def unparsed(said):
