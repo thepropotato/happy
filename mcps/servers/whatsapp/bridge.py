@@ -114,6 +114,7 @@ KEPT = (
     "contacts", "chats", "groups", "messages", "media",
     "latest_received_message", "latest_sent_message",
     "downloaded_media", "lid_name_map", "lid_to_pn",
+    "read_upto",
 )
 
 
@@ -308,6 +309,10 @@ class Session:
         self.groups = []
         self.messages = {}   # { jid: [text] }
         self.media = {}      # { jid: [media] }
+        # HOW FAR HE HAS READ IN EACH CHAT: { jid: timestamp OF THE NEWEST MESSAGE A READ
+        # RECEIPT NAMED }. THE PHONE'S BADGE IS A NUMBER WITH NO POSITION UNDER IT, SO IT
+        # CANNOT BE CORRECTED; THIS CAN, AND WHAT IS AFTER IT IS WHAT IS ACTUALLY UNREAD.
+        self.read_upto = {}  # { jid: timestamp }
         self.latest_received_message = None
         self.latest_sent_message = None
         self.recent_sent = []  # THE OWNER'S OWN, ANY CHAT, OLDEST FIRST. THIS RUN ONLY.
@@ -796,6 +801,21 @@ def register_events(session):
                 cidx = next((i for i, ch in enumerate(session.chats) if ch["id"] == chat_jid), -1)
                 if cidx >= 0 and session.chats[cidx].get("unreadCount", 0) > 0:
                     session.chats[cidx]["unreadCount"] = 0
+
+                # A RECEIPT NAMES THE MESSAGES HE READ, AND THAT IS THE ONE FACT THE PHONE'S
+                # BADGE NEVER CARRIES. THE NEWEST OF THEM IS HOW FAR HE HAS READ, AND
+                # EVERYTHING AFTER IT IS WHAT IS LEFT.
+                read_at = mark(session, chat_jid, list(getattr(evt, "MessageIDs", []) or []))
+
+                if not read_at:
+                    # A RECEIPT FOR A MESSAGE THAT NEVER SYNCED DOWN STILL SAYS HE WAS IN
+                    # THAT CHAT AT THAT MOMENT, WHICH IS A POSITION WORTH KEEPING.
+                    stamped = int(getattr(evt, "Timestamp", 0) or 0)
+
+                    if stamped:
+                        session.read_upto[chat_jid] = max(
+                            session.read_upto.get(chat_jid, 0), stamped
+                        )
         except Exception:
             pass
 
@@ -875,6 +895,10 @@ def handle_message(session, message):
             # THE BADGE ONLY EVER MEANT MESSAGES SOMEBODY ELSE SENT AND HE HAS NOT READ.
             if entry["fromMe"]:
                 session.chats[cidx]["unreadCount"] = 0
+                # WRITING IN A CHAT IS READING IT: HE HAD IT OPEN TO SEND.
+                session.read_upto[chat_jid] = max(
+                    session.read_upto.get(chat_jid, 0), entry.get("timestamp", 0)
+                )
             elif entry.get("type") != "reaction":
                 session.chats[cidx]["unreadCount"] = session.chats[cidx].get("unreadCount", 0) + 1
             # WHO SENT THE LAST ONE IS THE HALF OF "LAST MESSAGE" THAT WAS MISSING.
@@ -1099,6 +1123,35 @@ SHOWN = {
 }
 
 
+def newest_of(stored):
+    """THE TIMESTAMP OF THE NEWEST MESSAGE IN A CHAT, OR 0 WHEN IT HOLDS NONE."""
+    return max((m.get("timestamp", 0) for m in stored), default=0)
+
+
+def mark(session, chat_id, ids):
+    """HOW FAR A READ RECEIPT MOVES HIM IN ONE CHAT, BY THE NEWEST MESSAGE IT NAMES.
+
+    RETURNS THE TIMESTAMP RECORDED, OR 0 WHEN NONE OF THE NAMED MESSAGES ARE HELD HERE.
+    A POSITION ONLY EVER MOVES FORWARD: RECEIPTS ARRIVE OUT OF ORDER, AND AN OLD ONE
+    LANDING LATE MUST NOT UNREAD WHAT HE HAS ALREADY READ."""
+    if not ids:
+        return 0
+
+    wanted = set(ids)
+    newest = 0
+
+    for message in session.messages.get(chat_id, []) + session.media.get(chat_id, []):
+        if message.get("id") in wanted:
+            newest = max(newest, message.get("timestamp", 0))
+
+    if not newest:
+        return 0
+
+    session.read_upto[chat_id] = max(session.read_upto.get(chat_id, 0), newest)
+
+    return newest
+
+
 def previewed(session, chat, chat_id):
     """THE CHAT'S LAST LINE, TAKEN FROM THE NEWEST MESSAGE ACTUALLY STORED."""
     newest = None
@@ -1135,7 +1188,7 @@ def handle_history_sync(session, evt):
     pushnames = list(getattr(data, 'pushnames', []))
 
     # TALLIED RATHER THAN LOGGED ONE BY ONE: A BUNDLE CARRIES THOUSANDS.
-    unread = {}
+    unreadable = {}
 
     with session.lock:
         session.last_history_sync_at = time.time()
@@ -1167,7 +1220,7 @@ def handle_history_sync(session, evt):
                 continue
             chat_id = resolve_lid_str(session, raw_chat_id)
             is_group = "@g.us" in chat_id
-            unread = getattr(conv, 'unreadCount', 0)
+            unread_count = getattr(conv, 'unreadCount', 0)
             conv_name = getattr(conv, 'displayName', chat_id.split("@")[0])
             archived = bool(getattr(conv, 'archived', False))
 
@@ -1179,7 +1232,7 @@ def handle_history_sync(session, evt):
 
             cidx = next((i for i, c in enumerate(session.chats) if c["id"] == chat_id), -1)
             if cidx < 0:
-                session.chats.append({"id": chat_id, "name": clean(conv_name) or chat_id.split("@")[0], "isGroup": is_group, "unreadCount": unread, "lastMessage": "", "timestamp": conv_ts, "archived": archived})
+                session.chats.append({"id": chat_id, "name": clean(conv_name) or chat_id.split("@")[0], "isGroup": is_group, "unreadCount": unread_count, "lastMessage": "", "timestamp": conv_ts, "archived": archived})
                 cidx = len(session.chats) - 1
             else:
                 if conv_ts and conv_ts > session.chats[cidx].get("timestamp", 0):
@@ -1187,7 +1240,7 @@ def handle_history_sync(session, evt):
                 session.chats[cidx]["archived"] = archived
                 # THE PHONE IS THE AUTHORITY ON WHAT IS STILL UNREAD. WITHOUT THIS A COUNT
                 # FROM AN OLD SYNC OUTLIVES THE MESSAGES IT WAS COUNTING.
-                session.chats[cidx]["unreadCount"] = unread
+                session.chats[cidx]["unreadCount"] = unread_count
             if chat_id not in session.messages:
                 session.messages[chat_id] = []
             if chat_id not in session.media:
@@ -1306,7 +1359,7 @@ def handle_history_sync(session, evt):
                             if nobody_said_it(actual_msg):
                                 continue
 
-                            unread[carried] = unread.get(carried, 0) + 1
+                            unreadable[carried] = unreadable.get(carried, 0) + 1
 
                     push_name_hist = str(getattr(web_msg, 'pushName', "") or "")
                     sender_name = "unknown"
@@ -1365,7 +1418,7 @@ def handle_history_sync(session, evt):
         session.sync_status["chats"] = len(session.chats)
         session.sync_status["groups"] = len(session.groups)
 
-    for carried, many in sorted(unread.items(), key=lambda pair: -pair[1]):
+    for carried, many in sorted(unreadable.items(), key=lambda pair: -pair[1]):
         logger.info(f"[history] user={session.username} {many} with nothing readable in: {carried}")
 
     persist(session)
@@ -2124,12 +2177,52 @@ def chats(username):
         # THE PHONE SENDS A COUNT, THE BODIES ARRIVE SEPARATELY, AND HISTORY SYNC
         # CAN LEAVE A COUNT WITH NOTHING BEHIND IT. SAYING HOW MANY RECEIVED LINES
         # ARE ACTUALLY HELD STOPS AN EMPTY READ BEING TAKEN FOR "NOTHING UNREAD".
-        held = [
+        stored = s.messages.get(cid, []) + s.media.get(cid, [])
+        held = [m for m in stored if not m.get("fromMe")]
+
+        # HOW FAR HE HAS READ. A MESSAGE HE SENT HIMSELF COUNTS AS READING, SO THE LATER
+        # OF THE TWO IS THE LINE EVERYTHING IS MEASURED FROM.
+        mine = max((m.get("timestamp", 0) for m in stored if m.get("fromMe")), default=0)
+        upto = max(s.read_upto.get(cid, 0), mine)
+
+        # A BADGE OF ZERO IS THE PHONE SAYING THIS CHAT IS READ TO THE END, WHICH IS A
+        # READ POSITION LIKE ANY OTHER AND THE ONLY ONE MOST CHATS EVER HAVE. WITHOUT
+        # THIS EVERY QUIET CHAT COUNTS ITS WHOLE LAST CONVERSATION AS UNREAD.
+        if not chat.get("unreadCount", 0):
+            upto = max(upto, chat.get("timestamp", 0), newest_of(stored))
+
+        # A VOTE ON A POLL IS NOT SOMETHING TO READ. FIFTY-ONE OF THEM IN ONE GROUP IS
+        # WHERE THIS COUNT WENT WRONG IN THE FIRST PLACE.
+        after = [
             m
-            for m in s.messages.get(cid, []) + s.media.get(cid, [])
-            if not m.get("fromMe")
+            for m in held
+            if m.get("timestamp", 0) > upto and m.get("type") not in ("reaction", "poll")
         ]
-        chat = {**chat, "receivedHeld": len(held)}
+        votes = [
+            m
+            for m in held
+            if m.get("timestamp", 0) > upto and m.get("type") == "poll"
+        ]
+
+        # THE PHONE'S OWN BADGE IS THE COUNT. IT KNOWS WHAT HE HAS READ ON EVERY DEVICE
+        # AND COUNTS WHAT NEVER SYNCED DOWN, WHICH NOTHING HERE CAN SEE. THE ONE THING IT
+        # GETS WRONG IS COUNTING VOTES ON A POLL AS MESSAGES, AND THOSE ARE TAKEN OUT
+        # BELOW BY DROPPING A CHAT WHOSE NEW THINGS ARE ALL VOTES.
+        counted = chat.get("unreadCount", 0)
+
+        chat = {
+            **chat,
+            "receivedHeld": len(held),
+            # THE COUNT WORKED OUT HERE, FROM WHAT HE READ AND WHAT CAME AFTER IT.
+            "unreadHere": counted,
+            "pollVotesAfter": len(votes),
+            # REAL MESSAGES SINCE HE LAST READ, VOTES EXCLUDED. NOT A COUNT TO SAY: IT
+            # ONLY TELLS A CHAT THAT IS ALL VOTES FROM ONE THAT IS NOT.
+            "messagesAfterRead": len(after),
+            # WITHOUT A POSITION THERE IS NOTHING TO COUNT FROM AND THE PHONE'S BADGE IS
+            # ALL THERE IS, WHICH THE READER MUST BE ABLE TO TELL.
+            "readPositionKnown": bool(upto) or not chat.get("unreadCount", 0),
+        }
         result.append(chat)
 
     # NEWEST FIRST, EVERY TIME IT IS ASKED.

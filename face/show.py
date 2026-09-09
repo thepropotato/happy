@@ -82,6 +82,14 @@ def piece(text):
     tell("piece", text)
 
 
+def unsay(many):
+    """TAKE THE LAST many CHARACTERS BACK OFF THE PANEL.
+
+    A GUARD TURNED THAT ROUND BACK AFTER THE STREAM HAD ALREADY DRAWN IT, SO WHAT IS ON THE
+    SCREEN IS AN ANSWER NOBODY IS GOING TO STAND BEHIND."""
+    tell("unsay", many)
+
+
 def step(kind, name, seconds, about=None):
     tell("step", kind, name, seconds, about)
 

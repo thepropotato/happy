@@ -295,6 +295,14 @@ async def download_media(message_id: str, chat: CoercedStr = "") -> str:
     return _json(await wa.download_media_from_message(message_id, chat=chat))
 
 
+def votes_only(chat):
+    """A CHAT WHOSE NEW THINGS ARE ALL VOTES ON A POLL, WITH NO MESSAGE AMONG THEM.
+
+    WHATSAPP PUTS EVERY VOTE IN THE BADGE, SO ONE GROUP POLL CAN CARRY A CHAT TO FIFTY-ONE
+    WITH NOTHING IN IT TO READ."""
+    return bool(chat.get("pollVotesAfter", 0)) and not chat.get("messagesAfterRead", 0)
+
+
 @mcp.tool()
 async def get_unread_messages(include_archived: bool = True) -> str:
     """Check for unread WhatsApp messages across all chats including archived ones.
@@ -310,11 +318,17 @@ async def get_unread_messages(include_archived: bool = True) -> str:
     contain the unread messages themselves - to say what they actually are, call
     get_messages for that contact with received_only=True. Never invent their contents.
 
-    Each chat carries "bodiesHeld": how many received messages are actually on this
-    computer for it. When that is 0 the count came from the phone but the messages have
-    not synced down, and get_messages will return nothing for that chat. An empty result
-    there does NOT mean the chat has nothing unread - say the messages have not arrived
-    yet.
+    Each chat carries "unread": how many messages are waiting in it, the same number the
+    USER sees on his phone. "unread_messages" is that added up and "unread_chats_count"
+    is how many chats, and together they are the answer to "how many".
+
+    A chat whose only new things are votes on a poll is left out of that count and listed
+    under "poll_votes_only" instead, because a vote is not a message to read. Mention
+    those only if asked what else happened, and as votes.
+
+    "bodiesHeld" is how many received messages are on this computer. When that is 0
+    nothing has synced down and get_messages will come back empty - that is not the same
+    as nothing being unread, so say the messages have not arrived here yet.
 
     Args:
         include_archived: If True (default), also include archived chats with unread messages.
@@ -329,7 +343,11 @@ async def get_unread_messages(include_archived: bool = True) -> str:
     unread = [
         {
             "name": c.get("name") or c.get("id"),
-            "unreadCount": c["unreadCount"],
+            # THE PHONE'S COUNT FOR THIS CHAT, WHICH IS THE ONE THAT MATCHES WHAT HE
+            # SEES ON HIS PHONE. THE BRIDGE RESTARTS SEPARATELY FROM THIS SERVER, SO A
+            # BRIDGE STILL RUNNING OLDER CODE SENDS NO unreadHere AND THE BADGE ITSELF
+            # IS THE ANSWER RATHER THAN A ZERO.
+            "unread": c.get("unreadHere", c.get("unreadCount", 0)),
             "lastMessage": c.get("lastMessage", ""),
             # WHOSE LAST LINE IT IS, SO HIS OWN WORDS ARE NEVER READ BACK AS THEIRS.
             "lastMessageFromMe": bool(c.get("lastMessageFromMe")),
@@ -341,22 +359,46 @@ async def get_unread_messages(include_archived: bool = True) -> str:
             "bodiesHeld": c.get("receivedHeld", 0),
         }
         for c in chats
-        if c.get("unreadCount", 0) > 0 and (include_archived or not c.get("archived"))
+        # A CHAT WHOSE NEW THINGS ARE ALL VOTES ON A POLL IS NOT AN UNREAD CHAT. THE PG
+        # GROUP CARRIED A BADGE OF FIFTY-ONE ON NOTHING BUT VOTES, AND THAT ONE CHAT WAS
+        # THE WHOLE OF THE DIFFERENCE BETWEEN SIXTY AND WHAT HE ACTUALLY HAD.
+        if c.get("unreadCount", 0) > 0 and not votes_only(c)
+        and (include_archived or not c.get("archived"))
     ]
 
-    unread.sort(key=lambda x: -x["unreadCount"])
+    # STILL WORTH SAYING, BUT NOT AS UNREAD CHATS: THESE ARE VOTES AND NOTHING ELSE.
+    polled = [
+        {"name": c.get("name") or c.get("id"), "pollVotes": c.get("pollVotesAfter", 0)}
+        for c in chats
+        if votes_only(c) and (include_archived or not c.get("archived"))
+    ]
 
+    unread.sort(key=lambda x: -x["unread"])
+
+    # NOTHING SYNCED DOWN, SO THERE IS NOTHING HERE TO COUNT AND NOTHING TO SHOW.
     empty = [c["name"] for c in unread if not c["bodiesHeld"]]
 
+    # NO RECEIPT HAS EVER ARRIVED FOR THESE, SO THERE IS NO POINT TO COUNT FROM AND ONLY
+    # THE PHONE'S OWN BADGE TO GO ON.
     answer = {
-        "total_unread_chats": len(unread),
-        "total_unread_messages": sum(c["unreadCount"] for c in unread),
+        "unread_chats_count": len(unread),
+        "unread_messages": sum(c["unread"] for c in unread),
+        "poll_votes": sum(c["pollVotes"] for c in polled),
         "archived_chats_with_unread": sum(1 for c in unread if c["archived"]),
         "unread_chats": unread,
     }
 
+    if polled:
+        answer["poll_votes_only"] = polled
+        answer["poll_note"] = (
+            "These chats are NOT unread chats and are not counted above: the only new "
+            "thing in them is votes on a poll, and a vote is not a message to read: "
+            f"{', '.join(c['name'] for c in polled)}. Mention them only if asked what "
+            "else happened, and as votes, never as unread messages."
+        )
+
     if empty:
-        answer["note"] = (
+        answer["not_synced_note"] = (
             "These chats are counted unread but their messages have not been synced down "
             f"yet: {', '.join(empty)}. get_messages will come back empty for them. That is "
             "not the same as having nothing unread — say the messages have not arrived on "
@@ -631,7 +673,11 @@ def tally(sent):
 
 @mcp.tool()
 async def send_group_message(groups: list[str], message: str) -> str:
-    """Send a text message to one or more groups.
+    """Send to a named group chat only, never to a person.
+
+    This is for a group by its name: the PG group, the family group, a team.
+    A person, a phone number, or a name that is somebody rather than somewhere,
+    is send_message instead, even when several people are named at once.
 
     Args:
         groups: Group name(s) to send to. Can be a single name or a list.

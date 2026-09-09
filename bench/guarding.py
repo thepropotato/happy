@@ -20,9 +20,11 @@ from memory import conversation
 
 
 def clean():
-    """NOTHING RAN, NOTHING REFUSED: THE STATE A TURN STARTS IN."""
+    """NOTHING RAN, NOTHING REFUSED, NOTHING CORRECTED: THE STATE A TURN STARTS IN."""
     wrapping.ran = []
     wrapping.refused = {}
+    wrapping.withdrawn = 0
+    wrapping.corrected = False
 
 
 def main():
@@ -128,6 +130,113 @@ def main():
         ("an errand is left alone", "send priya a message", [], False, 1),
     ):
         wrong += report(why, rounds(said, "no unread messages", already, reaching), want)
+
+    # AND WHAT A TURNED-BACK ROUND LEAVES ON THE SCREEN. THE STREAM DRAWS EACH ROUND AS THE
+    # MODEL TYPES IT, SO A GUARD ALWAYS ARRIVES AFTER THE WORDS ARE ALREADY SHOWN: WITHOUT
+    # THE WITHDRAWAL THE PANEL READ "56 unread", THEN THE TOOL, THEN "56 unread" AGAIN, AND
+    # THE FIRST ONE WAS THE GUESS THE GUARD EXISTS TO STOP.
+    def withdrawn(reply, reaching=True):
+        """HOW MANY CHARACTERS THE GUARD TAKES BACK AFTER TURNING A ROUND BACK."""
+        sent = []
+
+        def handler(request):
+            sent.append(request)
+
+            if len(sent) == 1:
+                return AIMessage(reply)
+
+            if reaching:
+                asking = AIMessage("")
+                asking.tool_calls = [{"name": "x", "args": {}, "id": "1", "type": "tool_call"}]
+
+                return asking
+
+            return AIMessage("")
+
+        conversation.here.set(conversation.begin("are there any unread messages on whatsapp ?"))
+        clean()
+        wrapping.withdrawn = 0
+        wrapping.keep_fresh.wrap_model_call(Asked(), handler)
+
+        return wrapping.taken()
+
+    guessed = "Yep—56 unread WhatsApp messages across five chats."
+
+    wrong += report("a turned-back round is taken back off the screen",
+                    withdrawn(guessed), len(guessed))
+
+    # WHICH TURNS WAIT BEFORE THEY DRAW. UNDRAWING IS STILL A FLICKER — THE WORDS WERE ON
+    # THE SCREEN AND THAT IS WHAT WAS SEEN — SO A QUESTION A GUARD MAY HOLD IS NOT DRAWN
+    # UNTIL IT IS PAST THE GUARDS. EVERY OTHER TURN MUST STILL TYPE AS IT ALWAYS DID.
+    clean()
+
+    for why, said, want in (
+        ("the unread question waits before it draws",
+         "are there any unread messages on whatsapp ?", True),
+        ("a bare check waits", "check", True),
+        ("the screen question waits", "whats on my screen", True),
+        ("an errand draws as it types", "send priya a message", False),
+        ("playing something draws as it types", "play badass on youtube", False),
+        ("an ordinary question draws as it types", "who made you", False),
+    ):
+        wrong += report(why, wrapping.held(said), want)
+
+    # AND ONCE A TURN HAS BEEN CORRECTED, EVERY LATER ROUND OF IT WAITS TOO.
+    clean()
+    wrapping.corrected = True
+    wrong += report("a turn already corrected waits from then on",
+                    wrapping.held("play badass on youtube"), True)
+    clean()
+
+    # A NAME A FUNCTION BOTH ASSIGNS AND CALLS IS LOCAL FOR THE WHOLE FUNCTION, SO THE CALL
+    # THROWS "cannot access local variable" NO MATTER THAT A MODULE-LEVEL ONE EXISTS.
+    # say_streaming CALLS taken() AT THE TOP AND ASSIGNS taken FOR THE CLOCK AT THE BOTTOM,
+    # WHICH BROKE EVERY GUARDED TURN WHILE EVERY TEST HERE WENT ON PASSING — THE MIDDLEWARE
+    # SWALLOWS WHAT THE GUARD RAISES, SO NOTHING THAT CALLS A GUARD CAN SEE IT. READING THE
+    # SOURCE IS THE ONLY THING THAT CAN.
+    import ast
+    import inspect
+
+    def shadowed(module):
+        """EVERY FUNCTION IN module THAT ASSIGNS A NAME IT ALSO CALLS."""
+        tree = ast.parse(inspect.getsource(module))
+        known = {n.name for n in tree.body if isinstance(n, ast.FunctionDef)}
+
+        for node in tree.body:
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                known |= {each.asname or each.name.split(".")[0] for each in node.names}
+
+        found = []
+
+        for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+            declared = set()
+
+            for sub in ast.walk(fn):
+                if isinstance(sub, ast.Global):
+                    declared |= set(sub.names)
+
+            assigned = {t.id for s in ast.walk(fn) if isinstance(s, ast.Assign)
+                        for t in s.targets if isinstance(t, ast.Name)}
+            called = {s.func.id for s in ast.walk(fn)
+                      if isinstance(s, ast.Call) and isinstance(s.func, ast.Name)}
+
+            for name in sorted((assigned & called & known) - declared):
+                found.append(f"{fn.name}() assigns and calls {name}")
+
+        return found
+
+    from brain import thinking
+
+    for module in (wrapping, guarding, thinking):
+        wrong += report(f"nothing in {module.__name__} shadows a name it calls",
+                        shadowed(module), [])
+
+    # A SEND-BACK THAT CAME TO NOTHING KEEPS THE FIRST ANSWER, SO THERE IS NOTHING TO UNSAY.
+    wrong += report("a send-back that came to nothing withdraws nothing",
+                    withdrawn(guessed, reaching=False), 0)
+
+    # AND IT IS READ ONCE: A SECOND READ WOULD UNSAY WORDS NOBODY WROTE.
+    wrong += report("a withdrawal is read once and then gone", wrapping.taken(), 0)
 
     # THE SHAPES DSPy HANDS BACK, WHICH ARE NOT THE ONES LANGCHAIN DID.
     for why, answer, want in (

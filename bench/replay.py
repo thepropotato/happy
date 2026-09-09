@@ -22,6 +22,10 @@ from bench import sandbox
 DB = sandbox.throwaway(sys.argv[sys.argv.index("--db") + 1] if "--db" in sys.argv else "replay.db")
 DB.unlink(missing_ok=True)
 
+# EMPTIED FIRST, THEN GIVEN BACK THE CONNECTOR ROWS: A SERVICE'S TOOLS ONLY EXIST ONCE IT
+# IS CONNECTED, AND A SUITE CANNOT SCORE A CALL TO A TOOL THAT WAS NEVER THERE.
+SERVICES = sandbox.connected(DB)
+
 from bench import scoring
 from brain.thinking import Happy
 from memory import settings
@@ -92,7 +96,8 @@ def main():
     replies = {}
     tools, calls = sandbox.harness(replies)
     sandbox.assert_no_real_tools(tools)
-    print(f"{suite['name']}: {len(tools)} tools mocked, db -> {DB}\n", flush=True)
+    services = ", ".join(SERVICES) if SERVICES else "none"
+    print(f"{suite['name']}: {len(tools)} tools mocked, connected: {services}, db -> {DB}\n", flush=True)
 
     happy = opened(tools)
     results = []

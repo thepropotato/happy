@@ -74,6 +74,13 @@ function hear(word) {
       reply += word.text
       say(reply)
     },
+    // A GUARD TOOK THAT ROUND BACK, SO THE BIG FACE STOPS SHOWING IT TOO.
+    unsay: () => {
+      const many = word.many || 0
+
+      reply = many < reply.length ? reply.slice(0, -many) : ''
+      say(reply)
+    },
     trouble: () => say(word.text),
     gone: () => {
       feel('gone')

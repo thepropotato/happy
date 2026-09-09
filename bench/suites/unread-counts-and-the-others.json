@@ -1,0 +1,77 @@
+{
+ "name": "unread counts and the others",
+ "turns": [
+  {
+   "row": 1,
+   "said": "are there any unread messages on whatsapp",
+   "replies": {
+    "whatsapp_get_unread_messages": [
+     {
+      "failed": false,
+      "result": "{\n  \"unread_chats_count\": 5,\n  \"unread_messages\": 9,\n  \"poll_votes\": 9,\n  \"archived_chats_with_unread\": 0,\n  \"unread_chats\": [\n    {\n      \"name\": \"919000000001\",\n      \"unread\": 3,\n      \"lastMessage\": \"\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"919000000001\",\n      \"isGroup\": false,\n      \"archived\": false,\n      \"bodiesHeld\": 0,\n      \"pollVotes\": 0\n    },\n    {\n      \"name\": \"The Family Group\",\n      \"unread\": 2,\n      \"lastMessage\": \"Many more happy returns of the day 🥳🥳\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"Priya\",\n      \"isGroup\": true,\n      \"archived\": false,\n      \"bodiesHeld\": 108,\n      \"pollVotes\": 0\n    },\n    {\n      \"name\": \"919000000002\",\n      \"unread\": 2,\n      \"lastMessage\": \"\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"Tara\",\n      \"isGroup\": false,\n      \"archived\": false,\n      \"bodiesHeld\": 0,\n      \"pollVotes\": 0\n    },\n    {\n      \"name\": \"919000000003\",\n      \"unread\": 1,\n      \"lastMessage\": \"Ok\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"Rahul\",\n      \"isGroup\": false,\n      \"archived\": false,\n      \"bodiesHeld\": 4,\n      \"pollVotes\": 0\n    },\n    {\n      \"name\": \"919000000004\",\n      \"unread\": 1,\n      \"lastMessage\": \"[sticker]\",\n      \"lastMessageFromMe\": false,\n      \"lastMessageFrom\": \"Sam\",\n      \"isGroup\": false,\n      \"archived\": false,\n      \"bodiesHeld\": 131,\n      \"pollVotes\": 0\n    }\n  ],\n  \"poll_votes_only\": [\n    {\n      \"name\": \"The House Group\",\n      \"pollVotes\": 9\n    }\n  ],\n  \"poll_note\": \"These chats are NOT unread chats and are not counted above: the only new thing in them is votes on a poll, and a vote is not a message to read: The House Group. Mention them only if asked what else happened, and as votes, never as unread messages.\",\n  \"not_synced_note\": \"These chats are counted unread but their messages have not been synced down yet: 919000000001, 919000000002. get_messages will come back empty for them. That is not the same as having nothing unread — say the messages have not arrived on this computer yet, and never report these chats as having no unread messages.\"\n}"
+     }
+    ]
+   },
+   "expect": [
+    "whatsapp_get_unread_messages"
+   ],
+   "forbid": [
+    "whatsapp_get_messages"
+   ],
+   "check": {
+    "contains_any": [
+     "5 chats",
+     "five chats",
+     "9",
+     "nine"
+    ],
+    "not_contains": [
+     "60",
+     "sixty",
+     "51"
+    ]
+   },
+   "held": false
+  },
+  {
+   "row": 2,
+   "said": "what are they",
+   "replies": {},
+   "expect": [],
+   "forbid": [
+    "whatsapp_get_unread_messages"
+   ],
+   "check": {
+    "contains_any": [
+     "family group",
+     "919000000003",
+     "919000000004"
+    ],
+    "at_most": {
+     "whatsapp_get_unread_messages": 0
+    }
+   },
+   "held": true
+  },
+  {
+   "row": 3,
+   "said": "what are the other chats",
+   "replies": {},
+   "expect": [],
+   "forbid": [
+    "whatsapp_get_unread_messages"
+   ],
+   "check": {
+    "contains_any": [
+     "919000000001",
+     "919000000002",
+     "tara"
+    ],
+    "not_contains": [
+     "family group"
+    ]
+   },
+   "held": true
+  }
+ ]
+}

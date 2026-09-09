@@ -97,6 +97,31 @@ ran = []
 file_was_cut = False
 file_cut_resume = None
 
+# HOW MANY CHARACTERS OF THIS TURN'S WORDS A GUARD HAS TAKEN BACK. THE STREAM SHOWS AND
+# SPEAKS A ROUND AS THE MODEL TYPES IT, WHICH IS WHAT MAKES HAPPY FEEL QUICK, AND A GUARD
+# ONLY SEES THAT ROUND ONCE IT IS FINISHED — SO THE ANSWER IT TURNS BACK IS ALREADY ON THE
+# SCREEN. ASKED ABOUT UNREAD MESSAGES, THE PANEL SHOWED "56 unread" OFF THE MORNING'S
+# BACKCHAT, THEN THE TOOL, THEN "56 unread" AGAIN: THE FIRST ONE WAS THE GUESS THE GUARD
+# EXISTS TO STOP, AND IT WAS RIGHT ONLY BY LUCK. THE STREAM READS THIS AND DROPS THAT MUCH.
+withdrawn = 0
+
+# WHETHER A GUARD IN THIS TURN HAS EVER TURNED A ROUND BACK.
+corrected = False
+
+
+def held(said):
+    """WHETHER THIS TURN'S WORDS WAIT FOR THE GUARDS BEFORE THEY ARE DRAWN.
+
+    UNDRAWING IS STILL A FLICKER: THE WORDS WERE ON THE SCREEN, AND THAT IS WHAT WAS SEEN.
+    THE ONLY WAY NOT TO SHOW A WRONG ANSWER IS NOT TO DRAW IT, AND WHETHER A TURN IS THE KIND
+    THAT GETS CORRECTED IS KNOWN FROM THE QUESTION BEFORE THE MODEL HAS SAID A WORD: A
+    QUESTION ABOUT SOMETHING THAT MOVES IS ONE keep_fresh WILL HOLD IF NOTHING IS CALLED.
+
+    THESE ARE THE TURNS THAT TYPE, GET CORRECTED AND TYPE AGAIN. THEY LOSE THE WORD-BY-WORD
+    DRAW AND GAIN NEVER SHOWING AN ANSWER NOBODY STANDS BEHIND. EVERY OTHER TURN — WHICH IS
+    NEARLY ALL OF THEM — DRAWS AS IT ALWAYS DID."""
+    return corrected or asked_fresh((said or "").lower())
+
 
 @wrap_model_call
 def keep_thinking(request, handler):
@@ -112,12 +137,14 @@ class Stuck(Exception):
 
 def fresh():
     """A NEW TURN. THE STREAK IS ABOUT THIS ERRAND, NOT THE LAST ONE."""
-    global missed, spend, file_was_cut, file_cut_resume
+    global missed, spend, file_was_cut, file_cut_resume, withdrawn, corrected
 
     missed = 0
     spend = None
     file_was_cut = False
     file_cut_resume = None
+    withdrawn = 0
+    corrected = False
     asked.clear()
     tried.clear()
     refused.clear()
@@ -645,6 +672,13 @@ def again(request, handler, answered, telling):
     AND THEN IT COMES BACK EMPTY, AND HANDING THAT UP THE CHAIN ENDS THE TURN ON THE "I got
     tangled up" FALLBACK — SILENCE, WHICH IS WORSE THAN THE ANSWER IT WAS BEING CORRECTED FOR.
     SO NOTHING IS ONLY EVER TRADED FOR SOMETHING."""
+    global withdrawn, corrected
+
+    # WHAT THE ROUND BEING TURNED BACK ALREADY PUT ON THE SCREEN. NOT NAMED taken: THAT IS
+    # THE FUNCTION THE STREAM READS THIS BACK WITH, AND A LOCAL OF THAT NAME MAKES EVERY
+    # MENTION OF IT IN HERE LOCAL TOO.
+    shown = len(wording(answered))
+
     told = handler(request.override(messages=list(request.messages) + [HumanMessage(telling)]))
     said = getattr(told, "result", None) or told
 
@@ -652,9 +686,39 @@ def again(request, handler, answered, telling):
         said = said[-1] if said else None
 
     if getattr(said, "tool_calls", None) or (getattr(said, "text", "") or "").strip():
+        # THE ANSWER THAT WAS SHOWN IS NOT THE ANSWER ANY MORE, SO THE STREAM UNSAYS IT,
+        # AND FROM HERE ON IT HOLDS EACH ROUND RATHER THAN DRAWING ANOTHER ONE TO UNDRAW.
+        withdrawn += shown
+        corrected = True
+
         return told
 
     return answered
+
+
+def taken():
+    """HOW MANY CHARACTERS A GUARD HAS JUST TAKEN BACK, AND ZERO EVERY TIME AFTER.
+
+    READ ONCE BY THE STREAM AND CLEARED, SO ONE WITHDRAWAL IS UNSAID ONCE."""
+    global withdrawn
+
+    given, withdrawn = withdrawn, 0
+
+    return given
+
+
+def wording(answered):
+    """THE WORDS IN A ROUND'S ANSWER, WHATEVER SHAPE IT CAME BACK IN.
+
+    NOT text(): THAT NAME IS ALREADY TAKEN IN HERE, BY THE ONE THAT UNWRAPS A TOOL RESULT.
+    DEFINING IT TWICE MEANT THE SECOND QUIETLY REPLACED THE FIRST AND EVERY TOOL IN THE
+    SUITE STOPPED BEING READ."""
+    said = getattr(answered, "result", None) or answered
+
+    if isinstance(said, list):
+        said = said[-1] if said else None
+
+    return str(getattr(said, "text", "") or "")
 
 
 # HOW A REPLY STATES, AS A FACT, WHAT IS IN FRONT OF THEM THIS MOMENT. THESE ARE CLAIMS ABOUT
@@ -1164,4 +1228,3 @@ def keep_reading(request, handler):
     # A SECOND CHECK WOULD ONLY INTERRUPT THE CORRECTION.
     return again(request, handler, answered,
                  UNREAD_FILE.format(start=file_cut_resume))
-

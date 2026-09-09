@@ -410,6 +410,25 @@ const Talk = (() => {
       settle(was)
     },
 
+    // A GUARD TURNED THAT ROUND BACK AFTER THE STREAM HAD ALREADY DRAWN IT. THE WORDS COME
+    // OFF, AND AN ANSWER THAT WAS THE WHOLE BUBBLE TAKES THE BUBBLE WITH IT.
+    unsay(many) {
+      bare()
+
+      if (!prose || !(many > 0)) return
+
+      const was = pinned()
+
+      Prose.shrink(prose.words, many)
+
+      if (!(prose.words.raw || '').trim()) {
+        prose.line.remove()
+        prose = null
+      }
+
+      settle(was)
+    },
+
     began(word) {
       bare()
 

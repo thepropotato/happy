@@ -114,6 +114,21 @@ def piece(text):
     send("piece", text=text)
 
 
+def unsay(many):
+    """TAKE THE LAST many CHARACTERS OFF THE PANEL AND OFF WHAT IS KEPT.
+
+    THE STREAM DREW A ROUND A GUARD THEN TURNED BACK, SO IT IS PULLED BEFORE THE REAL ANSWER
+    LANDS. WITHOUT THIS THE PANEL SHOWED THE GUESS, THE TOOL, AND THEN THE ANSWER."""
+    global reply
+
+    if many <= 0:
+        return
+
+    reply = reply[:-many] if many < len(reply) else ""
+
+    send("unsay", many=many)
+
+
 def cost():
     """WHAT THIS TURN COST, FOR WRITING DOWN BESIDE IT.
 

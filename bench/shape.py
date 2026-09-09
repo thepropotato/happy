@@ -17,6 +17,11 @@ from bench import sandbox
 
 # BEFORE ANY HAPPY IMPORT, OR THE REAL HISTORY IS THE ONE THAT OPENS.
 DB = sandbox.throwaway("shape.db")
+DB.unlink(missing_ok=True)
+
+# A SERVICE'S TOOLS ONLY EXIST ONCE IT IS CONNECTED, SO WITHOUT THE CONNECTOR ROWS THE
+# GUARD ON THE PREFIX CACHE NEVER SEES AN MCP DOCSTRING AND CANNOT NOTICE ONE MOVING.
+sandbox.connected(DB)
 
 from brain import prompt
 from hands import reasons, tools as hands_tools
@@ -38,10 +43,18 @@ TAGS = ("<system>", "<instructions>", "<example>", "<task>", "<context>", "<rule
 
 
 def first(text):
-    """THE OPENING SENTENCE OF A DOCSTRING, WHICH IS THE PART THAT DECIDES A CHOICE."""
-    said = " ".join((text or "").split())
+    """THE OPENING SENTENCE OF A DOCSTRING, WHICH IS THE PART THAT DECIDES A CHOICE.
 
-    return said.split(". ")[0].lower()
+    A CONNECTOR TOOL OPENS WITH THE SERVICE IT BELONGS TO — "WhatsApp. Send a text
+    message" — AND THAT LABEL IS NOT THE SENTENCE. TAKEN AS ONE, EVERY TOOL OF A SERVICE
+    READS IDENTICALLY TO EVERY OTHER AND THE CHECK FIRES ON ALL OF THEM AT ONCE."""
+    said = " ".join((text or "").split())
+    parts = [each for each in said.split(". ") if each]
+
+    if parts and len(parts) > 1 and len(parts[0].split()) == 1:
+        parts = parts[1:]
+
+    return (parts[0] if parts else "").lower()
 
 
 def alike(one, other):
