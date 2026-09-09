@@ -88,11 +88,11 @@ def run(found, said):
     )
 
     try:
-        done = graph.invoke({"messages": [HumanMessage(said)]})
+        done = turned(graph, found, bound, said)
     except Stuck as stuck:
         return str(stuck)
 
-    return answered(done["messages"][-1].text.strip(), found, done["messages"])
+    return answered(spoken(done), found, done)
 
 
 def bind(found):
@@ -126,6 +126,31 @@ def unavailable(found, missing):
     )
 
 
+def turned(graph, found, bound, said):
+    """ONE ROUTINE, RUN BY WHICHEVER LOOP THE SETTINGS NAME.
+
+    BOTH CARRY THE SAME PROMPT, THE SAME TOOLS AND THE SAME GUARDS, SO WHICH ONE RUNS IS ONE
+    SETTING AND NOT A DIFFERENT ROUTINE."""
+    if not settings.get("brain.signatures"):
+        return graph.invoke({"messages": [HumanMessage(said)]})
+
+    import dspy
+
+    from brain import asking, erranding
+
+    dspy.configure(lm=asking.ready(asking.THINKING))
+
+    return erranding.built(bound, told(found), rounds(found))(said=said)
+
+
+def spoken(done):
+    """THE WORDS OUT OF WHICHEVER LOOP ANSWERED."""
+    if isinstance(done, dict):
+        return done["messages"][-1].text.strip()
+
+    return (getattr(done, "reply", "") or "").strip()
+
+
 def told(found):
     """THE STANDING RULES, THEN THE ROUTINE, WHICH GOES LAST AND SO WEIGHS MOST."""
     tone = persona.nudge(settings.get("brain.persona"))
@@ -143,7 +168,7 @@ def rounds(found):
     return min(settings.get("brain.calls"), CEILING, max(steps + SPARE, FLOOR))
 
 
-def answered(said, found, messages):
+def answered(said, found, done):
     """WHAT CAME BACK, OR PLAIN WORDS FOR THE WAYS A RUN ENDS WITHOUT REALLY HAPPENING."""
     if LIMIT in said:
         return RAN_OUT.format(name=found["name"])
@@ -153,15 +178,25 @@ def answered(said, found, messages):
 
     # AN ANSWER WRITTEN WITHOUT TOUCHING A TOOL IS A ROUTINE SAYING WHY IT COULD NOT, AND
     # HANDING THAT BACK AS THOUGH IT HAD RUN IS THE ONE THING THAT MUST NOT HAPPEN.
-    if found.get("tools") and not reached(messages):
+    if found.get("tools") and not reached(done):
         return NEVER.format(name=found["name"], said=said)
 
     return said
 
 
-def reached(messages):
-    """WHETHER ANY TOOL AT ALL WAS ACTUALLY CALLED."""
-    return any(getattr(each, "tool_calls", None) for each in messages)
+def reached(done):
+    """WHETHER ANY TOOL AT ALL WAS ACTUALLY CALLED, WHICHEVER LOOP RAN IT."""
+    if isinstance(done, dict):
+        return any(getattr(each, "tool_calls", None) for each in done["messages"])
+
+    # THE SIGNATURE LOOP KEEPS ITS CALLS ON A TRAJECTORY, AND finish IS DSPy'S OWN AND NEVER
+    # ONE OF THE ROUTINE'S.
+    trajectory = getattr(done, "trajectory", None) or {}
+
+    return any(
+        name != "finish"
+        for key, name in trajectory.items() if key.startswith("tool_name")
+    )
 
 
 def talker():
