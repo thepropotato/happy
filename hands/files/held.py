@@ -90,11 +90,17 @@ def named(said):
     return "/" not in clean(said) and "\\" not in clean(said)
 
 
+def elsewhere(said):
+    """AN ADDRESS, NOT A PATH ON THIS MACHINE. WHETHER THE MODEL MAY OPEN ONE IS
+    hands/web/handed.py's QUESTION AND IS ASKED WHERE ADDRESSES ARE USED."""
+    return clean(said).lower().startswith(("http://", "https://", "data:"))
+
+
 def resolve(said):
     """THE PATH BEHIND WHAT THE MODEL WROTE, OR None AND THE WORDS TO REFUSE IT WITH."""
     path = clean(said)
 
-    if not path or named(path) or known(path) or spoken(path):
+    if not path or elsewhere(path) or named(path) or known(path) or spoken(path):
         return path, None
 
     # A PATH THAT IS REALLY THERE AND WAS REALLY LISTED, UNDER A NAME WE NEVER SAW HANDED

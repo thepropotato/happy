@@ -151,6 +151,8 @@ a person that would do it. No file is longer than 200 lines; when one grows past
 | `mcps/servers/notion/` | Searching a workspace, reading a page, and writing one. |
 | `mcps/servers/github/` | Repositories, the files in them, their issues and their commits. |
 | `mcps/servers/slack/` | Channels, what was said in them, and saying something. |
+| `mcps/servers/linear/` | The board: what is on it, who has it, and moving one along. |
+| `mcps/servers/jira/` | The backlog, its projects, and the moves a workflow allows. |
 | `mcps/servers/weather/` | The forecast anywhere, from the one that wants no account. |
 | `mcps/servers/instagram/` | This account's own posts, their comments, and replying to one. |
 | `mcps/bridging.py` | The bridge from Happy's side: starting it, asking it, putting it down. |
@@ -354,9 +356,12 @@ it is what the person hears.
 
 ### A big service goes behind a door
 
-Connecting Linear took the toolset from 67 to 140 in one press. Seventy-three schemas then sit
-in front of the prefix cache on every turn, including the turns about the weather, and that cache
-is the whole of why an answer takes half a second rather than ten.
+A service's schemas sit in front of the prefix cache on every turn, including the turns about
+the weather, and that cache is the whole of why an answer takes half a second rather than ten.
+The measurement that put this here was a remote Linear that shipped seventy-three tools and took
+the toolset from 67 to 140 in one press. Every service is written here now and none is that big,
+but the ceiling is a property of the connection and not of who wrote it: a wide enough one costs
+the same whoever ships it, so the door stays.
 
 So a service offering more than twenty tools is not shown to the model until the turn is about
 that service. There are two ways in, and the first is the one that matters:
