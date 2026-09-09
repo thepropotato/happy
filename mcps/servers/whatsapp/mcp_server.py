@@ -310,6 +310,12 @@ async def get_unread_messages(include_archived: bool = True) -> str:
     contain the unread messages themselves - to say what they actually are, call
     get_messages for that contact with received_only=True. Never invent their contents.
 
+    Each chat carries "bodiesHeld": how many received messages are actually on this
+    computer for it. When that is 0 the count came from the phone but the messages have
+    not synced down, and get_messages will return nothing for that chat. An empty result
+    there does NOT mean the chat has nothing unread - say the messages have not arrived
+    yet.
+
     Args:
         include_archived: If True (default), also include archived chats with unread messages.
     """
@@ -330,6 +336,9 @@ async def get_unread_messages(include_archived: bool = True) -> str:
             "lastMessageFrom": c.get("lastMessageFrom") or "",
             "isGroup": c.get("isGroup", False),
             "archived": c.get("archived", False),
+            # THE COUNT COMES FROM THE PHONE AND THE BODIES ARRIVE SEPARATELY, SO A
+            # CHAT CAN BE COUNTED UNREAD WITH NOTHING HERE TO SHOW FOR IT.
+            "bodiesHeld": c.get("receivedHeld", 0),
         }
         for c in chats
         if c.get("unreadCount", 0) > 0 and (include_archived or not c.get("archived"))
@@ -337,12 +346,24 @@ async def get_unread_messages(include_archived: bool = True) -> str:
 
     unread.sort(key=lambda x: -x["unreadCount"])
 
-    return _json({
+    empty = [c["name"] for c in unread if not c["bodiesHeld"]]
+
+    answer = {
         "total_unread_chats": len(unread),
         "total_unread_messages": sum(c["unreadCount"] for c in unread),
         "archived_chats_with_unread": sum(1 for c in unread if c["archived"]),
         "unread_chats": unread,
-    })
+    }
+
+    if empty:
+        answer["note"] = (
+            "These chats are counted unread but their messages have not been synced down "
+            f"yet: {', '.join(empty)}. get_messages will come back empty for them. That is "
+            "not the same as having nothing unread — say the messages have not arrived on "
+            "this computer yet, and never report these chats as having no unread messages."
+        )
+
+    return _json(answer)
 
 
 

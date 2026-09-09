@@ -1963,6 +1963,16 @@ def chats(username):
             resolved = jid_to_name.get(cid)
             if resolved:
                 chat = {**chat, "name": resolved}
+
+        # THE PHONE SENDS A COUNT, THE BODIES ARRIVE SEPARATELY, AND HISTORY SYNC
+        # CAN LEAVE A COUNT WITH NOTHING BEHIND IT. SAYING HOW MANY RECEIVED LINES
+        # ARE ACTUALLY HELD STOPS AN EMPTY READ BEING TAKEN FOR "NOTHING UNREAD".
+        held = [
+            m
+            for m in s.messages.get(cid, []) + s.media.get(cid, [])
+            if not m.get("fromMe")
+        ]
+        chat = {**chat, "receivedHeld": len(held)}
         result.append(chat)
 
     # NEWEST FIRST, EVERY TIME IT IS ASKED.
