@@ -24,7 +24,7 @@ DOWNLOADS = "Downloads"
 # THE TIME BESIDE A NAME, AS THE REMINDERS SAY IT: A CLOCK FOR TODAY, A DATE FOR ANY OTHER DAY.
 TODAY = "%H:%M"
 
-OTHER = "%-d %b"
+OTHER = "%b"
 
 
 def home():
@@ -194,8 +194,10 @@ def aged(path):
     at = datetime.now().astimezone()
     when = datetime.fromtimestamp(when, at.tzinfo)
 
-    return when.strftime(TODAY if when.date() == at.date() else OTHER)
+    if when.date() == at.date():
+        return when.strftime(TODAY)
 
+    return f"{when.day} {when.strftime(OTHER)}"
 
 def describe(path):
     """A FILE WITH ITS SIZE AND WHEN IT LANDED, OR A FOLDER SAID TO BE ONE. A FOLDER GIVEN AS
