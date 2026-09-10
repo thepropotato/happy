@@ -49,6 +49,11 @@ BRIDGE_PORT = int(os.environ.get("WHATSAPP_BRIDGE_PORT") or 3001)
 BRIDGE_BASE = f"http://127.0.0.1:{BRIDGE_PORT}"
 BRIDGE_HEADERS = {"X-Bridge-Key": os.environ.get("INTERNAL_API_SECRET", "")}
 
+# HOW LONG A SEND IS GIVEN TO BE ACKNOWLEDGED BEFORE THIS SIDE GIVES UP ON IT. A SLOW SEND
+# THAT SUCCEEDS A FEW SECONDS LATE USED TO BE REPORTED AS FAILED BECAUSE THE OLD LIMIT WAS
+# ONLY 10 SECONDS, WHICH A MEDIA SEND CAN EASILY TAKE LONGER THAN.
+SEND_TIMEOUT = 60.0
+
 
 class WhatsAppClient:
 
@@ -529,18 +534,20 @@ class WhatsAppClient:
             if not to:
                 return {"error": f"Contact '{recipient}' not found."}
 
-            result = await self.post("/send", {"to": to, "message": message})
+            result = await self.post("/send", {"to": to, "message": message}, timeout=SEND_TIMEOUT)
             if isinstance(result, dict) and "websocket not connected" in result.get("error", ""):
                 await self.post("/stop", {}, timeout=5.0)
                 await self.post("/start", {}, timeout=5.0)
                 await asyncio.sleep(8)
-                result = await self.post("/send", {"to": to, "message": message})
+                result = await self.post("/send", {"to": to, "message": message}, timeout=SEND_TIMEOUT)
 
             note = self.remember_note(resolved)
             if note and isinstance(result, dict) and "error" not in result:
                 result["note"] = note
 
             return result
+        except httpx.TimeoutException:
+            return {"error": f"Timed out waiting for WhatsApp to confirm the send after {SEND_TIMEOUT:.0f} seconds."}
         except Exception as e:
             return {"error": str(e)}
 
@@ -558,18 +565,20 @@ class WhatsAppClient:
                     "resolved": (group or "").strip(),
                 }
 
-            result = await self.post("/send", {"to": to, "message": message})
+            result = await self.post("/send", {"to": to, "message": message}, timeout=SEND_TIMEOUT)
             if isinstance(result, dict) and "websocket not connected" in result.get("error", ""):
                 await self.post("/stop", {}, timeout=5.0)
                 await self.post("/start", {}, timeout=5.0)
                 await asyncio.sleep(8)
-                result = await self.post("/send", {"to": to, "message": message})
+                result = await self.post("/send", {"to": to, "message": message}, timeout=SEND_TIMEOUT)
 
             note = self.remember_note(resolved)
             if note and isinstance(result, dict) and "error" not in result:
                 result["note"] = note
 
             return result
+        except httpx.TimeoutException:
+            return {"error": f"Timed out waiting for WhatsApp to confirm the send after {SEND_TIMEOUT:.0f} seconds."}
         except Exception as e:
             return {"error": str(e)}
 
@@ -594,17 +603,17 @@ class WhatsAppClient:
                 "url": url,
                 "caption": caption,
                 "filename": filename,
-            })
+            }, timeout=SEND_TIMEOUT)
 
             note = self.remember_note(resolved)
             if note and isinstance(result, dict) and "error" not in result:
                 result["note"] = note
 
             return result
+        except httpx.TimeoutException:
+            return {"error": f"Timed out waiting for WhatsApp to confirm the send after {SEND_TIMEOUT:.0f} seconds."}
         except Exception as e:
             return {"error": str(e)}
 
     def close(self):
         pass
-
-
