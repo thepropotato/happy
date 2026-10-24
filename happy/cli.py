@@ -1,0 +1,241 @@
+"""The `happy` command."""
+
+import argparse
+import asyncio
+import getpass
+import imaplib
+import logging
+import os
+import signal
+import ssl
+import subprocess
+import sys
+import threading
+import time
+from datetime import datetime
+
+from happy import paths
+from happy.config import Config, save_secret
+
+
+def logging_to(level=logging.INFO, console=True):
+    paths.HOME.mkdir(parents=True, exist_ok=True)
+    handlers = [logging.FileHandler(paths.LOG)]
+    if console:
+        handlers.append(logging.StreamHandler(sys.stderr))
+    logging.basicConfig(level=level, format="%(asctime)s %(name)s %(message)s", datefmt="%H:%M:%S", handlers=handlers)
+    for noisy in ("httpx", "httpx2", "httpcore", "mcp", "claude_agent_sdk", "openai", "pocket_tts", "root"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+
+
+def running_pid():
+    try:
+        pid = int(paths.LOCK.read_text())
+        os.kill(pid, 0)
+        return pid
+    except (OSError, ValueError):
+        return None
+
+
+def run(args):
+    other = running_pid()
+    if other and other != os.getpid():
+        print(f"Happy is already running (pid {other}). Stop it with: happy stop")
+        return 1
+    paths.LOCK.parent.mkdir(parents=True, exist_ok=True)
+    paths.LOCK.write_text(str(os.getpid()))
+    os.environ.pop("ELECTRON_RUN_AS_NODE", None)
+    logging_to(console=not args.quiet)
+    try:
+        from happy.ui.overlay import launch
+
+        return launch(Config())
+    finally:
+        if running_pid() == os.getpid():
+            paths.LOCK.unlink(missing_ok=True)
+
+
+def start(args):
+    if running_pid():
+        print("Happy is already running.")
+        return 0
+    log = open(paths.HOME / "happy.out", "a")
+    subprocess.Popen([sys.executable, "-m", "happy", "run", "--quiet"], stdout=log, stderr=subprocess.STDOUT,
+                     stdin=subprocess.DEVNULL, start_new_session=True)
+    for _ in range(40):
+        time.sleep(0.25)
+        if running_pid():
+            print("Happy is up. It lives in the corner of your screen.")
+            return 0
+    print(f"Happy did not start. See {paths.LOG}")
+    return 1
+
+
+def stop(args):
+    pid = running_pid()
+    if not pid:
+        print("Happy is not running.")
+        return 0
+    os.kill(pid, signal.SIGTERM)
+    print("Stopped Happy.")
+    return 0
+
+
+def text_mode(args, once):
+    from happy.app import Happy
+    from happy.ui.console import ConsoleFace
+
+    logging_to(logging.INFO if args.verbose else logging.WARNING)
+    face = ConsoleFace()
+    happy = Happy(Config(), face, voice=args.voice, listening=False)
+    thread = threading.Thread(target=happy.run, daemon=True)
+    thread.start()
+    happy.ready.wait()
+    try:
+        requests = [" ".join(args.text)] if once else iter(lambda: input("\n› "), None)
+        for request in requests:
+            if not request.strip():
+                continue
+            face.finished.clear()
+            happy.typed(request.strip())
+            face.finished.wait()
+    except (EOFError, KeyboardInterrupt):
+        pass
+    happy.stop()
+    thread.join(timeout=5)
+    return 0
+
+
+def setup(args):
+    from happy.ui.setup_window import show_setup
+
+    return show_setup()
+
+
+def doctor(args):
+    from happy.integrations import status
+    from happy.integrations.mcp import hub
+    from happy.integrations import discovered
+    from happy.speech import models
+    from happy.tools.coding import installed
+
+    cfg = Config()
+    print("\033[1mHappy doctor\033[0m")
+    missing = models.missing()
+    print(f"  Speech models: {'ready' if not missing else 'missing ' + ', '.join(missing)}")
+    try:
+        from happy.speech.listener import pick_mic
+
+        print(f"  Microphone: {pick_mic(cfg.get('input.device') or '')[1]}")
+    except Exception as error:
+        print(f"  Microphone: {error}")
+    for name, (spec, source) in discovered.everything().items():
+        hub.add(name, spec, source)
+    model = f"{cfg.get('brain.kind')} {cfg.get('brain.model') or ''}".strip()
+    for line in asyncio.run(status.everything(model)).splitlines():
+        print(f"  {line}")
+    agents = installed()
+    print(f"  Coding agents: {', '.join(name for _, name, _ in agents) or 'none installed'}")
+    return 0
+
+
+def history(args):
+    from happy import history as store
+
+    for turn in reversed(store.recent(limit=args.count, search=args.search or "")):
+        when = datetime.fromtimestamp(turn["at"]).strftime("%a %d %b %H:%M")
+        print(f"\n\033[2m{when} · {turn['how']}{' · ' + turn['model'] if turn['model'] else ''}\033[0m")
+        print(f"\033[1myou ›\033[0m {turn['request']}")
+        for step in turn["steps"]:
+            print(f"\033[2m  · {step.get('label') or step.get('tool')}{'' if step.get('ok', True) else ' (failed)'}\033[0m")
+        if turn["reply"]:
+            print(f"\033[1mhappy ›\033[0m {turn['reply']}")
+    return 0
+
+
+def say(args):
+    from happy.speech.speaker import Speaker
+
+    speaker = Speaker(Config().get("voice") or "alba")
+    speaker.start()
+    speaker.say(" ".join(args.text))
+    time.sleep(0.2)
+    speaker.wait()
+    time.sleep(0.4)
+    return 0
+
+
+def rename(args):
+    cfg = Config()
+    cfg.set("name", args.name.strip().title())
+    cfg.save()
+    print(f"Happy is now called {args.name.strip().title()}. Restart it to wake to the new name.")
+    return 0
+
+
+def persona(args):
+    from happy.persona import learn
+
+    return learn(args.file)
+
+
+def connect_mail(args):
+    cfg = Config()
+    print("Happy reads and sends mail over IMAP with an app password.")
+    print("Gmail: myaccount.google.com/apppasswords · iCloud: account.apple.com · Outlook: account.microsoft.com/security")
+    address = input("Email address: ").strip()
+    if "@" not in address:
+        return 1
+    password = getpass.getpass("App password (hidden): ").replace(" ", "")
+    cfg.set("mail.address", address)
+    cfg.save()
+    save_secret("mail_password", password)
+    from happy.tools.mail import account
+
+    _, _, host, _ = account()
+    try:
+        box = imaplib.IMAP4_SSL(host, ssl_context=ssl.create_default_context(), timeout=20)
+        box.login(address, password)
+        box.logout()
+        print("Connected.")
+    except Exception as error:
+        print(f"Could not sign in to {host}: {error}")
+        return 1
+    return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(prog="happy", description="A voice agent that lives on your computer.")
+    sub = parser.add_subparsers(dest="command")
+    p = sub.add_parser("run", help="run in this terminal, with the mascot on screen")
+    p.add_argument("--quiet", action="store_true")
+    p.set_defaults(go=run)
+    sub.add_parser("start", help="run in the background").set_defaults(go=start)
+    sub.add_parser("stop", help="stop the background Happy").set_defaults(go=stop)
+    for name, once in (("ask", True), ("chat", False)):
+        p = sub.add_parser(name, help="type a request instead of speaking" if once else "type requests one after another")
+        if once:
+            p.add_argument("text", nargs="+")
+        p.add_argument("--voice", action="store_true", help="speak the answers too")
+        p.add_argument("--verbose", action="store_true")
+        p.set_defaults(go=lambda a, once=once: text_mode(a, once))
+    sub.add_parser("setup", help="open the setup window").set_defaults(go=setup)
+    sub.add_parser("doctor", help="check every connection").set_defaults(go=doctor)
+    p = sub.add_parser("history", help="show past conversations")
+    p.add_argument("search", nargs="?", default="")
+    p.add_argument("-n", "--count", type=int, default=20)
+    p.set_defaults(go=history)
+    p = sub.add_parser("say", help="hear the voice")
+    p.add_argument("text", nargs="+")
+    p.set_defaults(go=say)
+    p = sub.add_parser("name", help="change what it is called")
+    p.add_argument("name")
+    p.set_defaults(go=rename)
+    p = sub.add_parser("persona", help="copy the way of talking from a text file, like subtitles")
+    p.add_argument("file")
+    p.set_defaults(go=persona)
+    sub.add_parser("email", help="connect an email account from the terminal").set_defaults(go=connect_mail)
+    args = parser.parse_args()
+    if not args.command:
+        args = parser.parse_args(["run"])
+    sys.exit(args.go(args) or 0)

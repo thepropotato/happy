@@ -5,7 +5,7 @@ import re
 import time
 from typing import Annotated
 
-from happy.connectors import hub
+from happy.integrations.mcp import hub
 from happy.tools import report, tool
 
 
@@ -72,7 +72,7 @@ async def whatsapp_read(
     chat: Annotated[str, "person or group name, a short partial name is fine"],
     count: Annotated[int, "how many recent messages"] = 10,
 ):
-    """Read the latest messages in one WhatsApp chat, newest last."""
+    """Read what someone said: the latest messages in one WhatsApp chat, newest last."""
     data = await ask("get_messages", contact=[chat], limit=max(1, min(count, 50)))
     if isinstance(data, dict) and isinstance(data.get(chat), list):
         data = data[chat]

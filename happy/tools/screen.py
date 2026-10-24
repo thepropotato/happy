@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Annotated
 
-from happy.platforms import Failed, system
+from happy.system import Failed, native
 from happy.tools import Image, tool
 
 
@@ -25,8 +25,8 @@ def shrink(png, longest=1440):
 def describe():
     from happy.tools import browser
 
-    lines = [f"Front app: {system.frontmost() or 'unknown'}"]
-    title = system.front_window_title()
+    lines = [f"Front app: {native.frontmost() or 'unknown'}"]
+    title = native.front_window_title()
     if title:
         lines.append(f"Window: {title}")
     if sys.platform == "darwin":
@@ -39,7 +39,7 @@ def describe():
             except Failed:
                 pass
     try:
-        chosen = system.selected_text()
+        chosen = native.selected_text()
         if chosen:
             lines.append(f"Selected text: {chosen[:2000]}")
     except Exception:
@@ -52,26 +52,26 @@ def look_at_screen():
     """See what is on the screen right now: the app and window in front, the browser tab, any selected text, and a picture when the brain can see."""
     note = describe()
     try:
-        return Image(shrink(system.screenshot()), note)
+        return Image(shrink(native.screenshot()), note)
     except Failed:
         return note
 
 
 @tool(label="Pressing {keys}")
 def press_keys(keys: Annotated[str, "like cmd+t, ctrl+shift+tab, escape or return"]):
-    """Press a key or keyboard shortcut in the app in front."""
+    """Press a key or shortcut the person asked for in the app in front. Never use it to run commands or do coding work."""
     for combo in keys.split(","):
-        system.press(combo.strip())
+        native.press(combo.strip())
         time.sleep(0.05)
     return f"Pressed {keys}."
 
 
 @tool(label="Typing")
 def type_text(text: Annotated[str, "exactly what to type"], then_enter: bool = False):
-    """Type text into whatever is focused in the app in front."""
-    system.paste(text)
+    """Type text the person dictated into the field they have focused. Never use it to run commands, write code or work in a terminal."""
+    native.paste(text)
     if then_enter:
-        system.press("return")
+        native.press("return")
     return "Typed it."
 
 
@@ -123,7 +123,7 @@ def click(target: Annotated[str, "the words on the button, link or item to click
     from AppKit import NSWorkspace
     from ApplicationServices import AXUIElementCreateApplication, AXUIElementPerformAction, AXUIElementSetAttributeValue
 
-    if not system.trusted():
+    if not native.trusted():
         return "Happy needs Accessibility permission to click: System Settings, Privacy & Security, Accessibility."
     app = NSWorkspace.sharedWorkspace().frontmostApplication()
     root = AXUIElementCreateApplication(app.processIdentifier())

@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 
 import httpx
 
-from happy.platforms import Failed, system
+from happy.system import Failed, native
 from happy.tools import tool
 
 CHROMIUM = ["Google Chrome", "Brave Browser", "Microsoft Edge", "Arc", "Chromium", "Vivaldi", "Google Chrome Canary"]
@@ -48,10 +48,10 @@ end tell"""
 
 def front_browser():
     """The browser in front, or else the one that is open."""
-    front = system.frontmost()
+    front = native.frontmost()
     if front in BROWSERS:
         return front
-    running = system.running_apps()
+    running = native.running_apps()
     for name in BROWSERS:
         if name in running:
             return name
@@ -63,7 +63,7 @@ def quote(text):
 
 
 def list_tabs(app):
-    out = system.osascript((SAFARI_LIST if app == "Safari" else CHROME_LIST).replace("{app}", app))
+    out = native.osascript((SAFARI_LIST if app == "Safari" else CHROME_LIST).replace("{app}", app))
     tabs = []
     for line in out.splitlines():
         parts = line.split("\t")
@@ -86,7 +86,7 @@ def current(tabs):
 
 
 def close(app, tab):
-    system.osascript(f'tell application "{app}" to close tab {tab["tab"]} of window {tab["window"]}')
+    native.osascript(f'tell application "{app}" to close tab {tab["tab"]} of window {tab["window"]}')
 
 
 def focus(app, tab):
@@ -94,9 +94,9 @@ def focus(app, tab):
         script = f'tell application "Safari" to set current tab of window {tab["window"]} to tab {tab["tab"]} of window {tab["window"]}'
     else:
         script = f'tell application "{app}" to set active tab index of window {tab["window"]} to {tab["tab"]}'
-    system.osascript(script)
-    system.osascript(f'tell application "{app}" to set index of window {tab["window"]} to 1')
-    system.osascript(f'tell application "{app}" to activate')
+    native.osascript(script)
+    native.osascript(f'tell application "{app}" to set index of window {tab["window"]} to 1')
+    native.osascript(f'tell application "{app}" to activate')
 
 
 def keys_only(action):
@@ -104,7 +104,7 @@ def keys_only(action):
               "back": "alt+left", "forward": "alt+right"}
     if action not in combos:
         raise Failed(f"{action} needs a Mac for now")
-    system.press(combos[action])
+    native.press(combos[action])
     return f"Pressed {combos[action]}."
 
 
@@ -121,8 +121,8 @@ def browser_tabs(
     if not app:
         return "No browser is open."
     if action == "reopen":
-        system.osascript(f'tell application "{app}" to activate')
-        system.press("cmd+shift+t")
+        native.osascript(f'tell application "{app}" to activate')
+        native.press("cmd+shift+t")
         return "Reopened the last closed tab."
     tabs = list_tabs(app)
     if action == "list":
@@ -132,10 +132,10 @@ def browser_tabs(
     if action == "new":
         address = url or "about:blank"
         if app == "Safari":
-            system.osascript(f'tell application "Safari" to tell front window to set current tab to (make new tab with properties {{URL:"{quote(address)}"}})')
+            native.osascript(f'tell application "Safari" to tell front window to set current tab to (make new tab with properties {{URL:"{quote(address)}"}})')
         else:
-            system.osascript(f'tell application "{app}" to tell front window to make new tab with properties {{URL:"{quote(address)}"}}')
-        system.osascript(f'tell application "{app}" to activate')
+            native.osascript(f'tell application "{app}" to tell front window to make new tab with properties {{URL:"{quote(address)}"}}')
+        native.osascript(f'tell application "{app}" to activate')
         return f"Opened a new tab{' at ' + address if url else ''}."
     chosen = matching(tabs, match) if match else [t for t in [current(tabs)] if t]
     if not chosen:
@@ -156,7 +156,7 @@ def browser_tabs(
                   "forward": 'tell application "Safari" to do JavaScript "history.forward()" in current tab of front window'}[action]
     else:
         script = f'tell application "{app}" to {verbs[action]} tab {tab["tab"]} of window {tab["window"]}'
-    system.osascript(script)
+    native.osascript(script)
     return f"Did {action} on {tab['title']}."
 
 
@@ -174,7 +174,7 @@ def page_text(app, tab):
               if app == "Safari" else
               f'tell application "{app}" to execute tab {tab["tab"]} of window {tab["window"]} javascript "document.body.innerText"')
     try:
-        text = system.osascript(script)
+        text = native.osascript(script)
         if text and text != "missing value":
             return text
     except Failed:

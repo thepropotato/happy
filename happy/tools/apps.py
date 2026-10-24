@@ -10,7 +10,7 @@ import webbrowser
 from pathlib import Path
 from typing import Annotated
 
-from happy.platforms import Failed, system
+from happy.system import Failed, native
 from happy.tools import tool
 
 ALIASES = {
@@ -32,7 +32,7 @@ PLACES = {
 
 def find_app(name):
     """The installed app a spoken name most likely means."""
-    apps = system.installed_apps()
+    apps = native.installed_apps()
     wanted = ALIASES.get(name.lower().strip(), name.strip())
     lowered = {a.lower(): a for a in apps}
     if wanted.lower() in lowered:
@@ -57,7 +57,7 @@ def open_app(name: Annotated[str, "the app's name as said, like chrome or vs cod
     found, path = find_app(name)
     if not found:
         return f"No app called {name} is installed."
-    system.open_app(path)
+    native.open_app(path)
     return f"Opened {found}."
 
 
@@ -65,11 +65,11 @@ def open_app(name: Annotated[str, "the app's name as said, like chrome or vs cod
 def quit_app(name: Annotated[str, "the app's name"]):
     """Quit an app."""
     found, _ = find_app(name)
-    running = system.running_apps()
+    running = native.running_apps()
     target = found if found in running else next((r for r in running if name.lower() in r.lower()), None)
     if not target:
         return f"{found or name} is not open."
-    system.quit_app(target)
+    native.quit_app(target)
     return f"Quit {target}."
 
 
@@ -109,9 +109,9 @@ def locate(query, folders=False):
              if w not in ("the", "my", "folder", "file", "project", "repo")]
     if not words:
         return []
-    hits = system.spotlight(" ".join(words), folders_only=folders)
+    hits = native.spotlight(" ".join(words), folders_only=folders)
     if not hits and folders:
-        hits = system.spotlight(" ".join(words))
+        hits = native.spotlight(" ".join(words))
     return sorted(hits, key=lambda p: -score(p, words, folders))[:8]
 
 
@@ -140,7 +140,7 @@ def open_file(
         return f"Found nothing called {what}."
     path = hits[0]
     if app.lower() in ("finder", "file explorer", "explorer"):
-        system.open_path(path, reveal=not Path(path).is_dir())
+        native.open_path(path, reveal=not Path(path).is_dir())
         where = "Finder" if sys.platform == "darwin" else "Explorer"
     elif app:
         kind, how = code_editor(app)
@@ -149,10 +149,10 @@ def open_file(
 
             subprocess.Popen([how, path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
-            system.open_path(path, app=how)
+            native.open_path(path, app=how)
         where = app
     else:
-        system.open_path(path)
+        native.open_path(path)
         where = "its default app"
     others = "" if len(hits) == 1 else " Other matches: " + "; ".join(hits[1:4])
     return f"Opened {path} in {where}.{others}"
@@ -191,7 +191,7 @@ def open_link(where: Annotated[str, "a full URL, a site like youtube.com, or wor
     """Open a website or a web search in the browser."""
     url = as_url(where)
     if sys.platform == "darwin":
-        system.open_path(url)
+        native.open_path(url)
     else:
         webbrowser.open(url)
     return f"Opened {url}."

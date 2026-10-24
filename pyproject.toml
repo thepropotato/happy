@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [project.scripts]
-happy = "happy.__main__:main"
+happy = "happy.cli:main"
 
 [build-system]
 requires = ["hatchling"]

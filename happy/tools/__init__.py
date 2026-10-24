@@ -177,4 +177,4 @@ def available(local=True):
 
 
 def load():
-    from happy.tools import apps, browser, device, handoff, mail, notes, screen, services, whatsapp  # noqa: F401
+    from happy.tools import apps, browser, coding, controls, mail, notes, other_mcps, screen, status, whatsapp  # noqa: F401

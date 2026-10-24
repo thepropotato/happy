@@ -76,7 +76,7 @@ def fetch(box, uid, peek=True):
     return email.message_from_bytes(data[0][1], policy=email.policy.default)
 
 
-@tool(say="Checking your mail.", label="Checking your mail", needs=connected)
+@tool(say="Checking your mail.", label="Checking your mail")
 def check_mail(
     unread_only: bool = True,
     count: Annotated[int, "how many, newest first"] = 5,
@@ -84,6 +84,8 @@ def check_mail(
     words: Annotated[str, "only mail containing these words"] = "",
 ):
     """List recent emails in the inbox, newest first, with who sent them and what they are about."""
+    if not connected():
+        return "Email is not set up, so there is no mail to read. It can be added in Setup with an app password."
     box = inbox()
     try:
         criteria = ["UNSEEN" if unread_only else "ALL"]
