@@ -40,7 +40,7 @@ class Speaker:
         self.stream = None
         self.last_sound = 0.0
         self.speaking = False
-        self.said = []
+        self.chime_until = 0.0
 
     def warm(self):
         """Downloads and prepares the voice without starting to play anything."""
@@ -78,7 +78,10 @@ class Speaker:
         return spoken
 
     def blip(self, rising=True):
-        self.play(chime(self.rate, rising))
+        """The wake chime; it is not Happy talking, so it never changes the face or deafens the microphone."""
+        sound = chime(self.rate, rising)
+        self.chime_until = time.monotonic() + len(sound) / self.rate + 0.2
+        self.play(sound)
 
     def stop(self):
         """Stops talking now, dropping anything not yet said."""
@@ -156,7 +159,7 @@ class Speaker:
         while True:
             time.sleep(0.05)
             now = time.monotonic()
-            talking = not self.idle() or now - self.last_sound < 0.15
+            talking = self.busy > 0 or (not self.idle() or now - self.last_sound < 0.15) and now > self.chime_until
             if talking != self.speaking:
                 self.speaking = talking
                 self.on_speaking(talking)

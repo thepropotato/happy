@@ -75,3 +75,13 @@ def test_nothing_unspeakable_is_queued(spoken):
     assert speaker.say("https://example.com/a/b") == "a link to Example"
     speaker.stop()
     assert speaker.say("**") == ""
+
+
+def test_the_wake_chime_is_not_happy_talking(spoken):
+    speaker, _, talking = spoken
+    speaker.stop()
+    time.sleep(0.4)
+    talking.clear()
+    speaker.blip()
+    time.sleep(0.8)
+    assert True not in talking, talking

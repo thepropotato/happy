@@ -1,34 +1,13 @@
-"""The real state of every connection: model, WhatsApp, email and each MCP server, checked rather than assumed."""
+"""The real state of every connection: internet, model, WhatsApp and each MCP server, checked rather than assumed."""
 
 import asyncio
-import imaplib
-import ssl
 
 import httpx
 
-from happy.config import Config, secrets
 from happy.integrations import discovered, whatsapp
 from happy.integrations.mcp import hub
 
 claude_servers = {}
-
-
-def email():
-    cfg = Config()
-    address = cfg.get("mail.address") or ""
-    password = secrets().get("mail_password", "")
-    if not address or not password:
-        return "not set up", "add it in Setup"
-    from happy.tools.mail import account
-
-    _, _, host, _ = account()
-    try:
-        box = imaplib.IMAP4_SSL(host, ssl_context=ssl.create_default_context(), timeout=10)
-        box.login(address, password)
-        box.logout()
-        return "connected", address
-    except Exception as error:
-        return "failing", f"{address} could not sign in: {str(error)[:80]}"
 
 
 def whatsapp_state():
@@ -96,11 +75,11 @@ async def everything(model_name="", about=""):
         state, detail = await asyncio.to_thread(whatsapp_state)
         lines.append(f"WhatsApp: {state} ({detail})")
     if concerns(about, "mail", "gmail", "outlook", "inbox"):
-        state, detail = await asyncio.to_thread(email)
-        lines.append(f"Email: {state} ({detail})")
-        for name, state in claude_servers.items():
-            if "mail" in name.lower():
-                lines.append(f"Claude connector {name}: {state}")
+        mailers = [name for name in servers if any(word in name.lower() for word in ("mail", "outlook", "inbox"))]
+        if not mailers:
+            lines.append("Email: no email service added (add Gmail or another email MCP server in Setup)")
+        for name, source, state, detail in await mcp_servers(mailers) if mailers else []:
+            lines.append(f"Email through {name} (from {source}): {state}{f' ({detail})' if detail else ''}")
     if concerns(about, "mcp", "server", "connector", "service", "everything", "anything") or named:
         for name, source, state, detail in await mcp_servers(named or None):
             lines.append(f"MCP server {name} (from {source}): {state}{f' ({detail})' if detail else ''}")

@@ -53,6 +53,7 @@ def system_prompt(cfg, local=False):
         "How you act:",
         "- Use your tools for anything about this computer, the screen, apps, files, messages and mail. Never guess what a tool would tell you.",
         "- A question gets an answer, not an action. Open, click or type only when they ask you to do something.",
+        "- Mail, messages and other services are read and written through their tools. Open a website only when they ask to open it.",
         "- Whether email, WhatsApp, an MCP server or anything else is connected or set up: call connections. An app opening says nothing about whether it is connected.",
         "- 'This', 'here', 'it' and 'on my screen' mean what is in front of them now: read the tab or look at the screen first.",
         "- Never say something happened unless a tool result says it did.",

@@ -2,12 +2,9 @@
 
 import argparse
 import asyncio
-import getpass
-import imaplib
 import logging
 import os
 import signal
-import ssl
 import subprocess
 import sys
 import threading
@@ -15,7 +12,7 @@ import time
 from datetime import datetime
 
 from happy import paths
-from happy.config import Config, save_secret
+from happy.config import Config
 
 
 def logging_to(level=logging.INFO, console=True):
@@ -179,31 +176,6 @@ def persona(args):
     return learn(args.file)
 
 
-def connect_mail(args):
-    cfg = Config()
-    print("Happy reads and sends mail over IMAP with an app password.")
-    print("Gmail: myaccount.google.com/apppasswords · iCloud: account.apple.com · Outlook: account.microsoft.com/security")
-    address = input("Email address: ").strip()
-    if "@" not in address:
-        return 1
-    password = getpass.getpass("App password (hidden): ").replace(" ", "")
-    cfg.set("mail.address", address)
-    cfg.save()
-    save_secret("mail_password", password)
-    from happy.tools.mail import account
-
-    _, _, host, _ = account()
-    try:
-        box = imaplib.IMAP4_SSL(host, ssl_context=ssl.create_default_context(), timeout=20)
-        box.login(address, password)
-        box.logout()
-        print("Connected.")
-    except Exception as error:
-        print(f"Could not sign in to {host}: {error}")
-        return 1
-    return 0
-
-
 def main():
     parser = argparse.ArgumentParser(prog="happy", description="A voice agent that lives on your computer.")
     sub = parser.add_subparsers(dest="command")
@@ -234,7 +206,6 @@ def main():
     p = sub.add_parser("persona", help="copy the way of talking from a text file, like subtitles")
     p.add_argument("file")
     p.set_defaults(go=persona)
-    sub.add_parser("email", help="connect an email account from the terminal").set_defaults(go=connect_mail)
     args = parser.parse_args()
     if not args.command:
         args = parser.parse_args(["run"])

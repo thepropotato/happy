@@ -5,7 +5,7 @@ import random
 import time
 
 from PySide6.QtCore import QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QGuiApplication, QIcon, QImage, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtGui import QBrush, QColor, QGuiApplication, QIcon, QImage, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap, QRadialGradient
 
 WIDTH, HEIGHT = 104, 64
 SPAN = 60
@@ -33,11 +33,25 @@ def dark_mode():
         return False
 
 
-def inks():
-    """The smile's colour and the faint outline that keeps it visible on any background."""
-    if dark_mode():
-        return QColor(245, 245, 247), QColor(0, 0, 0, 110)
-    return QColor(28, 28, 30), QColor(255, 255, 255, 150)
+GREEN = {"light": QColor(110, 231, 160), "base": QColor(34, 177, 98), "deep": QColor(16, 122, 64)}
+RED = {"light": QColor(255, 150, 150), "base": QColor(222, 72, 77), "deep": QColor(160, 40, 48)}
+GREY = {"light": QColor(190, 190, 194), "base": QColor(142, 142, 147), "deep": QColor(99, 99, 102)}
+
+
+def edge():
+    """A fine edge that keeps the smile readable on any wallpaper."""
+    return QColor(0, 0, 0, 140) if dark_mode() else QColor(8, 50, 26, 120)
+
+
+def stroke(colours, top, bottom, width):
+    shade = QLinearGradient(0, top, 0, bottom)
+    shade.setColorAt(0.0, colours["light"])
+    shade.setColorAt(0.55, colours["base"])
+    shade.setColorAt(1.0, colours["deep"])
+    pen = QPen(QBrush(shade), width)
+    pen.setCapStyle(Qt.RoundCap)
+    pen.setJoinStyle(Qt.RoundJoin)
+    return pen
 
 
 def curve(left, right, sag, tilt, wave=0.0, phase=0.0, steps=48):
@@ -108,7 +122,6 @@ class Mascot:
         self.step(now)
         shape = self.shape
         painter.setRenderHint(QPainter.Antialiasing)
-        ink, outline = inks()
         cx, cy = width / 2, height / 2 - 6
         if self.state == "done":
             cy -= 5 * max(0.0, math.sin(min(age, 0.45) / 0.45 * math.pi))
@@ -121,11 +134,14 @@ class Mascot:
         thick = SPAN * 0.12
         radius = SPAN * 0.105 * shape["ball"]
         lower = curve(left, right, shape["sag"], 0, shape["wave"], now * 6)
+        colours = RED if self.state == "error" else GREY if self.state == "asleep" else GREEN
         painter.setOpacity(shape["alpha"])
         if not self.ready():
-            self.paint_loading(painter, lower, left, right, thick, radius, ink, outline, now)
+            self.paint_loading(painter, lower, left, right, thick, radius, now)
             painter.setOpacity(1.0)
             return
+        top = min(p.y() for p in lower) - radius
+        bottom = max(p.y() for p in lower) + radius
         lines = [path_of(lower)]
         if shape["open"] > 0.03:
             upper = curve(left, right, shape["sag"] - shape["open"] * 0.55, 0)
@@ -133,42 +149,51 @@ class Mascot:
             for point in reversed(upper):
                 mouth.lineTo(point)
             mouth.closeSubpath()
-            gap = QColor(ink)
-            gap.setAlpha(70)
+            inside = QColor(colours["deep"])
+            inside.setAlpha(150)
             painter.setPen(Qt.NoPen)
-            painter.setBrush(gap)
+            painter.setBrush(inside)
             painter.drawPath(mouth)
             lines.append(path_of(upper))
-        for colour, width_ in ((outline, thick + 3), (ink, thick)):
-            pen = QPen(colour, width_)
-            pen.setCapStyle(Qt.RoundCap)
-            pen.setJoinStyle(Qt.RoundJoin)
-            painter.setPen(pen)
-            painter.setBrush(Qt.NoBrush)
-            for path in lines:
-                painter.drawPath(path)
-            if colour is outline:
-                painter.setPen(Qt.NoPen)
-                painter.setBrush(outline)
-                for end in (left, right):
-                    painter.drawEllipse(end, radius + 1.5, radius + 1.5)
+            top = min(top, min(p.y() for p in upper) - radius)
+        outline = QPen(edge(), thick + 2.4)
+        outline.setCapStyle(Qt.RoundCap)
+        outline.setJoinStyle(Qt.RoundJoin)
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(outline)
+        for path in lines:
+            painter.drawPath(path)
         painter.setPen(Qt.NoPen)
-        painter.setBrush(ink)
+        painter.setBrush(edge())
         for end in (left, right):
+            painter.drawEllipse(end, radius + 1.2, radius + 1.2)
+        painter.setBrush(Qt.NoBrush)
+        painter.setPen(stroke(colours, top, bottom, thick))
+        for path in lines:
+            painter.drawPath(path)
+        streak = QColor(255, 255, 255, 120)
+        shine = QPen(streak, thick * 0.22)
+        shine.setCapStyle(Qt.RoundCap)
+        painter.setPen(shine)
+        inner = lower[int(len(lower) * 0.2):int(len(lower) * 0.8) + 1]
+        painter.drawPath(path_of([QPointF(p.x(), p.y() - thick * 0.18) for p in inner]))
+        painter.setPen(Qt.NoPen)
+        for end in (left, right):
+            ball = QRadialGradient(QPointF(end.x() - radius * 0.35, end.y() - radius * 0.4), radius * 1.4)
+            ball.setColorAt(0.0, colours["light"])
+            ball.setColorAt(0.6, colours["base"])
+            ball.setColorAt(1.0, colours["deep"])
+            painter.setBrush(QBrush(ball))
             painter.drawEllipse(end, radius, radius)
-        shine = QColor(255, 255, 255, 90) if not dark_mode() else QColor(0, 0, 0, 60)
-        painter.setBrush(shine)
-        for end in (left, right):
-            painter.drawEllipse(QPointF(end.x() - radius * 0.35, end.y() - radius * 0.35), radius * 0.32, radius * 0.32)
+            painter.setBrush(QColor(255, 255, 255, 170))
+            painter.drawEllipse(QPointF(end.x() - radius * 0.33, end.y() - radius * 0.36), radius * 0.28, radius * 0.24)
         painter.setOpacity(1.0)
 
-    def paint_loading(self, painter, points, left, right, thick, radius, ink, outline, now):
-        """Not ready: a dotted smile with hollow ends, drawn in solid as loading goes on."""
+    def paint_loading(self, painter, points, left, right, thick, radius, now):
+        """Not ready: a grey dotted smile with hollow ends, filled in green as loading goes on."""
         line = path_of(points)
         length = line.length()
-        faint = QColor(ink)
-        faint.setAlpha(110)
-        dots = QPen(faint, thick * 0.55)
+        dots = QPen(GREY["base"], thick * 0.55)
         dots.setCapStyle(Qt.RoundCap)
         dots.setDashPattern([0.01, 2.2])
         painter.setBrush(Qt.NoBrush)
@@ -178,13 +203,13 @@ class Mascot:
             share, start = 0.28, (math.sin(now * 2.2) * 0.5 + 0.5) * 0.72
         else:
             share, start = max(0.03, min(1.0, self.progress)), 0.0
-        solid = QPen(ink, thick)
+        solid = QPen(GREEN["base"], thick)
         solid.setCapStyle(Qt.RoundCap)
         solid.setDashPattern([max(0.01, share * length / thick), max(0.01, length / thick)])
         solid.setDashOffset(-start * length / thick)
         painter.setPen(solid)
         painter.drawPath(line)
-        painter.setPen(QPen(ink, 2))
+        painter.setPen(QPen(GREY["base"], 2))
         for end in (left, right):
             painter.drawEllipse(end, radius, radius)
 

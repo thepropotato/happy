@@ -49,6 +49,7 @@ class Happy:
         self.waiting = "Getting ready"
         self.face.progress(self.waiting, 0.02)
         await asyncio.to_thread(self.wake_up)
+        await self.connect_services()
         self.backend = choose.backend(self.cfg, self.extra_servers)
         from happy.tools import status
 
@@ -71,6 +72,19 @@ class Happy:
         if self.backend:
             await self.backend.close()
         await hub.close()
+
+    async def connect_services(self):
+        """Starts the person's MCP servers together, so local models get their tools from the first request."""
+        servers = hub.inherited()
+        if not servers or self.cfg.get("brain.kind") == "claude":
+            return
+        self.loading(f"Connecting {len(servers)} service{'s' if len(servers) != 1 else ''}", 0.88)
+        await asyncio.gather(*(server.connect(timeout=8) for server in servers), return_exceptions=True)
+        from happy.tools import other_mcps
+
+        added = other_mcps.register_direct()
+        log.info("services: %s", ", ".join(f"{s.name} {'ok' if s.client else s.error}" for s in servers))
+        log.info("%d service tools handed to the model directly", added)
 
     def loading(self, text, fraction):
         self.waiting = text

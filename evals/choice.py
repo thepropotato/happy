@@ -23,7 +23,7 @@ CASES = [
     ("what did ravi say on whatsapp", ("whatsapp_read", "whatsapp_search"), {"chat": "ravi"}),
     ("find the address I sent to my brother on whatsapp", "whatsapp_find", {"what": "address"}),
     ("tell mom on whatsapp that I'll be home by eight", "whatsapp_send", {"to": "mom"}),
-    ("read my latest emails", "check_mail", {}),
+    ("read my latest emails", "gmail__search_threads", {}),
     ("build me a small snake game in python", "hand_off_coding", {}),
     ("fix the failing tests in the open slate project", "hand_off_coding", {"folder": "open slate"}),
     ("open youtube and search for lofi music", "open_link", {}),
@@ -38,7 +38,16 @@ CASES = [
     ("can you tell me whether my mail thing is hooked up to you", "connections", {}),
     ("which of my MCP servers are working", "connections", {}),
     ("do you have access to my linear account", "connections", {}),
-    ("check my email", "check_mail", {}),
+    ("check my email", "gmail__search_threads", {}),
+    ("draft an email to ravi saying I'll call him tonight", "gmail__create_draft", {}),
+]
+
+GMAIL = [
+    ("gmail__search_threads", "From the gmail service: Search Gmail threads with a Gmail search query, newest first.",
+     {"query": {"type": "string"}, "max_results": {"type": "integer"}}, []),
+    ("gmail__get_thread", "From the gmail service: Get one Gmail thread and all its messages.", {"thread_id": {"type": "string"}}, ["thread_id"]),
+    ("gmail__create_draft", "From the gmail service: Create a draft email for the person to review and send.",
+     {"to": {"type": "string"}, "subject": {"type": "string"}, "body": {"type": "string"}}, ["to", "body"]),
 ]
 
 CANNED = {
@@ -46,8 +55,9 @@ CANNED = {
     "whatsapp_read": "[Fri 23 Oct, 9:10 PM] Ravi Anna: did you reach?\n[Fri 23 Oct, 9:12 PM] Me: yes reached",
     "whatsapp_find": "Best matches out of 812 messages:\n[Mon 2 Mar, 4:01 PM in Ravi Anna] Me: Flat 402, Sai Residency, Road no 5, Banjara Hills, Hyderabad 500034",
     "look_at_screen": "Front app: Google Chrome\nWindow: Lofi Girl - YouTube\nGoogle Chrome tab in front: Lofi Girl - YouTube — https://www.youtube.com/watch?v=jfKfPfyJRdk",
-    "connections": "Internet: online\nModel: gpt-oss:20b\nWhatsApp: connected (linked as Venu)\nEmail: not set up (add it in Setup)\nMCP server linear (from Claude Code): needs sign-in (401 Unauthorized)\nMCP server freecad (from Claude Code): connected (14 tools)",
-    "check_mail": "Email is not set up, so there is no mail to read. It can be added in Setup with an app password.",
+    "connections": "Internet: online\nModel: gpt-oss:20b\nWhatsApp: connected (linked as Venu)\nEmail through gmail (from Claude Code): connected (9 tools)\nMCP server linear (from Claude Code): needs sign-in (401 Unauthorized)\nMCP server freecad (from Claude Code): connected (14 tools)",
+    "gmail__search_threads": "thread 18c2a (Sat 24 Oct, 2:10 PM) GitHub <noreply@github.com>: [open-slate] PR merged\nthread 18c1f (Fri 23 Oct) Priya: Dinner on Sunday?",
+    "gmail__create_draft": "Draft created: id r-551, to ravi@example.com.",
     "find_files": "/Users/venupulagam/Desktop/projects/open-slate (changed 14 Oct 2026)\n/Users/venupulagam/Documents/Resume 2026.pdf (changed 02 Sep 2026)",
     "open_file": "Opened /Users/venupulagam/Documents/Resume 2026.pdf in Finder.",
     "hand_off_coding": "Opened Claude Code in a Terminal window in /Users/venupulagam/Desktop/projects/open-slate with the task.",
@@ -60,6 +70,10 @@ async def main(base_url, model):
     tools.load()
     for registered in tools.REGISTRY.values():
         registered.needs = None
+    for name, description, props, required in GMAIL:
+        schema = {"type": "object", "properties": props, "required": required}
+        tools.REGISTRY[name] = tools.Tool(name=name, fn=None, description=description, schema=schema,
+                                          label=name, local_only=True, params=props)
     picked = []
 
     async def fake(name, args):

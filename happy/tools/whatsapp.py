@@ -179,7 +179,7 @@ async def whatsapp_find(
     people: Annotated[list[str], "people or groups it was sent to or from; empty searches every chat"] = None,
     sent_by_me: Annotated[bool, "true if I sent it, false if they sent it"] = None,
 ):
-    """Find a piece of information anywhere in WhatsApp, like an address, number or link, even when the message never uses that word. Searches every chat when no one is named."""
+    """Find a piece of information anywhere in WhatsApp, like an address, number or link, even when the message never uses that word. Searches every chat when no one is named. Not for what someone said lately: read their chat for that."""
     kind = kind_of(what)
     words = [w for w in re.findall(r"\w+", what.lower()) if len(w) > 2 and w not in (
         "the", "and", "that", "sent", "send", "for", "from", "with", "about", "message", "my", "his", "her", "their")]

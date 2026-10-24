@@ -46,7 +46,7 @@ def usable(spec):
 
 
 def normalised(spec):
-    out = {k: spec[k] for k in ("command", "args", "env", "cwd") if k in spec}
+    out = {k: spec[k] for k in ("command", "args", "env", "cwd", "headers") if k in spec}
     url = spec.get("url") or spec.get("serverUrl")
     if url:
         out["url"] = url

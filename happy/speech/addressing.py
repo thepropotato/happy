@@ -52,7 +52,7 @@ def addressed(text, name):
             continue
         after = words[i + 1] if i + 1 < len(words) else ""
         greeted = any(b in GREETINGS for b in before)
-        if greeted or not after or after in ",.!?;" or opens(after):
+        if greeted or not after or after in ",.!?;" or after.lower() in GREETINGS or opens(after):
             rest = text.split(word, 1)[1] if word in text else ""
             return rest.lstrip(" ,.!?;:-").strip()
     return None

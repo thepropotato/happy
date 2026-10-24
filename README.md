@@ -1,12 +1,12 @@
 # Happy
 
-A voice agent that lives on your computer, not inside a project folder. Say **"Hey Happy, …"** or hold the **right Option** key (right Ctrl on Windows), and it does the thing, out loud and on screen:
+A voice agent that lives on your computer, not inside a project folder. Bring your own MCP servers: anything you can add to Claude Code or Codex, Happy can use by voice, with Claude or with a model running on your own machine. Say **"Hey Happy, …"** or hold the **right Option** key (right Ctrl on Windows), and it does the thing, out loud and on screen:
 
 - "Set the brightness to 20." "Turn the keyboard light off." "Mute."
 - "Pause the video." "Next song." "Close this tab." "Switch to the Gmail tab."
 - "Open the happy project in VS Code." "Show my resume in Finder."
 - "Do I have unread WhatsApp messages?" "Find the address I sent my dad." "Tell mom I'll be late."
-- "Read my latest emails." "Summarise this article." "What's on my screen?"
+- "Read my latest emails." (through whichever email MCP server you add) "Summarise this article." "What's on my screen?"
 - "Build me a snake game." Happy opens a coding agent in a Terminal window with the task typed in, so you watch it work.
 
 Happy's face is its smile, sitting in the corner of the screen; drag it anywhere. The smile's shape is the state:
@@ -23,7 +23,7 @@ Happy's face is its smile, sitting in the corner of the screen; drag it anywhere
 | Something went wrong | a frown |
 | Wake word off | a faint flat line |
 
-A bubble beside it shows your words, the step in progress and the answer, with links you can click. The menu-bar icon has History, Setup, the wake-word switch and Quit.
+The smile is glossy green, grey while it loads, and red when something went wrong. A dark bubble beside it shows your words, the step in progress and the answer, with links you can click. The menu-bar icon has History, Setup, the wake-word switch and Quit.
 
 ## Install
 
@@ -32,7 +32,7 @@ git clone <this repo> happy && cd happy
 ./setup.sh          # Windows: .\setup.ps1
 ```
 
-`setup.sh` installs [uv](https://docs.astral.sh/uv/) if needed, puts a `happy` command in `~/.local/bin`, and opens the setup window. Everything Happy can work out is already filled in: the brain it found, the speech models it's downloading (about 500 MB), WhatsApp, and macOS permissions. You press **Start Happy**, and only scan a QR code if you want WhatsApp. No developer account or app signing is involved. Setup reopens from the menu-bar icon or with `happy setup`.
+`setup.sh` installs [uv](https://docs.astral.sh/uv/) and Claude Code if needed, puts a `happy` command in `~/.local/bin`, and opens the setup window. Everything Happy can work out is already filled in: the model it found, the speech models it's downloading (about 500 MB), WhatsApp, your MCP servers, and macOS permissions. You press **Start Happy**, and only scan a QR code if you want WhatsApp. No developer account or app signing is involved. Setup reopens from the menu-bar icon or with `happy setup`.
 
 ## Brains
 
@@ -44,7 +44,7 @@ Happy uses whatever you already have. `happy setup` lists what it finds, best fi
 | An API key: OpenAI, OpenRouter, Groq, Gemini or any OpenAI-compatible URL | That model |
 | Ollama or LM Studio running | The biggest local model that can call tools |
 
-Everyday commands (brightness, volume, the keyboard light, play and pause, tabs, opening and quitting apps, keyboard shortcuts) never touch a model. They're parsed directly, so they're instant and work the same with any brain. Local models get small, purpose-built tools that do the heavy lifting in code. On a 24 GB Mac, `gpt-oss:20b` picks the right tool 25–26 times out of 26 on `evals/choice.py`. "Is my email connected?" and similar are answered from the connections themselves, never by opening an app.
+Everyday commands (brightness, volume, the keyboard light, play and pause, tabs, opening and quitting apps, keyboard shortcuts) never touch a model. They're parsed directly, so they're instant and work the same with any brain. Local models get small, purpose-built tools that do the heavy lifting in code. On a 24 GB Mac, `gpt-oss:20b` picks the right tool 25–27 times out of 27 on `evals/choice.py`. "Is my email connected?" and similar are answered from the connections themselves, never by opening an app.
 
 ## Talking to it
 
@@ -57,10 +57,12 @@ Everyday commands (brightness, volume, the keyboard light, play and pause, tabs,
 
 ## Connections
 
-- **WhatsApp** ships with Happy, in `whatsapp_server`. It runs in its own Python environment under `~/.happy/envs` and keeps its data in `~/.happy/whatsapp`. Link it once from setup by scanning the QR code, the same way as WhatsApp Web.
-- **Email** is optional: any provider over IMAP with an app password, from the setup window. With Claude as the brain, your claude.ai Gmail connector works without it.
-- **MCP servers** already set up for Claude Code, Claude Desktop, Cursor, VS Code or Windsurf are picked up automatically. Claude uses them directly. Local models search them with `find_service_tool`.
-- **Coding** goes to the first agent installed (Claude Code, Codex, Gemini CLI, Cursor Agent, opencode, Qwen Code or Amp), opened in a visible Terminal. Without one, Happy pastes the task into the Claude app. With neither, it says it can't.
+- **Your MCP servers.** Paste the install command a service gives for Claude Code or Codex (or its MCP URL, or its JSON) into the Services box in Setup. Happy registers it in Claude Code's user list, so it's there for every model. Servers you already set up in Claude Code, Claude Desktop, Cursor, VS Code or Windsurf show up on their own. Each one shows whether it really answers. Servers that need a sign-in get a **Sign in** button: with Claude as the model it opens Claude Code's MCP screen, otherwise Happy signs in through your browser itself. Local models get a service's tools directly, while they fit.
+- **Email** comes from an email MCP server. With Claude, the claude.ai Gmail connector works as it is. Google's official Gmail server (`gmailmcp.googleapis.com`) is a preset in Setup. Google asks each person to bring their own OAuth client for it and keeps it in a developer preview. It searches, reads, labels and drafts mail, but doesn't send.
+- **WhatsApp** ships with Happy, in `whatsapp_server`, since nobody else serves it. It runs in its own Python environment under `~/.happy/envs` and keeps its data in `~/.happy/whatsapp`. Link it once from Setup by scanning the QR code, like WhatsApp Web.
+- **Coding** goes to the first agent installed (Claude Code, Codex, Gemini CLI, Cursor Agent, opencode, Qwen Code or Amp), opened in a visible Terminal.
+
+Setup installs Claude Code if it's missing. It keeps the list of services, and no subscription is needed for that.
 
 ## Make it yours
 
@@ -104,7 +106,7 @@ mic ──► Silero VAD ──► Parakeet (speech to text, on the CPU) ──�
 | `happy/speech` | microphone listener, transcription, "was that said to Happy?", the voice, text made speakable, model downloads |
 | `happy/agent` | quick commands that skip the model, the prompt, the Claude and OpenAI-compatible backends, choosing one |
 | `happy/tools` | every action, each defined once and handed to every backend |
-| `happy/integrations` | MCP client, MCP servers found in other apps, WhatsApp, connection status |
+| `happy/integrations` | MCP client with OAuth sign-in, servers found in other apps, adding your own, WhatsApp, connection status |
 | `happy/system` | macOS and Windows system calls |
 | `happy/ui` | the smile, the bubble and menu-bar icon, the setup and history windows, the talk key |
 | `whatsapp_server` | the WhatsApp bridge and MCP server Happy ships with |

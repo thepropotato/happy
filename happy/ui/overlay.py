@@ -16,7 +16,7 @@ from PySide6.QtWidgets import QApplication, QLabel, QMenu, QSystemTrayIcon, QVBo
 
 from happy import paths
 from happy.config import Config
-from happy.ui import smile
+from happy.ui import smile, theme
 from happy.ui.smile import HEIGHT, WIDTH, Mascot
 
 log = logging.getLogger("happy.ui")
@@ -148,10 +148,8 @@ class Bubble(QWidget):
         self.dots.start(450)
 
     def colours(self):
-        """Background, text, secondary text and link colours, following the system's light or dark look."""
-        if smile.dark_mode():
-            return QColor(44, 44, 46, 250), "#F5F5F7", "#98989D", "#4DA3FF"
-        return QColor(255, 255, 255, 252), "#1D1D1F", "#6E6E73", "#0A66D8"
+        """Background, text, secondary text and link colours: Happy's own dark look in every mode."""
+        return QColor(18, 21, 19, 246), theme.INK, theme.QUIET, theme.GREEN_SOFT
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -164,7 +162,7 @@ class Bubble(QWidget):
         path = QPainterPath()
         path.addRoundedRect(box, 13, 13)
         painter.setBrush(self.colours()[0])
-        painter.setPen(QPen(QColor(0, 0, 0, 40 if not smile.dark_mode() else 120), 0.8))
+        painter.setPen(QPen(QColor(255, 255, 255, 22), 0.8))
         painter.drawPath(path)
 
     def compose(self):

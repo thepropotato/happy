@@ -21,7 +21,6 @@ DEFAULTS = {
     "brain": {"kind": "auto", "model": "", "base_url": ""},
     "input": {"device": ""},
     "whatsapp": {"path": ""},
-    "mail": {"address": "", "imap_host": "", "smtp_host": ""},
 }
 
 COMMENTS = {

@@ -78,3 +78,41 @@ async def use_service_tool(
             return "arguments must be a JSON object."
     result = await hub.call(server, tool_name, arguments or {})
     return result
+
+
+def tool_name(server, name):
+    return re.sub(r"[^A-Za-z0-9_-]", "_", f"{server}__{name}")[:64]
+
+
+def short_schema(schema):
+    """The server's input schema with its long descriptions cut, to keep a small model's prompt small."""
+    schema = json.loads(json.dumps(schema or {"type": "object", "properties": {}}))
+    for spec in (schema.get("properties") or {}).values():
+        if isinstance(spec, dict) and len(spec.get("description", "")) > 100:
+            spec["description"] = spec["description"][:100]
+    schema.setdefault("required", [])
+    return schema
+
+
+def register_direct(most=40):
+    """Hands connected servers' tools to local models as their own, while they fit; the rest stay behind the search."""
+    from happy.tools import REGISTRY, Tool
+
+    added = 0
+    for server in hub.inherited():
+        if server.client is None:
+            continue
+        for item in server.tools:
+            if added >= most:
+                return added
+            name = tool_name(server.name, item.name)
+
+            async def run(_server=server.name, _tool=item.name, **arguments):
+                return await hub.call(_server, _tool, arguments)
+
+            schema = short_schema(item.input_schema)
+            REGISTRY[name] = Tool(name=name, fn=run, description=f"From the {server.name} service: {(item.description or item.name).strip()[:300]}",
+                                  schema=schema, label=f"{server.name}: {item.name.replace('_', ' ')}",
+                                  local_only=True, params=schema.get("properties") or {})
+            added += 1
+    return added

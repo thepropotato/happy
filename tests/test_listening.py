@@ -82,6 +82,11 @@ def test_a_sentence_that_only_starts_with_the_word_is_not_a_request():
     assert addressed("Happy", "Happy") == ""
 
 
+def test_a_greeting_after_the_name_is_a_request():
+    assert addressed("Daemon hello", "Daemon") == "hello"
+    assert addressed("Daemon, hello.", "Daemon") == "hello."
+
+
 @pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
 def test_the_name_is_acknowledged_while_the_sentence_is_still_going():
     """The chime comes when the name is heard, before the request has finished."""

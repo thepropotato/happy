@@ -9,6 +9,11 @@ if ! command -v uv >/dev/null 2>&1; then
   export PATH="$HOME/.local/bin:$PATH"
 fi
 
+if ! command -v claude >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/claude" ]; then
+  echo "Installing Claude Code, which keeps your list of MCP services (no subscription needed for that)…"
+  curl -fsSL https://claude.ai/install.sh | bash
+fi
+
 uv sync --quiet
 mkdir -p "$HOME/.local/bin"
 ln -sf "$PWD/.venv/bin/happy" "$HOME/.local/bin/happy"

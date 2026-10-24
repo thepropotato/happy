@@ -4,11 +4,13 @@ import asyncio
 import base64
 import logging
 import os
+import time
 
 from happy import paths
 from happy.tools import Image
 
 log = logging.getLogger("happy.mcp")
+logging.getLogger("mcp.client.auth").setLevel(logging.CRITICAL)
 
 
 def render(result):
@@ -39,14 +41,24 @@ class Server:
         self.task = None
         self.ready = None
         self.closing = None
+        self.tried = 0.0
+        self.interactive = False
 
     def target(self):
-        """A URL, or the server launched as a process whose chatter goes to a log instead of the terminal."""
+        """A remote server with its headers and sign-in, or a process whose chatter goes to a log instead of the terminal."""
         from mcp import StdioServerParameters
         from mcp.client.stdio import stdio_client
 
         if self.spec.get("url"):
-            return self.spec["url"]
+            import httpx2
+            from mcp.client.streamable_http import streamable_http_client
+
+            from happy.integrations import oauth
+
+            client = httpx2.AsyncClient(auth=oauth.provider(self.name, self.spec["url"], self.interactive),
+                                        headers=self.spec.get("headers") or {}, follow_redirects=True,
+                                        timeout=httpx2.Timeout(30, read=300))
+            return streamable_http_client(self.spec["url"], http_client=client)
         env = {**os.environ, **(self.spec.get("env") or {})}
         env.pop("ELECTRON_RUN_AS_NODE", None)
         params = StdioServerParameters(command=self.spec["command"], args=self.spec.get("args") or [],
@@ -68,22 +80,36 @@ class Server:
         except BaseException as error:
             while isinstance(error, BaseExceptionGroup) and error.exceptions:
                 error = error.exceptions[0]
-            self.error = str(error) or type(error).__name__
+            from happy.integrations.oauth import NeedsSignIn
+
+            self.error = "needs sign-in" if isinstance(error, NeedsSignIn) else str(error) or type(error).__name__
             log.info("%s did not connect: %s", self.name, self.error)
         finally:
             self.client = None
             self.ready.set()
 
     async def connect(self, timeout=25):
-        if self.task is None or self.task.done() and self.client is None and not self.error:
+        """Connects once; a server that failed is tried again after a short while, so a new sign-in is picked up."""
+        stale = self.task is not None and self.task.done() and self.client is None and time.monotonic() - self.tried > 15
+        if self.task is None or stale:
             self.ready, self.closing = asyncio.Event(), asyncio.Event()
             self.error = ""
+            self.tried = time.monotonic()
             self.task = asyncio.create_task(self.run())
         try:
             await asyncio.wait_for(self.ready.wait(), timeout)
         except asyncio.TimeoutError:
             self.error = "took too long to start"
         return self.client is not None
+
+    async def sign_in(self):
+        """Signs in through the browser, on screen, then connects with the new sign-in."""
+        await self.close()
+        self.task, self.client, self.interactive = None, None, True
+        try:
+            return await self.connect(timeout=320)
+        finally:
+            self.interactive = False
 
     async def call(self, tool, args, timeout=180):
         if not await self.connect():
