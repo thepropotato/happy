@@ -9,19 +9,16 @@ A voice agent that lives on your computer, not inside a project folder. Say **"H
 - "Read my latest emails." "Summarise this article." "What's on my screen?"
 - "Build me a snake game." Happy opens a coding agent in a Terminal window with the task typed in, so you watch it work.
 
-A small mascot sits in the corner of the screen. You can drag it anywhere, and it shows what Happy is doing: listening, thinking, working, speaking. A bubble beside it shows your words, the step in progress and the answer, with links you can click.
+The mascot sits in the corner of the screen, and you can drag it anywhere. Its states show in the light around it: a glow that follows your voice while listening, a sweep while thinking, a ring while working, a pulse while speaking. Until Happy is ready, the mascot is grey with a progress ring, and the bubble says exactly what it's still loading. A bubble beside it shows your words, the step in progress and the answer, with links you can click. A menu-bar icon has Setup, the wake-word switch and Quit.
 
 ## Install
 
 ```sh
 git clone <this repo> happy && cd happy
 ./setup.sh          # Windows: .\setup.ps1
-happy               # or: happy start, to run it in the background
 ```
 
-Setup installs [uv](https://docs.astral.sh/uv/) if needed, downloads about 500 MB of speech models, asks which brain to use, and puts a `happy` command in `~/.local/bin`. No developer account or app signing is involved.
-
-On macOS, grant your terminal **Microphone**, **Accessibility** (for the push-to-talk key, typing and clicking), **Screen Recording** (for "what's on my screen") and **Automation** (for Chrome, Safari, Finder and Terminal) when asked.
+`setup.sh` installs [uv](https://docs.astral.sh/uv/) if needed, puts a `happy` command in `~/.local/bin`, and opens the setup window. Everything Happy can work out is already filled in: the brain it found, the speech models it's downloading (about 500 MB), WhatsApp, and macOS permissions. You press **Start Happy**, and only scan a QR code if you want WhatsApp. No developer account or app signing is involved. Setup reopens from the menu-bar icon or with `happy setup`.
 
 ## Brains
 
@@ -37,7 +34,7 @@ Everyday commands (brightness, volume, the keyboard light, play and pause, tabs,
 
 ## Talking to it
 
-- **Wake word**: say its name at the start: "Happy, …" or "Hey Happy, …". Saying the name in passing ("I'm so happy") does nothing. Speech is transcribed on your computer and only acted on when it addresses Happy.
+- **Wake word**: say its name at the start: "Happy, …" or "Hey Happy, …". Saying the name in passing ("I'm so happy") does nothing. The name is matched by sound, so a name like "Daemon" still wakes it when it's heard as "Damon" or "demon". Speech is transcribed on your computer and only acted on when it addresses Happy.
 - **Push-to-talk**: hold the key while you talk. A quick tap listens until you stop speaking. Pressing it while Happy talks cuts it off.
 - **Follow-ups**: when Happy asks a question, it listens for the answer without needing its name again.
 - **Never silent**: it says "one sec" if a reply is slow to start, a short line when a slow task begins, and what it's still doing during long tasks.
@@ -45,8 +42,8 @@ Everyday commands (brightness, volume, the keyboard light, play and pause, tabs,
 
 ## Connections
 
-- **WhatsApp** comes from the separate `whatsapp-mcp` server. Setup finds it next to this folder, or you point `whatsapp.path` at it. Happy runs it in its own environment under `~/.happy/envs`.
-- **Email** works with any provider over IMAP with an app password: `happy connect mail`.
+- **WhatsApp** ships with Happy, in `servers/whatsapp`. It runs in its own Python environment under `~/.happy/envs` and keeps its data in `~/.happy/whatsapp`. Link it once from setup by scanning the QR code, the same way as WhatsApp Web.
+- **Email** is optional: any provider over IMAP with an app password, from the setup window. With Claude as the brain, your claude.ai Gmail connector works without it.
 - **MCP servers** already set up for Claude Code, Claude Desktop, Cursor, VS Code or Windsurf are picked up automatically. Claude uses them directly. Local models search them with `find_service_tool`.
 - **Coding** goes to the first agent installed (Claude Code, Codex, Gemini CLI, Cursor Agent, opencode, Qwen Code or Amp), opened in a visible Terminal. Without one, Happy pastes the task into the Claude app. With neither, it says it can't.
 
@@ -67,8 +64,7 @@ Settings live in `~/.happy/config.toml`: `voice` (14 Kyutai Pocket TTS voices), 
 | `happy` / `happy run` | run with the mascot, logging to this terminal |
 | `happy start` / `happy stop` | run in the background / stop it |
 | `happy ask "…"` / `happy chat` | type instead of talking (`--voice` to hear the answers) |
-| `happy setup` / `happy doctor` | choose things / check everything is in place |
-| `happy connect mail` / `happy connect whatsapp` | connect a service |
+| `happy setup` / `happy doctor` | open the setup window / check everything is in place |
 
 ## How it works
 
@@ -91,7 +87,8 @@ mic ──► Silero VAD ──► Parakeet (speech to text, on the CPU) ──�
 | `happy/brain` | the fast command parser, the Claude brain, the OpenAI-compatible brain, the prompt |
 | `happy/tools` | every action, each defined once and given to every brain |
 | `happy/connectors` | MCP client, WhatsApp server launcher, MCP servers found in other apps |
-| `happy/face` | the mascot, the bubble, the push-to-talk key |
+| `happy/face` | the mascot (`assets/happy.png`), the bubble, the menu-bar icon, the setup window, the push-to-talk key |
+| `servers/whatsapp` | the WhatsApp bridge and MCP server Happy ships with |
 | `happy/platforms` | macOS and Windows system calls |
 | `bench` | tool-choice benchmark with every tool mocked |
 
