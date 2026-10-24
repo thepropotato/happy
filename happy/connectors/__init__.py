@@ -58,6 +58,8 @@ class Server:
                 self.tools = (await client.list_tools()).tools
                 self.ready.set()
                 await self.closing.wait()
+        except asyncio.CancelledError:
+            self.error = "stopped"
         except BaseException as error:
             self.error = str(error) or type(error).__name__
             log.warning("%s did not connect: %s", self.name, self.error)

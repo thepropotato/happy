@@ -27,6 +27,12 @@ SPOKEN = {"whatsapp": "Checking WhatsApp.", "gmail": "Checking your mail.", "cal
           "drive": "Looking in your Drive.", "slack": "Checking Slack.", "linear": "Checking Linear."}
 
 
+GUIDE = """
+
+The 'happy' tools work this computer. Other connected services are yours to use too.
+To find a piece of information somewhere in WhatsApp (an address, a number, a link, details someone sent), use whatsapp_find first: the WhatsApp server's own searches only see the latest 50 messages."""
+
+
 def describe(name):
     """A label and a lead-in for a tool Claude Code runs itself."""
     if name in LABELS:
@@ -85,7 +91,7 @@ class Claude(Brain):
                 servers[name] = {"type": "stdio", "command": spec["command"], "args": spec.get("args") or [],
                                  "env": spec.get("env") or {}}
         return ClaudeAgentOptions(
-            system_prompt=system_prompt(self.cfg) + "\n\nThe 'happy' tools work this computer. Other connected services are yours to use too.",
+            system_prompt=system_prompt(self.cfg) + GUIDE,
             mcp_servers=servers,
             tools=BUILT_IN,
             can_use_tool=self.permit,

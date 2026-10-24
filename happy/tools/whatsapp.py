@@ -173,7 +173,7 @@ async def gather(clues, person, sent_by_me):
     return found
 
 
-@tool(say="Looking through your chats for that.", label="Searching WhatsApp for {what}", local_only=True, needs=connected)
+@tool(say="Looking through your chats for that.", label="Searching WhatsApp for {what}", needs=connected)
 async def whatsapp_find(
     what: Annotated[str, "what to find, like 'my address', 'phone number', 'the wifi password' or 'flight details'"],
     people: Annotated[list[str], "people or groups it was sent to or from; empty searches every chat"] = None,
