@@ -1,0 +1,197 @@
+"""Opening and closing apps, files, folders and links."""
+
+import difflib
+import os
+import shutil
+import sys
+import time
+import urllib.parse
+import webbrowser
+from pathlib import Path
+from typing import Annotated
+
+from happy.platforms import Failed, system
+from happy.tools import tool
+
+ALIASES = {
+    "vs code": "Visual Studio Code", "vscode": "Visual Studio Code", "code": "Visual Studio Code",
+    "chrome": "Google Chrome", "settings": "System Settings", "system preferences": "System Settings",
+    "word": "Microsoft Word", "excel": "Microsoft Excel", "powerpoint": "Microsoft PowerPoint",
+    "outlook": "Microsoft Outlook", "teams": "Microsoft Teams", "edge": "Microsoft Edge",
+    "brave": "Brave Browser", "files": "Finder", "explorer": "File Explorer", "mail": "Mail",
+    "claude": "Claude", "terminal": "Terminal", "iterm": "iTerm", "app store": "App Store",
+}
+
+PLACES = {
+    "desktop": Path.home() / "Desktop", "downloads": Path.home() / "Downloads",
+    "documents": Path.home() / "Documents", "home": Path.home(), "pictures": Path.home() / "Pictures",
+    "music": Path.home() / "Music", "movies": Path.home() / "Movies", "videos": Path.home() / "Videos",
+    "applications": Path("/Applications"),
+}
+
+
+def find_app(name):
+    """The installed app a spoken name most likely means."""
+    apps = system.installed_apps()
+    wanted = ALIASES.get(name.lower().strip(), name.strip())
+    lowered = {a.lower(): a for a in apps}
+    if wanted.lower() in lowered:
+        return lowered[wanted.lower()], apps[lowered[wanted.lower()]]
+    starts = [a for a in apps if a.lower().startswith(wanted.lower())]
+    if starts:
+        best = min(starts, key=len)
+        return best, apps[best]
+    inside = [a for a in apps if wanted.lower() in a.lower()]
+    if inside:
+        best = min(inside, key=len)
+        return best, apps[best]
+    close = difflib.get_close_matches(wanted.lower(), list(lowered), n=1, cutoff=0.7)
+    if close:
+        return lowered[close[0]], apps[lowered[close[0]]]
+    return None, None
+
+
+@tool(label="Opening {name}")
+def open_app(name: Annotated[str, "the app's name as said, like chrome or vs code"]):
+    """Open an app, or bring it to the front if it is already open."""
+    found, path = find_app(name)
+    if not found:
+        return f"No app called {name} is installed."
+    system.open_app(path)
+    return f"Opened {found}."
+
+
+@tool(label="Quitting {name}")
+def quit_app(name: Annotated[str, "the app's name"]):
+    """Quit an app."""
+    found, _ = find_app(name)
+    running = system.running_apps()
+    target = found if found in running else next((r for r in running if name.lower() in r.lower()), None)
+    if not target:
+        return f"{found or name} is not open."
+    system.quit_app(target)
+    return f"Quit {target}."
+
+
+def score(path, words, folders):
+    name = Path(path).name.lower()
+    joined = " ".join(words)
+    value = 0.0
+    if name == joined or Path(path).stem.lower() == joined:
+        value += 10
+    elif name.startswith(joined):
+        value += 6
+    elif all(w in name for w in words):
+        value += 4
+    value -= path.count(os.sep) * 0.3
+    if folders and Path(path).is_dir():
+        value += 2
+    if (Path(path) / ".git").exists():
+        value += 1.5
+    try:
+        age_days = (time.time() - Path(path).stat().st_mtime) / 86400
+        value += max(0.0, 2 - age_days / 30)
+    except OSError:
+        value -= 5
+    return value
+
+
+def locate(query, folders=False):
+    """Paths that a spoken description of a file or folder could mean, best first."""
+    query = query.strip().strip('"')
+    expanded = Path(os.path.expanduser(query))
+    if expanded.is_absolute() and expanded.exists():
+        return [str(expanded)]
+    key = query.lower().removesuffix(" folder").removeprefix("my ").strip()
+    if key in PLACES and PLACES[key].exists():
+        return [str(PLACES[key])]
+    words = [w for w in key.replace("-", " ").replace("_", " ").split()
+             if w not in ("the", "my", "folder", "file", "project", "repo")]
+    if not words:
+        return []
+    hits = system.spotlight(" ".join(words), folders_only=folders)
+    if not hits and folders:
+        hits = system.spotlight(" ".join(words))
+    return sorted(hits, key=lambda p: -score(p, words, folders))[:8]
+
+
+def code_editor(app):
+    lowered = app.lower()
+    if lowered in ("vs code", "vscode", "code", "visual studio code"):
+        cli = shutil.which("code")
+        return ("cli", cli) if cli else ("app", "Visual Studio Code")
+    if lowered == "cursor" and shutil.which("cursor"):
+        return "cli", shutil.which("cursor")
+    found, path = find_app(app)
+    if not found:
+        raise Failed(f"No app called {app} is installed.")
+    return "app", path
+
+
+@tool(label="Opening {what}")
+def open_file(
+    what: Annotated[str, "a path, or the name of a file or folder, like 'happy project' or 'resume pdf'"],
+    app: Annotated[str, "app to open it in, like 'vs code', 'finder' or 'preview'; empty for the default"] = "",
+    folder: Annotated[bool, "true if they mean a folder or project"] = False,
+):
+    """Find a file or folder on this computer and open it, in Finder, VS Code or any other app."""
+    hits = locate(what, folders=folder or app.lower() in ("vs code", "vscode", "code", "cursor"))
+    if not hits:
+        return f"Found nothing called {what}."
+    path = hits[0]
+    if app.lower() in ("finder", "file explorer", "explorer"):
+        system.open_path(path, reveal=not Path(path).is_dir())
+        where = "Finder" if sys.platform == "darwin" else "Explorer"
+    elif app:
+        kind, how = code_editor(app)
+        if kind == "cli":
+            import subprocess
+
+            subprocess.Popen([how, path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            system.open_path(path, app=how)
+        where = app
+    else:
+        system.open_path(path)
+        where = "its default app"
+    others = "" if len(hits) == 1 else " Other matches: " + "; ".join(hits[1:4])
+    return f"Opened {path} in {where}.{others}"
+
+
+@tool(label="Looking for {what}")
+def find_files(
+    what: Annotated[str, "name or part of the name"],
+    folder: Annotated[bool, "true to look only for folders"] = False,
+):
+    """Search this computer for files or folders by name, without opening anything."""
+    hits = locate(what, folders=folder)
+    if not hits:
+        return f"Found nothing called {what}."
+    lines = []
+    for path in hits:
+        try:
+            when = time.strftime("%d %b %Y", time.localtime(Path(path).stat().st_mtime))
+        except OSError:
+            when = "?"
+        lines.append(f"{path} (changed {when})")
+    return "\n".join(lines)
+
+
+def as_url(text):
+    text = text.strip()
+    if "://" in text:
+        return text
+    if " " not in text and "." in text:
+        return "https://" + text
+    return "https://www.google.com/search?q=" + urllib.parse.quote_plus(text)
+
+
+@tool(label="Opening {where}")
+def open_link(where: Annotated[str, "a full URL, a site like youtube.com, or words to search for"]):
+    """Open a website or a web search in the browser."""
+    url = as_url(where)
+    if sys.platform == "darwin":
+        system.open_path(url)
+    else:
+        webbrowser.open(url)
+    return f"Opened {url}."

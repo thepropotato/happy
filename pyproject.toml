@@ -1,0 +1,35 @@
+[project]
+name = "happy"
+version = "0.1.0"
+description = "A voice agent that lives on your computer."
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "numpy>=2.0",
+    "sounddevice>=0.5",
+    "sherpa-onnx>=1.12",
+    "pocket-tts>=1.0",
+    "PySide6-Essentials>=6.8",
+    "claude-agent-sdk>=0.1",
+    "openai>=1.60",
+    "mcp>=1.20",
+    "httpx>=0.28",
+    "tomlkit>=0.13",
+    "huggingface_hub>=0.30",
+    "pyobjc-framework-Quartz>=11; sys_platform == 'darwin'",
+    "pyobjc-framework-Cocoa>=11; sys_platform == 'darwin'",
+    "pyobjc-framework-ApplicationServices>=11; sys_platform == 'darwin'",
+    "pycaw>=20240316; sys_platform == 'win32'",
+    "screen-brightness-control>=0.24; sys_platform == 'win32'",
+    "pynput>=1.8; sys_platform != 'darwin'",
+    "sentencepiece>=0.2.2",
+]
+
+[project.scripts]
+happy = "happy.__main__:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = ["pytest>=8"]
