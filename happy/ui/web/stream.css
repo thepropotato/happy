@@ -1,0 +1,570 @@
+/* WHAT WAS SAID, WHAT WAS REACHED FOR, AND THE BOX FOR SAYING SOMETHING WITHOUT
+   SPEAKING.
+
+   WHO SAID WHAT IS SHOWN, NOT LABELLED: THE ASKING SITS RIGHT IN A BUBBLE AND
+   THE ANSWER IS PLAIN PROSE ACROSS THE FULL WIDTH. */
+
+.stream {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  user-select: text;
+}
+
+.stream::-webkit-scrollbar {
+  width: 6px;
+}
+
+.stream::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+/* THE EXCHANGE IS THE UNIT, SO ITS PARTS SIT CLOSE AND THE NEXT ONE STARTS WELL
+   CLEAR. EVENLY SPACED LINES CANNOT BE SKIMMED FOR WHERE A QUESTION ENDED, AND
+   AIR ALONE WAS NOT ENOUGH ONCE A TURN CARRIED TWO TOOL ROWS AND AN ANSWER —
+   THE RULE IS WHAT MAKES THE END OF ONE FINDABLE WITHOUT READING IT. */
+.turn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+/* THE LAST ONE HAS NOTHING TO BE SEPARATED FROM, AND A RULE UNDER IT WOULD READ
+   AS A LINE WAITING FOR SOMETHING THAT HAS NOT ARRIVED. */
+.turn:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.line {
+  max-width: 100%;
+  animation: rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* WHAT WAS ASKED. THE ONE CORNER THAT IS NOT ROUNDED POINTS AT WHOEVER SAID IT,
+   WHICH IS THE WHOLE OF WHY THE LABEL IS NOT NEEDED.
+
+   IT WEARS THE ACCENT, HELD WAY BACK. GREY WAS TRIED AND CAME OUT WITHIN A FIFTH
+   OF A PERCENT OF THE TOOL ROWS, SO THE THING A PERSON SAID AND THE MACHINERY
+   THAT ANSWERED IT READ AS ONE KIND OF OBJECT. THE ASKING IS THE ONE THING ON
+   THE PANEL SOMEBODY PUT THERE, SO IT IS TOLD APART BY HUE RATHER THAN BY A
+   BRIGHTNESS NOBODY CAN SEE — AND STILL SITS BACK BEHIND THE ANSWER. */
+.line.you {
+  align-self: flex-end;
+  max-width: 82%;
+  border: 1px solid rgba(var(--accent), 0.22);
+  border-radius: var(--r-lg) var(--r-lg) 4px var(--r-lg);
+  background: rgba(var(--accent), 0.14);
+  padding: 7px 11px;
+}
+
+.line .words {
+  line-height: 1.55;
+  color: var(--ink);
+  word-break: break-word;
+}
+
+/* THE ONE THING ON THE PANEL SOMEBODY IS ACTUALLY HERE TO READ, AND IT WAS SET
+   AT THE SAME SIZE AS THE MACHINERY AROUND IT. */
+.line.happy .words {
+  font-size: 13.5px;
+  line-height: 1.62;
+}
+
+/* SPOKEN, NOT WRITTEN: THE BREAKS ARE THE ONES THE MICROPHONE HEARD. */
+.line.you .words {
+  color: var(--asked, #d3e2cf);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+
+/* ── AN ANSWER, AS MARKDOWN ──
+
+   THE SAME PROSE AS BEFORE UNTIL HE REACHES FOR A LIST OR A FENCE. THE FIRST
+   BLOCK AND THE LAST GIVE UP THEIR MARGINS SO ONE PLAIN SENTENCE STILL SITS
+   EXACTLY WHERE A PLAIN SENTENCE USED TO. */
+.line.happy .words > *:first-child {
+  margin-top: 0;
+}
+
+.line.happy .words > *:last-child {
+  margin-bottom: 0;
+}
+
+.line.happy .words p {
+  margin: 0 0 8px;
+}
+
+.line.happy .words strong {
+  color: #fff;
+  font-weight: 620;
+}
+
+.line.happy .words em {
+  font-style: italic;
+}
+
+.line.happy .words del {
+  color: var(--faint);
+}
+
+.line.happy .words h1,
+.line.happy .words h2,
+.line.happy .words h3,
+.line.happy .words h4,
+.line.happy .words h5,
+.line.happy .words h6 {
+  margin: 14px 0 6px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.4;
+}
+
+.line.happy .words ul,
+.line.happy .words ol {
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+
+.line.happy .words li {
+  margin: 2px 0;
+}
+
+.line.happy .words li::marker {
+  color: var(--faint);
+}
+
+.line.happy .words code {
+  border-radius: 4px;
+  background: var(--block-open);
+  padding: 1px 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+}
+
+.line.happy .words pre {
+  margin: 0 0 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--block);
+  padding: 8px 10px;
+  overflow-x: auto;
+}
+
+.line.happy .words pre code {
+  background: none;
+  padding: 0;
+  line-height: 1.5;
+}
+
+.line.happy .words blockquote {
+  margin: 0 0 8px;
+  border-left: 2px solid var(--glow-soft);
+  padding-left: 10px;
+  color: var(--dim);
+}
+
+.line.happy .words hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+
+.line.happy .words a {
+  color: var(--glow);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.line.happy .words table {
+  margin: 0 0 8px;
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+}
+
+.line.happy .words th,
+.line.happy .words td {
+  border: 1px solid var(--line);
+  padding: 4px 8px;
+  text-align: left;
+}
+
+.line.happy .words th {
+  background: var(--block);
+  font-weight: 600;
+}
+
+.line.happy .words img {
+  max-width: 100%;
+  border-radius: var(--r-md);
+}
+
+/* ── ONE CALL, FOLDED ──
+
+   SHUT, IT IS ONE LINE: WHAT RAN AND WHY. OPENED, IT IS WHAT THE TOOL WAS HANDED
+   AND WHAT IT SAID BACK. THE FOLD IS THE ROW'S OWN, NEVER A BOX ROUND A RUN OF
+   THEM, AND ONLY THE DOT MOVES. */
+/* QUIETER THAN IT WAS. THESE ROWS ARE THE MACHINERY RATHER THAN THE
+   CONVERSATION, AND AT FULL WEIGHT THEY OUT-RANKED THE ANSWER THEY BELONG TO —
+   THEY STILL READ AT A GLANCE, THEY NO LONGER SHOUT. */
+.call {
+  align-self: stretch;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: transparent;
+  animation: rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: border-color 180ms, background 180ms;
+}
+
+.call:not(.open):hover {
+  background: var(--block-open);
+}
+
+.call.open {
+  border-color: var(--glow-soft);
+  background: var(--block-open);
+}
+
+.call > .face {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.call > .face.shut {
+  cursor: default;
+}
+
+.call .dot {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--faint);
+  transition: background var(--pane), box-shadow var(--pane);
+}
+
+/* STILL GOING. THIS IS THE WHOLE DIFFERENCE BETWEEN A PANEL THAT IS WORKING AND A
+   PANEL THAT LOOKS STUCK, SO IT IS THE ONE THING ON SCREEN THAT PULSES. */
+.call.running .dot {
+  background: var(--glow);
+  box-shadow: 0 0 8px var(--glow-soft);
+  animation: throb 1.1s ease-in-out infinite;
+}
+
+.call.failed .dot {
+  background: var(--bad);
+  box-shadow: none;
+  animation: none;
+}
+
+@keyframes throb {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.5;
+  }
+}
+
+/* THE NAME BELONGS TO THE TOOL AND NOT TO THE PROSE AROUND IT, SO IT IS SET LIKE
+   WHAT IT IS. */
+.call .what {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--faint);
+  opacity: 0.8;
+}
+
+.call:not(.running):not(.failed) .dot {
+  background: var(--good);
+  opacity: 0.8;
+}
+
+/* WHY IT RAN, IN THE MODEL'S OWN WORDS: THE HALF OF THE SHUT ROW A PERSON READS,
+   SO IT TAKES THE WIDTH. ONE LINE — WRAPPED SENTENCES DO NOT SKIM. */
+.call > .face .why {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* OPEN, THE WHOLE SENTENCE WRAPS RATHER THAN BEING CUT. */
+.call.open > .face {
+  flex-wrap: wrap;
+}
+
+.call.running > .face .why {
+  color: var(--ink);
+}
+
+.call.open > .face .why {
+  color: var(--ink);
+  line-height: 1.45;
+  white-space: normal;
+  overflow: visible;
+}
+
+/* WHAT THE ROUND THAT ASKED FOR THIS CALL READ. IT TAKES THE auto MARGIN SO IT
+   AND THE STOPWATCH SIT TOGETHER AT THE RIGHT EDGE, IN THAT ORDER; WITH NO COUNT
+   TO SHOW, THE STOPWATCH TAKES IT BACK AND THE ROW LOOKS AS IT ALWAYS DID.
+   DIMMER THAN THE CLOCK: IT IS THE SECOND THING YOU LOOK AT, NOT THE FIRST. */
+.call > .face .tokens {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--faint);
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.call > .face .took {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* THE COUNT ALREADY TOOK THE SLACK, SO THE CLOCK MUST NOT TAKE IT AGAIN OR THE
+   TWO END UP AT OPPOSITE ENDS OF THE ROW. */
+.call > .face .tokens + .took {
+  margin-left: 0;
+}
+
+.call > .face .go {
+  flex: 0 0 auto;
+  color: var(--faint);
+  font-size: 14px;
+  line-height: 1;
+  transition: transform var(--pane);
+}
+
+.call.open > .face .go {
+  transform: rotate(90deg);
+}
+
+/* LINED UP UNDER THE NAME AND NOT THE DOT, SO THE FOLD READS AS BELONGING TO THE
+   ROW ABOVE IT. */
+.call .inside {
+  display: none;
+  padding: 1px 8px 8px 20px;
+}
+
+.call.open .inside {
+  display: block;
+}
+
+.call .pair + .pair {
+  margin-top: 8px;
+}
+
+.call .label {
+  margin-bottom: 3px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.call .said {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--dim);
+  white-space: pre-wrap;
+  word-break: break-word;
+  /* A TOOL CAN HAND BACK A WHOLE PAGE. IT SCROLLS INSIDE ITS OWN ROW RATHER THAN
+     PUSHING THE CONVERSATION OFF THE PANEL. */
+  max-height: 150px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.call.failed .pair:last-child .said {
+  color: var(--bad);
+}
+
+/* ── WHAT IS HAPPENING RIGHT NOW ──
+
+   AT THE FOOT OF THE EXCHANGE IT IS ABOUT. IT SWEEPS RATHER THAN BLINKS: A BLINK
+   IS AN ALARM AND THIS IS NOT ONE. */
+.doing {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  animation: rise 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.doing .beat {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--state);
+  box-shadow: 0 0 8px var(--state-soft);
+  animation: throb 1.1s ease-in-out infinite;
+}
+
+.doing .word {
+  font-size: 11.5px;
+  background: linear-gradient(90deg, var(--faint) 30%, var(--ink) 50%, var(--faint) 70%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: sweep 1.9s linear infinite;
+}
+
+@keyframes sweep {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -60% 0;
+  }
+}
+
+/* ── THE MARGINALIA ── */
+
+/* ONE FAINT NUMBER UNTIL IT IS ASKED FOR: A BREAKDOWN UNDER EVERY ANSWER IS
+   SOMETHING NOBODY READS AND EVERYBODY SEES. */
+/* THE LEFT EDGE, WITH EVERYTHING ELSE THE TURN OWNS. IT WAS TRIED OUT AT THE
+   RIGHT, WHERE MARGINALIA USUALLY GOES, AND IT READ AS BELONGING TO THE ASKING
+   ABOVE IT RATHER THAN TO THE ANSWER IT IS ACTUALLY ABOUT. */
+.spent {
+  font-size: 10px;
+  color: rgba(107, 116, 106, 0.55);
+  font-variant-numeric: tabular-nums;
+  animation: rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.spent .parts {
+  display: none;
+  color: var(--faint);
+}
+
+.spent:hover .all {
+  display: none;
+}
+
+.spent:hover .parts {
+  display: inline;
+}
+
+.spent b {
+  color: var(--dim);
+  font-weight: 500;
+}
+
+.aside {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--faint);
+  animation: rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.aside.trouble {
+  color: var(--wait);
+}
+
+.empty:empty {
+  display: none;
+}
+
+.empty {
+  align-self: stretch;
+  padding: 20px 6px;
+  text-align: center;
+  color: var(--faint);
+  line-height: 1.6;
+}
+
+/* ITS OWN REGION, NOT THE BOTTOM OF THE CONVERSATION. NOTHING SAID WHERE THE
+   TALKING ENDED AND THE TYPING BEGAN, SO THE LAST ANSWER RAN STRAIGHT INTO THE
+   BOX UNDER IT. */
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 16px 16px;
+  flex: 0 0 auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.055);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.composer textarea {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font: inherit;
+  line-height: 17px;
+  padding: 9px 12px;
+  min-height: 37px;
+  max-height: calc(37px + 7 * 17px);
+  resize: none;
+  overflow-y: auto;
+  outline: none;
+  user-select: text;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  transition: border-color 180ms, background 180ms, box-shadow 180ms;
+}
+
+.composer textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.composer textarea::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.composer textarea::placeholder {
+  color: var(--faint);
+}
+
+.composer textarea:focus {
+  border-color: var(--glow-soft);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 3px rgba(var(--accent), 0.12);
+}
+

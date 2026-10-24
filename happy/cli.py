@@ -50,7 +50,7 @@ def run(args):
     try:
         from happy.ui.overlay import launch
 
-        return launch(Config())
+        return launch(Config(), settings_first=getattr(args, "settings", False))
     finally:
         if running_pid() == os.getpid():
             paths.LOCK.unlink(missing_ok=True)
@@ -61,7 +61,8 @@ def start(args):
         print("Happy is already running.")
         return 0
     log = open(paths.HOME / "happy.out", "a")
-    subprocess.Popen([sys.executable, "-m", "happy", "run", "--quiet"], stdout=log, stderr=subprocess.STDOUT,
+    subprocess.Popen([sys.executable, "-m", "happy", "run", "--quiet"] + (["--settings"] if args.settings else []),
+                     stdout=log, stderr=subprocess.STDOUT,
                      stdin=subprocess.DEVNULL, start_new_session=True)
     for _ in range(40):
         time.sleep(0.25)
@@ -108,9 +109,13 @@ def text_mode(args, once):
 
 
 def setup(args):
-    from happy.ui.setup_window import show_setup
-
-    return show_setup()
+    """Opens Happy on its settings; started in the background if it is not running yet."""
+    if running_pid():
+        print("Happy is running; its settings are in the panel (click the smile, then the settings button).")
+        return 0
+    args.quiet = False
+    args.settings = True
+    return run(args)
 
 
 def doctor(args):
@@ -185,8 +190,11 @@ def main():
     sub = parser.add_subparsers(dest="command")
     p = sub.add_parser("run", help="run in this terminal, with the mascot on screen")
     p.add_argument("--quiet", action="store_true")
+    p.add_argument("--settings", action="store_true", help="open on the settings")
     p.set_defaults(go=run)
-    sub.add_parser("start", help="run in the background").set_defaults(go=start)
+    p = sub.add_parser("start", help="run in the background")
+    p.add_argument("--settings", action="store_true", help="open on the settings")
+    p.set_defaults(go=start)
     sub.add_parser("stop", help="stop the background Happy").set_defaults(go=stop)
     for name, once in (("ask", True), ("chat", False)):
         p = sub.add_parser(name, help="type a request instead of speaking" if once else "type requests one after another")

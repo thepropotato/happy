@@ -60,14 +60,14 @@ class Happy:
                 await self.backend.start()
             except Exception as error:
                 log.exception("model did not start")
-                self.face.note(f"{self.backend.name} did not start: {error}")
+                self.face.trouble(f"{self.backend.name} did not start: {error}")
         self.ready.set()
         self.face.state("idle")
         key = (self.cfg.get("push_to_talk") or "").replace("_", " ")
         if self.backend is None:
-            self.face.note("Ready for everyday commands. Pick a model in Setup for everything else.")
+            self.face.ready("Ready for everyday commands. Pick a model in Settings for everything else.")
         else:
-            self.face.note(f"Ready. Say “{self.name}” or hold {key}.")
+            self.face.ready(f"Ready. Say “{self.name}” or hold {key}.")
         await self.quit.wait()
         if self.backend:
             await self.backend.close()
@@ -188,12 +188,12 @@ class Happy:
                 self.speaker.blip()
             self.face.state("listening")
         elif state == "transcribing":
-            self.face.state("thinking")
+            self.face.state("hearing")
         elif state in ("idle", "missed"):
             if not self.busy():
                 self.face.state("idle")
         elif state == "silent-mic":
-            self.face.note("The microphone is sending pure silence. Check the input device in Sound settings.")
+            self.face.trouble("The microphone is sending pure silence. Check the input device in Sound settings.")
 
     def speaking(self, talking):
         if self.listener:
@@ -251,10 +251,10 @@ class Happy:
             if found:
                 name, args = found
                 label = tools.REGISTRY[name].show(args)
-                self.face.step(label)
+                self.face.began("quick", name, label, args)
                 result = await quick.run(name, args)
                 self.steps.append({"tool": name, "label": label, "args": args, "result": result[:500], "ok": not result.startswith("Error")})
-                self.face.step_done(not result.startswith("Error"))
+                self.face.ended("quick", name, label, args, result[:2000], not result.startswith("Error"))
                 self.face.reply(result)
                 self.reply = result
                 self.say(self.plain(result))
@@ -297,19 +297,20 @@ class Happy:
                     self.answered = True
                     self.say(sentence)
                 self.activity = event.label
-                self.face.step(event.label)
+                call = f"c{len(self.steps)}"
+                self.face.began(call, event.tool, event.label, event.args)
                 self.face.state("working")
                 if event.say and not self.answered and time.monotonic() - self.spoken_at > 4:
                     self.say(event.say)
-                self.steps.append({"tool": event.tool, "label": event.label, "args": event.args})
+                self.steps.append({"tool": event.tool, "label": event.label, "args": event.args, "call": call})
                 log.info("tool %s %s", event.tool, event.args)
             elif isinstance(event, Acted):
                 self.last_result = event
                 for step in reversed(self.steps):
                     if step["tool"] == event.tool and "ok" not in step:
                         step.update(result=event.result[:500], ok=event.ok)
+                        self.face.ended(step.pop("call", ""), event.tool, step["label"], step["args"], event.result[:2000], event.ok)
                         break
-                self.face.step_done(event.ok)
                 log.info("tool %s %s: %s", event.tool, "ok" if event.ok else "failed", event.result[:300].replace("\n", " | "))
             elif isinstance(event, Problem):
                 self.face.reply(event.message)

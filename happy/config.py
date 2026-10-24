@@ -16,6 +16,7 @@ DEFAULTS = {
     "wake_word": True,
     "push_to_talk": "right_option" if MAC else "right_ctrl",
     "voice": "alba",
+    "colour": "#658761",
     "persona": "",
     "projects": "",
     "brain": {"kind": "auto", "model": "", "base_url": ""},

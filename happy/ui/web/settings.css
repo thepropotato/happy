@@ -1,0 +1,350 @@
+/* THE SETTINGS, IN THE PANEL ITSELF. THE SAME ROWS, LINES AND LIGHT AS THE
+   CONVERSATION THEY REPLACE WHILE THEY ARE OPEN. */
+
+.settings {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 14px 16px 20px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+  animation: settle 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.settings[hidden],
+.glass.tuning .stream,
+.glass.tuning .composer,
+.glass.tuning .hero {
+  display: none;
+}
+
+.settings::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settings::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.section {
+  margin-bottom: 18px;
+}
+
+.section > .title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 2px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.section > .title .state {
+  margin-left: auto;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-weight: 500;
+}
+
+.block {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--raise);
+  overflow: hidden;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  min-height: 40px;
+  padding: 8px var(--pad);
+}
+
+.row + .row {
+  border-top: 1px solid var(--line);
+}
+
+.row .label {
+  flex: 1;
+  min-width: 0;
+}
+
+.row .label .main {
+  color: var(--ink);
+  font-size: 12.5px;
+}
+
+.row .label .sub {
+  margin-top: 2px;
+  color: var(--faint);
+  font-size: 11px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.row .label .sub b {
+  color: var(--dim);
+  font-weight: 600;
+}
+
+.row .label .sub a {
+  color: var(--glow);
+  cursor: pointer;
+}
+
+.good {
+  color: var(--good);
+}
+
+.wait {
+  color: var(--wait);
+}
+
+.bad {
+  color: var(--bad);
+}
+
+.settings select,
+.settings input[type='text'],
+.settings input[type='password'] {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12.5px;
+  padding: 7px 10px;
+  outline: none;
+  user-select: text;
+  transition: border-color 180ms, background 180ms;
+}
+
+.settings select {
+  max-width: 62%;
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 26px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--faint) 50%), linear-gradient(135deg, var(--faint) 50%, transparent 50%);
+  background-position: calc(100% - 13px) 50%, calc(100% - 9px) 50%;
+  background-size: 4px 4px;
+  background-repeat: no-repeat;
+}
+
+.settings select option {
+  background: #1b1e1b;
+}
+
+.settings input[type='text'],
+.settings input[type='password'] {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings select:focus,
+.settings input:focus {
+  border-color: var(--glow-soft);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.settings input::placeholder {
+  color: var(--faint);
+}
+
+.fill {
+  width: 100%;
+}
+
+.button {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--dim);
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 6px 11px;
+  cursor: pointer;
+  transition: color 160ms, background 160ms, border-color 160ms, transform 160ms;
+}
+
+.button:hover {
+  color: var(--ink);
+  border-color: var(--glow-soft);
+  background: rgba(var(--accent), 0.14);
+}
+
+.button:active {
+  transform: scale(0.96);
+}
+
+.button.strong {
+  color: var(--ink);
+  border-color: var(--glow-soft);
+  background: rgba(var(--accent), 0.2);
+}
+
+.button[disabled] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ON OR OFF, DRAWN AS A SWITCH RATHER THAN A WORD. */
+.switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: background 180ms;
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ink);
+  transition: transform var(--spring);
+}
+
+.switch.on {
+  background: var(--glow);
+}
+
+.switch.on::after {
+  transform: translateX(14px);
+}
+
+.bar-progress {
+  height: 4px;
+  margin-top: 7px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.07);
+  overflow: hidden;
+}
+
+.bar-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--glow);
+  transition: width 300ms;
+}
+
+.qr {
+  display: grid;
+  place-items: center;
+  padding: 14px;
+}
+
+.qr img {
+  width: 200px;
+  height: 200px;
+  border-radius: var(--r-md);
+  background: #fff;
+  padding: 8px;
+}
+
+.adding {
+  display: flex;
+  gap: 8px;
+  padding: 8px var(--pad);
+  border-top: 1px solid var(--line);
+}
+
+.notice {
+  margin: 0 2px 12px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
+.notice:empty {
+  display: none;
+}
+
+/* THE FIRST TIME, THE WAY OUT OF SETTINGS IS THE WAY IN TO HAPPY. */
+.begin {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.begin .button {
+  padding: 9px 18px;
+  font-size: 12.5px;
+}
+
+/* IN THE SETTINGS THE HEADER SAYS WHERE YOU ARE AND HOW TO GET BACK. */
+.bar .back,
+.bar .heading-settings {
+  display: none;
+}
+
+.glass.tuning .bar .back {
+  display: grid;
+  -webkit-app-region: no-drag;
+  margin-left: -4px;
+  color: var(--ink);
+}
+
+.glass.tuning .bar .heading-settings {
+  display: inline;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.glass.tuning .bar .name,
+.glass.tuning .bar .small,
+.glass.tuning .bar .status,
+.glass.tuning .bar #controls {
+  display: none;
+}
+
+/* THE COLOUR HAPPY WEARS: A FEW TO PICK FROM, AND ANY OTHER. */
+.swatches {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: transform 160ms, border-color 160ms;
+}
+
+.swatch:hover {
+  transform: scale(1.12);
+}
+
+.swatch.on {
+  border-color: var(--ink);
+}
+
+.swatch.any {
+  position: relative;
+  overflow: hidden;
+  background: conic-gradient(#e5484d, #f5a524, #f5e050, #46a758, #3b82f6, #8e4ec6, #e5484d);
+}
+
+.swatch.any input {
+  position: absolute;
+  inset: -6px;
+  opacity: 0;
+  cursor: pointer;
+}

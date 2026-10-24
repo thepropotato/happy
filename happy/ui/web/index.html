@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' qrc:; img-src 'self' data:; font-src 'self'" />
+    <title>Happy</title>
+    <link rel="stylesheet" href="base.css" />
+    <link rel="stylesheet" href="panel.css" />
+    <link rel="stylesheet" href="stream.css" />
+    <link rel="stylesheet" href="settings.css" />
+  </head>
+
+  <body>
+    <div class="glass" id="glass">
+      <canvas class="aurora" id="aurora"></canvas>
+
+      <header class="bar">
+        <!-- THE SAME MOUTH, SHRUNK, ONCE THERE ARE WORDS THAT WANT THE ROOM. IT IS THE
+             ONLY MARK UP HERE: A DOT BESIDE IT SAID THE SAME THING WITH NONE OF THE LIFE. -->
+        <!-- THE WAY BACK OUT OF THE SETTINGS, WHERE A WAY BACK IS LOOKED FOR. -->
+        <button class="icon back" id="back" title="Back">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+        </button>
+        <span class="heading-settings">Settings</span>
+
+        <canvas class="small" id="small" title="Show Happy"></canvas>
+
+        <!-- WHAT HE IS DOING IS NOT UP HERE: IT BELONGS AT THE FOOT OF THE
+             EXCHANGE, WHERE THE READER IS ALREADY LOOKING. -->
+        <span class="name" id="name">Happy</span>
+        <span class="status" id="status"><span class="beat"></span><span id="mood">waking up</span></span>
+        <span class="spacer"></span>
+
+        <span class="icons">
+          <button class="icon" id="controls" title="Settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-9M8 20H3" />
+              <path d="M14 2v4M8 10v4M12 18v4" />
+            </svg>
+          </button>
+          <button class="icon" id="pin" title="Keep open">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 17v5" />
+              <path d="M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.8a2 2 0 0 0-1.1-1.8l-1.8-.9A2 2 0 0 1 15 10.8V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" />
+            </svg>
+          </button>
+          <!-- PUTS THE PANEL AWAY, NEVER HAPPY: HE IS STILL LISTENING WITH IT SHUT.
+               QUITTING IS IN THE MENU BAR ICON. -->
+          <button class="icon" id="tuck" title="Minimize">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M5 12h14" />
+            </svg>
+          </button>
+        </span>
+      </header>
+
+      <!-- THE ONE THING THAT IS WRONG, AND THE BUTTON THAT FIXES IT. -->
+      <div class="amiss" id="amiss" hidden>
+        <span class="words" id="amisswords"></span>
+        <button class="fix" id="amissfix">Allow</button>
+      </div>
+
+      <section class="hero" id="hero">
+        <canvas class="big" id="face" title="Tuck Happy away"></canvas>
+        <div class="greeting" id="greeting">Waking up</div>
+        <div class="hint" id="hint">One moment</div>
+        <div class="ideas" id="ideas"></div>
+      </section>
+
+      <main class="panes">
+        <div class="stream" id="stream"></div>
+
+        <div class="settings" id="settings" hidden></div>
+
+        <form class="composer" id="composer">
+          <textarea id="typed" rows="1" placeholder="Or type it here" autocomplete="off"></textarea>
+          <button class="composer-action" id="action" type="submit" aria-label="Send" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="action-icon">
+              <path d="m5 12 14 0 m-6 -6 6 6 -6 6" />
+            </svg>
+          </button>
+        </form>
+      </main>
+
+    </div>
+
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <script src="bridge.js"></script>
+    <script src="parts.js"></script>
+    <script src="tint.js"></script>
+    <script src="vendor/marked.js"></script>
+    <script src="vendor/purify.js"></script>
+    <script src="prose.js"></script>
+    <script src="aurora.js"></script>
+    <script src="smile/shapes.js"></script>
+    <script src="smile/drawing.js"></script>
+    <script src="smile/mouth.js"></script>
+    <script src="smile/life.js"></script>
+    <script src="ideas.js"></script>
+    <script src="talk.js"></script>
+    <script src="settings.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

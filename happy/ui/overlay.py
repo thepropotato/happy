@@ -1,28 +1,35 @@
-"""What is on screen: the smile in the corner, a bubble beside it, and a menu-bar icon."""
+"""What is on screen: the smile in the corner, and the panel it opens down the right edge, both drawn from ui/web."""
 
-import html
+import json
 import logging
 import os
-import re
-import subprocess
 import sys
 import threading
 import time
+import webbrowser
+from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QPoint, QPointF, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QFontMetrics, QGuiApplication, QIcon, QPainter, QPainterPath, QPen
-from PySide6.QtWidgets import QApplication, QLabel, QMenu, QSystemTrayIcon, QVBoxLayout, QWidget
+from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, QUrl, Signal, Slot
+from PySide6.QtGui import QGuiApplication, QIcon
+from PySide6.QtWebChannel import QWebChannel
+from PySide6.QtWebEngineCore import QWebEngineSettings
+from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QVBoxLayout, QWidget
 
-from happy import paths
+from happy import history, paths
 from happy.config import Config
-from happy.ui import smile, theme
-from happy.ui.smile import HEIGHT, WIDTH, Mascot
 
 log = logging.getLogger("happy.ui")
-URL = re.compile(r"(https?://[^\s<>()]+[^\s<>().,;:!?'\"])")
-LINGER = 9000
+WEB = Path(__file__).parent / "web"
 ASSETS = Path(__file__).parent / "assets"
+SMILE_SIZE = (120, 70)
+GAP = 10
+MOODS = {"idle": "idle", "asleep": "idle", "listening": "listening", "hearing": "hearing", "thinking": "thinking",
+         "working": "thinking", "speaking": "speaking", "error": "idle", "waking": "loading", "setup": "loading",
+         "done": "idle", "loading": "loading", "gone": "gone"}
+KEY_NAMES = {"right_option": "right Option", "right_command": "right Command", "right_ctrl": "right Control",
+             "right_shift": "right Shift", "right_alt": "right Alt", "fn": "Fn"}
 
 
 def native():
@@ -40,19 +47,33 @@ def no_dock_icon():
             log.exception("could not hide the Dock icon")
 
 
+def see_through(widget):
+    """On macOS: a window with nothing of its own to draw, so only the page's rounded panel and shadow show."""
+    if not native():
+        return
+    try:
+        import objc
+        from AppKit import NSColor
+
+        window = objc.objc_object(c_void_p=int(widget.winId())).window()
+        window.setOpaque_(False)
+        window.setBackgroundColor_(NSColor.clearColor())
+        window.setHasShadow_(False)
+    except Exception:
+        log.exception("could not clear the window")
+
+
 def float_above_everything(widget):
-    """On macOS: show on every Space, over full-screen apps, without stealing focus."""
+    """On macOS: show on every Space, over full-screen apps."""
     if not native():
         return
     try:
         import objc
 
-        view = objc.objc_object(c_void_p=int(widget.winId()))
-        window = view.window()
+        window = objc.objc_object(c_void_p=int(widget.winId())).window()
         window.setLevel_(25)
         window.setCollectionBehavior_(1 | 16 | 64 | 256)
         window.setHidesOnDeactivate_(False)
-        window.setCanHide_(False)
         if widget.isVisible() and not window.isOnActiveSpace():
             window.orderOut_(None)
             window.orderFrontRegardless()
@@ -60,38 +81,74 @@ def float_above_everything(widget):
         log.exception("could not float the window")
 
 
-class Body(QWidget):
-    tapped = Signal()
-    moved = Signal()
+class Channel(QObject):
+    """What a page and Python say to each other: an event down, an order up, one JSON line each."""
 
-    def __init__(self, face):
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.WindowDoesNotAcceptFocus)
-        self.face = face
+    event = Signal(str)
+
+    def __init__(self, on_order):
+        super().__init__()
+        self.on_order = on_order
+
+    @Slot(str)
+    def order(self, line):
+        try:
+            self.on_order(json.loads(line))
+        except Exception:
+            log.exception("could not follow an order from the page")
+
+
+class Web(QWidget):
+    """A frameless window holding one page from ui/web."""
+
+    def __init__(self, page, flags, on_order):
+        super().__init__(None, flags)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.setAttribute(Qt.WA_MacAlwaysShowToolWindow)
-        self.setFixedSize(WIDTH, HEIGHT)
-        self.mascot = Mascot()
+        self.connected = False
+        self.backlog = []
+        self.view = QWebEngineView(self)
+        self.view.setAttribute(Qt.WA_TranslucentBackground)
+        self.view.setStyleSheet("background: transparent")
+        self.view.page().setBackgroundColor(Qt.transparent)
+        settings = self.view.settings()
+        settings.setAttribute(QWebEngineSettings.LocalContentCanAccessFileUrls, True)
+        settings.setAttribute(QWebEngineSettings.LocalContentCanAccessRemoteUrls, False)
+        self.channel = Channel(lambda order: on_order(self, order))
+        self.web_channel = QWebChannel(self.view.page())
+        self.web_channel.registerObject("core", self.channel)
+        self.view.page().setWebChannel(self.web_channel)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.view)
+        self.view.load(QUrl.fromLocalFile(str(WEB / page)))
+
+    def send(self, word):
+        if self.connected:
+            self.channel.event.emit(json.dumps(word, default=str))
+        else:
+            self.backlog.append(word)
+
+    def opened(self):
+        self.connected = True
+        for word in self.backlog:
+            self.channel.event.emit(json.dumps(word, default=str))
+        self.backlog = []
+
+
+class Grip(QWidget):
+    """An invisible layer over the corner smile that takes the clicks and drags."""
+
+    def __init__(self, parent, face):
+        super().__init__(parent)
+        self.face = face
         self.pressed_at = None
         self.dragged = False
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.tick)
-        self.timer.start(16)
-        self.frame = 0
-
-    def tick(self):
-        self.frame += 1
-        if self.mascot.lively() or self.frame % 3 == 0:
-            self.mascot.origin = QPointF(self.mapToGlobal(self.rect().center()))
-            self.update()
-
-    def paintEvent(self, event):
-        self.mascot.paint(QPainter(self), self.width(), self.height())
+        self.setCursor(Qt.PointingHandCursor)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.pressed_at = event.globalPosition().toPoint()
-            self.start = self.pos()
+            self.start = self.window().pos()
             self.dragged = False
 
     def mouseMoveEvent(self, event):
@@ -101,289 +158,263 @@ class Body(QWidget):
         if delta.manhattanLength() > 4:
             self.dragged = True
         if self.dragged:
-            self.move(self.start + delta)
-            self.moved.emit()
+            self.window().move(self.start + delta)
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton and self.pressed_at is not None:
             if self.dragged:
                 self.face.remember_place()
             else:
-                self.tapped.emit()
+                self.face.toggle_panel()
         self.pressed_at = None
-
-    def enterEvent(self, event):
-        self.face.bubble.peek()
 
     def contextMenuEvent(self, event):
         self.face.menu().exec(event.globalPos())
 
 
-class Bubble(QWidget):
+class Panel(Web):
+    """The conversation and the settings, down the right edge of the screen."""
+
     def __init__(self, face):
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.WindowDoesNotAcceptFocus)
+        super().__init__("index.html", Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool, face.order)
         self.face = face
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.setAttribute(Qt.WA_MacAlwaysShowToolWindow)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 14)
-        self.label = QLabel()
-        self.label.setWordWrap(True)
-        self.label.setTextFormat(Qt.RichText)
-        self.label.setOpenExternalLinks(True)
-        self.label.setTextInteractionFlags(Qt.LinksAccessibleByMouse)
-        self.label.setFocusPolicy(Qt.NoFocus)
-        layout.addWidget(self.label)
-        self.heard = ""
-        self.step = ""
-        self.step_ok = None
-        self.answer = ""
-        self.note = ""
-        self.active = False
-        self.hide_timer = QTimer(self)
-        self.hide_timer.setSingleShot(True)
-        self.hide_timer.timeout.connect(self.fade)
-        self.dots = QTimer(self)
-        self.dots.timeout.connect(lambda: self.isVisible() and self.step and self.step_ok is None and self.render())
-        self.dots.start(450)
+        self.pinned = False
+        self.watching = None
+        QApplication.instance().applicationStateChanged.connect(self.app_state)
 
-    def colours(self):
-        """Background, text, secondary text and link colours: Happy's own dark look in every mode."""
-        return QColor(26, 26, 26, 248), theme.INK, theme.QUIET, theme.GOLD
+    def keeps_open(self):
+        return self.pinned or self.face.settings_first
 
-    def paintEvent(self, event):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        box = QRectF(self.rect()).adjusted(4, 4, -4, -6)
-        for spread, alpha in ((4, 18), (2, 24)):
-            painter.setPen(Qt.NoPen)
-            painter.setBrush(QColor(0, 0, 0, alpha))
-            painter.drawRoundedRect(box.adjusted(-spread / 2, 0, spread / 2, spread), 6, 6)
-        path = QPainterPath()
-        path.addRoundedRect(box, 5, 5)
-        painter.setBrush(self.colours()[0])
-        painter.setPen(QPen(QColor(theme.LINE), 1))
-        painter.drawPath(path)
+    def showEvent(self, event):
+        super().showEvent(event)
+        see_through(self)
+        self.watch_outside()
 
-    def compose(self):
-        _, ink, quiet, link = self.colours()
-        parts = []
-        if self.heard:
-            parts.append(f'<div style="color:{quiet};font-size:12px;margin-bottom:4px">“{html.escape(self.heard)}”</div>')
-        if self.step:
-            if self.step_ok is None:
-                dots = "." * (1 + int(time.monotonic() * 2.2) % 3)
-                parts.append(f'<div style="color:{quiet};font-size:12px;margin-bottom:4px">{html.escape(self.step)}{dots}</div>')
-            else:
-                mark = "✓" if self.step_ok else "✕"
-                parts.append(f'<div style="color:{quiet};font-size:12px;margin-bottom:4px">{mark} {html.escape(self.step)}</div>')
-        if self.answer:
-            text = html.escape(self.answer.strip())
-            text = URL.sub(lambda m: f'<a href="{m.group(1)}" style="color:{link}">{shorten(m.group(1))}</a>', text)
-            text = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text).replace("\n", "<br>")
-            parts.append(f'<div style="color:{ink};font-size:14px;line-height:135%">{text}</div>')
-        if self.note and not (self.heard or self.answer):
-            parts.append(f'<div style="color:{ink};font-size:13px">{html.escape(self.note)}</div>')
-        return "".join(parts)
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        self.stop_watching()
 
-    def render(self):
-        if not self.active:
+    def watch_outside(self):
+        """Closes the panel on a click anywhere outside it, which on macOS only another app ever sees."""
+        if not native() or self.watching is not None:
             return
-        content = self.compose()
-        if not content:
+        from AppKit import NSEvent, NSEventMaskLeftMouseDown, NSEventMaskRightMouseDown
+
+        def clicked(event):
+            if self.isVisible() and not self.keeps_open():
+                QTimer.singleShot(0, self.hide)
+
+        self.watching = NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
+            NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown, clicked)
+
+    def stop_watching(self):
+        if self.watching is not None:
+            from AppKit import NSEvent
+
+            NSEvent.removeMonitor_(self.watching)
+            self.watching = None
+
+    def app_state(self, state):
+        if state != Qt.ApplicationActive and self.isVisible() and not self.keeps_open() and not native():
             self.hide()
-            return
-        if content != self.label.text():
-            plain = max((self.answer, self.note, self.heard, self.step), key=len)
-            wide = int(QFontMetrics(self.label.font()).horizontalAdvance(plain) * 1.1) + 16
-            self.label.setFixedWidth(max(160, min(330, wide)))
-            self.label.setText(content)
-            self.adjustSize()
-            self.face.place_bubble()
-        if not self.isVisible():
-            self.setWindowOpacity(1.0)
-            self.winId()
-            float_above_everything(self)
-            self.show()
-            float_above_everything(self)
-            self.face.place_bubble()
 
-    def peek(self, ms=4000):
-        if self.compose():
-            self.active = True
-            self.hide_timer.stop()
-            self.render()
-            self.hide_timer.start(ms)
+    def place(self):
+        screen = (QGuiApplication.screenAt(self.face.mascot.geometry().center()) or QGuiApplication.primaryScreen()).availableGeometry()
+        width = max(380, round(screen.width() * 0.2))
+        self.setFixedSize(width, screen.height() - GAP * 2)
+        self.move(screen.right() - width - GAP + 1, screen.top() + GAP)
 
-    def linger(self, ms=LINGER):
-        self.hide_timer.start(ms)
-
-    def fade(self):
-        if self.underMouse():
-            self.hide_timer.start(2000)
-            return
-        self.active = False
-        self.hide()
-
-
-def shorten(url):
-    bare = re.sub(r"^https?://(www\.)?", "", url)
-    return bare if len(bare) <= 42 else bare[:40] + "…"
 
 
 class Face(QObject):
     """Thread-safe: every method can be called from any thread; drawing happens on the main one."""
 
-    posted = Signal(str, object)
+    posted = Signal(object)
 
     def __init__(self, app, cfg):
         super().__init__()
         no_dock_icon()
         self.app = app
         self.cfg = cfg
-        self.body = Body(self)
-        self.bubble = Bubble(self)
         self.happy = None
-        self.setup = None
+        self.keys = None
         self.restart = False
-        self.waiting_on = "Getting ready"
-        self.posted.connect(self.handle, Qt.QueuedConnection)
-        self.body.tapped.connect(self.tap)
-        self.body.moved.connect(self.place_bubble)
+        self.settings = None
+        self.settings_first = False
+        self.calls = {}
+        self.level_at = 0.0
+        self.mood = "loading"
+        self.posted.connect(self.deliver, Qt.QueuedConnection)
+        self.mascot = Web("mascot.html", Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.WindowDoesNotAcceptFocus,
+                          self.order)
+        self.mascot.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.mascot.setFixedSize(*SMILE_SIZE)
+        self.grip = Grip(self.mascot, self)
+        self.grip.setGeometry(0, 0, *SMILE_SIZE)
+        self.grip.raise_()
+        self.panel = Panel(self)
         self.tray = self.make_tray()
-        self.place_body()
+        self.place_mascot()
+
+    # ── windows ──
 
     def make_tray(self):
         if not QSystemTrayIcon.isSystemTrayAvailable():
             return None
-        if sys.platform == "darwin":
-            icon = QIcon(str(ASSETS / "trayTemplate.png"))
-            icon.setIsMask(True)
-        else:
-            icon = smile.icon(32)
+        icon = QIcon(str(ASSETS / "trayTemplate.png"))
+        icon.setIsMask(sys.platform == "darwin")
         tray = QSystemTrayIcon(icon)
         tray.setToolTip("Happy")
         tray.setContextMenu(self.menu())
+        tray.activated.connect(lambda reason: reason == QSystemTrayIcon.Trigger and self.toggle_panel())
         tray.show()
         return tray
 
-    def ready(self):
-        return self.body.mascot.ready()
+    def menu(self):
+        menu = QMenu()
+        menu.addAction("Show Happy", self.show_panel)
+        menu.addAction("Settings", lambda: (self.show_panel(), self.send_panel({"is": "open_settings"})))
+        menu.addSeparator()
+        menu.addAction("Restart Happy", self.do_restart)
+        menu.addSeparator()
+        menu.addAction("Quit", self.app.quit)
+        return menu
 
-    def place_body(self):
+    def place_mascot(self):
         screen = QGuiApplication.primaryScreen().availableGeometry()
         x, y = self.cfg.get("face.x"), self.cfg.get("face.y")
         if x is None or y is None or not screen.adjusted(-40, -40, 40, 40).contains(QPoint(int(x), int(y))):
-            x, y = screen.right() - WIDTH - 10, screen.bottom() - HEIGHT - 10
-        self.body.move(int(x), int(y))
+            x, y = screen.right() - SMILE_SIZE[0] - GAP, screen.bottom() - SMILE_SIZE[1] - GAP
+        self.mascot.move(int(x), int(y))
 
     def remember_place(self):
         cfg = Config()
-        cfg.set("face.x", self.body.x())
-        cfg.set("face.y", self.body.y())
+        cfg.set("face.x", self.mascot.x())
+        cfg.set("face.y", self.mascot.y())
         cfg.save()
 
-    def place_bubble(self):
-        body = self.body.geometry()
-        screen = (QGuiApplication.screenAt(body.center()) or QGuiApplication.primaryScreen()).availableGeometry()
-        size = self.bubble.sizeHint().expandedTo(self.bubble.size())
-        left = body.left() - size.width() + 10 if body.center().x() > screen.center().x() else body.right() - 10
-        top = body.bottom() - size.height() - 4
-        left = max(screen.left() + 4, min(left, screen.right() - size.width() - 4))
-        top = max(screen.top() + 4, min(top, screen.bottom() - size.height() - 4))
-        self.bubble.move(left, top)
-
     def show(self):
-        self.body.winId()
-        float_above_everything(self.body)
-        self.body.show()
-        float_above_everything(self.body)
+        self.mascot.winId()
+        see_through(self.mascot)
+        float_above_everything(self.mascot)
+        self.mascot.show()
+        float_above_everything(self.mascot)
 
-    def tap(self):
-        if not self.ready():
-            self.bubble.note = self.waiting_on
-            self.bubble.heard = self.bubble.answer = ""
-            self.bubble.active = True
-            self.bubble.render()
-            self.bubble.linger(5000)
-            if self.setup is not None:
-                self.setup.raise_()
-                self.setup.activateWindow()
-            return
-        if self.happy:
-            self.happy.key_down()
-            self.happy.key_up()
-
-    def menu(self):
-        menu = QMenu()
-        name = self.cfg.get("name") or "Happy"
-        status = menu.addAction(f"{name}: ready" if self.ready() else f"{name}: {self.waiting_on.lower()}")
-        status.setEnabled(False)
-        menu.addSeparator()
-        shown = QAction("Show on screen", menu, checkable=True)
-        shown.setChecked(self.body.isVisible())
-        shown.toggled.connect(lambda on: self.body.setVisible(on) or (on and float_above_everything(self.body)))
-        menu.addAction(shown)
-        wake = QAction(f"Wake up to “{name}”", menu, checkable=True)
-        wake.setChecked(bool(self.cfg.get("wake_word")))
-        wake.toggled.connect(self.toggle_wake)
-        menu.addAction(wake)
-        menu.addSeparator()
-        menu.addAction("History…", self.open_history)
-        menu.addAction("Setup…", self.open_setup)
-        menu.addAction("Log", lambda: open_file(paths.LOG))
-        menu.addSeparator()
-        menu.addAction(f"Quit {name}", self.app.quit)
-        menu.aboutToShow.connect(lambda: None)
-        return menu
-
-    def refresh_menu(self):
-        if self.tray:
-            self.tray.setContextMenu(self.menu())
-            name = self.cfg.get("name") or "Happy"
-            self.tray.setToolTip(f"{name} — ready" if self.ready() else f"{name} — {self.waiting_on.lower()}")
-
-    def open_setup(self, first=False):
-        from happy.ui.setup_window import Setup
-
-        if self.setup is None:
-            self.setup = Setup()
-            self.setup.started.connect(self.after_setup)
-            self.setup.destroyed.connect(lambda: setattr(self, "setup", None))
-            self.setup.setAttribute(Qt.WA_DeleteOnClose)
-            self.first_setup = first
-        self.setup.show()
-        self.setup.raise_()
-        self.setup.activateWindow()
+    def show_panel(self):
+        self.panel.place()
+        self.panel.winId()
+        float_above_everything(self.panel)
+        self.panel.show()
+        self.panel.raise_()
+        self.panel.activateWindow()
         if native():
             from AppKit import NSApplication
 
             NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+        self.send_panel({"is": "shown"})
 
-    def open_history(self):
-        from happy.ui.history_window import History
-
-        if getattr(self, "history", None) is None:
-            self.history = History()
-            self.history.setAttribute(Qt.WA_DeleteOnClose)
-            self.history.destroyed.connect(lambda: setattr(self, "history", None))
-        self.history.reload()
-        self.history.show()
-        self.history.raise_()
-        self.history.activateWindow()
-        if native():
-            from AppKit import NSApplication
-
-            NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
-
-    def after_setup(self):
-        if getattr(self, "first_setup", False) and self.happy is None:
-            self.cfg = Config()
-            self.start_happy()
+    def toggle_panel(self):
+        if self.panel.isVisible():
+            self.panel.hide()
         else:
-            self.restart = True
+            self.show_panel()
+
+    # ── to the pages ──
+
+    def emit(self, word):
+        self.posted.emit(word)
+
+    def deliver(self, word):
+        if word.get("to") == "panel":
+            self.panel.send({k: v for k, v in word.items() if k != "to"})
+            return
+        self.panel.send(word)
+        if word.get("is") in ("state", "level", "hush", "step", "trouble", "tint"):
+            self.mascot.send(word)
+
+    def send_panel(self, word):
+        self.emit({**word, "to": "panel"})
+
+    # ── from the pages ──
+
+    def order(self, page, order):
+        kind, value = order.get("kind"), order.get("value")
+        if kind == "connected":
+            page.opened()
+            page.send({"is": "tint", "colour": Config().get("colour") or "#658761"})
+        elif kind == "ask":
+            self.asked(value or {})
+        elif kind == "hide":
+            self.panel.hide()
+        elif kind == "show":
+            self.show_panel()
+        elif kind == "pin":
+            self.panel.pinned = bool(value)
+        elif kind == "open" and str(value).startswith(("http://", "https://")):
+            webbrowser.open(value)
+        elif kind == "allow" and self.settings:
+            self.settings.allow(value or "accessibility")
+        elif kind == "restart":
+            self.do_restart()
+        elif kind == "quit":
             self.app.quit()
+
+    def asked(self, order):
+        kind = order.get("do")
+        if kind == "hello":
+            self.hello()
+        elif kind == "say" and self.happy:
+            self.happy.typed(order.get("text", ""))
+        elif kind == "stop" and self.happy:
+            self.happy.key_down()
+            self.happy.key_cancel()
+        elif kind == "begin":
+            self.begin()
+        elif kind == "restart":
+            self.do_restart()
+        elif self.settings:
+            if kind == "settings" and self.settings.services is None:
+                pass
+            self.settings.order(order)
+
+    def hello(self):
+        cfg = Config()
+        from happy.agent.prompt import owner
+
+        self.send_panel({"is": "history", "messages": past()})
+        if self.happy and self.happy.ready.is_set():
+            self.send_panel(self.ready_word(cfg, owner()))
+        if self.settings:
+            self.settings.send()
+
+    def ready_word(self, cfg, name):
+        return {"is": "ready", "name": name, "called": cfg.get("name") or "Happy", "key": KEY_NAMES.get(cfg.get("push_to_talk"), "the talk key"),
+                "amiss": "" if self.trusted() else "Allow <b>Accessibility</b> so the talk key works anywhere."}
+
+    @staticmethod
+    def trusted():
+        if sys.platform != "darwin":
+            return True
+        from ApplicationServices import AXIsProcessTrusted
+
+        return bool(AXIsProcessTrusted())
+
+    def begin(self):
+        if self.settings and not self.settings.speech.get("ready"):
+            return
+        cfg = Config()
+        cfg.set("ready", True)
+        cfg.save()
+        self.cfg = cfg
+        self.settings_first = False
+        if self.settings:
+            self.settings.first = False
+            self.settings.send(started=True)
+        self.start_happy()
+
+    def do_restart(self):
+        self.restart = True
+        self.app.quit()
 
     def start_happy(self):
         from happy.app import Happy
@@ -395,111 +426,77 @@ class Face(QObject):
         self.keys.start()
         threading.Thread(target=self.happy.run, name="happy", daemon=True).start()
 
-    def toggle_wake(self, on):
-        cfg = Config()
-        cfg.set("wake_word", on)
-        cfg.save()
-        self.cfg = cfg
-        if self.happy and self.happy.listener:
-            self.happy.listener.wake_enabled = on
-        if self.ready():
-            self.post("state", "idle" if on else "asleep")
-
-    def post(self, kind, value=None):
-        self.posted.emit(kind, value)
-
-    def handle(self, kind, value):
-        bubble = self.bubble
-        mascot = self.body.mascot
-        if kind == "state":
-            if value == "idle" and not self.cfg.get("wake_word"):
-                value = "asleep"
-            mascot.set_state(value)
-            self.refresh_menu()
-            return
-        if kind == "progress":
-            text, fraction = value
-            self.waiting_on = text
-            mascot.set_state("setup" if fraction is None and text.startswith("Finish") else "waking")
-            mascot.progress = fraction
-            bubble.heard = bubble.answer = bubble.step = ""
-            share = f" · {int(fraction * 100)}%" if fraction is not None else ""
-            bubble.note = text if text.startswith(("Finish", "Not ready")) else f"Not ready yet · {text[0].lower() + text[1:]}{share}"
-            bubble.active = True
-            bubble.render()
-            bubble.linger(60000)
-            self.refresh_menu()
-            return
-        bubble.active = True
-        if kind == "user":
-            bubble.hide_timer.stop()
-            bubble.heard, bubble.step, bubble.step_ok, bubble.answer = value, "", None, ""
-        elif kind == "reply":
-            bubble.answer = value
-        elif kind == "reply_add":
-            bubble.answer += value
-        elif kind == "step":
-            bubble.step, bubble.step_ok = value, None
-        elif kind == "step_done":
-            bubble.step_ok = value
-        elif kind == "note":
-            bubble.heard = bubble.answer = bubble.step = ""
-            bubble.note = value
-            bubble.render()
-            bubble.linger(7000)
-            return
-        elif kind == "done":
-            if bubble.step and bubble.step_ok is None:
-                bubble.step_ok = True
-            mascot.set_state("done")
-            QTimer.singleShot(1500, lambda: mascot.state == "done" and mascot.set_state(
-                "idle" if self.cfg.get("wake_word") else "asleep"))
-            bubble.render()
-            bubble.linger()
-            return
-        bubble.render()
+    # ── what the core reports, in the words the pages understand ──
 
     def state(self, name):
-        self.post("state", name)
+        mood = MOODS.get(name, "idle")
+        if name == "idle" and self.happy and self.happy.ready.is_set() and self.mood == "loading":
+            from happy.agent.prompt import owner
+
+            self.send_panel(self.ready_word(Config(), owner()))
+        self.mood = mood
+        self.emit({"is": "state", "state": mood})
 
     def progress(self, text, fraction=None):
-        self.post("progress", (text, fraction))
+        self.mood = "loading"
+        self.emit({"is": "state", "state": "loading"})
+        self.send_panel({"is": "hint", "text": text})
 
     def user(self, text):
-        self.post("user", text)
+        self.emit({"is": "message", "who": "you", "text": text})
 
     def reply(self, text):
-        self.post("reply", text)
+        if text:
+            self.emit({"is": "message", "who": "happy", "text": text})
 
     def reply_add(self, delta):
-        self.post("reply_add", delta)
+        self.emit({"is": "piece", "text": delta})
 
-    def step(self, label):
-        self.post("step", label)
+    def began(self, call, tool, label, args):
+        self.calls[call] = time.monotonic()
+        self.emit({"is": "began", "id": call, "name": tool, "why": label, "args": args})
 
-    def step_done(self, ok):
-        self.post("step_done", ok)
+    def ended(self, call, tool, label, args, result, ok):
+        seconds = time.monotonic() - self.calls.pop(call, time.monotonic())
+        self.emit({"is": "step", "id": call, "name": tool, "why": label, "args": args, "result": result,
+                   "failed": not ok, "seconds": seconds})
 
     def note(self, text):
-        self.post("note", text)
+        self.emit({"is": "working", "text": text})
+
+    def trouble(self, text):
+        self.emit({"is": "trouble", "text": text})
+
+    def ready(self, text):
+        """Ready: the greeting names the talk key, so this line is only for the log."""
+        log.info(text)
 
     def done(self):
-        self.post("done")
+        self.emit({"is": "done"})
 
     def mouth(self, level):
-        self.body.mascot.mouth_level = level
+        self.level(level)
 
     def ear(self, level):
-        self.body.mascot.ear_level = level
+        self.level(level)
+
+    def level(self, value):
+        now = time.monotonic()
+        if now - self.level_at > 0.05:
+            self.level_at = now
+            self.emit({"is": "level", "level": round(float(value), 4)})
 
 
-def open_file(path):
-    if sys.platform == "darwin":
-        subprocess.Popen(["open", "-t", str(path)])
-    elif sys.platform == "win32":
-        os.startfile(str(path))
-    else:
-        subprocess.Popen(["xdg-open", str(path)])
+def past(limit=40):
+    """The conversation so far, oldest first, as the panel reads it back."""
+    rows = []
+    for turn in reversed(history.recent(limit=limit)):
+        rows.append({
+            "message": turn["request"], "reply": turn["reply"], "seconds": turn["seconds"],
+            "tools": [{"name": step.get("tool"), "why": step.get("label"), "args": step.get("args"),
+                       "result": step.get("result"), "failed": step.get("ok") is False} for step in turn["steps"]],
+        })
+    return rows
 
 
 def quiet_qt():
@@ -510,22 +507,29 @@ def quiet_qt():
     qInstallMessageHandler(lambda kind, context, message: qt_log.debug("%s", message))
 
 
-def launch(cfg):
-    """Runs Happy with its face, opening setup first if it has never been finished."""
+def launch(cfg, settings_first=False):
+    """Runs Happy with its smile and panel; the first time, the panel opens on the settings."""
     import signal
 
+    from happy.ui.settings import Settings
+
+    os.environ.setdefault("QTWEBENGINE_CHROMIUM_FLAGS", "--disable-features=TranslateUI")
     app = QApplication.instance() or QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("Happy")
     quiet_qt()
-    theme.load_fonts()
     face = Face(app, cfg)
+    first = not cfg.get("ready")
+    face.settings_first = first
+    face.settings = Settings(face.send_panel, first=first, tint=lambda colour: face.emit({"is": "tint", "colour": colour}))
+    face.settings.start()
     face.show()
-    if cfg.get("ready"):
+    if first or settings_first:
+        face.show_panel()
+        if not first:
+            face.send_panel({"is": "open_settings"})
+    if not first:
         face.start_happy()
-    else:
-        face.progress("Finish setting me up in the window that just opened.")
-        face.open_setup(first=True)
     signal.signal(signal.SIGTERM, lambda *_: app.quit())
     signal.signal(signal.SIGINT, lambda *_: app.quit())
     beat = QTimer()

@@ -1,0 +1,15 @@
+html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        user-select: none;
+      }
+
+      /* THE SAME MOUTH AS THE PANEL'S, ON ITS OWN IN THE CORNER. */
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }

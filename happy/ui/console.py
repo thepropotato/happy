@@ -42,13 +42,19 @@ class ConsoleFace:
             self.out("")
             self.streaming = False
 
-    def step(self, label):
+    def began(self, call, tool, label, args):
         self.close_line()
         self.out(f"\033[2m  · {label}\033[0m")
 
-    def step_done(self, ok):
+    def ended(self, call, tool, label, args, result, ok):
         if not ok:
             self.out("\033[2m    (that step failed)\033[0m")
+
+    def trouble(self, text):
+        self.note(text)
+
+    def ready(self, text):
+        self.note(text)
 
     def note(self, text):
         if not self.quiet:

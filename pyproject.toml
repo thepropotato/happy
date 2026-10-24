@@ -22,6 +22,7 @@ dependencies = [
     "screen-brightness-control>=0.24; sys_platform == 'win32'",
     "pynput>=1.8; sys_platform != 'darwin'",
     "pyobjc-framework-avfoundation>=11 ; sys_platform == 'darwin'",
+    "pyside6-webengine>=6.12",
 ]
 
 [project.scripts]

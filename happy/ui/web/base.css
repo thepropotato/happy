@@ -1,0 +1,485 @@
+/* THE SHELL, THE LIGHT BEHIND IT, THE HEADER, AND THE MOUTH.
+
+   ONE SET OF SURFACES FOR THE WHOLE WINDOW. ONLY THE THING SOMEBODY HAS OPENED
+   GETS A SURFACE; EVERYTHING ELSE IS SEPARATED BY A LINE. */
+
+:root {
+  --ink: #eef1ec;
+  --dim: #9aa49a;
+  --faint: #6b746a;
+
+  --line: rgba(255, 255, 255, 0.07);
+  --edge: rgba(255, 255, 255, 0.14);
+  --raise: rgba(255, 255, 255, 0.045);
+  --sunk: rgba(255, 255, 255, 0.026);
+
+  /* SOLID, NOT A WASH: THE AURORA MOVING BEHIND A CALL'S ARGUMENTS IS THE
+     HARDEST THING ON THE PANEL TO READ. */
+  --block: #141614;
+  --block-open: #1b1e1b;
+
+  /* THE MOUTH'S OWN LIP COLOUR. app.js RESETS THESE TWO PER MOOD, SO THIS IS THE
+     VALUE EVERYTHING WEARS BEFORE THE FIRST STATE LANDS — IT HAS TO BE THE SAME
+     GREEN THE MASCOT IS DRAWN IN. */
+  --glow: #7fa37a;
+  --glow-soft: rgba(127, 163, 122, 0.5);
+
+  /* WHAT HAPPY IS DOING, AS A COLOUR. THE LIGHT BEHIND THE PANEL WEARS IT AND SO
+     DOES THE DOT BESIDE THE WORD, BECAUSE A DOT WHOSE WHOLE JOB IS NAMING THE
+     STATE CANNOT BE THE ONE THING THAT STAYS THE SAME THROUGH ALL OF THEM.
+     app.js RESETS IT PER STATE; THIS IS WHAT IT WEARS BEFORE THE FIRST ONE. */
+  --state: #658761;
+  --state-soft: rgba(101, 135, 97, 0.5);
+
+  /* THE ACCENT AS A COMPONENT LIST, SO A RULE CAN ASK FOR IT AT ANY STRENGTH
+     WITHOUT RESTATING THE NUMBERS AND DRIFTING OUT OF STEP WITH IT.
+
+     UNLIKE --glow THIS ONE DOES NOT MOVE WITH THE MOOD. IT DRESSES THINGS THAT
+     ARE ALREADY ON THE PANEL AND FINISHED — A SENTENCE SOMEBODY SAID DOES NOT
+     CHANGE COLOUR BECAUSE HAPPY HAS STARTED THINKING ABOUT THE NEXT ONE. */
+  --accent: 101, 135, 97;
+
+  /* THE ACCENT MOVES WITH HAPPY'S MOOD, SO WHAT IS WORKING AND WHAT WANTS MINDING
+     CANNOT BE SAID IN IT. THESE THREE STAY PUT. */
+  --good: #4ad6a0;
+  --wait: #f5a524;
+  --bad: #ff8080;
+
+  /* ONE RHYTHM FOR EVERY ROW IN THE WINDOW, SO A CONNECTION AND A SETTING AND A
+     SECTION ALL SIT ON THE SAME GRID INSTEAD OF EACH PICKING ITS OWN PADDING. */
+  --pad: 11px;
+  --gap: 10px;
+  --r-lg: 13px;
+  --r-md: 10px;
+  --r-sm: 7px;
+
+  --pane: 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  --spring: 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('fonts/InterVariable.ttf') format('truetype');
+  font-weight: 100 900;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+  font-size: 13px;
+  color: var(--ink);
+}
+
+/* WHERE THE TAB KEY HAS LANDED, DRAWN IN THE SAME LIGHT AS EVERYTHING ELSE HERE.
+   THE BROWSER'S OWN RING IS A WHITE HAIRLINE NOBODY CHOSE, LAID SQUARE OVER
+   ROUNDED ROWS. A MOUSE NEVER SEES THIS ONE: A RING LEFT SITTING ON THE BUTTON
+   SOMEBODY JUST CLICKED READS AS STUCK RATHER THAN AS WHERE THEY ARE. */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 1px solid var(--glow);
+  outline-offset: 2px;
+}
+
+.glass {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(19, 20, 19, 0.97);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+  opacity: 0;
+  transform: scale(0.985);
+  animation: arrive 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes arrive {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+}
+
+/* THE SAME ARRIVAL, UNDER THE NAME THE CONTROLS HAVE ALWAYS CALLED IT. */
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+}
+
+/* IT WAS BUILT TO BE SEEN BEHIND A FACE THAT OWNED AN EMPTY PANEL. WITH A
+   CONVERSATION IN FRONT OF IT, THE SAME LIGHT WAS THE LOUDEST THING ON SCREEN —
+   A CLOUD FILLING THE EMPTY HALF AND COMPETING WITH EVERY WORD OVER IT. IT IS
+   ATMOSPHERE, SO IT SITS UNDER THE WORDS RATHER THAN AGAINST THEM.
+
+   IT CARRIES THE STATE NOW, THOUGH, SO IT CANNOT SIT SO FAR UNDER THEM THAT THE
+   STATE GOES WITH IT: AMBER AGAINST GREEN IS A DIFFERENCE YOU CAN SEE AT A
+   GLANCE WHERE VIOLET AGAINST VIOLET WAS NOT, BUT ONLY IF THERE IS ENOUGH OF IT
+   ON SCREEN TO NAME. THIS IS THE MOST IT CAN HAVE WITHOUT THE WORDS OVER IT
+   HAVING TO COMPETE AGAIN — NOT THE 0.85 IT WORE WHEN THE PANEL WAS A FACE AND
+   NOTHING ELSE. */
+.aurora {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+/* WHOSE WINDOW THIS IS, AND WHICH KEY TALKS TO IT. WHAT HE IS DOING IS NOT UP
+   HERE: IT SITS AT THE FOOT OF THE EXCHANGE IT BELONGS TO, WHERE WHOEVER IS
+   READING IS ALREADY LOOKING. */
+.bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 12px 11px 14px;
+  flex: 0 0 auto;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  -webkit-app-region: drag;
+}
+
+.name {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.icons {
+  display: flex;
+  gap: 3px;
+}
+
+/* DRAWN, NOT TYPED. A GLYPH BORROWED OFF A KEYBOARD READS AS A KEY, WHICH IS
+   EXACTLY THE WRONG THING FOR A BUTTON TO SAY. */
+.icon {
+  -webkit-app-region: no-drag;
+  width: 26px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--faint);
+  font: inherit;
+  cursor: pointer;
+  transition: color 160ms, border-color 160ms, background 160ms, transform 160ms;
+}
+
+.icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.icon:hover {
+  color: var(--ink);
+  background: var(--raise);
+  border-color: var(--line);
+}
+
+.icon:active {
+  transform: scale(0.92);
+}
+
+.icon.on {
+  color: var(--ink);
+  border-color: var(--glow-soft);
+  background: rgba(var(--accent), 0.16);
+}
+
+.composer-action {
+  width: 36px;
+  height: 37px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--dim);
+  cursor: pointer;
+  opacity: 1;
+  transition: color 160ms, background 160ms, transform 160ms, border-color 160ms;
+}
+
+.composer-action svg {
+  width: 14px;
+  height: 14px;
+}
+
+.composer-action.send:hover,
+.composer-action.pause:hover {
+  color: var(--ink);
+  background: rgba(var(--accent), 0.2);
+}
+
+.composer-action.send:active,
+.composer-action.pause:active {
+  transform: scale(0.92);
+}
+
+.composer-action.disabled,
+.composer-action:disabled {
+  cursor: default;
+  color: var(--faint);
+  background: rgba(255, 255, 255, 0.035);
+  opacity: 0.55;
+}
+
+.composer-action.pause {
+  color: var(--ink);
+  background: rgba(var(--accent), 0.16);
+  border-color: var(--glow-soft);
+}
+
+/* THE MOUTH OWNS THE PANEL WHILE THERE IS NOTHING TO READ, AND GETS OUT OF THE
+   WAY THE MOMENT THERE IS. */
+.hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 auto;
+  padding: 26px 0 18px;
+  overflow: hidden;
+  transition: padding var(--pane), opacity var(--pane), max-height var(--pane);
+  max-height: 520px;
+}
+
+/* WITH NOTHING SAID YET HE OWNS THE PANEL, AND SITS IN THE MIDDLE OF IT RATHER THAN AT THE TOP.
+   ONCE THERE IS A CONVERSATION THE STREAM TAKES THE ROOM AND SCROLLS, WHETHER HE IS OUT OR NOT. */
+.glass.blank:not(.tucked) .hero {
+  flex: 1 1 auto;
+  max-height: none;
+  justify-content: center;
+  padding-bottom: 40px;
+}
+
+.glass.blank:not(.tucked) .panes {
+  flex: 0 0 auto;
+}
+
+.glass.blank:not(.tucked) .stream {
+  flex: 0 0 auto;
+  padding: 0;
+}
+
+/* OUT BESIDE A CONVERSATION, ONLY THE FACE AND THE GREETING: THE IDEAS ARE FOR AN EMPTY PANEL. */
+.glass:not(.blank) .ideas {
+  display: none;
+}
+
+.glass:not(.blank) .hero {
+  max-height: 240px;
+  padding-top: 8px;
+}
+
+.glass.tucked .hero {
+  max-height: 0;
+  padding: 0;
+  opacity: 0;
+}
+
+.hero .big {
+  width: 250px;
+  height: 128px;
+  cursor: pointer;
+}
+
+.greeting {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.hint {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+
+.hint b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* A FEW THINGS TO ASK, FOR SOMEBODY WHO DOES NOT KNOW YET WHAT HE CAN DO. */
+.ideas {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  width: 100%;
+  margin-top: 22px;
+  padding: 0 22px;
+}
+
+.idea {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--raise);
+  color: var(--dim);
+  font: inherit;
+  font-size: 12.5px;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+  animation: rise 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: color 160ms, background 160ms, border-color 160ms, transform 160ms;
+}
+
+.idea:nth-child(2) { animation-delay: 60ms; }
+.idea:nth-child(3) { animation-delay: 120ms; }
+.idea:nth-child(4) { animation-delay: 180ms; }
+
+.idea svg {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  color: var(--glow);
+}
+
+.idea:hover {
+  color: var(--ink);
+  border-color: var(--glow-soft);
+  background: rgba(var(--accent), 0.1);
+}
+
+.idea:active {
+  transform: scale(0.985);
+}
+
+/* WHAT HE IS DOING, BESIDE HIS NAME, IN HIS OWN WORDS. */
+.status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--dim);
+  transition: opacity 200ms;
+}
+
+.status .beat {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--state);
+  box-shadow: 0 0 8px var(--state-soft);
+}
+
+#mood {
+  transition: opacity 200ms;
+}
+
+#mood.fade {
+  opacity: 0;
+}
+
+/* THE SAME MOUTH, SHRUNK INTO THE HEADER. TAPPING IT BRINGS THE BIG ONE BACK. */
+.small {
+  -webkit-app-region: no-drag;
+  width: 0;
+  height: 22px;
+  margin-left: -9px;
+  opacity: 0;
+  cursor: pointer;
+  transition: width var(--pane), opacity var(--pane), margin var(--pane);
+}
+
+.glass.tucked .small {
+  width: 32px;
+  margin-left: 0;
+  opacity: 1;
+}
+
+/* THE ONE THING THAT IS WRONG, WHEN SOMETHING IS, AND THE BUTTON THAT FIXES IT. */
+.amiss {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  flex: 0 0 auto;
+  margin: 0 12px 8px;
+  padding: 9px 11px;
+  border: 1px solid rgba(245, 165, 36, 0.28);
+  border-radius: var(--r-lg);
+  background: rgba(245, 165, 36, 0.07);
+  animation: settle 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.amiss[hidden] {
+  display: none;
+}
+
+.amiss .words {
+  flex: 1;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #f0d5a8;
+}
+
+.amiss .words b {
+  color: #fff;
+  font-weight: 600;
+}
+
+.amiss .fix {
+  flex: 0 0 auto;
+  border: 1px solid rgba(245, 165, 36, 0.45);
+  border-radius: var(--r-sm);
+  background: rgba(245, 165, 36, 0.16);
+  color: #ffe6bd;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background 160ms, transform 160ms;
+}
+
+.amiss .fix:hover {
+  background: rgba(245, 165, 36, 0.28);
+}
+
+.amiss .fix:active {
+  transform: scale(0.96);
+}
