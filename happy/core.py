@@ -150,7 +150,9 @@ class Happy:
             self.ears.mute_wake(talking)
         if talking:
             self.face.state("speaking")
-        elif not self.busy():
+        elif self.busy():
+            self.face.state("working" if self.activity else "thinking")
+        else:
             self.face.state("idle")
 
     def busy(self):
@@ -189,6 +191,7 @@ class Happy:
                 self.speaker.stop()
             self.face.reply("")
             self.face.state("idle")
+            self.face.done()
             return
         self.face.state("thinking")
         started = time.monotonic()
