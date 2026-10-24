@@ -48,6 +48,7 @@ class Speaker:
         self.last_sound = 0.0
         self.speaking = False
         self.chime_until = 0.0
+        self.recent = collections.deque(maxlen=4)
 
     def warm(self):
         """Downloads and prepares the voice without starting to play anything."""
@@ -80,6 +81,7 @@ class Speaker:
         spoken = speakable(text)
         if spoken and any(c.isalnum() for c in spoken):
             log.info("saying: %s", spoken)
+            self.recent.append(spoken)
             with self.busy_lock:
                 self.busy += 1
             self.texts.put(spoken)

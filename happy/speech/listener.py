@@ -3,6 +3,8 @@
 import collections
 import logging
 import queue
+import re
+import sys
 import threading
 import time
 
@@ -43,6 +45,15 @@ def pick_mic(wanted=""):
     return (devices[0][0], devices[0][1]["name"]) if devices else (None, "none")
 
 
+FILLERS = {"um", "uh", "hmm", "mm", "mhm", "ah", "oh", "er", "erm", "huh", "the", "a"}
+
+
+def real_words(text):
+    """Whether a transcript is somebody saying something rather than a cough, a creak or a breath."""
+    words = [w for w in re.findall(r"[a-z']+", (text or "").lower()) if w not in FILLERS]
+    return len(words) >= 2 or (len(words) == 1 and len(words[0]) >= 3)
+
+
 class Endpoint:
     """Decides when someone has finished speaking, counting audio rather than wall-clock time."""
 
@@ -78,8 +89,16 @@ class Endpoint:
 class Listener:
     """Listens all the time, but only speech that starts by addressing Happy by name goes anywhere."""
 
-    def __init__(self, name, wake=True, device="", on_heard=None, on_state=None, on_level=None):
+    def __init__(self, name, wake=True, device="", on_heard=None, on_state=None, on_level=None, echo_cancel=True,
+                 on_barge=None, echo=None):
         self.name = name
+        self.on_barge = on_barge or (lambda: None)
+        self.echo = echo or (lambda text: False)
+        self.barging = False
+        self.barged = False
+        self.echo_cancel = echo_cancel
+        self.stream = None
+        self.mic = None
         self.wake_enabled = wake
         self.device = device
         self.on_heard = on_heard or (lambda text, how: None)
@@ -103,34 +122,50 @@ class Listener:
     def start(self):
         self.stt = Transcriber()
         self.segment = Endpoint(wait=float("inf"))
-        index, self.mic_name = pick_mic(self.device)
-        log.info("listening on %s", self.mic_name)
-        self.stream = sd.InputStream(samplerate=RATE, channels=1, dtype="float32", blocksize=BLOCK,
-                                     device=index, callback=self.arrived)
-        self.stream.start()
+        self.open_mic()
         self.worker = threading.Thread(target=self.run, name="ears", daemon=True)
         self.worker.start()
 
-    def reopen(self):
-        """Opens the microphone again, after the sound devices were reloaded underneath it."""
-        try:
-            self.stream.stop()
-            self.stream.close()
-        except Exception:
-            pass
+    def open_mic(self):
+        """Echo-cancelled on macOS, so a video playing is not taken for the person talking; a plain stream elsewhere."""
+        self.stream = None
+        self.mic = None
+        if sys.platform == "darwin" and self.echo_cancel and not self.device:
+            from happy.speech.microphone import EchoCancelled
+
+            try:
+                self.mic = EchoCancelled(self.blocks.put)
+                self.mic.start()
+                self.mic_name = self.mic.name
+                log.info("listening on %s", self.mic_name)
+                return
+            except Exception:
+                log.exception("echo cancellation is not available; listening without it")
+                self.mic = None
         index, self.mic_name = pick_mic(self.device)
         self.stream = sd.InputStream(samplerate=RATE, channels=1, dtype="float32", blocksize=BLOCK,
                                      device=index, callback=self.arrived)
         self.stream.start()
         log.info("listening on %s", self.mic_name)
 
-    def stop(self):
-        self.stopping.set()
+    def close_mic(self):
         try:
-            self.stream.stop()
-            self.stream.close()
+            if self.mic is not None:
+                self.mic.stop()
+            if self.stream is not None:
+                self.stream.stop()
+                self.stream.close()
         except Exception:
             pass
+
+    def reopen(self):
+        """Opens the microphone again, after the sound devices were reloaded underneath it."""
+        self.close_mic()
+        self.open_mic()
+
+    def stop(self):
+        self.stopping.set()
+        self.close_mic()
 
     def arrived(self, data, frames, timing, status):
         self.blocks.put(data[:, 0].copy())
@@ -161,13 +196,14 @@ class Listener:
             self.mode = "finishing"
 
     def listen_now(self, wait=6.0, announce=True):
-        """Opens the mic for an answer without needing the name again."""
+        """Opens the mic for an answer without needing the name again; quietly when Happy opened it himself."""
         with self.lock:
+            if self.mode not in ("idle", "ignoring"):
+                return
             self.capture = []
             self.endpoint = Endpoint(wait=wait)
             self.mode = "follow"
-        if announce:
-            self.on_state("listening")
+        self.on_state("listening" if announce is True else "following")
 
     def cancel(self):
         with self.lock:
@@ -212,11 +248,25 @@ class Listener:
         self.segment = Endpoint(wait=float("inf"))
         self.peeks = list(PEEKS)
         self.woken = False
+        self.barged = False
 
     def overhear(self, block, mode):
-        """Follows speech in the room, and answers to the name the moment it is said, not when the sentence ends."""
+        """Follows speech in the room: the name wakes Happy the moment it is said, and while Happy is
+        talking, real words from the person cut him off. Barging in needs echo cancellation, or Happy
+        would cut himself off with his own voice."""
         self.ring.append(block)
-        if not self.wake_enabled or self.deaf.is_set():
+        speaking = self.deaf.is_set()
+        barge = speaking and self.mic is not None
+        if barge != self.barging and not self.woken:
+            self.barging = barge
+            if self.segment.started is not None:
+                self.fresh_segment()
+                self.capture = []
+                with self.lock:
+                    if self.mode == "ignoring":
+                        self.mode = "idle"
+                        mode = "idle"
+        if (speaking and not barge) or (not self.wake_enabled and not self.barging):
             if self.segment.started is not None:
                 self.fresh_segment()
                 self.capture = []
@@ -236,13 +286,24 @@ class Listener:
             self.capture.append(block)
         if verdict == "done":
             audio = np.concatenate(self.capture)
-            woken = self.woken
+            how = "barge" if self.barged else "woken" if self.woken else "overheard"
             self.capture = []
             self.fresh_segment()
-            self.finish(audio, "woken" if woken else "overheard")
+            self.barging = self.deaf.is_set() and self.mic is not None
+            self.finish(audio, how)
         elif not self.woken and self.peeks and len(self.capture) * BLOCK / RATE >= self.peeks[0]:
             self.peeks.pop(0)
             opening = self.stt(np.concatenate(self.capture))
+            if self.barging:
+                if real_words(opening) and not self.echo(opening):
+                    self.woken = self.barged = True
+                    log.info("barged in: %r", opening)
+                    self.on_barge()
+                elif not self.peeks:
+                    with self.lock:
+                        self.mode = "ignoring"
+                    self.capture = []
+                return
             if addressed(opening, self.name) is not None:
                 self.woken = True
                 self.on_state("listening")
@@ -255,6 +316,14 @@ class Listener:
         if how != "overheard":
             self.on_state("transcribing")
         text = self.stt(audio)
+        if how == "barge":
+            if not real_words(text) or self.echo(text):
+                self.on_state("missed")
+                return
+            log.info("heard (barge): %r", text)
+            command = addressed(text, self.name)
+            self.on_heard(command if command else text, "barge")
+            return
         if how in ("overheard", "woken"):
             command = addressed(text, self.name)
             if command is None:
@@ -268,7 +337,7 @@ class Listener:
             self.on_heard(command, "wake")
             return
         log.info("heard (%s): %r", how, text)
-        if not text:
+        if not text or how == "follow" and not real_words(text):
             self.on_state("missed")
             return
         command = addressed(text, self.name)

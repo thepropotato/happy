@@ -16,6 +16,8 @@ from happy.speech.spoken_text import Sentences
 log = logging.getLogger("happy")
 
 FIRST_FILLER = 3.0
+FOLLOW_SECONDS = 4.0
+FACTUAL = {"set_brightness", "set_volume", "set_keyboard_light", "media"}
 STILL_EVERY = 8.0
 FILLERS = ["One sec.", "Give me a moment.", "Let me see.", "Just a moment."]
 
@@ -122,7 +124,9 @@ class Happy:
             from happy.speech.listener import Listener
 
             self.listener = Listener(self.name, wake=self.cfg.get("wake_word"), device=self.cfg.get("input.device") or "",
-                             on_heard=self.heard, on_state=self.heard_state, on_level=self.face.ear)
+                             on_heard=self.heard, on_state=self.heard_state, on_level=self.face.ear,
+                             echo_cancel=self.cfg.get("input.echo_cancel", True) is not False,
+                             on_barge=self.barged, echo=self.is_echo)
             parts["the microphone"] = self.listener.start
         pending = set(parts)
         lock = threading.Lock()
@@ -150,11 +154,7 @@ class Happy:
         import sounddevice as sd
 
         if self.listener:
-            try:
-                self.listener.stream.stop()
-                self.listener.stream.close()
-            except Exception:
-                pass
+            self.listener.close_mic()
         sd._terminate()
         sd._initialize()
         if self.listener:
@@ -191,6 +191,22 @@ class Happy:
         if self.listener:
             self.listener.key_up()
 
+    def barged(self):
+        """The person talked over Happy: stop talking, drop the turn, and listen to them instead."""
+        if self.speaker:
+            self.speaker.stop()
+        if self.loop:
+            self.loop.call_soon_threadsafe(self.interrupt)
+        self.face.state("listening")
+
+    def is_echo(self, text):
+        """Whether what was heard is Happy's own last words coming back through the microphone."""
+        if not self.speaker:
+            return False
+        heard = set(re.findall(r"[a-z']+", text.lower()))
+        said = set(re.findall(r"[a-z']+", " ".join(self.speaker.recent).lower()))
+        return bool(heard) and len(heard & said) / len(heard) >= 0.6
+
     def key_cancel(self):
         """The key was part of a shortcut, not a request to talk."""
         if self.listener:
@@ -208,6 +224,8 @@ class Happy:
         elif state in ("idle", "missed"):
             if not self.busy():
                 self.face.state("idle")
+        elif state == "following":
+            self.face.state("listening")
         elif state == "silent-mic":
             self.face.trouble("The microphone is sending pure silence. Check the input device in Sound settings.")
 
@@ -259,6 +277,13 @@ class Happy:
             self.face.state("idle")
             self.face.done()
             return
+        if found and found[0] == "reply":
+            self.face.reply(found[1]["text"])
+            self.say(found[1]["text"])
+            await asyncio.to_thread(history.finish, await asyncio.to_thread(history.begin, text, how, "quick"),
+                                    found[1]["text"], [], 0.0)
+            await self.settle()
+            return
         self.face.state("thinking")
         started = time.monotonic()
         self.steps, self.reply, failed = [], "", False
@@ -301,9 +326,14 @@ class Happy:
         self.last_result = None
         self.spoken_at = 0.0
         self.face.reply("")
+        facts, held = [], []
 
         def emit(event):
             if isinstance(event, Text):
+                # ONCE A LEVEL OR MEDIA TOOL HAS RUN, WHAT HAPPY SAYS ABOUT IT IS THE TOOL'S OWN RESULT.
+                if facts:
+                    held.append(event.delta)
+                    return
                 self.face.reply_add(event.delta)
                 for sentence in sentences.add(event.delta):
                     self.answered = True
@@ -313,6 +343,7 @@ class Happy:
                     self.answered = True
                     self.say(sentence)
                 self.activity = event.label
+                quick.remember(event.tool)
                 call = f"c{len(self.steps)}"
                 self.face.began(call, event.tool, event.label, event.args)
                 self.face.state("working")
@@ -327,6 +358,8 @@ class Happy:
                         step.update(result=event.result[:500], ok=event.ok)
                         self.face.ended(step.pop("call", ""), event.tool, step["label"], step["args"], event.result[:2000], event.ok)
                         break
+                if event.tool in FACTUAL and event.ok:
+                    facts.append(quick.SPOKEN.get(event.tool, lambda r: r)(event.result))
                 log.info("tool %s %s: %s", event.tool, "ok" if event.ok else "failed", event.result[:300].replace("\n", " | "))
             elif isinstance(event, Problem):
                 self.face.reply(event.message)
@@ -342,14 +375,23 @@ class Happy:
             self.answered = True
             self.say(sentence)
         self.reply = (final or "").strip()
+        if facts and all(step["tool"] in FACTUAL for step in self.steps):
+            self.reply = " ".join(facts)
+            if held:
+                log.info("said the tool's result instead of: %s", "".join(held).strip()[:200])
+            self.face.reply(self.reply)
+            self.answered = True
+            self.say(self.reply)
+        elif held:
+            rest = "".join(held)
+            self.face.reply_add(rest)
+            self.answered = True
+            self.say(rest)
         if not self.answered:
             self.reply = self.fallback()
             self.face.reply(self.reply)
             self.say(self.reply)
-        log.info("answer: %s (%.1fs)", (final or "").strip()[:300], time.monotonic() - started)
-        if (final or "").strip().endswith("?") and self.listener:
-            await asyncio.to_thread(self.speaker.wait if self.speaker else (lambda: None))
-            self.listener.listen_now()
+        log.info("answer: %s (%.1fs)", self.reply[:300], time.monotonic() - started)
 
     def fallback(self):
         """Something to say when the model finished without a word."""
@@ -383,6 +425,10 @@ class Happy:
         if self.task is asyncio.current_task() or not self.busy():
             self.face.state("idle")
             self.face.done()
+        if self.task is asyncio.current_task() and self.listener and self.cfg.get("follow_up", True) is not False:
+            # A REPLY IS OFTEN ANSWERED, SO FOR A MOMENT AFTER IT NOBODY HAS TO SAY THE NAME AGAIN.
+            await asyncio.sleep(0.3)
+            self.listener.listen_now(wait=FOLLOW_SECONDS, announce=False)
 
     @staticmethod
     def plain(text):

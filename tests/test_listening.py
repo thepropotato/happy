@@ -104,3 +104,37 @@ def test_the_name_is_acknowledged_while_the_sentence_is_still_going():
             woke_at = fed
     speech_ends = len(np.trim_zeros(audio, "b")) / listener.RATE
     assert woke_at is not None and woke_at < speech_ends - 1.0, (woke_at, speech_ends)
+
+
+def talking_over(audio, echo=lambda text: False):
+    """Feeds audio to a listener that believes Happy is speaking, with echo cancellation on."""
+    barged, heard = [], []
+    ears = listener.Listener("Happy", on_heard=lambda text, how: heard.append((text, how)),
+                             on_barge=lambda: barged.append(True), echo=echo)
+    ears.stt = Transcriber()
+    ears.mic = object()
+    ears.deaf.set()
+    ears.fresh_segment()
+    silence = np.zeros(listener.BLOCK * 15, np.float32)
+    for chunk in (audio, silence):
+        for start in range(0, len(chunk), listener.BLOCK):
+            ears.overhear(chunk[start:start + listener.BLOCK], ears.mode)
+    return barged, heard
+
+
+@pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
+def test_talking_over_happy_cuts_him_off():
+    barged, heard = talking_over(load("neg1.wav"))
+    assert barged and heard and heard[0][1] == "barge", (barged, heard)
+
+
+def test_noise_does_not_cut_happy_off():
+    hiss = (np.random.default_rng(1).standard_normal(listener.RATE * 3) * 0.02).astype(np.float32)
+    barged, heard = talking_over(hiss)
+    assert not barged and not heard
+
+
+@pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
+def test_his_own_words_coming_back_do_not_cut_him_off():
+    barged, heard = talking_over(load("neg1.wav"), echo=lambda text: True)
+    assert not barged and not heard
