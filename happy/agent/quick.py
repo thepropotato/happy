@@ -47,63 +47,97 @@ def clean(text):
 
 LEVEL = r"(?:to |at )?(?P<n>[\w -]+?)(?: ?%| percent)?"
 SET = r"(?:set |change |turn |make |put |bring )?(?:the |my )?"
-UP = {"up", "higher", "brighter", "louder", "more", "increase", "raise"}
-DOWN = {"down", "lower", "dimmer", "quieter", "softer", "less", "decrease", "reduce"}
+UP = {"up", "higher", "brighter", "louder", "more", "increase", "raise", "brighten", "bump up"}
+DOWN = {"down", "lower", "dimmer", "quieter", "softer", "less", "decrease", "reduce", "dim", "drop"}
+CONTROLS = [("set_brightness", r"(?:(?:the )?screen(?:'s)? |display )?brightness(?: of (?:the |my )?(?:screen|display|laptop))?"),
+            ("set_volume", r"(?:volume|sound)(?: of (?:the |my )?(?:laptop|mac|computer|speakers))?"),
+            ("set_keyboard_light", r"keyboard (?:light|lights|backlight|brightness|back light)")]
+
+# THE LAST CONTROL CHANGED, SO "MAKE IT FORTY" OR "A BIT MORE" RIGHT AFTER KNOWS WHAT "IT" IS.
+last = {"tool": None}
+
+
+def nudge(word, by=10):
+    return {"change": "up" if word in UP else "down", "by": by}
+
+
+def amount(text):
+    """'by twenty' or 'a little' or 'a lot' inside a request, as a number."""
+    match = re.search(r"\bby (?P<n>[\w -]+?)(?: ?%| percent)?$", text)
+    if match and number(match.group("n")) is not None:
+        return number(match.group("n"))
+    if re.search(r"\b(?:a (?:little|bit|touch)|slightly|a little bit)\b", text):
+        return 5
+    if re.search(r"\b(?:a lot|much|way)\b", text):
+        return 25
+    return 10
 
 
 def levels(text):
-    """Brightness, volume and keyboard light, set or nudged."""
-    targets = [("set_brightness", r"(?:screen |display )?brightness", "Brightness"),
-               ("set_volume", r"(?:volume|sound)", "Volume"),
-               ("set_keyboard_light", r"keyboard (?:light|lights|backlight|brightness|back light)", "Keyboard light")]
-    for name, noun, spoken in targets:
+    """Brightness, volume and keyboard light, set or nudged, however it is said."""
+    for name, noun in CONTROLS:
         match = re.fullmatch(SET + noun + " " + LEVEL, text)
         if match:
             word = match.group("n").strip()
             if word in UP or word in DOWN:
-                return name, {"percent": 10 if word in UP else -10, "relative": True}
+                return name, nudge(word)
             if word == "on" and name == "set_keyboard_light":
-                return name, {"percent": 60}
+                return name, {"level": 60}
             value = number(word)
             if value is not None and 0 <= value <= 100:
-                return name, {"percent": value}
-        match = re.fullmatch(r"(?:turn |push |bring )?(?:the |my )?" + noun + r" (?P<d>all the way )?(?P<w>up|down)", text) \
-            or re.fullmatch(r"(?:turn )?(?P<w>up|down|increase|decrease|raise|lower|reduce) (?:the |my )?" + noun, text)
+                return name, {"level": value}
+        match = re.fullmatch(r"(?:turn |push |bring )?(?:the |my )?" + noun + r" (?P<d>all the way )?(?P<w>up|down)(?: .*)?", text)
         if match:
-            up = match.group("w") in UP
-            if "d" in match.groupdict() and match.group("d"):
-                return name, {"percent": 100 if up else 0}
-            return name, {"percent": 10 if up else -10, "relative": True}
+            if match.group("d"):
+                return name, {"level": 100 if match.group("w") == "up" else 0}
+            return name, nudge(match.group("w"), amount(text))
+        match = re.fullmatch(r"(?:turn |make )?(?P<w>up|down|increase|decrease|raise|lower|reduce|dim|brighten|drop|bump up) (?:the |my )?" + noun + r"(?: .*)?", text)
+        if match and not re.search(r"\bto \w", text):
+            return name, nudge(match.group("w"), amount(text))
         match = re.fullmatch(r"(?:turn |switch )(?P<w>on|off) (?:the |my )?" + noun, text) \
             or re.fullmatch(r"(?:turn |switch )?(?:the |my )?" + noun + r" (?P<w>on|off)", text)
         if match and name == "set_keyboard_light":
-            return name, {"percent": 60 if match.group("w") == "on" else 0}
+            return name, {"level": 60 if match.group("w") == "on" else 0}
         match = re.fullmatch(r"(?:max|maximum|full|min|minimum) " + noun, text)
         if match:
-            return name, {"percent": 100 if text.startswith(("max", "full")) else 0}
+            return name, {"level": 100 if text.startswith(("max", "full")) else 0}
     match = re.fullmatch(r"(?:what(?:'s| is)|how (?:loud|bright) is) (?:the |my )?(?P<what>volume|sound|brightness|screen brightness|keyboard light|keyboard backlight)(?: at| level| set to)?(?: right now)?", text)
     if match:
         what = match.group("what")
         return ("set_volume" if what in ("volume", "sound") else "set_keyboard_light" if "keyboard" in what else "set_brightness"), {}
     simple = {
-        "brighter": ("set_brightness", {"percent": 15, "relative": True}),
-        "dimmer": ("set_brightness", {"percent": -15, "relative": True}),
-        "dim the screen": ("set_brightness", {"percent": -20, "relative": True}),
-        "brighten the screen": ("set_brightness", {"percent": 20, "relative": True}),
-        "louder": ("set_volume", {"percent": 10, "relative": True}),
-        "quieter": ("set_volume", {"percent": -10, "relative": True}),
-        "softer": ("set_volume", {"percent": -10, "relative": True}),
-        "turn it up": ("set_volume", {"percent": 10, "relative": True}),
-        "turn it down": ("set_volume", {"percent": -10, "relative": True}),
-        "mute": ("set_volume", {"muted": True}),
-        "mute the sound": ("set_volume", {"muted": True}),
-        "mute the volume": ("set_volume", {"muted": True}),
-        "mute it": ("set_volume", {"muted": True}),
-        "unmute": ("set_volume", {"muted": False}),
-        "unmute the sound": ("set_volume", {"muted": False}),
+        "brighter": ("set_brightness", nudge("up", 15)), "dimmer": ("set_brightness", nudge("down", 15)),
+        "dim the screen": ("set_brightness", nudge("down", 20)), "brighten the screen": ("set_brightness", nudge("up", 20)),
+        "louder": ("set_volume", nudge("up")), "quieter": ("set_volume", nudge("down")), "softer": ("set_volume", nudge("down")),
+        "mute": ("set_volume", {"muted": True}), "mute the sound": ("set_volume", {"muted": True}),
+        "mute the volume": ("set_volume", {"muted": True}), "mute it": ("set_volume", {"muted": True}),
+        "unmute": ("set_volume", {"muted": False}), "unmute the sound": ("set_volume", {"muted": False}),
         "unmute it": ("set_volume", {"muted": False}),
     }
-    return simple.get(text)
+    if text in simple:
+        return simple[text]
+    return again(text)
+
+
+def again(text):
+    """A follow-on about the control just changed: 'make it forty', 'a bit more', 'lower', 'turn it down'."""
+    tool = last["tool"] or ("set_volume" if re.fullmatch(r"turn it (?:up|down)", text) else None)
+    if not tool:
+        return None
+    match = re.fullmatch(r"(?:make it|set it to|put it (?:at|to)|change it to|take it to|bring it to|to|at) (?P<n>[\w -]+?)(?: ?%| percent)?", text)
+    if match and number(match.group("n")) is not None and 0 <= number(match.group("n")) <= 100:
+        return tool, {"level": number(match.group("n"))}
+    if len(text.split()) > 6:
+        return None
+    if re.fullmatch(r"(?:turn it |make it |a (?:little |bit |touch )?|slightly |even |a lot |much |way )*(?:more|up|higher|brighter|louder)(?: (?:please|again|still))?", text):
+        return tool, nudge("up", amount(text))
+    if re.fullmatch(r"(?:turn it |make it |a (?:little |bit |touch )?|slightly |even |a lot |much |way )*(?:less|down|lower|dimmer|quieter|softer)(?: (?:please|again|still))?", text):
+        return tool, nudge("down", amount(text))
+    if text in ("lower it", "reduce it", "decrease it", "dim it", "drop it"):
+        return tool, nudge("down")
+    if text in ("raise it", "increase it", "brighten it", "bump it up"):
+        return tool, nudge("up")
+    return None
 
 
 MEDIA = re.compile(r"(?P<verb>pause|play|resume|stop|unpause|continue) ?(?:the |this |my )?(?P<thing>video|music|song|track|movie|playback|audio|it|youtube|spotify|podcast)?(?: playing)?")
@@ -206,6 +240,19 @@ def connected(text):
     return None
 
 
+CODING = re.compile(r"(?:fix|build|implement|refactor|debug|write|add|create|make|scaffold|set up|update|migrate|port|test)\b.*"
+                    r"\b(?:code|tests?|bugs?|app|apps|script|function|feature|repo|repository|project|codebase|website|api|endpoint|game|cli)\b")
+PROJECT = re.compile(r"\b(?:in|on|for|of|to) (?:the |my )?(?P<name>[\w .-]+?) (?:project|repo|repository|codebase|app|website|site)\b")
+
+
+def coding(text):
+    """Plain coding requests go straight to a coding agent on screen, with the project they named."""
+    if not CODING.match(text) or len(text.split()) < 3:
+        return None
+    named = PROJECT.search(text)
+    return "hand_off_coding", {"task": text, "folder": named.group("name") if named else ""}
+
+
 def computer(text):
     if re.fullmatch(r"lock (?:the |my )?(?:screen|computer|mac|laptop|pc)", text):
         return "computer", {"action": "lock"}
@@ -237,6 +284,16 @@ def apps(text):
     return None
 
 
+GREETINGS = {
+    "hi": "Hi! What can I do for you?", "hello": "Hello! What do you need?", "hey": "Hey! What can I do?",
+    "hey there": "Hey! What can I do?", "hi there": "Hi! What can I do for you?", "yo": "Hey! What's up?",
+    "good morning": "Good morning! What can I do?", "good afternoon": "Good afternoon! What do you need?",
+    "good evening": "Good evening! What can I do?", "thanks": "Anytime.", "thank you": "You're welcome.",
+    "thanks a lot": "Happy to help.", "thank you so much": "Anytime.", "cool": "Great.", "ok": "Okay.",
+    "okay": "Okay.", "nice": "Glad that worked.", "are you there": "I'm here. What do you need?",
+    "you there": "I'm here. What do you need?",
+}
+
 STOP = {"stop", "cancel", "never mind", "nevermind", "shut up", "be quiet", "quiet", "that's all", "nothing",
         "forget it", "stop talking", "ok stop", "okay stop", "enough"}
 
@@ -251,11 +308,19 @@ def spoken_connections(report):
     return " ".join(out)
 
 
+def spoken_level(result):
+    """'Brightness went down from 57% to 47%.' said as 'Brightness down to 47.'"""
+    match = re.match(r"(?P<name>[\w ]+) went (?P<way>up|down) from \d+% to (?P<now>\d+)%", result)
+    if match:
+        return f"{match.group('name')} {match.group('way')} to {match.group('now')}."
+    return result.replace("%", "").replace(" is ", " is at ")
+
+
 SPOKEN = {
     "connections": spoken_connections,
-    "set_brightness": lambda r: r.replace("Brightness is now ", "Brightness at ").replace("%.", "."),
-    "set_volume": lambda r: r.replace("Volume is now ", "Volume at ").replace("%.", "."),
-    "set_keyboard_light": lambda r: r.replace("Keyboard light is now ", "Keyboard light at ").replace("%.", "."),
+    "set_brightness": spoken_level,
+    "set_volume": spoken_level,
+    "set_keyboard_light": spoken_level,
 }
 
 
@@ -264,7 +329,9 @@ def match(text):
     said = clean(text)
     if said in STOP:
         return "stop", {}
-    for rule in (levels, media, browser, keys, connected, computer, apps):
+    if said in GREETINGS:
+        return "reply", {"text": GREETINGS[said]}
+    for rule in (levels, media, browser, keys, connected, coding, computer, apps):
         try:
             found = rule(said)
         except Exception:
@@ -274,7 +341,16 @@ def match(text):
     return None
 
 
+LEVELS = {"set_brightness", "set_volume", "set_keyboard_light"}
+
+
+def remember(name):
+    if name in LEVELS:
+        last["tool"] = name
+
+
 async def run(name, args):
+    remember(name)
     result = await call(name, args)
     if isinstance(result, str) and name in SPOKEN and not result.startswith("Error"):
         return SPOKEN[name](result)

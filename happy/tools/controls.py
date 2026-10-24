@@ -9,50 +9,55 @@ from typing import Annotated, Literal
 from happy.system import Failed, native
 from happy.tools import tool
 
-Percent = Annotated[int, "0 to 100; with relative=true, the change instead, like 10 or -10"]
-Relative = Annotated[bool, "true to change by percent rather than set it"]
+Level = Annotated[int, "set it to exactly this, 0 to 100"]
+Change = Annotated[Literal["up", "down"], "turn it up or down instead of setting a level"]
+By = Annotated[int, "how much to turn it up or down by, 1 to 100; 10 if not said; a negative number means down"]
 
 
-def target(current, percent, relative):
-    return max(0, min(100, current + percent if relative else percent))
+def adjust(name, read, write, level, change, by):
+    """Sets or nudges a 0-100 control, then reads it back, so the answer is what actually happened."""
+    before = read()
+    if not change and level is None and by:
+        change = "down" if by < 0 else "up"
+    if change:
+        after = before + (abs(by or 10) if change == "up" else -abs(by or 10))
+    elif level is not None:
+        after = level
+    else:
+        return f"{name} is {before}%."
+    write(max(0, min(100, after)))
+    now = read()
+    moved = "up" if now > before else "down" if now < before else "unchanged"
+    if moved == "unchanged":
+        return f"{name} stayed at {now}% (it was already {'as high' if now >= 100 else 'as low' if now <= 0 else 'there'})."
+    return f"{name} went {moved} from {before}% to {now}%."
 
 
-@tool(label="Brightness {percent}")
-def set_brightness(percent: Percent = None, relative: Relative = False):
-    """Set the screen brightness, or leave percent out to hear what it is."""
-    if percent is None:
-        return f"Brightness is {native.get_brightness()}%."
-    level = target(native.get_brightness() if relative else 0, percent, relative)
-    native.set_brightness(level)
-    return f"Brightness is now {level}%."
+@tool(label="Brightness {change}{level}")
+def set_brightness(level: Level = None, change: Change = None, by: By = None):
+    """Set the screen brightness to a level, or turn it up or down. With nothing given, says what it is."""
+    return adjust("Brightness", native.get_brightness, native.set_brightness, level, change, by)
 
 
-@tool(label="Volume")
-def set_volume(percent: Percent = None, relative: Relative = False, muted: Annotated[bool, "true to mute, false to unmute"] = None):
-    """Set the sound volume, mute or unmute, or leave everything out to hear what it is."""
+@tool(label="Volume {change}{level}")
+def set_volume(level: Level = None, change: Change = None, by: By = None,
+               muted: Annotated[bool, "true to mute, false to unmute"] = None):
+    """Set the sound volume to a level, turn it up or down, or mute and unmute. With nothing given, says what it is."""
     if muted is not None:
         native.set_muted(muted)
-        if percent is None:
-            return "Muted." if muted else "Unmuted."
-    if percent is None:
-        current, is_muted = native.get_volume()
-        return f"Volume is {current}%{' and muted' if is_muted else ''}."
+        if level is None and change is None:
+            return "Muted." if native.get_volume()[1] else "Unmuted."
+    result = adjust("Volume", lambda: native.get_volume()[0], native.set_volume, level, change, by)
     current, is_muted = native.get_volume()
-    level = target(current, percent, relative)
-    native.set_volume(level)
-    if is_muted and level > 0 and muted is None:
+    if is_muted and current > 0 and muted is None and (level or change == "up"):
         native.set_muted(False)
-    return f"Volume is now {level}%."
+    return result + (" It is muted." if native.get_volume()[1] and level is None and change is None else "")
 
 
-@tool(label="Keyboard light {percent}")
-def set_keyboard_light(percent: Percent = None, relative: Relative = False):
-    """Set the keyboard backlight brightness, or leave percent out to hear what it is."""
-    if percent is None:
-        return f"Keyboard light is {native.get_keyboard_light()}%."
-    level = target(native.get_keyboard_light() if relative else 0, percent, relative)
-    native.set_keyboard_light(level)
-    return f"Keyboard light is now {level}%."
+@tool(label="Keyboard light {change}{level}")
+def set_keyboard_light(level: Level = None, change: Change = None, by: By = None):
+    """Set the keyboard backlight to a level, or turn it up or down. With nothing given, says what it is."""
+    return adjust("Keyboard light", native.get_keyboard_light, native.set_keyboard_light, level, change, by)
 
 
 def playing_apps():

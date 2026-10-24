@@ -50,6 +50,7 @@ class OpenAICompatible(Backend):
         self.history = []
         self.last = 0.0
         self.cancelled = False
+        self.done_calls = {}
 
     async def start(self):
         self.tool_list = tools.available(local=True)
@@ -82,6 +83,7 @@ class OpenAICompatible(Backend):
             self.history = self.history[starts[-KEEP_TURNS]:]
         said = []
         nudged = False
+        self.done_calls = {}
         for _ in range(STEPS):
             if self.cancelled:
                 return "".join(said)
@@ -148,9 +150,14 @@ class OpenAICompatible(Backend):
             result = "Error: the arguments were not valid JSON. Call the tool again with plain JSON."
         elif registered is None:
             result = f"Error: there is no tool called {name}. Use one of the tools you were given."
+        elif (name, json.dumps(args, sort_keys=True)) in self.done_calls:
+            result = (f"You already called {name} with these arguments in this turn, and it said: "
+                      f"{self.done_calls[(name, json.dumps(args, sort_keys=True))][:300]} Do not call it again; use that, "
+                      f"try something different, or answer.")
         else:
             emit(Act(name, args, registered.show(args), registered.say))
             result = await tools.call(name, args)
+            self.done_calls[(name, json.dumps(args, sort_keys=True))] = str(result.note if isinstance(result, Image) else result)
         if isinstance(result, Image):
             result = result.note or "Took a screenshot, but this model cannot see pictures."
         result = str(result)
