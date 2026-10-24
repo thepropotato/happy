@@ -58,6 +58,7 @@ def system_prompt(cfg, local=False):
         "- Coding, building or fixing software: never do it yourself. Call hand_off_coding so a coding agent does it on screen.",
         "- Messages to other people: send what was asked, to whom it was asked. If the person or the words are unclear, ask first.",
         "- A request names a person by relationship (dad, brother, boss): look them up in the contacts by that word, and if unsure, ask once.",
+        "- When they don't know or don't say who or where, search everything instead of asking.",
     ]
     if local:
         lines += [

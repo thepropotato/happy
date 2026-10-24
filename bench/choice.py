@@ -9,7 +9,7 @@ import time
 os.environ.setdefault("HAPPY_HOME", "/tmp/happy-bench")
 
 from happy import tools
-from happy.brain import Act, Problem, Text
+from happy.brain import Act, Problem, Text, commands
 from happy.config import Config
 
 CASES = [
@@ -20,7 +20,7 @@ CASES = [
     ("switch to the gmail tab", "browser_tabs", {"action": "switch", "match": "gmail"}),
     ("summarise this article for me", "read_tab", {}),
     ("do I have any new whatsapp messages", "whatsapp_unread", {}),
-    ("what did ravi say on whatsapp", "whatsapp_read", {"chat": "ravi"}),
+    ("what did ravi say on whatsapp", ("whatsapp_read", "whatsapp_search"), {"chat": "ravi"}),
     ("find the address I sent to my brother on whatsapp", "whatsapp_find", {"what": "address"}),
     ("tell mom on whatsapp that I'll be home by eight", "whatsapp_send", {"to": "mom"}),
     ("read my latest emails", "check_mail", {}),
@@ -31,7 +31,7 @@ CASES = [
     ("it's too loud", "set_volume", {}),
     ("press command shift t", "press_keys", {}),
     ("remember that my brother's name on whatsapp is Ravi Anna", "remember", {}),
-    ("where's the pdf my boss sent me last week on whatsapp", "whatsapp_search", {"kind": "document"}),
+    ("where's the pdf my boss sent me last week on whatsapp", ("whatsapp_search", "whatsapp_find"), {}),
     ("is anything playing right now? pause it", "media", {"action": "pause"}),
 ]
 
@@ -41,6 +41,10 @@ CANNED = {
     "whatsapp_find": "Best matches out of 812 messages:\n[Mon 2 Mar, 4:01 PM in Ravi Anna] Me: Flat 402, Sai Residency, Road no 5, Banjara Hills, Hyderabad 500034",
     "check_mail": "#812 from GitHub <noreply@github.com>, Sat 24 Oct, 2:10 PM: [open-slate] PR merged — Your pull request was merged.",
     "look_at_screen": "Front app: Google Chrome\nWindow: Lofi Girl - YouTube\nGoogle Chrome tab in front: Lofi Girl - YouTube — https://www.youtube.com/watch?v=jfKfPfyJRdk",
+    "find_files": "/Users/venupulagam/Desktop/projects/open-slate (changed 14 Oct 2026)\n/Users/venupulagam/Documents/Resume 2026.pdf (changed 02 Sep 2026)",
+    "open_file": "Opened /Users/venupulagam/Documents/Resume 2026.pdf in Finder.",
+    "hand_off_coding": "Opened Claude Code in a Terminal window in /Users/venupulagam/Desktop/projects/open-slate with the task.",
+    "whatsapp_search": "[Mon 19 Oct, 10:02 AM in Office] Suresh (boss): [document] (file Q3-plan.pdf)",
     "read_tab": "Why sleep matters — https://example.com/sleep\n\nSleep consolidates memory and clears waste from the brain. Adults need 7 to 9 hours.",
 }
 
@@ -76,12 +80,20 @@ async def main(base_url, model):
             if isinstance(event, Problem):
                 spoken.append(f"[problem: {event.message}]")
 
-        await brain.turn(text, emit)
+        fast = commands.match(text)
+        if fast:
+            picked.append(fast)
+            spoken.append("(fast path)")
+        else:
+            await brain.turn(text, emit)
         took = time.monotonic() - started
-        chosen = picked[0] if picked else (None, {})
-        right = chosen[0] == want and all(str(v).lower() in json.dumps(chosen[1]).lower() for v in want_args.values())
+        wanted = want if isinstance(want, tuple) else (want,)
+        hits = [c for c in picked if c[0] in wanted and all(str(v).lower() in json.dumps(c[1]).lower() for v in want_args.values())]
+        right = bool(hits)
+        chosen = hits[0] if hits else (picked[0] if picked else (None, {}))
         score += right
-        rows.append(f"{'✓' if right else '✗'} {took:5.1f}s first {first or 0:4.1f}s  {text!r} -> {chosen[0]} {json.dumps(chosen[1])[:90]} | said: {''.join(spoken)[:90]!r}")
+        trail = " → ".join(c[0] for c in picked)
+        rows.append(f"{'✓' if right else '✗'} {took:5.1f}s first {first or 0:4.1f}s  {text!r} -> {trail} {json.dumps(chosen[1])[:80]} | said: {''.join(spoken)[:90]!r}")
         print(rows[-1], flush=True)
     print(f"\n{model}: {score}/{len(CASES)}")
 

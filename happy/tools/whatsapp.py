@@ -144,32 +144,61 @@ def score(message, kind, words):
     return sum(1 for w in words if w in lowered) / max(1, len(words)) * 3
 
 
+CLUES = {
+    "address": ["road", "rd ", "street", "flat", "nagar", "colony", "layout", "apartment", "apt", "floor", "house",
+                "door no", "h.no", "d.no", "plot", "sector", "block", "near", "opp", "residency", "enclave", "pin",
+                "lane", "cross", "main", "village", "district", "avenue", "suite", "building", "tower", "phase"],
+    "phone": ["+91", "+1", "+44", "number", "phone", "mobile", "call me", "contact"],
+    "email": ["@gmail", "@yahoo", "@outlook", "@hotmail", "@icloud", ".com", "mail"],
+    "link": ["http", "www."],
+    "location": ["maps.", "goo.gl", "location", "pin"],
+    "account": ["ifsc", "a/c", "account", "upi", "@ok", "@ybl", "@paytm", "bank"],
+}
+
+
+async def gather(clues, person, sent_by_me):
+    """Every message a set of word searches turns up, since one search hands back at most 50."""
+    import asyncio
+
+    where = {"contact": person} if person else {}
+    asks = [ask("query_messages", from_me=sent_by_me, limit=50, **where)]
+    asks += [ask("query_messages", text=clue, from_me=sent_by_me, limit=50, **where) for clue in clues]
+    seen, found = set(), []
+    for batch in await asyncio.gather(*asks):
+        for message in batch if isinstance(batch, list) else []:
+            key = message.get("id") or (message.get("timestamp"), message.get("body"))
+            if key not in seen:
+                seen.add(key)
+                found.append(message)
+    return found
+
+
 @tool(say="Looking through your chats for that.", label="Searching WhatsApp for {what}", local_only=True, needs=connected)
 async def whatsapp_find(
     what: Annotated[str, "what to find, like 'my address', 'phone number', 'the wifi password' or 'flight details'"],
-    people: Annotated[list[str], "people or groups it was sent to or from; empty for all chats"] = None,
+    people: Annotated[list[str], "people or groups it was sent to or from; empty searches every chat"] = None,
     sent_by_me: Annotated[bool, "true if I sent it, false if they sent it"] = None,
 ):
-    """Find a piece of information somewhere in WhatsApp, like an address, number or link, even when the message never uses that word."""
+    """Find a piece of information anywhere in WhatsApp, like an address, number or link, even when the message never uses that word. Searches every chat when no one is named."""
     kind = kind_of(what)
-    words = [w for w in re.findall(r"\w+", what.lower()) if len(w) > 2 and w not in ("the", "and", "that", "sent", "send", "for", "from", "with", "about", "message")]
+    words = [w for w in re.findall(r"\w+", what.lower()) if len(w) > 2 and w not in (
+        "the", "and", "that", "sent", "send", "for", "from", "with", "about", "message", "my", "his", "her", "their")]
+    clues = CLUES.get(kind, words)
     pools = []
     for person in people or [""]:
-        report(f"Reading {person or 'all chats'}")
-        data = await ask("query_messages", contact=person, from_me=sent_by_me, limit=3000 if not person else 1500)
-        if isinstance(data, list):
-            pools.extend(data)
-        elif person:
-            data = await ask("query_messages", group=person, from_me=sent_by_me, limit=1500)
-            if isinstance(data, list):
-                pools.extend(data)
+        report(f"Searching {person or 'every chat'}")
+        pools.extend(await gather(clues, person, sent_by_me))
+    if not pools and people:
+        for person in people:
+            pools.extend(await gather(clues, "", sent_by_me))
+            break
     if not pools:
         return f"Found no messages{' with ' + ', '.join(people) if people else ''} to look through."
     ranked = sorted(((score(m, kind, words), m) for m in pools), key=lambda pair: (-pair[0], -(pair[1].get("timestamp") or 0)))
-    best = [m for s, m in ranked if s > 0][:6]
+    best = [m for value, m in ranked if value > 0][:6]
     if not best:
-        return f"Looked through {len(pools)} messages and found nothing that looks like {what}."
-    return f"Best matches out of {len(pools)} messages:\n" + "\n".join(line(m) for m in best)
+        return f"Looked through {len(pools)} likely messages and found nothing that looks like {what}."
+    return f"Best matches out of {len(pools)} likely messages:\n" + "\n".join(line(m) for m in best)
 
 
 @tool(label="Looking up {name}", local_only=True, needs=connected)
