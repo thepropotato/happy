@@ -1,5 +1,6 @@
 """Seeing what is on screen, and pressing, typing and clicking in the front app."""
 
+import re
 import subprocess
 import sys
 import tempfile
@@ -60,7 +61,7 @@ def look_at_screen():
 @tool(label="Pressing {keys}")
 def press_keys(keys: Annotated[str, "like cmd+t, ctrl+shift+tab, escape or return"]):
     """Press a key or shortcut the person asked for in the app in front. Never use it to run commands or do coding work."""
-    for combo in keys.split(","):
+    for combo in re.split(r",\s+|\s+then\s+", keys.strip()):
         native.press(combo.strip())
         time.sleep(0.05)
     return f"Pressed {keys}."

@@ -11,10 +11,13 @@ fi
 
 if ! command -v claude >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/claude" ]; then
   echo "Installing Claude Code, which keeps your list of MCP services (no subscription needed for that)…"
-  curl -fsSL https://claude.ai/install.sh | bash
+  curl -fsSL https://claude.ai/install.sh | bash || echo "Claude Code could not be installed right now. Happy works without it; adding MCP services needs it, and setup will try again next time."
 fi
 
-uv sync --quiet
+if ! uv sync --quiet; then
+  echo "Installing Happy's Python packages failed. Check the internet connection and run ./setup.sh again."
+  exit 1
+fi
 mkdir -p "$HOME/.local/bin"
 ln -sf "$PWD/.venv/bin/happy" "$HOME/.local/bin/happy"
 case ":$PATH:" in
@@ -22,4 +25,4 @@ case ":$PATH:" in
   *) echo "Add ~/.local/bin to your PATH to run 'happy' from anywhere." ;;
 esac
 
-uv run happy setup
+uv run happy start --settings

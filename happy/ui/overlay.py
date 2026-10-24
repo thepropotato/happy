@@ -132,7 +132,8 @@ class Bubble(QWidget):
         self.label.setWordWrap(True)
         self.label.setTextFormat(Qt.RichText)
         self.label.setOpenExternalLinks(True)
-        self.label.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        self.label.setTextInteractionFlags(Qt.LinksAccessibleByMouse)
+        self.label.setFocusPolicy(Qt.NoFocus)
         layout.addWidget(self.label)
         self.heard = ""
         self.step = ""
@@ -149,7 +150,7 @@ class Bubble(QWidget):
 
     def colours(self):
         """Background, text, secondary text and link colours: Happy's own dark look in every mode."""
-        return QColor(18, 21, 19, 246), theme.INK, theme.QUIET, theme.GREEN_SOFT
+        return QColor(26, 26, 26, 248), theme.INK, theme.QUIET, theme.GOLD
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -158,11 +159,11 @@ class Bubble(QWidget):
         for spread, alpha in ((4, 18), (2, 24)):
             painter.setPen(Qt.NoPen)
             painter.setBrush(QColor(0, 0, 0, alpha))
-            painter.drawRoundedRect(box.adjusted(-spread / 2, 0, spread / 2, spread), 14, 14)
+            painter.drawRoundedRect(box.adjusted(-spread / 2, 0, spread / 2, spread), 6, 6)
         path = QPainterPath()
-        path.addRoundedRect(box, 13, 13)
+        path.addRoundedRect(box, 5, 5)
         painter.setBrush(self.colours()[0])
-        painter.setPen(QPen(QColor(255, 255, 255, 22), 0.8))
+        painter.setPen(QPen(QColor(theme.LINE), 1))
         painter.drawPath(path)
 
     def compose(self):
@@ -501,6 +502,14 @@ def open_file(path):
         subprocess.Popen(["xdg-open", str(path)])
 
 
+def quiet_qt():
+    """Sends Qt's own warnings to the log instead of the terminal."""
+    from PySide6.QtCore import qInstallMessageHandler
+
+    qt_log = logging.getLogger("happy.qt")
+    qInstallMessageHandler(lambda kind, context, message: qt_log.debug("%s", message))
+
+
 def launch(cfg):
     """Runs Happy with its face, opening setup first if it has never been finished."""
     import signal
@@ -508,6 +517,8 @@ def launch(cfg):
     app = QApplication.instance() or QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     app.setApplicationName("Happy")
+    quiet_qt()
+    theme.load_fonts()
     face = Face(app, cfg)
     face.show()
     if cfg.get("ready"):

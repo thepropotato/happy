@@ -20,8 +20,10 @@ def logging_to(level=logging.INFO, console=True):
     handlers = [logging.FileHandler(paths.LOG)]
     if console:
         handlers.append(logging.StreamHandler(sys.stderr))
-    logging.basicConfig(level=level, format="%(asctime)s %(name)s %(message)s", datefmt="%H:%M:%S", handlers=handlers)
-    for noisy in ("httpx", "httpx2", "httpcore", "mcp", "claude_agent_sdk", "openai", "pocket_tts", "root"):
+    for handler in handlers:
+        handler.addFilter(lambda record: record.name != "root")
+    logging.basicConfig(level=level, format="%(asctime)s %(name)s %(message)s", datefmt="%H:%M:%S", handlers=handlers, force=True)
+    for noisy in ("httpx", "httpx2", "httpcore", "mcp", "claude_agent_sdk", "openai", "pocket_tts"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
@@ -43,6 +45,8 @@ def run(args):
     paths.LOCK.write_text(str(os.getpid()))
     os.environ.pop("ELECTRON_RUN_AS_NODE", None)
     logging_to(console=not args.quiet)
+    if not args.quiet:
+        print(f"Starting Happy. It shows up in the corner of your screen; Ctrl+C here stops it. Log: {paths.LOG}", flush=True)
     try:
         from happy.ui.overlay import launch
 
