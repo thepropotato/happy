@@ -62,7 +62,9 @@ def playing_apps():
     out = subprocess.run(["pmset", "-g", "assertions"], capture_output=True, text=True).stdout
     pids = set()
     for block in out.split("\n   pid ")[1:]:
-        if "audio-out" in block:
+        resources = re.search(r"Resources: (.*)", block)
+        sounding = "com.apple.audio." in block and resources and "audio-in" not in resources.group(1)
+        if sounding or "audio-out" in block:
             pids.update(int(p) for p in re.findall(r"Created for PID: (\d+)", block))
     pids.discard(os.getpid())
     apps = set()
