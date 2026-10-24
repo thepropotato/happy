@@ -102,9 +102,9 @@ def text_mode(args, once):
 
 
 def setup(args):
-    from happy import setup as wizard
+    from happy.face.setup_window import show_setup
 
-    return wizard.main()
+    return show_setup()
 
 
 def doctor(args):
@@ -140,9 +140,11 @@ def persona(args):
 
 
 def connect(args):
+    if args.what == "whatsapp":
+        return setup(args)
     from happy import setup as wizard
 
-    return wizard.connect(args.what)
+    return wizard.connect_mail()
 
 
 def main():
@@ -160,7 +162,7 @@ def main():
         p.add_argument("--voice", action="store_true", help="speak the answers too")
         p.add_argument("--verbose", action="store_true")
         p.set_defaults(go=lambda a, once=once: text_mode(a, once))
-    sub.add_parser("setup", help="pick a brain, download models, connect services").set_defaults(go=setup)
+    sub.add_parser("setup", help="open the setup window").set_defaults(go=setup)
     sub.add_parser("doctor", help="check that everything is in place").set_defaults(go=doctor)
     p = sub.add_parser("say", help="hear the voice")
     p.add_argument("text", nargs="+")

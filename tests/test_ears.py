@@ -65,3 +65,11 @@ def test_addressed():
 def test_name_with_a_pause_after_it_still_wakes():
     heard, _ = ears_hearing(load("wake2.wav"))
     assert heard and "pause" in heard[0][0].lower(), heard
+
+
+def test_a_name_heard_slightly_wrong_still_counts():
+    assert addressed("Hey Damon, pause the video.", "Daemon") == "pause the video."
+    assert addressed("Demon, what is on my screen?", "Daemon") == "what is on my screen?"
+    assert addressed("Happi, mute.", "Happy") == "mute."
+    assert addressed("Hippie, mute.", "Happy") is None
+    assert addressed("Hey Jarvis, lock the screen.", "Happy") is None

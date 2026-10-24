@@ -24,7 +24,7 @@ def where(name):
     return paths.MODELS / (file.removesuffix(".tar.bz2") if file.endswith(".tar.bz2") else file)
 
 
-def fetch(url, into):
+def fetch(url, into, progress=None):
     with httpx.stream("GET", url, follow_redirects=True, timeout=60) as reply:
         reply.raise_for_status()
         whole = int(reply.headers.get("content-length") or 0)
@@ -33,24 +33,31 @@ def fetch(url, into):
             for chunk in reply.iter_bytes(1 << 20):
                 out.write(chunk)
                 done += len(chunk)
-                if whole and sys.stdout.isatty():
+                if progress:
+                    progress(done, whole)
+                elif whole and sys.stdout.isatty():
                     print(f"\r  {into.name}: {done * 100 // whole}%", end="", flush=True)
-    if sys.stdout.isatty():
+    if not progress and sys.stdout.isatty():
         print()
 
 
-def ensure(names=tuple(SPEECH)):
-    """Downloads whichever of the named models are missing and returns their paths."""
+def missing():
+    return [name for name in SPEECH if not where(name).exists()]
+
+
+def ensure(names=tuple(SPEECH), progress=None):
+    """Downloads whichever of the named models are missing and returns their paths; progress(name, done, whole)."""
     paths.MODELS.mkdir(parents=True, exist_ok=True)
     for name in names:
         target = where(name)
         if target.exists():
             continue
         url = SPEECH[name]
-        print(f"Downloading the {name} model…", flush=True)
+        if not progress:
+            print(f"Downloading the {name} model…", flush=True)
         with tempfile.TemporaryDirectory(dir=paths.MODELS) as tmp:
             file = Path(tmp) / url.rsplit("/", 1)[1]
-            fetch(url, file)
+            fetch(url, file, progress and (lambda done, whole, name=name: progress(name, done, whole)))
             if file.name.endswith(".tar.bz2"):
                 with tarfile.open(file) as archive:
                     archive.extractall(tmp, filter="data")

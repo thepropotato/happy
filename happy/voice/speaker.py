@@ -42,13 +42,17 @@ class Speaker:
         self.speaking = False
         self.said = []
 
-    def start(self):
+    def warm(self):
+        """Downloads and prepares the voice without starting to play anything."""
         from pocket_tts import TTSModel
 
-        started = time.monotonic()
         self.model = TTSModel.load_model()
         self.rate = self.model.sample_rate
         self.state = self.voice_state(self.voice)
+
+    def start(self):
+        started = time.monotonic()
+        self.warm()
         log.info("voice ready in %.1fs", time.monotonic() - started)
         threading.Thread(target=self.synthesise, name="voice", daemon=True).start()
         threading.Thread(target=self.housekeep, name="voice-out", daemon=True).start()

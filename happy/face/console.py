@@ -19,6 +19,9 @@ class ConsoleFace:
     def state(self, name):
         pass
 
+    def progress(self, text, fraction=None):
+        pass
+
     def user(self, text):
         self.finished.clear()
         self.out(f"\033[2myou ›\033[0m {text}")

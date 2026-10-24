@@ -1,16 +1,31 @@
 """Whether speech was said to Happy: its name first, perhaps after a greeting, never just in passing."""
 
+import difflib
 import re
 
 GREETINGS = {"hey", "hi", "ok", "okay", "yo", "hello", "oi", "oh", "um", "uh", "so", "and", "ah", "hay", "a"}
 
 
+def skeleton(word):
+    """The consonants of a word in order, which is what survives a mis-heard vowel."""
+    return word[:1] + re.sub(r"(.)\1+", r"\1", re.sub(r"[aeiouyhw']", "", word[1:]))
+
+
+def sounds_like(word, name):
+    word, name = word.lower().strip("'"), name.lower()
+    for ending in ("'s", "s"):
+        if word.endswith(ending) and word[: -len(ending)] == name:
+            return True
+    if word == name:
+        return True
+    return skeleton(word) == skeleton(name) and difflib.SequenceMatcher(None, word, name).ratio() >= 0.6
+
+
 def addressed(text, name):
     """The request that follows the name, or None when the name was only used in passing."""
     words = re.findall(r"[\w']+|[.,!?;]", text)
-    target = name.lower()
     for i, word in enumerate(words):
-        if word.lower().strip("'") not in (target, target + "s", target + "'s"):
+        if not sounds_like(word, name):
             continue
         before = []
         for prior in reversed(words[:i]):

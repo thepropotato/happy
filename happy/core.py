@@ -33,6 +33,7 @@ class Happy:
         self.ears = None
         self.want_voice = voice
         self.want_ears = ears
+        self.waiting = "Getting ready"
         self.spoken_at = 0.0
         self.answered = False
         self.activity = ""
@@ -44,13 +45,12 @@ class Happy:
     async def main(self):
         self.loop = asyncio.get_running_loop()
         self.quit = asyncio.Event()
-        self.face.state("waking")
+        self.waiting = "Getting ready"
+        self.face.progress(self.waiting, 0.02)
         await asyncio.to_thread(self.wake_up)
         self.brain = pick.choose(self.cfg, self.extra_servers)
-        if self.brain is None:
-            self.face.note("No brain found. Run: happy setup")
-            self.say("I don't have a brain to think with yet. Run happy setup in a terminal and pick one.")
-        else:
+        if self.brain is not None:
+            self.loading(f"Waking the brain ({self.brain.name})", 0.92)
             try:
                 await self.brain.start()
             except Exception as error:
@@ -59,20 +59,33 @@ class Happy:
         self.ready.set()
         self.face.state("idle")
         key = (self.cfg.get("push_to_talk") or "").replace("_", " ")
-        self.face.note(f"Say “{self.name}” or hold {key}" + (f" · {self.brain.name}" if self.brain else ""))
+        if self.brain is None:
+            self.face.note("Ready for everyday commands. Pick a brain in Setup for everything else.")
+        else:
+            self.face.note(f"Ready. Say “{self.name}” or hold {key}.")
         await self.quit.wait()
         if self.brain:
             await self.brain.close()
         await hub.close()
 
+    def loading(self, text, fraction):
+        self.waiting = text
+        self.face.progress(text, fraction)
+
     def wake_up(self):
-        """Loads the slow parts in parallel threads: voice, ears and connected services."""
+        """Loads the slow parts, saying which one it is waiting on: WhatsApp, then voice and ears together."""
         tools.load()
         self.extra_servers = {}
-        spec = whatsapp.spec(self.cfg)
+        self.loading("Starting WhatsApp", 0.05)
+        try:
+            whatsapp.adopt(self.cfg)
+            whatsapp.install(lambda text: self.loading("Installing WhatsApp (once)", 0.08))
+        except Exception:
+            log.exception("WhatsApp could not be installed")
+        spec = whatsapp.spec()
         if spec:
-            if whatsapp.start_bridge(spec["folder"]):
-                hub.add("whatsapp", {k: v for k, v in spec.items() if k != "folder"}, "happy")
+            if whatsapp.start_bridge():
+                hub.add("whatsapp", spec, "happy")
                 self.extra_servers["whatsapp"] = spec
             else:
                 log.warning("the WhatsApp bridge did not start; see ~/.happy/whatsapp-bridge.log")
@@ -80,18 +93,34 @@ class Happy:
             hub.add(name, server, source)
             if source != "Claude Code":
                 self.extra_servers[name] = server
-        workers = []
+        parts = {}
         if self.want_voice:
             from happy.voice.speaker import Speaker
 
             self.speaker = Speaker(self.cfg.get("voice") or "alba", on_level=self.face.mouth, on_speaking=self.speaking)
-            workers.append(threading.Thread(target=self.speaker.start))
+            parts["the voice"] = self.speaker.start
         if self.want_ears:
             from happy.ears.listen import Ears
 
             self.ears = Ears(self.name, wake=self.cfg.get("wake_word"), device=self.cfg.get("input.device") or "",
                              on_heard=self.heard, on_state=self.ear_state, on_level=self.face.ear)
-            workers.append(threading.Thread(target=self.ears.start))
+            parts["the ears"] = self.ears.start
+        pending = set(parts)
+        lock = threading.Lock()
+
+        def load(name, start):
+            try:
+                start()
+            except Exception:
+                log.exception("%s did not load", name)
+            with lock:
+                pending.discard(name)
+                if pending:
+                    self.loading(f"Loading {' and '.join(sorted(pending))}", 0.3 + 0.55 * (1 - len(pending) / len(parts)))
+
+        if parts:
+            self.loading(f"Loading {' and '.join(sorted(parts))}", 0.3)
+        workers = [threading.Thread(target=load, args=item) for item in parts.items()]
         for worker in workers:
             worker.start()
         for worker in workers:
@@ -114,6 +143,9 @@ class Happy:
 
     def key_down(self):
         """Push-to-talk pressed: stop talking and listen, from whatever thread the key arrived on."""
+        if not self.ready.is_set():
+            self.face.progress(f"Not ready yet: {self.waiting.lower()}")
+            return
         if self.speaker:
             self.speaker.stop()
         if self.loop:
