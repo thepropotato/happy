@@ -1,6 +1,7 @@
 """Claude as the brain, through the person's own Claude Code login, with their MCP servers and connectors."""
 
 import base64
+import json
 import logging
 import os
 import shutil
@@ -10,7 +11,7 @@ from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions, ClaudeSDKCli
                               PermissionResultDeny, ResultMessage, StreamEvent, SystemMessage, ToolResultBlock,
                               ToolUseBlock, UserMessage, create_sdk_mcp_server, tool as sdk_tool)
 
-from happy import tools
+from happy import paths, tools
 from happy.agent import Act, Acted, Backend, Problem, Text
 from happy.agent.prompt import stamped, system_prompt
 from happy.integrations import discovered
@@ -19,6 +20,7 @@ from happy.tools import Image
 log = logging.getLogger("happy.agent")
 
 FORGET_AFTER = 15 * 60
+SESSION = paths.HOME / "claude-session.json"
 BUILT_IN = ["WebSearch", "WebFetch", "Read", "Glob", "Grep"]
 NEVER = {"Bash", "Write", "Edit", "MultiEdit", "NotebookEdit", "KillShell", "BashOutput"}
 LABELS = {"WebSearch": ("Searching the web", "Searching the web."), "WebFetch": ("Reading a page", ""),
@@ -60,6 +62,10 @@ class Claude(Backend):
         self.client = None
         self.emit = lambda event: None
         self.last = 0.0
+        self.resuming = None
+        saved = self.saved()
+        if saved and time.time() - saved["at"] < FORGET_AFTER:
+            self.resuming, self.last = saved["id"], saved["at"]
         self.running = {}
 
     def wrap(self, registered):
@@ -101,7 +107,22 @@ class Claude(Backend):
             effort=self.cfg.get("brain.effort") or "low",
             cwd=os.path.expanduser("~"),
             cli_path=shutil.which("claude"),
+            resume=self.resuming,
         )
+
+    @staticmethod
+    def saved():
+        """The last conversation's session, so a restart within a few minutes carries on from it."""
+        try:
+            return json.loads(SESSION.read_text())
+        except (OSError, ValueError):
+            return None
+
+    @staticmethod
+    def keep(session):
+        if session:
+            SESSION.parent.mkdir(parents=True, exist_ok=True)
+            SESSION.write_text(json.dumps({"id": session, "at": time.time()}))
 
     async def permit(self, name, args, context):
         if name in NEVER:
@@ -134,6 +155,7 @@ class Claude(Backend):
     async def turn(self, text, emit):
         if time.time() - self.last > FORGET_AFTER:
             await self.reset()
+            self.resuming = None
         self.last = time.time()
         await self.start()
         self.emit = emit
@@ -168,6 +190,7 @@ class Claude(Backend):
 
                 status.claude_servers = {s.get("name"): s.get("status") for s in message.data.get("mcp_servers", [])}
             elif isinstance(message, ResultMessage):
+                self.keep(message.session_id)
                 if message.is_error and not said:
                     emit(Problem(str(message.result or message.subtype)))
         self.emit = lambda event: None
