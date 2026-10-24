@@ -417,7 +417,7 @@ class Face(QObject):
 
     def ready_word(self, cfg, name):
         return {"is": "ready", "name": name, "called": cfg.get("name") or "Happy", "key": KEY_NAMES.get(cfg.get("push_to_talk"), "the talk key"),
-                "amiss": "" if self.trusted() else "Allow <b>Accessibility</b> so the talk key works anywhere."}
+                "amiss": "" if self.trusted() else "Allow Accessibility so the talk key works anywhere."}
 
     @staticmethod
     def trusted():

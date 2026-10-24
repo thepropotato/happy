@@ -80,4 +80,4 @@ def system_prompt(cfg, local=False):
 
 def stamped(text):
     """Puts the local time on a request, since the prompt itself never changes."""
-    return f"[{time.strftime('%A %d %B %Y, %I:%M %p')}] {text}"
+    return f"{text}\n\n(For reference, it is now {time.strftime('%A %d %B %Y, %I:%M %p')}.)"
