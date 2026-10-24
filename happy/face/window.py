@@ -298,12 +298,6 @@ class Face(QObject):
         self.cfg.save()
         if self.happy and self.happy.ears:
             self.happy.ears.wake_enabled = on
-            if on and self.happy.ears.wake is None:
-                from happy.ears.wake import WakeWord
-
-                self.happy.ears.wake = WakeWord(self.cfg.get("name"), threshold=0.05, boost=3.0)
-            elif not on:
-                self.happy.ears.wake = None
         self.post("state", "idle" if on else "asleep")
 
     def post(self, kind, value=None):

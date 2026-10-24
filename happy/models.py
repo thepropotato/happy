@@ -14,7 +14,6 @@ RELEASES = "https://github.com/k2-fsa/sherpa-onnx/releases/download"
 
 SPEECH = {
     "stt": f"{RELEASES}/asr-models/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2",
-    "kws": f"{RELEASES}/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2",
     "vad": f"{RELEASES}/asr-models/silero_vad_v5.onnx",
 }
 

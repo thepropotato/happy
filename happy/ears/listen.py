@@ -12,11 +12,12 @@ import sounddevice as sd
 
 from happy import models
 from happy.ears.stt import Transcriber
-from happy.ears.wake import WakeWord, addressed
+from happy.ears.wake import addressed
 
 RATE = 16000
 BLOCK = 1600
 PREROLL = 2.5
+PEEK = 3.0
 TRAILING_SILENCE = 0.8
 LONGEST = 20.0
 TAP = 0.35
@@ -43,40 +44,40 @@ def pick_mic(wanted=""):
 
 
 class Endpoint:
-    """Decides when someone has finished speaking."""
+    """Decides when someone has finished speaking, counting audio rather than wall-clock time."""
 
     def __init__(self, wait=6.0):
         config = sherpa_onnx.VadModelConfig()
         config.silero_vad.model = str(models.ensure(["vad"])["vad"])
-        config.silero_vad.threshold = 0.5
+        config.silero_vad.threshold = 0.35
         config.silero_vad.min_silence_duration = 0.3
-        config.silero_vad.min_speech_duration = 0.15
+        config.silero_vad.min_speech_duration = 0.1
         config.sample_rate = RATE
         self.vad = sherpa_onnx.VoiceActivityDetector(config, buffer_size_in_seconds=LONGEST + 10)
         self.wait = wait
         self.started = None
         self.last_speech = None
-        self.began = time.monotonic()
         self.heard = 0.0
 
     def feed(self, samples):
         """Returns 'more', 'done' or 'nothing'."""
         self.vad.accept_waveform(samples)
-        now = time.monotonic()
         self.heard += len(samples) / RATE
         if self.vad.is_speech_detected():
-            self.started = self.started or now
-            self.last_speech = now
+            self.started = self.heard if self.started is None else self.started
+            self.last_speech = self.heard
         while not self.vad.empty():
             self.vad.pop()
         if self.started is None:
-            return "nothing" if now - self.began > self.wait else "more"
-        if now - self.last_speech > TRAILING_SILENCE or self.heard > LONGEST:
+            return "nothing" if self.heard > self.wait else "more"
+        if self.heard - self.last_speech > TRAILING_SILENCE or self.heard - self.started > LONGEST:
             return "done"
         return "more"
 
 
 class Ears:
+    """Listens all the time, but only speech that starts by addressing Happy by name goes anywhere."""
+
     def __init__(self, name, wake=True, device="", on_heard=None, on_state=None, on_level=None):
         self.name = name
         self.wake_enabled = wake
@@ -89,6 +90,8 @@ class Ears:
         self.mode = "idle"
         self.capture = []
         self.endpoint = None
+        self.segment = None
+        self.peeked = False
         self.key_down_at = None
         self.deaf = threading.Event()
         self.stopping = threading.Event()
@@ -98,7 +101,7 @@ class Ears:
 
     def start(self):
         self.stt = Transcriber()
-        self.wake = WakeWord(self.name, threshold=0.05, boost=3.0) if self.wake_enabled else None
+        self.segment = Endpoint(wait=float("inf"))
         index, self.mic_name = pick_mic(self.device)
         log.info("listening on %s", self.mic_name)
         self.stream = sd.InputStream(samplerate=RATE, channels=1, dtype="float32", blocksize=BLOCK,
@@ -165,54 +168,84 @@ class Ears:
             self.check_silence(block)
             with self.lock:
                 mode = self.mode
-            if mode in ("key", "follow", "listening"):
+            if mode in ("key", "follow"):
                 self.on_level(float(np.sqrt(np.mean(block ** 2))))
-            if mode == "idle":
-                self.ring.append(block)
-                if self.wake and not self.deaf.is_set() and self.wake.feed(block):
-                    with self.lock:
-                        self.capture = list(self.ring)
-                        self.endpoint = Endpoint(wait=3.0)
-                        self.mode = "armed"
+            if mode in ("idle", "ignoring"):
+                self.overhear(block, mode)
                 continue
+            audio, how = None, mode
             with self.lock:
                 self.capture.append(block)
                 if self.mode == "finishing":
-                    self.mode = "idle"
-                    audio = np.concatenate(self.capture)
-                    self.capture = []
-                    self.finish(audio, "key")
-                    continue
-                if self.mode in ("armed", "follow", "listening"):
+                    audio, how = np.concatenate(self.capture), "key"
+                    self.mode, self.capture = "idle", []
+                elif self.mode == "follow":
                     verdict = self.endpoint.feed(block)
                     if verdict == "more":
                         continue
-                    how = self.mode
                     audio = np.concatenate(self.capture) if verdict == "done" else None
-                    self.mode = "idle"
-                    self.capture = []
+                    self.mode, self.capture = "idle", []
                 else:
                     continue
+            self.fresh_segment()
             if audio is None:
-                if how != "armed":
-                    self.on_state("idle")
+                self.on_state("idle")
                 continue
             self.finish(audio, how)
 
+    def fresh_segment(self):
+        self.segment = Endpoint(wait=float("inf"))
+        self.peeked = False
+
+    def overhear(self, block, mode):
+        """Follows speech in the room and checks its start for the name."""
+        self.ring.append(block)
+        if not self.wake_enabled or self.deaf.is_set():
+            if self.segment.started is not None:
+                self.fresh_segment()
+                self.capture = []
+            return
+        verdict = self.segment.feed(block)
+        if mode == "ignoring":
+            if verdict == "done":
+                with self.lock:
+                    self.mode = "idle"
+                self.fresh_segment()
+            return
+        if self.segment.started is None:
+            return
+        if not self.capture:
+            self.capture = list(self.ring)[-10:]
+        else:
+            self.capture.append(block)
+        if verdict == "done":
+            audio = np.concatenate(self.capture)
+            self.capture = []
+            self.fresh_segment()
+            self.finish(audio, "overheard")
+        elif not self.peeked and len(self.capture) * BLOCK / RATE >= PEEK:
+            self.peeked = True
+            opening = self.stt(np.concatenate(self.capture))
+            if addressed(opening, self.name) is None:
+                with self.lock:
+                    self.mode = "ignoring"
+                self.capture = []
+
     def finish(self, audio, how):
-        if how != "armed":
+        if how != "overheard":
             self.on_state("transcribing")
         text = self.stt(audio)
-        log.info("heard (%s): %r", how, text)
-        if how == "armed":
+        if how == "overheard":
             command = addressed(text, self.name)
             if command is None:
                 return
+            log.info("heard: %r", text)
             if not command:
                 self.listen_now()
                 return
             self.on_heard(command, "wake")
             return
+        log.info("heard (%s): %r", how, text)
         if not text:
             self.on_state("missed")
             return
