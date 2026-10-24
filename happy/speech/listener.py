@@ -111,6 +111,19 @@ class Listener:
         self.worker = threading.Thread(target=self.run, name="ears", daemon=True)
         self.worker.start()
 
+    def reopen(self):
+        """Opens the microphone again, after the sound devices were reloaded underneath it."""
+        try:
+            self.stream.stop()
+            self.stream.close()
+        except Exception:
+            pass
+        index, self.mic_name = pick_mic(self.device)
+        self.stream = sd.InputStream(samplerate=RATE, channels=1, dtype="float32", blocksize=BLOCK,
+                                     device=index, callback=self.arrived)
+        self.stream.start()
+        log.info("listening on %s", self.mic_name)
+
     def stop(self):
         self.stopping.set()
         try:

@@ -115,7 +115,8 @@ class Happy:
         if self.want_voice:
             from happy.speech.speaker import Speaker
 
-            self.speaker = Speaker(self.cfg.get("voice") or "alba", on_level=self.face.mouth, on_speaking=self.speaking)
+            self.speaker = Speaker(self.cfg.get("voice") or "alba", on_level=self.face.mouth, on_speaking=self.speaking,
+                                   refresh_devices=self.reload_sound)
             parts["the voice"] = self.speaker.start
         if self.want_listening:
             from happy.speech.listener import Listener
@@ -143,6 +144,21 @@ class Happy:
             worker.start()
         for worker in workers:
             worker.join()
+
+    def reload_sound(self):
+        """Reloads the sound devices for a changed output, and reopens the microphone, which shares the same list."""
+        import sounddevice as sd
+
+        if self.listener:
+            try:
+                self.listener.stream.stop()
+                self.listener.stream.close()
+            except Exception:
+                pass
+        sd._terminate()
+        sd._initialize()
+        if self.listener:
+            self.listener.reopen()
 
     def stop(self):
         if self.loop and self.quit:

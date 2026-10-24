@@ -244,3 +244,35 @@ def trusted():
     from ApplicationServices import AXIsProcessTrusted
 
     return bool(AXIsProcessTrusted())
+
+
+def output_device():
+    """The sound output macOS is using right now, by name, read fresh from CoreAudio."""
+    import struct
+
+    class Address(ctypes.Structure):
+        _fields_ = [("selector", ctypes.c_uint32), ("scope", ctypes.c_uint32), ("element", ctypes.c_uint32)]
+
+    def code(text):
+        return struct.unpack(">I", text.encode())[0]
+
+    audio = ctypes.CDLL(ctypes.util.find_library("CoreAudio"))
+    foundation = ctypes.CDLL(ctypes.util.find_library("CoreFoundation"))
+    foundation.CFStringGetCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_long, ctypes.c_uint32]
+
+    def read(owner, selector, kind):
+        where = Address(code(selector), code("glob"), 0)
+        value = kind()
+        size = ctypes.c_uint32(ctypes.sizeof(value))
+        failed = audio.AudioObjectGetPropertyData(ctypes.c_uint32(owner), ctypes.byref(where), 0, None, ctypes.byref(size), ctypes.byref(value))
+        return None if failed else value.value
+
+    device = read(1, "dOut", ctypes.c_uint32)
+    name = read(device, "lnam", ctypes.c_void_p) if device else None
+    if not name:
+        return ""
+    text = ctypes.create_string_buffer(256)
+    foundation.CFStringGetCString(name, text, 256, 0x08000100)
+    foundation.CFRelease(ctypes.c_void_p(name))
+    return text.value.decode()
+

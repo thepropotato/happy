@@ -3,6 +3,7 @@
 import collections
 import logging
 import queue
+import sys
 import threading
 import time
 
@@ -26,11 +27,17 @@ def chime(rate, rising=True):
     return np.concatenate(parts).astype(np.float32)
 
 
+def reload_devices():
+    sd._terminate()
+    sd._initialize()
+
+
 class Speaker:
-    def __init__(self, voice="alba", on_level=None, on_speaking=None):
+    def __init__(self, voice="alba", on_level=None, on_speaking=None, refresh_devices=None):
         self.voice = voice
         self.on_level = on_level or (lambda level: None)
         self.on_speaking = on_speaking or (lambda speaking: None)
+        self.refresh_devices = refresh_devices or reload_devices
         self.texts = queue.Queue()
         self.audio = collections.deque()
         self.audio_lock = threading.Lock()
@@ -72,6 +79,7 @@ class Speaker:
         """Queues a sentence to be spoken; returns what will actually be said."""
         spoken = speakable(text)
         if spoken and any(c.isalnum() for c in spoken):
+            log.info("saying: %s", spoken)
             with self.busy_lock:
                 self.busy += 1
             self.texts.put(spoken)
@@ -129,13 +137,30 @@ class Speaker:
     def ensure_stream(self):
         if self.stream is not None:
             return
+        self.follow_output()
         try:
             self.stream = sd.OutputStream(samplerate=self.rate, channels=1, dtype="float32",
                                           blocksize=int(self.rate * 0.03), callback=self.fill)
             self.stream.start()
+            log.info("speaking through %s", sd.query_devices(kind="output")["name"])
         except Exception:
             log.exception("no speaker to play through")
             self.stream = None
+
+    def follow_output(self):
+        """The sound library learns the devices once; if the output changed since (headphones in or out), it learns them again."""
+        if sys.platform != "darwin":
+            return
+        try:
+            from happy.system import macos
+
+            now = macos.output_device()
+            known = sd.query_devices(kind="output")["name"]
+        except Exception:
+            return
+        if now and now != known:
+            log.info("the output moved from %s to %s; reloading the sound devices", known, now)
+            self.refresh_devices()
 
     def fill(self, out, frames, timing, status):
         written = 0
