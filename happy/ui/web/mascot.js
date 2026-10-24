@@ -15,6 +15,7 @@ window.happy.hears((word) => {
     Smile.mood(word.state)
   }
   if (word.is === 'tint') Tint.apply(word.colour)
+  if (word.is === 'hover') document.body.classList.toggle('hover', word.on)
   if (word.is === 'level') Smile.level(word.level)
   if (word.is === 'hush') Smile.hush()
   if (word.is === 'step' && word.failed) troubled = true

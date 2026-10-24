@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, QUrl, Signal, Slot
-from PySide6.QtGui import QGuiApplication, QIcon
+from PySide6.QtGui import QCursor, QGuiApplication, QIcon
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtWebEngineCore import QWebEngineSettings
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -144,21 +144,13 @@ class Grip(QWidget):
         self.pressed_at = None
         self.dragged = False
         self.setCursor(Qt.PointingHandCursor)
+        self.setMouseTracking(True)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.pressed_at = event.globalPosition().toPoint()
             self.start = self.window().pos()
             self.dragged = False
-
-    def mouseMoveEvent(self, event):
-        if self.pressed_at is None:
-            return
-        delta = event.globalPosition().toPoint() - self.pressed_at
-        if delta.manhattanLength() > 4:
-            self.dragged = True
-        if self.dragged:
-            self.window().move(self.start + delta)
 
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton and self.pressed_at is not None:
@@ -170,6 +162,18 @@ class Grip(QWidget):
 
     def contextMenuEvent(self, event):
         self.face.menu().exec(event.globalPos())
+
+    def mouseMoveEvent(self, event):
+        self.drag(event)
+
+    def drag(self, event):
+        if self.pressed_at is None:
+            return
+        delta = event.globalPosition().toPoint() - self.pressed_at
+        if delta.manhattanLength() > 4:
+            self.dragged = True
+        if self.dragged:
+            self.window().move(self.start + delta)
 
 
 class Panel(Web):
@@ -255,6 +259,30 @@ class Face(QObject):
         self.panel = Panel(self)
         self.tray = self.make_tray()
         self.place_mascot()
+        self.hovering = False
+        self.pointer = QTimer(self)
+        self.pointer.timeout.connect(self.watch_pointer)
+        self.pointer.start(70)
+        if native():
+            from happy.system import macos
+
+            macos.cursor_from_background()
+
+    def watch_pointer(self):
+        """Hover, found by looking: macOS sends no enter or leave to an app that is not in front."""
+        inside = self.mascot.isVisible() and self.mascot.frameGeometry().contains(QCursor.pos())
+        if inside == self.hovering:
+            if inside and native():
+                from AppKit import NSCursor
+
+                NSCursor.pointingHandCursor().set()
+            return
+        self.hovering = inside
+        self.mascot.send({"is": "hover", "on": inside})
+        if native():
+            from AppKit import NSCursor
+
+            (NSCursor.pointingHandCursor() if inside else NSCursor.arrowCursor()).set()
 
     # ── windows ──
 

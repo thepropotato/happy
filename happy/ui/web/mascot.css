@@ -13,3 +13,13 @@ html,
         height: 100%;
         display: block;
       }
+
+/* POINTED AT, IT RISES A LITTLE AND BRIGHTENS: IT CAN BE CLICKED. */
+canvas {
+  transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 200ms;
+}
+
+body.hover canvas {
+  transform: translateY(-3px) scale(1.08);
+  filter: brightness(1.15) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35));
+}

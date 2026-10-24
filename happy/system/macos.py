@@ -276,3 +276,20 @@ def output_device():
     foundation.CFRelease(ctypes.c_void_p(name))
     return text.value.decode()
 
+
+def cursor_from_background():
+    """Lets this app set the cursor while another app is in front, which is all Happy ever is."""
+    try:
+        services = ctypes.CDLL("/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices")
+        foundation = ctypes.CDLL(ctypes.util.find_library("CoreFoundation"))
+        services._CGSDefaultConnection.restype = ctypes.c_int
+        foundation.CFStringCreateWithCString.restype = ctypes.c_void_p
+        foundation.CFStringCreateWithCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_uint32]
+        connection = services._CGSDefaultConnection()
+        key = foundation.CFStringCreateWithCString(None, b"SetsCursorInBackground", 0x08000100)
+        true = ctypes.c_void_p.in_dll(foundation, "kCFBooleanTrue")
+        services.CGSSetConnectionProperty.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p]
+        services.CGSSetConnectionProperty(connection, connection, key, true)
+        return True
+    except Exception:
+        return False
