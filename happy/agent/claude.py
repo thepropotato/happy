@@ -142,6 +142,12 @@ class Claude(Backend):
                 pass
             self.client = None
 
+    async def refresh(self):
+        # A SYSTEM PROMPT IS FIXED FOR A SESSION, SO THE SAME CONVERSATION IS RESUMED UNDER THE NEW ONE.
+        saved = self.saved()
+        self.resuming = saved["id"] if saved and time.time() - saved["at"] < FORGET_AFTER else None
+        await self.reset()
+
     async def close(self):
         await self.reset()
 

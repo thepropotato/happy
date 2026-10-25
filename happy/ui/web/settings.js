@@ -300,6 +300,26 @@ const Settings = (() => {
     name.onchange = () => ask({ do: 'set', key: 'name', value: name.value })
     naming.append(name)
 
+    const calling = row(block, 'It calls you', 'Empty means your name on this computer.')
+    const call = field('call_me', word.owner)
+
+    call.value = word.call_me
+    call.style.maxWidth = '45%'
+    call.onchange = () => ask({ do: 'set', key: 'call_me', value: call.value })
+    calling.append(call)
+
+    const speaking = row(block, 'Personality', 'How it talks, in your words. Empty is its own way.')
+    const style = element('textarea')
+
+    speaking.classList.add('stacked')
+    style.id = 'persona'
+    style.rows = 3
+    style.spellcheck = false
+    style.placeholder = 'Like a knight from Game of Thrones: formal, a little grand, calls me my lord.'
+    style.value = word.persona || ''
+    style.onchange = () => ask({ do: 'persona', text: style.value })
+    speaking.append(style)
+
     row(block, `Wake up to “${escape(word.name)}”`, 'Off means only the key wakes it.').append(
       toggle(word.wake, (on) => ask({ do: 'set', key: 'wake_word', value: on })),
     )

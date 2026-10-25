@@ -47,5 +47,9 @@ class Backend:
     async def reset(self):
         pass
 
+    async def refresh(self):
+        """Takes up a changed prompt, like a new way of talking, keeping the conversation where it can."""
+        await self.reset()
+
     async def close(self):
         pass

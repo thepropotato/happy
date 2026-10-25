@@ -23,11 +23,17 @@ def owner():
 def persona_text(cfg):
     style = paths.HOME / "persona.md"
     if style.exists():
-        return style.read_text().strip()
+        return style.read_text().strip()[:1500]
     raw = cfg.get("persona") or ""
     if raw and Path(raw).expanduser().exists():
         return ""
     return raw.strip()
+
+
+def persona_stamp():
+    """When the way of talking last changed, so a running brain can tell its prompt is out of date."""
+    style = paths.HOME / "persona.md"
+    return style.stat().st_mtime if style.exists() else 0.0
 
 
 def memory_text():
@@ -38,8 +44,10 @@ def memory_text():
 def system_prompt(cfg, local=False):
     name = cfg.get("name") or "Happy"
     person = owner()
+    called = (cfg.get("call_me") or "").strip()
     lines = [
         f"You are {name}, a voice assistant that lives on {person}'s {MACHINE} and works it for them.",
+        *([f"Address them as \"{called}\" whenever you speak to them by name or title."] if called else []),
         "Everything you write is spoken aloud by a text-to-speech voice, then shown in a small bubble.",
         "",
         "How you talk:",

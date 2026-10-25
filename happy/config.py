@@ -13,6 +13,7 @@ WINDOWS = sys.platform == "win32"
 
 DEFAULTS = {
     "name": "Happy",
+    "call_me": "",
     "wake_word": True,
     "start_at_login": True,
     "push_to_talk": "right_option" if MAC else "right_ctrl",
@@ -27,6 +28,7 @@ DEFAULTS = {
 
 COMMENTS = {
     "name": "What you call it. Saying this name wakes it up.",
+    "call_me": "What Happy calls you, like 'my lord'. Empty means your first name from this computer.",
     "push_to_talk": "Hold this key to talk: right_option, right_command, right_ctrl or right_shift.",
     "voice": "A Pocket TTS voice: alba, marius, javert, jean, cosette, anna, vera, charles, paul, george, mary, jane, michael, eve.",
     "persona": "Path to a text file whose way of talking Happy should copy.",

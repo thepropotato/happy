@@ -186,7 +186,19 @@
   color: var(--bad);
 }
 
+.row.stacked {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.settings textarea {
+  resize: vertical;
+  min-height: 56px;
+  line-height: 1.45;
+}
+
 .settings select,
+.settings textarea,
 .settings input[type='text'],
 .settings input[type='password'] {
   border: 1px solid var(--line);
@@ -223,11 +235,13 @@
 }
 
 .settings select:focus,
+.settings textarea:focus,
 .settings input:focus {
   border-color: var(--glow-soft);
   background: rgba(255, 255, 255, 0.06);
 }
 
+.settings textarea::placeholder,
 .settings input::placeholder {
   color: var(--faint);
 }

@@ -52,6 +52,9 @@ class Happy:
         self.last_result = None
         self.quiet = False
         self.chat = None
+        from happy.agent.prompt import persona_stamp
+
+        self.persona_at = persona_stamp()
 
     def run(self):
         asyncio.run(self.main())
@@ -526,6 +529,12 @@ class Happy:
                 self.answered = True
                 self.say(event.message)
 
+        from happy.agent.prompt import persona_stamp
+
+        if persona_stamp() != self.persona_at:
+            # A NEW WAY OF TALKING, SET IN THE SETTINGS OR BY VOICE, APPLIES FROM THE NEXT TURN WITHOUT A RESTART.
+            self.persona_at = persona_stamp()
+            await self.backend.refresh()
         guard = asyncio.create_task(self.keep_talking(started))
         try:
             final = await self.backend.turn(text, emit)

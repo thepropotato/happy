@@ -10,6 +10,8 @@ import time
 from functools import cache
 
 from happy import paths
+from happy import persona
+from happy.agent.prompt import owner
 from happy.config import Config, save_secret
 from happy.speech import models
 
@@ -70,6 +72,9 @@ class Settings:
             "speech": self.speech,
             "model": self.model_state(cfg),
             "name": cfg.get("name") or "Happy",
+            "call_me": cfg.get("call_me") or "",
+            "persona": persona.read(),
+            "owner": owner(),
             "colour": cfg.get("colour") or "#658761",
             "wake": bool(cfg.get("wake_word")),
             "login": cfg.get("start_at_login") is not False,
@@ -214,6 +219,8 @@ class Settings:
             key, value = order.get("key"), order.get("value")
             if key == "name":
                 value = (value or "").strip().title() or "Happy"
+            if key == "call_me":
+                value = (value or "").strip()
             cfg.set(key, value)
             cfg.save()
             if key == "colour":
@@ -225,8 +232,23 @@ class Settings:
                 from happy.system import native
 
                 native.start_at_login(bool(value), [sys.executable, "-m", "happy", "run", "--quiet"], paths.REPO)
-            self.restart = self.restart or key in ("name", "push_to_talk", "voice")
+            self.restart = self.restart or key in ("name", "call_me", "push_to_talk", "voice")
             self.send()
+        elif kind == "persona":
+            text = order.get("text", "")
+            if len(text.strip()) > persona.TYPED:
+                self.notice = "Learning the way of talking from what you pasted…"
+                self.send()
+
+                def learn():
+                    persona.adopt(text)
+                    self.notice = ""
+                    self.send()
+
+                self.later(learn)
+            else:
+                persona.write(text)
+                self.send()
         elif kind == "model":
             self.choose_model(order, cfg)
         elif kind == "speech_retry":

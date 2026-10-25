@@ -1,5 +1,6 @@
 """Things Happy knows about the person from earlier conversations, kept in ~/.happy/memory.md."""
 
+import re
 from typing import Annotated
 
 from happy import paths
@@ -35,3 +36,16 @@ def forget(fact: Annotated[str, "words from the fact to forget"]):
     kept = [line for line in lines if fact.lower() not in line.lower()]
     NOTES.write_text("\n".join(kept) + ("\n" if kept else ""))
     return "Forgotten." if len(kept) < len(lines) else "I had nothing like that remembered."
+
+
+@tool(label="Changing how I talk")
+def personality(style: Annotated[str, "how to talk from now on, in their words, like 'like a knight from Game of Thrones'; empty to go back to normal"] = ""):
+    """Change the way you talk from the next reply on, when they ask you to talk like someone or in some style, or to talk normally again."""
+    from happy import persona
+
+    style = style.strip()
+    # A MODEL ASKED TO GO BACK TO NORMAL WRITES "normal" AS OFTEN AS IT LEAVES THE STYLE EMPTY.
+    if re.fullmatch(r"(?:talk |speak )?(?:like )?(?:normal|normally|default|usual|your(?:self| own way| usual way| normal way)?|plain|regular|none|off|reset)\.?", style.lower()):
+        style = ""
+    persona.adopt(f"Talk {style}." if style and not style.lower().startswith(("talk", "speak")) else style)
+    return "From the next reply on, I'll talk that way." if style else "Back to my own way of talking from the next reply."

@@ -90,6 +90,9 @@ class OpenAICompatible(Backend):
     async def reset(self):
         self.history = []
 
+    async def refresh(self):
+        self.system = {"role": "system", "content": system_prompt(self.cfg, local=self.local)}
+
     async def interrupt(self):
         self.cancelled = True
 
