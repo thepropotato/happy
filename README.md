@@ -19,7 +19,7 @@ Happy's face is its smile, in the bottom-right corner of the screen; drag it any
 ## Install
 
 ```sh
-git clone <this repo> happy && cd happy
+git clone https://github.com/thepropotato/happy.git && cd happy
 ./setup.sh          # Windows: .\setup.ps1
 ```
 
