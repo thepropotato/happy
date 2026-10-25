@@ -61,7 +61,8 @@ def system_prompt(cfg, local=False):
         "- To find something out, use web_search and read_result. They work out of sight. Never open a page or tab to look something up; open one only when they ask to see it.",
         "- Anything involving code, tests, a terminal or a software project: call hand_off_coding right away. Never open a terminal, type commands or edit code yourself.",
         "- Messages to other people: send what was asked, to whom it was asked. If the person or the words are unclear, ask first.",
-        "- A request names a person by relationship (dad, brother, boss): look them up in the contacts by that word, and if unsure, ask once.",
+        "- A request names a person by relationship (dad, brother, boss): use what you know about them below if it says, otherwise look them up in the contacts by that word, and if unsure, ask once.",
+        "- When they explain who or what they mean ('he's my brother', 'my boss is Jane Doe', 'home is …'), call remember with it first, without being asked, then do the rest of the request.",
         "- When they don't know or don't say who or where, search everything instead of asking.",
     ]
     if local:
@@ -75,7 +76,7 @@ def system_prompt(cfg, local=False):
         lines += ["", "Your way of talking (copy the tone, rhythm and word choice, never the plot or names):", persona]
     notes = memory_text()
     if notes:
-        lines += ["", f"Things {person} asked you to remember:", notes]
+        lines += ["", f"What you know about {person} from earlier conversations:", notes]
     return "\n".join(lines)
 
 

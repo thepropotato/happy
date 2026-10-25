@@ -1,4 +1,4 @@
-"""Things the person asks Happy to remember, kept in ~/.happy/memory.md."""
+"""Things Happy knows about the person from earlier conversations, kept in ~/.happy/memory.md."""
 
 from typing import Annotated
 
@@ -8,13 +8,22 @@ from happy.tools import tool
 NOTES = paths.HOME / "memory.md"
 
 
-@tool(label="Remembering")
-def remember(fact: Annotated[str, "the fact, written as a short sentence about the person"]):
-    """Remember something the person told you to remember, for every future conversation."""
+def note(fact):
+    """Adds a line to the notes unless it is already there, and says which happened."""
+    fact = " ".join(fact.split()).rstrip(".") + "."
     NOTES.parent.mkdir(parents=True, exist_ok=True)
+    lines = NOTES.read_text().splitlines() if NOTES.exists() else []
+    if f"- {fact}".lower() in (line.lower() for line in lines):
+        return "Already remembered."
     with NOTES.open("a") as notes:
-        notes.write(f"- {fact.strip()}\n")
+        notes.write(f"- {fact}\n")
     return "Remembered."
+
+
+@tool(label="Remembering")
+def remember(fact: Annotated[str, "the fact as a short sentence, like 'My brother is John Doe in my contacts'"]):
+    """Remember a fact for every future conversation. Call it when they ask you to remember something, and also without being asked whenever they explain who or what they mean: a person ('my brother is John Doe'), a place ('home is Flat 12, Example Residency') or an account. Then carry on with what they asked."""
+    return note(fact)
 
 
 @tool(label="Forgetting")

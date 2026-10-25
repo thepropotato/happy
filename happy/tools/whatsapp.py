@@ -282,9 +282,18 @@ async def whatsapp_picture(name: Annotated[str, "the person, by name or number"]
 async def whatsapp_send(
     to: Annotated[str, "the person or group, by name"],
     message: Annotated[str, "the exact words to send"],
+    called: Annotated[str, "the relationship word they used for the person, like 'brother', 'mom' or 'boss', never the name; empty if they only gave a name"] = "",
 ):
     """Send a WhatsApp message."""
     data = await ask("send_message", recipients=[to], message=message)
+    said = called.strip().lower().removeprefix("my ").strip()
+    failed = (isinstance(data, str) and data.lower().startswith("error")) or (isinstance(data, dict) and (data.get("error") or data.get("success") is False))
+    if said and said != to.strip().lower() and not failed:
+        from happy.tools.notes import note
+
+        # "MY BROTHER, JOHN DOE" SAID ONCE IS KEPT, SO TOMORROW "MY BROTHER" NEEDS NO EXPLAINING.
+        note(f"'{said}' means {to.strip()} (their name in WhatsApp)")
+        await hub.call("whatsapp", "remember_contact", {"said": said, "means": to.strip()})
     return data if isinstance(data, str) else json.dumps(data)[:800]
 
 
@@ -294,4 +303,9 @@ async def whatsapp_remember(
     means: Annotated[str, "the contact's name in WhatsApp"],
 ):
     """Remember who someone means by a nickname or relationship, for next time."""
-    return await hub.call("whatsapp", "remember_contact", {"said": said, "means": means})
+    from happy.tools.notes import note
+
+    result = await hub.call("whatsapp", "remember_contact", {"said": said, "means": means})
+    # KEPT IN THE NOTES AS WELL, SO "MY BROTHER" IS KNOWN TO EVERY TOOL AND NOT ONLY TO WHATSAPP.
+    note(f"'{said}' means {means} (their name in WhatsApp)")
+    return result
