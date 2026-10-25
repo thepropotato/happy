@@ -223,13 +223,14 @@
   align-self: stretch;
   border: 1px solid transparent;
   border-radius: var(--r-md);
-  background: transparent;
+  /* ALWAYS ON, NOT ONLY UNDER THE POINTER: A RUN OF CALLS READS AS ONE SET OF BLOCKS. */
+  background: var(--block-open);
   animation: rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
   transition: border-color 180ms, background 180ms;
 }
 
 .call:not(.open):hover {
-  background: var(--block-open);
+  border-color: var(--line);
 }
 
 .call.open {

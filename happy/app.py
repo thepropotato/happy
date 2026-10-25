@@ -54,6 +54,7 @@ class Happy:
         self.quiet = False
         self.chat = None
         self.prompted = ""
+        self.narrated = set()
 
     def run(self):
         asyncio.run(self.main())
@@ -344,6 +345,9 @@ class Happy:
     def speaking(self, talking):
         if self.listener:
             self.listener.mute_wake(talking)
+        if self.busy() and not self.answered:
+            # A WORD ON WHAT IT IS DOING IS PART OF THE WORK, SO THE FACE STAYS "ON IT" THROUGH IT.
+            return
         if talking:
             self.face.state("speaking")
         elif self.busy():
@@ -487,6 +491,7 @@ class Happy:
         self.answered = False
         self.activity = ""
         self.saying = ""
+        self.narrated = set()
         self.last_result = None
         self.spoken_at = 0.0
         self.face.reply("")
@@ -513,7 +518,7 @@ class Happy:
                 self.face.began(call, event.tool, event.label, event.args)
                 self.face.state("working")
                 if event.say and not self.answered and time.monotonic() - self.spoken_at > 4:
-                    self.say(event.say)
+                    self.narrate(event.say)
                 self.steps.append({"tool": event.tool, "label": event.label, "args": event.args, "call": call})
                 log.info("tool %s %s", event.tool, event.args)
             elif isinstance(event, Acted):
@@ -585,7 +590,14 @@ class Happy:
                 continue
             doing = self.saying.rstrip(".").strip() or self.activity.split(":")[0].strip()
             if doing.split(" ")[0].lower().endswith("ing"):
-                self.say(f"Still {doing[0].lower()}{doing[1:]}.")
+                self.narrate(f"Still {doing[0].lower()}{doing[1:]}.")
+
+    def narrate(self, line):
+        """Says what Happy is doing once per turn; the same words again are noise, not news."""
+        if line.lower() in self.narrated:
+            return
+        self.narrated.add(line.lower())
+        self.say(line)
 
     async def settle(self, listen=True):
         if self.speaker:
