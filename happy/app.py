@@ -30,6 +30,13 @@ FACTUAL = {"set_brightness", "set_volume", "set_keyboard_light", "media"}
 STILL_EVERY = 8.0
 
 
+def brain(cfg):
+    """What decides which model runs, so a change to any of it swaps the model."""
+    from happy.config import secrets
+
+    return cfg.get("brain.kind"), cfg.get("brain.model"), cfg.get("brain.base_url"), secrets().get("api_key")
+
+
 class Happy:
     def __init__(self, cfg, face, voice=True, listening=True):
         self.cfg = cfg
@@ -55,6 +62,8 @@ class Happy:
         self.chat = None
         self.prompted = ""
         self.narrated = set()
+        self.brain = None
+        self.extra_servers = {}
 
     def run(self):
         asyncio.run(self.main())
@@ -67,6 +76,7 @@ class Happy:
         await asyncio.to_thread(self.wake_up)
         await self.connect_services()
         self.backend = choose.backend(self.cfg, self.extra_servers)
+        self.brain = brain(self.cfg)
         from happy.tools import status
 
         status.model_name = self.backend.name if self.backend else ""
@@ -227,6 +237,79 @@ class Happy:
                     known = found
                     log.info("listening for %d names from WhatsApp", len(found))
             time.sleep(NAMES_EVERY if known else 30)
+
+    def retune(self):
+        """Takes up changed settings while running, from any thread: nothing in the settings waits on a restart."""
+        from happy.config import Config
+
+        self.cfg = Config()
+        self.name = self.cfg.get("name") or "Happy"
+        if self.backend:
+            self.backend.cfg = self.cfg
+        if self.listener:
+            self.listener.name = self.name
+            self.listener.wake_enabled = bool(self.cfg.get("wake_word"))
+            device = self.cfg.get("input.device") or ""
+            if device != self.listener.device:
+                self.listener.device = device
+                threading.Thread(target=self.listener.reopen, name="microphone", daemon=True).start()
+        voice = self.cfg.get("voice") or "alba"
+        if self.speaker and self.ready.is_set() and voice != self.speaker.voice:
+            threading.Thread(target=self.speaker.use_voice, args=(voice,), name="voice change", daemon=True).start()
+        if self.loop and self.ready.is_set() and brain(self.cfg) != self.brain:
+            asyncio.run_coroutine_threadsafe(self.rebrain(), self.loop)
+
+    async def rebrain(self):
+        """Swaps in the model the settings now name, once the turn under way has finished."""
+        if self.busy():
+            try:
+                await asyncio.shield(self.task)
+            except BaseException:
+                pass
+        self.brain = brain(self.cfg)
+        old, self.backend = self.backend, choose.backend(self.cfg, self.extra_servers)
+        if self.backend is not None:
+            try:
+                await self.backend.start()
+            except Exception as error:
+                log.exception("model did not start")
+                self.face.trouble(f"{self.backend.name} did not start: {error}")
+        from happy.tools import status
+
+        status.model_name = self.backend.name if self.backend else ""
+        log.info("now thinking with %s", status.model_name or "nothing")
+        if old:
+            await old.close()
+
+    def services_changed(self):
+        """Connects a service added in the settings and drops a removed one, then hands the model the new tool list."""
+        if self.loop:
+            asyncio.run_coroutine_threadsafe(self.reconnect(), self.loop)
+
+    async def reconnect(self):
+        from happy.tools import REGISTRY, other_mcps
+
+        found = discovered.everything()
+        for name in [n for n, server in hub.servers.items() if server.source != "happy" and n not in found]:
+            await hub.servers.pop(name).close()
+            self.extra_servers.pop(name, None)
+            for gone in [t for t in REGISTRY if t.startswith(other_mcps.tool_name(name, ""))]:
+                del REGISTRY[gone]
+        for name, (server, source) in found.items():
+            if name not in hub.servers:
+                hub.add(name, server, source)
+                if source != "Claude Code":
+                    self.extra_servers[name] = server
+        if self.cfg.get("brain.kind") != "claude":
+            await asyncio.gather(*(server.connect(timeout=8) for server in hub.inherited()), return_exceptions=True)
+            other_mcps.register_direct()
+        if self.busy():
+            try:
+                await asyncio.shield(self.task)
+            except BaseException:
+                pass
+        if self.backend:
+            await self.backend.refresh()
 
     def login_item(self):
         """Keeps Happy starting at login when the setting says so, which is what lets a reminder survive a restart."""

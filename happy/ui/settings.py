@@ -29,11 +29,11 @@ SERVICES_SEEN = paths.HOME / "services.json"
 
 
 class Settings:
-    def __init__(self, emit, first=False, tint=lambda colour: None):
+    def __init__(self, emit, first=False, tint=lambda colour: None, changed=lambda what: None):
         self.emit = emit
         self.tint = tint
+        self.changed = changed
         self.first = first
-        self.restart = False
         self.notice = ""
         self.speech = {"ready": not models.missing(), "progress": None, "text": "", "failed": False}
         self.brains = []
@@ -67,7 +67,6 @@ class Settings:
         cfg = Config()
         return {
             "first": self.first,
-            "restart": self.restart,
             "notice": self.notice,
             "speech": self.speech,
             "model": self.model_state(cfg),
@@ -232,7 +231,7 @@ class Settings:
                 from happy.system import native
 
                 native.start_at_login(bool(value), [sys.executable, "-m", "happy", "run", "--quiet"], paths.REPO)
-            self.restart = self.restart or key in ("name", "call_me", "push_to_talk", "voice")
+            self.changed(key)
             self.send()
         elif kind == "persona":
             text = order.get("text", "")
@@ -291,7 +290,7 @@ class Settings:
                 if settings.get("key"):
                     save_secret("api_key", settings["key"])
         cfg.save()
-        self.restart = not self.first
+        self.changed("brain")
         self.notice = ""
         self.send()
 
@@ -306,7 +305,8 @@ class Settings:
         self.checking = True
         self.send()
         self.check_services()
-        self.restart = self.restart or (ok and not self.first)
+        if ok:
+            self.changed("services")
 
     def sign_in(self, name):
         from happy.integrations import discovered, services

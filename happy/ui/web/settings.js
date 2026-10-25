@@ -167,14 +167,10 @@ const Settings = (() => {
 
     if (word.permissions && word.permissions.length) permissions(word.permissions)
 
-    if (word.first || word.restart) {
+    if (word.first) {
       const end = element('div', 'begin')
 
-      end.append(
-        word.first
-          ? button('Start Happy', () => ask({ do: 'begin' }), true)
-          : button('Restart to use the changes', () => ask({ do: 'restart' }), true),
-      )
+      end.append(button('Start Happy', () => ask({ do: 'begin' }), true))
 
       if (word.first && !word.speech.ready) end.firstChild.disabled = true
 
@@ -301,7 +297,7 @@ const Settings = (() => {
     naming.append(name)
 
     const calling = row(block, 'It calls you', 'Empty means your name on this computer.')
-    const call = field('call_me', word.owner)
+    const call = field('call_me', 'boss')
 
     call.value = word.call_me
     call.style.maxWidth = '45%'

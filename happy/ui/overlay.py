@@ -241,6 +241,7 @@ class Face(QObject):
     """Thread-safe: every method can be called from any thread; drawing happens on the main one."""
 
     posted = Signal(object)
+    retuned = Signal(str)
 
     def __init__(self, app, cfg):
         super().__init__()
@@ -256,6 +257,7 @@ class Face(QObject):
         self.level_at = 0.0
         self.mood = "loading"
         self.posted.connect(self.deliver, Qt.QueuedConnection)
+        self.retuned.connect(self.retune, Qt.QueuedConnection)
         self.mascot = Web("mascot.html", Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.WindowDoesNotAcceptFocus,
                           self.order)
         self.mascot.setAttribute(Qt.WA_ShowWithoutActivating)
@@ -431,7 +433,7 @@ class Face(QObject):
             self.settings.send()
 
     def ready_word(self, cfg, name):
-        return {"is": "ready", "name": name, "called": cfg.get("name") or "Happy", "key": KEY_NAMES.get(cfg.get("push_to_talk"), "the talk key"),
+        return {"is": "ready", "name": (cfg.get("call_me") or "").strip() or name, "called": cfg.get("name") or "Happy", "key": KEY_NAMES.get(cfg.get("push_to_talk"), "the talk key"),
                 "amiss": "" if self.trusted() else "Allow Accessibility so the talk key works anywhere."}
 
     @staticmethod
@@ -454,6 +456,30 @@ class Face(QObject):
             self.settings.first = False
             self.settings.send(started=True)
         self.start_happy()
+
+    def settings_changed(self, what):
+        self.retuned.emit(what)
+
+    def retune(self, what):
+        """A saved setting goes to work at once; the key is listened for here, on the main thread, since macOS wants it there."""
+        self.cfg = Config()
+        if not self.happy:
+            return
+        if what == "services":
+            self.happy.services_changed()
+            return
+        if what == "push_to_talk" and self.keys:
+            from happy.ui.hotkey import PushToTalk
+
+            self.keys.stop()
+            self.keys = PushToTalk(self.cfg.get("push_to_talk"), self.happy.key_down, self.happy.key_up, self.note,
+                                   self.happy.key_cancel)
+            self.keys.start()
+        self.happy.retune()
+        if what in ("call_me", "push_to_talk") and self.happy.ready.is_set():
+            from happy.agent.prompt import owner
+
+            self.send_panel(self.ready_word(self.cfg, owner()))
 
     def do_restart(self):
         self.restart = True
@@ -568,7 +594,8 @@ def launch(cfg, settings_first=False):
     face = Face(app, cfg)
     first = not cfg.get("ready")
     face.settings_first = first
-    face.settings = Settings(face.send_panel, first=first, tint=lambda colour: face.emit({"is": "tint", "colour": colour}))
+    face.settings = Settings(face.send_panel, first=first, tint=lambda colour: face.emit({"is": "tint", "colour": colour}),
+                             changed=face.settings_changed)
     face.settings.start()
     face.show()
     if first or settings_first:

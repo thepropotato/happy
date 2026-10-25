@@ -76,6 +76,12 @@ class Speaker:
         export_model_state(state, cached)
         return state
 
+    def use_voice(self, voice):
+        """Speaks in another voice from the next sentence, loaded aside so nothing waits on it."""
+        state = self.voice_state(voice)
+        self.voice, self.state = voice, state
+        log.info("now speaking as %s", voice)
+
     def say(self, text):
         """Queues a sentence to be spoken; returns what will actually be said."""
         spoken = speakable(text)
