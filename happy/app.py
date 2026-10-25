@@ -1,6 +1,7 @@
 """One running Happy: listens, decides, acts and answers, and never leaves the person in silence."""
 
 import asyncio
+import difflib
 import logging
 import re
 import threading
@@ -15,6 +16,10 @@ from happy.speech.spoken_text import Sentences
 log = logging.getLogger("happy")
 
 FOLLOW_SECONDS = 4.0
+# A SPOKEN REQUEST THIS SOON AFTER THE LAST ONE THAT SOUNDS LIKE A FIX OF IT REPLACES IT.
+CORRECTION_SECONDS = 8.0
+NAMES_EVERY = 600
+CORRECTION_CUE = re.compile(r"^(?:no|nope|nah|sorry|wait|actually|i mean|i meant|not that|not him|not her|correction|rather|instead|oops)\b", re.I)
 FACTUAL = {"set_brightness", "set_volume", "set_keyboard_light", "media"}
 STILL_EVERY = 8.0
 
@@ -26,6 +31,7 @@ class Happy:
         self.name = cfg.get("name") or "Happy"
         self.loop = None
         self.task = None
+        self.last_spoken = ("", 0.0)
         self.backend = None
         self.ready = threading.Event()
         self.quit = None
@@ -247,9 +253,33 @@ class Happy:
                 asyncio.ensure_future(self.backend.interrupt())
 
     def begin(self, text, how):
+        shown, text, how = text, *self.corrected(text, how)
         self.interrupt()
         previous = self.task
-        self.task = asyncio.create_task(self.turn(text, how, previous))
+        self.task = asyncio.create_task(self.turn(text, how, previous, shown))
+
+    def corrected(self, text, how):
+        """A spoken fix of what was just said becomes one request carrying both, so the model acts on the fix."""
+        if how == "typed":
+            return text, how
+        earlier, at = self.last_spoken
+        self.last_spoken = (text, time.monotonic())
+        if not earlier or time.monotonic() - at > CORRECTION_SECONDS or not self.correcting(earlier, text):
+            return text, how
+        self.last_spoken = (f"{earlier} {text}", time.monotonic())
+        log.info("correction of %r: %r", earlier, text)
+        return (f'{text}\n\n(This corrects what they said just before: "{earlier}". '
+                f"Act only on the corrected request; the earlier one is replaced.)"), "correction"
+
+    @staticmethod
+    def correcting(earlier, text):
+        if CORRECTION_CUE.match(text.strip()):
+            return True
+        # A REPEATED COMMAND LIKE "VOLUME UP" IS MEANT TWICE; ONLY A REPEAT THAT WENT TO THE MODEL IS A RETRY.
+        if quick.match(text):
+            return False
+        said, again = re.findall(r"[\w']+", earlier.lower()), re.findall(r"[\w']+", text.lower())
+        return len(again) >= 3 and difflib.SequenceMatcher(None, said, again).ratio() >= 0.6
 
     def say(self, text):
         if not text or not self.speaker:
@@ -259,14 +289,15 @@ class Happy:
         if self.speaker.say(text):
             self.spoken_at = time.monotonic()
 
-    async def turn(self, text, how, previous):
+    async def turn(self, text, how, previous, shown=None):
+        shown = shown or text
         if previous and not previous.done():
             try:
                 await asyncio.wait_for(asyncio.shield(previous), 2)
             except (asyncio.TimeoutError, asyncio.CancelledError, Exception):
                 pass
-        log.info("request (%s): %s", how, text)
-        self.face.user(text)
+        log.info("request (%s): %s", how, shown)
+        self.face.user(shown)
         found = quick.match(text)
         if found and found[0] == "stop":
             if self.speaker:
@@ -285,7 +316,7 @@ class Happy:
         self.face.state("thinking")
         started = time.monotonic()
         self.steps, self.reply, failed = [], "", False
-        record = await asyncio.to_thread(history.begin, text, how, "quick" if found else self.backend.name if self.backend else "")
+        record = await asyncio.to_thread(history.begin, shown, how, "quick" if found else self.backend.name if self.backend else "")
         try:
             if found:
                 name, args = found
