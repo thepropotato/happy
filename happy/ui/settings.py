@@ -5,6 +5,8 @@ import base64
 import subprocess
 import sys
 import threading
+import time
+from functools import cache
 
 from happy.config import Config, save_secret
 from happy.speech import models
@@ -18,6 +20,7 @@ PANES = {
     "screen": "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
 }
 SERVICE_CHECK = 20
+SERVICES_FRESH = 300
 
 
 class Settings:
@@ -33,13 +36,13 @@ class Settings:
         self.services = None
         self.qr_polling = False
         self.checking = False
+        self.checked_at = 0.0
 
     def start(self):
         """Checks what is cheap now; the services are only started when the settings are first opened."""
         for work in (self.prepare_speech, self.find_brains, self.prepare_whatsapp):
             threading.Thread(target=work, daemon=True).start()
-        if self.first:
-            self.check_services_later()
+
 
     def check_services_later(self):
         if not self.checking:
@@ -170,6 +173,7 @@ class Settings:
             self.services = []
             self.notice = f"Could not check the services: {error}"
         self.checking = False
+        self.checked_at = time.monotonic()
         self.send()
 
     def later(self, work):
@@ -180,9 +184,12 @@ class Settings:
         kind = order.get("do")
         cfg = Config()
         if kind == "settings":
-            if self.services is None:
-                self.check_services_later()
             self.send()
+        elif kind == "services":
+            if self.services is None or time.monotonic() - self.checked_at > SERVICES_FRESH:
+                self.services = None
+                self.send()
+                self.check_services_later()
         elif kind == "set":
             key, value = order.get("key"), order.get("value")
             if key == "name":

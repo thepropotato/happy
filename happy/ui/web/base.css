@@ -292,11 +292,12 @@ body {
   padding-bottom: 40px;
 }
 
-.glass.blank:not(.tucked) .panes {
+/* NOT WHILE THE SETTINGS ARE OPEN: THEY NEED THE WHOLE HEIGHT TO SCROLL IN. */
+.glass.blank:not(.tucked):not(.tuning) .panes {
   flex: 0 0 auto;
 }
 
-.glass.blank:not(.tucked) .stream {
+.glass.blank:not(.tucked):not(.tuning) .stream {
   flex: 0 0 auto;
   padding: 0;
 }

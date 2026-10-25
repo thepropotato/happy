@@ -15,6 +15,7 @@ const Settings = (() => {
     open = true
     glass.classList.add('tuning')
     box.hidden = false
+    box.scrollTop = 0
     document.getElementById('controls').classList.add('on')
     if (last) draw(last)
     ask({ do: 'settings' })
@@ -29,14 +30,39 @@ const Settings = (() => {
     document.getElementById('controls').classList.remove('on')
   }
 
-  function section(title, state, stateClass) {
-    const part = element('div', 'section')
-    const head = element('div', 'title', title)
+  // ONE ROW PER SECTION, SAYING IN A LINE WHERE IT STANDS. IT FOLDS OPEN IN PLACE, ONE AT A TIME,
+  // SO THE SETTINGS NEVER SHOW EVERYTHING AT ONCE.
+  let opened = null
+  let opening = null
+  let group = null
 
-    if (state) head.append(element('span', `state ${stateClass || ''}`, state))
+  const MARKS = {
+    voice: '<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" />',
+    model: '<rect x="6" y="6" width="12" height="12" rx="2.5" /><path d="M9.5 2.5v3.5M14.5 2.5v3.5M9.5 18v3.5M14.5 18v3.5M2.5 9.5H6M2.5 14.5H6M18 9.5h3.5M18 14.5h3.5" />',
+    talking: '<path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.3-4.6A7.5 7.5 0 1 1 20 11.5z" />',
+    whatsapp: '<rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18h2" />',
+    services: '<path d="M9 2.5V7M15 2.5V7M6 7h12v4a6 6 0 0 1-12 0V7zM12 17v4.5" />',
+    permissions: '<path d="M12 3l7.5 3v5.5c0 4.3-3.2 8-7.5 9-4.3-1-7.5-4.7-7.5-9V6L12 3z" /><path d="M9 12l2 2 4-4" />',
+  }
+
+  function section(key, title, summary, summaryClass) {
+    const part = element('div', opened === key ? (opening === key ? 'section open opening' : 'section open') : 'section')
+    const head = element('button', 'head')
+
+    head.type = 'button'
+    head.insertAdjacentHTML('beforeend', `<span class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${MARKS[key] || ''}</svg></span>`)
+    head.append(element('span', 'name', title))
+    head.append(element('span', `summary ${summaryClass || ''}`, summary || ''))
+    head.insertAdjacentHTML('beforeend', '<svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>')
+    head.onclick = () => {
+      opened = opened === key ? null : key
+      opening = opened
+      if (opened === 'services') ask({ do: 'services' })
+      draw(last)
+    }
 
     part.append(head)
-    box.append(part)
+    group.append(part)
 
     const block = element('div', 'block')
 
@@ -130,7 +156,10 @@ const Settings = (() => {
 
     box.append(notice)
 
-    speech(word.speech)
+    group = element('div', 'group')
+    box.append(group)
+
+    speech(word.speech, word)
     model(word.model)
     you(word)
     whatsapp(word.whatsapp)
@@ -153,10 +182,11 @@ const Settings = (() => {
     }
 
     restore(memory)
+    opening = null
   }
 
-  function speech(state) {
-    const block = section('Voice and ears', state.ready ? 'ready' : state.failed ? 'not finished' : '', state.ready ? 'good' : 'wait')
+  function speech(state, word) {
+    const block = section('voice', 'Voice and ears', state.ready ? 'ready' : state.failed ? 'not finished' : 'getting ready…', state.ready ? 'good' : 'wait')
     const line = row(block, 'Speech models', escape(state.text || (state.ready ? 'Heard and spoken on this computer.' : 'Getting them…')))
 
     if (!state.ready && state.progress != null) {
@@ -172,7 +202,8 @@ const Settings = (() => {
   }
 
   function model(state) {
-    const block = section('Model')
+    const current = state.options.find((each) => each.id === state.chosen)
+    const block = section('model', 'Model', state.chosen === 'key' ? state.custom?.model || 'your service' : current ? current.label : 'looking…')
     const line = row(block, 'Thinks with', 'Claude when you are logged in to Claude Code; otherwise whatever runs here.')
     const choose = element('select')
 
@@ -245,7 +276,8 @@ const Settings = (() => {
   }
 
   function you(word) {
-    const block = section('Talking')
+    const keyName = (word.keys.find(([id]) => id === word.key) || [, word.key])[1]
+    const block = section('talking', 'Talking', `${word.name} · ${keyName}${word.wake ? '' : ' · no wake word'}`)
     const naming = row(block, 'Name', 'Saying it wakes Happy up.')
     const name = field('name', 'Happy')
 
@@ -277,7 +309,7 @@ const Settings = (() => {
 
   function whatsapp(state) {
     const good = state.state === 'linked'
-    const block = section('WhatsApp', good ? 'linked' : '', good ? 'good' : '')
+    const block = section('whatsapp', 'WhatsApp', good ? 'linked' : state.state === 'unlinked' ? 'not linked' : state.state === 'busy' ? 'getting ready…' : 'not available', good ? 'good' : 'wait')
     const line = row(block, good ? state.text : 'Not linked', good ? 'Read, search and send messages.' : escape(state.text))
 
     if (state.state === 'unlinked') line.append(button('Link', () => ask({ do: 'whatsapp_link' }), true))
@@ -294,7 +326,7 @@ const Settings = (() => {
 
   function services(list) {
     const working = (list || []).filter((each) => each.state === 'connected').length
-    const block = section('Services', list ? `${working} of ${list.length} working` : 'checking…', list && working === list.length ? 'good' : 'wait')
+    const block = section('services', 'Services', list ? `${working} of ${list.length} working` : opened === 'services' ? 'checking…' : 'your MCP servers', list && working === list.length ? 'good' : list ? 'wait' : '')
 
     for (const each of list || []) {
       const state = each.state === 'connected' ? `<span class="good">${escape(each.detail)}</span>` : `<span class="wait">${escape(each.state)}</span>`
@@ -318,7 +350,8 @@ const Settings = (() => {
   }
 
   function permissions(list) {
-    const block = section('Permissions')
+    const missing = list.filter((each) => !each.granted).length
+    const block = section('permissions', 'Permissions', missing ? `${missing} to allow` : 'all allowed', missing ? 'wait' : 'good')
 
     for (const each of list) {
       const line = row(block, each.title, escape(each.why))
@@ -344,6 +377,7 @@ const Settings = (() => {
 
     hear(word) {
       if (word.is === 'settings') {
+        if (!last && word.first) opened = 'voice'
         last = word
 
         if (word.first && !open) show()

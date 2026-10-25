@@ -27,34 +27,111 @@
   border-radius: 3px;
 }
 
-.section {
-  margin-bottom: 18px;
-}
-
-.section > .title {
+/* EVERY SECTION ITS OWN CARD, AND WHAT IT HOLDS OPENS INSIDE THAT CARD, SO A ROW NEVER LOOKS LIKE IT BELONGS TO THE NEXT ONE. */
+.group {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
-  margin: 0 2px 7px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--faint);
 }
 
-.section > .title .state {
-  margin-left: auto;
-  letter-spacing: 0.02em;
-  text-transform: none;
-  font-weight: 500;
-}
-
-.block {
+.section {
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   background: var(--raise);
   overflow: hidden;
+  transition: border-color 160ms;
+}
+
+.section.open {
+  border-color: var(--glow-soft);
+}
+
+.section > .head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 50px;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 120ms;
+}
+
+.section > .head:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.section > .head .mark {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(var(--accent), 0.16);
+  color: var(--glow);
+}
+
+.section > .head .mark svg {
+  width: 16px;
+  height: 16px;
+}
+
+.section > .head .name {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+
+.section > .head .summary {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-size: 12px;
+  color: var(--faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ONLY WHAT WANTS MINDING IS COLOURED; "READY" AND "LINKED" ARE THE QUIET CASE. */
+.section > .head .summary.good {
+  color: var(--faint);
+}
+
+.section > .head .summary.wait {
+  color: var(--wait);
+}
+
+.section > .head .chevron {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  color: var(--faint);
+  transition: transform var(--pane);
+}
+
+.section.open > .head .chevron {
+  transform: rotate(90deg);
+}
+
+.section:not(.open) > .block {
+  display: none;
+}
+
+.section.open > .block {
+  border-top: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.14);
+}
+
+/* ONLY THE CLICK THAT OPENED IT ANIMATES; A REDRAW FROM PYTHON MUST NOT REPLAY IT. */
+.section.opening > .block {
+  animation: settle 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .row {
