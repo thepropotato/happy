@@ -176,5 +176,20 @@ def sign_in_with_claude(name):
     return f"Opened Claude Code's MCP screen. Pick {name} there and sign in."
 
 
+def connectors():
+    """The claude.ai connectors on the person's account, as {name: connected}; they live there, in no file here."""
+    if not claude():
+        return {}
+    try:
+        listed = subprocess.run([claude(), "mcp", "list"], capture_output=True, text=True, timeout=15).stdout
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    found = {}
+    for line in listed.splitlines():
+        if line.startswith("claude.ai ") and ":" in line:
+            found[line.split(":", 1)[0].removeprefix("claude.ai ").strip()] = "Connected" in line
+    return found
+
+
 def using_claude():
     return Config().get("brain.kind") in ("claude", "auto") and claude() is not None

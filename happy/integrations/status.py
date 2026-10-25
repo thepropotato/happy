@@ -77,7 +77,15 @@ async def everything(model_name="", about=""):
     if concerns(about, "mail", "gmail", "outlook", "inbox"):
         mailers = [name for name in servers if any(word in name.lower() for word in ("mail", "outlook", "inbox"))]
         if not mailers:
-            lines.append("Email: no email service added (add Gmail or another email MCP server in Setup)")
+            # A CLAUDE.AI CONNECTOR LIVES ON THE ACCOUNT, NOT IN ANY FILE HERE, AND ONLY CLAUDE CODE CAN REACH IT.
+            from happy.integrations import services
+
+            account = [name for name in await asyncio.to_thread(services.connectors) if "mail" in name.lower()]
+            if account:
+                lines.append(f"Email: {', '.join(account)} is connected on the Claude account, but Happy can only use it with Claude "
+                             "as the model; with this model, add an email MCP server in Settings > Services")
+            else:
+                lines.append("Email: no email service added (add Gmail or another email MCP server in Settings > Services)")
         for name, source, state, detail in await mcp_servers(mailers) if mailers else []:
             lines.append(f"Email through {name} (from {source}): {state}{f' ({detail})' if detail else ''}")
     if concerns(about, "mcp", "server", "connector", "service", "everything", "anything") or named:
