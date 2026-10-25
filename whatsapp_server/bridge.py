@@ -5,6 +5,7 @@ import io
 import json
 import logging
 import os
+import queue
 import re
 import shutil
 import sys
@@ -30,6 +31,10 @@ from neonize.proto.Neonize_pb2 import (
     HistorySync as HistorySyncEv, LoggedOut as LoggedOutEv,
     OfflineSyncPreview as OfflineSyncPreviewEv, OfflineSyncCompleted as OfflineSyncCompletedEv,
     Receipt as ReceiptEv,
+    StreamReplaced as StreamReplacedEv, StreamError as StreamErrorEv,
+    KeepAliveTimeout as KeepAliveTimeoutEv, KeepAliveRestored as KeepAliveRestoredEv,
+    ConnectFailure as ConnectFailureEv, ClientOutdated as ClientOutdatedEv,
+    TemporaryBan as TemporaryBanEv, PairStatus as PairStatusEv,
     _RECEIPT_RECEIPTTYPE,
 )
 from neonize.utils.enum import ParticipantChange
@@ -108,6 +113,16 @@ QR_GRACE = 5
 # AS SOMEBODY STILL STANDING THERE WITH THEIR PHONE OUT.
 QR_EVERY = 1
 QR_WATCHED = 120
+
+# HOW OFTEN A LINKED SESSION THAT HAS FALLEN OFFLINE IS CHECKED, AND HOW LONG IT MAY STAY OFF BEFORE IT IS STARTED AGAIN.
+WATCH_EVERY = 20
+OFFLINE_LIMIT = 120
+
+# HOW OFTEN THE CONTACT LIST IS READ AGAIN FROM WHATSMEOW'S STORE.
+ENRICH_EVERY = 60
+
+# ACCOUNTS BEING UNLINKED RIGHT NOW, WHICH THE WATCH MUST NOT BRING BACK HALF DELETED.
+unlinking = set()
 
 # WHAT A RESTART OPENS WITH, IN THE USER'S OWN FOLDER SO UNLINKING TAKES IT TOO.
 CACHE = "cache.json"
@@ -344,7 +359,7 @@ class Session:
             "startedAt": None, "completedAt": None,
         }
 
-        self.contacts_enriched = False
+        self.contacts_enriched = 0.0
         self.last_history_sync_at = 0
         self.do_sync_done = False
         self.persist_timer = None
@@ -354,6 +369,7 @@ class Session:
         self.offline_msgs_received = 0
         self.stop_event = threading.Event()
         self.deleted = False
+        self.offline_since = 0
 
         # BEFORE ANYTHING CONNECTS.
         remembered(self)
@@ -686,7 +702,7 @@ def register_events(session):
 
     @client.event(ConnectedEv)
     def on_connected(c, evt):
-        pass
+        logger.info(f"[conn] user={session.username} connected")
         session.connected = True
         session.authenticated = True
         session.qr_data = None
@@ -715,10 +731,10 @@ def register_events(session):
                     session.latest_received_message = None
                     session.latest_sent_message = None
         except Exception as e:
-            pass
+            logger.warning(f"[conn] user={session.username} could not read who is linked: {e}")
 
         session.do_sync_done = False
-        session.contacts_enriched = False
+        session.contacts_enriched = 0.0
         session.last_history_sync_at = 0
         session.sync_status.update({
             "syncing": True, "phase": "syncing", "error": None,
@@ -729,7 +745,7 @@ def register_events(session):
         try:
             c.set_passive(False)
         except Exception as e:
-            pass
+            logger.warning(f"[sync] user={session.username} could not leave passive mode, so the phone may hold messages back: {type(e).__name__}: {e}")
 
         def delayed_sync():
             time.sleep(5)
@@ -738,26 +754,60 @@ def register_events(session):
 
     @client.event(DisconnectedEv)
     def on_disconnected(c, evt):
-        pass
+        logger.info(f"[conn] user={session.username} disconnected{' (asked to)' if session.stop_event.is_set() else ''}")
         session.connected = False
         session.qr_data = None
 
         if session.stop_event.is_set():
             return
         persist(session)
+        # WHATSMEOW RECONNECTS ON ITS OWN WHILE ITS RUN IS ALIVE; THIS ONLY CATCHES A RUN THAT ENDED.
         if session.reconnect_count < session.max_reconnect:
             session.reconnect_count += 1
             delay = min(3 * session.reconnect_count, 30)
-            pass
-            threading.Timer(delay, lambda: start_session(session)).start()
         else:
             session.reconnect_count = 0
-            pass
-            threading.Timer(30, lambda: start_session(session)).start()
+            delay = 30
+        threading.Timer(delay, lambda: start_session(session)).start()
+
+    @client.event(StreamReplacedEv)
+    def on_replaced(c, evt):
+        # ANOTHER CLIENT ON THIS SAME LINKED DEVICE TOOK THE STREAM; FIGHTING BACK WOULD KNOCK EACH OTHER OFF FOREVER.
+        logger.warning(f"[conn] user={session.username} stream replaced: another client is using this linked device")
+        session.connected = False
+
+    @client.event(StreamErrorEv)
+    def on_stream_error(c, evt):
+        logger.warning(f"[conn] user={session.username} stream error {getattr(evt, 'Code', '')}")
+
+    @client.event(KeepAliveTimeoutEv)
+    def on_keepalive_timeout(c, evt):
+        logger.warning(f"[conn] user={session.username} keepalive timed out ({getattr(evt, 'ErrorCount', '?')} in a row)")
+
+    @client.event(KeepAliveRestoredEv)
+    def on_keepalive_restored(c, evt):
+        logger.info(f"[conn] user={session.username} keepalive restored")
+
+    @client.event(ConnectFailureEv)
+    def on_connect_failure(c, evt):
+        logger.warning(f"[conn] user={session.username} connect failed: reason {getattr(evt, 'Reason', '')} {getattr(evt, 'Message', '')}")
+
+    @client.event(ClientOutdatedEv)
+    def on_outdated(c, evt):
+        logger.error(f"[conn] user={session.username} WhatsApp says this client is outdated; neonize needs updating")
+
+    @client.event(TemporaryBanEv)
+    def on_ban(c, evt):
+        logger.error(f"[conn] user={session.username} temporarily banned: {evt}")
+
+    @client.event(PairStatusEv)
+    def on_pair(c, evt):
+        error = getattr(evt, "Error", "")
+        logger.info(f"[pair] user={session.username} status {getattr(evt, 'Status', '')}" + (f", failed: {error}" if error else ""))
 
     @client.event(LoggedOutEv)
     def on_logged_out(c, evt):
-        pass
+        logger.warning(f"[conn] user={session.username} logged out by the phone (reason {getattr(evt, 'Reason', '')})")
         session.connected = False
         session.authenticated = False
         session.qr_data = None
@@ -772,62 +822,76 @@ def register_events(session):
             session.connect_thread = None
             os.execv(sys.executable, [sys.executable] + sys.argv)
 
+    # THESE RUN ON WHATSMEOW'S OWN THREAD, SO THE WORK GOES TO ONE QUEUE IN ORDER AND THE SOCKET IS NEVER HELD UP.
     @client.event(MessageEv)
     def on_message(c, message):
-        try:
-            handle_message(session, message)
-        except Exception as e:
-            pass
+        later(session, "message", handle_message, session, message)
 
     @client.event(HistorySyncEv)
     def on_history_sync(c, evt):
-        try:
-            handle_history_sync(session, evt)
-        except Exception as e:
-            pass
+        session.last_history_sync_at = time.time()
+        later(session, "history sync", handle_history_sync, session, evt)
 
     @client.event(OfflineSyncPreviewEv)
     def on_offline_preview(c, evt):
         count = getattr(evt, 'Message', 0)
+        logger.info(f"[sync] user={session.username} catching up on {count} messages sent while offline")
         session.offline_msgs_pending = count
         session.offline_msgs_received = 0
-        pass
 
     @client.event(OfflineSyncCompletedEv)
     def on_offline_completed(c, evt):
-        count = getattr(evt, 'Count', 0)
-        pass
+        logger.info(f"[sync] user={session.username} caught up ({getattr(evt, 'Count', 0)})")
         session.offline_msgs_pending = 0
         session.offline_msgs_received = 0
-        persist(session)
+        later(session, "persist", persist, session)
 
     @client.event(ReceiptEv)
     def on_receipt(c, evt):
+        later(session, "receipt", read_receipt, session, evt)
+
+
+def later(session, what, work, *args):
+    """Hands an event's work to the one worker that does it in arrival order."""
+    work_queue.put((session, what, work, args))
+
+
+def working():
+    while True:
+        session, what, work, args = work_queue.get()
         try:
-            if evt.Type not in RECEIPTS_THAT_CLEAR_UNREAD:
-                return
-            chat_jid = resolve_lid(session, evt.MessageSource.Chat)
-            with session.lock:
-                cidx = next((i for i, ch in enumerate(session.chats) if ch["id"] == chat_jid), -1)
-                if cidx >= 0 and session.chats[cidx].get("unreadCount", 0) > 0:
-                    session.chats[cidx]["unreadCount"] = 0
+            work(*args)
+        except Exception as e:
+            logger.warning(f"[event] user={session.username} {what} could not be handled: {type(e).__name__}: {e}")
 
-                # A RECEIPT NAMES THE MESSAGES HE READ, AND THAT IS THE ONE FACT THE PHONE'S
-                # BADGE NEVER CARRIES. THE NEWEST OF THEM IS HOW FAR HE HAS READ, AND
-                # EVERYTHING AFTER IT IS WHAT IS LEFT.
-                read_at = mark(session, chat_jid, list(getattr(evt, "MessageIDs", []) or []))
 
-                if not read_at:
-                    # A RECEIPT FOR A MESSAGE THAT NEVER SYNCED DOWN STILL SAYS HE WAS IN
-                    # THAT CHAT AT THAT MOMENT, WHICH IS A POSITION WORTH KEEPING.
-                    stamped = int(getattr(evt, "Timestamp", 0) or 0)
+work_queue = queue.Queue()
+threading.Thread(target=working, name="events", daemon=True).start()
 
-                    if stamped:
-                        session.read_upto[chat_jid] = max(
-                            session.read_upto.get(chat_jid, 0), stamped
-                        )
-        except Exception:
-            pass
+
+def read_receipt(session, evt):
+    if evt.Type not in RECEIPTS_THAT_CLEAR_UNREAD:
+        return
+    chat_jid = resolve_lid(session, evt.MessageSource.Chat)
+    with session.lock:
+        cidx = next((i for i, ch in enumerate(session.chats) if ch["id"] == chat_jid), -1)
+        if cidx >= 0 and session.chats[cidx].get("unreadCount", 0) > 0:
+            session.chats[cidx]["unreadCount"] = 0
+
+        # A RECEIPT NAMES THE MESSAGES HE READ, AND THAT IS THE ONE FACT THE PHONE'S
+        # BADGE NEVER CARRIES. THE NEWEST OF THEM IS HOW FAR HE HAS READ, AND
+        # EVERYTHING AFTER IT IS WHAT IS LEFT.
+        read_at = mark(session, chat_jid, list(getattr(evt, "MessageIDs", []) or []))
+
+        if not read_at:
+            # A RECEIPT FOR A MESSAGE THAT NEVER SYNCED DOWN STILL SAYS HE WAS IN
+            # THAT CHAT AT THAT MOMENT, WHICH IS A POSITION WORTH KEEPING.
+            stamped = int(getattr(evt, "Timestamp", 0) or 0)
+
+            if stamped:
+                session.read_upto[chat_jid] = max(
+                    session.read_upto.get(chat_jid, 0), stamped
+                )
 
 
 def handle_message(session, message):
@@ -1196,6 +1260,7 @@ def handle_history_sync(session, evt):
     progress = getattr(data, 'progress', 0)
     conversations = list(getattr(data, 'conversations', []))
     pushnames = list(getattr(data, 'pushnames', []))
+    logger.info(f"[history] user={session.username} bundle type {sync_type}, {progress}% through, {len(conversations)} chats")
 
     # TALLIED RATHER THAN LOGGED ONE BY ONE: A BUNDLE CARRIES THOUSANDS.
     unreadable = {}
@@ -1440,7 +1505,7 @@ def enrich_contacts_from_store(session):
     try:
         store_contacts = session.client.contact.get_all_contacts()
     except Exception as e:
-        pass
+        logger.warning(f"[sync] user={session.username} contacts could not be read from the store: {type(e).__name__}: {e}")
         return
     with session.lock:
         existing_ids = {c["id"] for c in session.contacts}
@@ -1509,8 +1574,8 @@ def bulk_resolve_group_lids(session):
                                             p["name"] = c.get("name", phone)
                                             break
                 resolved += 1
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"[sync] user={session.username} group members could not be resolved: {type(e).__name__}: {e}")
     if resolved:
         pass
 
@@ -1531,8 +1596,8 @@ def sync_archived_from_db(session):
         with session.lock:
             for chat in session.chats:
                 chat["archived"] = chat["id"] in archived_jids
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"[sync] user={session.username} archived chats could not be read: {type(e).__name__}: {e}")
 
 
 def do_sync(session):
@@ -1579,7 +1644,7 @@ def do_sync(session):
                 session.sync_status["groups"] = len(session.groups)
                 pass
         except Exception as e:
-            pass
+            logger.warning(f"[sync] user={session.username} groups could not be synced: {type(e).__name__}: {e}")
         for _ in range(30):
             if time.time() - session.last_history_sync_at > 5:
                 break
@@ -1588,7 +1653,8 @@ def do_sync(session):
         session.do_sync_done = True
         session.sync_status.update({"syncing": False, "phase": "done", "completedAt": datetime.utcnow().isoformat() + "Z", "message": "Sync complete"})
         persist(session)
-        pass
+        held = sum(len(v) for v in session.messages.values())
+        logger.info(f"[sync] user={session.username} done: {len(session.chats)} chats, {len(session.groups)} groups, {held} messages")
 
         def background_post_sync(s):
             try:
@@ -1601,11 +1667,11 @@ def do_sync(session):
                 persist(s)
                 pass
             except Exception as e:
-                pass
+                logger.warning(f"[sync] user={s.username} the after-sync rebuild failed: {type(e).__name__}: {e}")
 
         threading.Thread(target=background_post_sync, args=(session,), daemon=True).start()
     except Exception as e:
-        pass
+        logger.warning(f"[sync] user={session.username} sync failed: {type(e).__name__}: {e}")
         session.do_sync_done = True
         session.sync_status.update({"syncing": False, "phase": "done", "completedAt": datetime.utcnow().isoformat() + "Z", "message": "Sync complete (with errors)", "error": str(e)})
 
@@ -1681,7 +1747,16 @@ def remembered(session):
     )
 
 
+starting = threading.Lock()
+
+
 def start_session(session):
+    # THE WATCH, A RECONNECT TIMER AND A REQUEST CAN ALL ASK AT ONCE, AND ONLY ONE OF THEM MAY MAKE A CLIENT.
+    with starting:
+        begin_session(session)
+
+
+def begin_session(session):
     user = session.username
     logger.info(f"[start_session] begin user={user}")
     if session.deleted:
@@ -1756,13 +1831,24 @@ def start_session(session):
 
 
 def stop_session(session):
+    with starting:
+        end_session(session)
+
+
+def end_session(session):
     session.stop_event.set()
     persist(session)
-    if session.client:
-        try:
-            session.client.disconnect()
-        except Exception:
-            pass
+    client, thread = session.client, session.connect_thread
+    if client:
+        # DISCONNECT ONLY SHUTS THE SOCKET; STOP ENDS THE GO RUN, OR THE NEXT START WOULD BE A SECOND CLIENT ON ONE DEVICE.
+        for ending in ("disconnect", "stop"):
+            try:
+                getattr(client, ending)()
+            except Exception as e:
+                logger.warning(f"[stop_session] user={session.username} {ending} failed: {e}")
+        # NEONIZE'S connect() OFTEN NEVER RETURNS AFTER stop(); THE SOCKET IS SHUT AND WON'T RECONNECT, SO ITS THREAD IS LEFT IDLE.
+        if thread and thread is not threading.current_thread():
+            thread.join(2)
     session.connected = False
     session.client = None
     session.connect_thread = None
@@ -1944,8 +2030,8 @@ def list_sessions():
 @app.get("/<username>/status")
 def status(username):
     s = get_session(username)
-    # THE STORE ON DISK IS THE WHOLE ANSWER TO WHETHER THIS ACCOUNT IS SET UP.
-    configured = os.path.exists(s.db_path)
+    # A STORE ON DISK IS NOT ENOUGH: A PAIRING THAT NEVER FINISHED LEAVES ONE WITH NO DEVICE IN IT.
+    configured = has_device(s.db_path)
     return jsonify({"connected": s.connected, "authenticated": s.authenticated or configured, "configured": configured, "phone": s.phone, "name": s.name})
 
 
@@ -2139,6 +2225,14 @@ def stop(username):
 
 @app.post("/<username>/disconnect")
 def disconnect(username):
+    unlinking.add(username)
+    try:
+        return unlink(username)
+    finally:
+        unlinking.discard(username)
+
+
+def unlink(username):
     with sessions_lock:
         s = sessions.pop(username, None)
     if s:
@@ -2162,6 +2256,10 @@ def disconnect(username):
                 client.disconnect()
             except Exception:
                 pass
+            try:
+                client.stop()
+            except Exception as e:
+                logger.warning(f"[disconnect] user={username} the Go run would not stop: {e}")
     user_dir = DATA_DIR / username
     if user_dir.exists():
         try:
@@ -3061,6 +3159,56 @@ def query_messages(username):
 
 
 
+def linked_users():
+    """Every account with a linked device on disk."""
+    if not DATA_DIR.exists():
+        return []
+    return [d.name for d in DATA_DIR.iterdir() if d.is_dir() and has_device(str(d / "session.db"))]
+
+
+def has_device(db_path):
+    """Whether the store holds a linked device, which is what being linked actually is."""
+    if not os.path.exists(db_path):
+        return False
+    try:
+        import sqlite3
+
+        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, timeout=2) as conn:
+            return conn.execute("SELECT count(*) FROM whatsmeow_device").fetchone()[0] > 0
+    except Exception as e:
+        logger.warning(f"[store] {db_path} could not be read: {e}")
+        return False
+
+
+def keep_connected():
+    """Connects every linked account at start, and again whenever it has been offline too long, so the data never goes stale."""
+    while True:
+        for user in linked_users():
+            try:
+                if user in unlinking:
+                    continue
+                s = get_session(user)
+                if s.deleted or s.stop_event.is_set() and s.client is None:
+                    continue
+                if not (s.client and s.connect_thread and s.connect_thread.is_alive()):
+                    logger.info(f"[watch] user={user} is linked but not running, starting it")
+                    start_session(s)
+                    continue
+                # A PAIRING RUN HAS NO PHONE YET AND IS LEFT TO THE QR LOGIC; A LINKED ONE OFFLINE THIS LONG IS STUCK.
+                if s.connected or not s.phone:
+                    s.offline_since = 0
+                elif not s.offline_since:
+                    s.offline_since = time.time()
+                elif time.time() - s.offline_since > OFFLINE_LIMIT:
+                    logger.warning(f"[watch] user={user} offline for {OFFLINE_LIMIT}s, starting it again")
+                    s.offline_since = 0
+                    stop_session(s)
+                    start_session(s)
+            except Exception as e:
+                logger.warning(f"[watch] user={user} could not be started: {e}")
+        time.sleep(WATCH_EVERY)
+
+
 def periodic_persist():
     while True:
         try:
@@ -3070,7 +3218,7 @@ def periodic_persist():
                     if s.connected:
                         persist(s)
                 except Exception as e:
-                    pass
+                    logger.warning(f"[sync] user={s.username} periodic save failed: {type(e).__name__}: {e}")
         except Exception as e:
             pass
 
@@ -3102,7 +3250,7 @@ def flush_all_sessions():
                 s.persist_timer = None
             persist(s)
         except Exception as e:
-            pass
+            logger.warning(f"[sync] user={s.username} save on exit failed: {type(e).__name__}: {e}")
 
 
 def handle_shutdown(signum, frame):
@@ -3110,12 +3258,26 @@ def handle_shutdown(signum, frame):
     # THE SAME IN THIS LOG OTHERWISE, AND THEY ARE NOT THE SAME PROBLEM.
     logger.info(f"[shutdown] signal {signum}, writing everything out and going down")
     flush_all_sessions()
-    sys.exit(0)
+    for s in list(sessions.values()):
+        if s.client:
+            try:
+                s.client.disconnect()
+            except Exception:
+                pass
+    # NEONIZE'S WORKER IS NOT A DAEMON THREAD, SO sys.exit WOULD LEAVE A GHOST BRIDGE HOLDING THE DEVICE.
+    os._exit(0)
 
 
 if __name__ == "__main__":
     import atexit
     import signal
+    import socket
+
+    # A SECOND BRIDGE MUST GO BEFORE IT CONNECTS, OR TWO CLIENTS ON ONE DEVICE KNOCK EACH OTHER OFF.
+    with socket.socket() as probe:
+        if probe.connect_ex(("127.0.0.1", PORT)) == 0:
+            logger.info(f"[start] a bridge already answers on {PORT}, so this one is not needed")
+            sys.exit(0)
 
     atexit.register(flush_all_sessions)
     signal.signal(signal.SIGTERM, handle_shutdown)
@@ -3127,5 +3289,5 @@ if __name__ == "__main__":
     cleanup_stale_files()
     threading.Thread(target=periodic_persist, daemon=True).start()
     threading.Thread(target=scannable, daemon=True).start()
-    pass
+    threading.Thread(target=keep_connected, daemon=True).start()
     app.run(host="127.0.0.1", port=PORT, threaded=True)

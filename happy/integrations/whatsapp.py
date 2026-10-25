@@ -119,12 +119,13 @@ def stop_bridge():
 
 
 def status():
-    """{'linked', 'name', 'phone'} from the running bridge, or None when it is not up."""
+    """{'linked', 'connected', 'name', 'phone'} from the running bridge, or None when it is not up."""
     try:
         data = httpx.get(f"{BASE}/status", timeout=3).json()
     except (httpx.HTTPError, ValueError):
         return None
-    return {"linked": bool(data.get("authenticated")), "name": data.get("name") or "", "phone": data.get("phone") or ""}
+    return {"linked": bool(data.get("authenticated")), "connected": bool(data.get("connected")),
+            "name": data.get("name") or "", "phone": data.get("phone") or ""}
 
 
 def qr_code():

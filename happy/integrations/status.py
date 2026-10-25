@@ -17,8 +17,11 @@ def whatsapp_state():
         return "not running", "its bridge is not up"
     state = whatsapp.status() or {}
     if not state.get("linked"):
-        return "not linked", "scan the QR code in Setup"
-    return "connected", f"linked as {state.get('name') or state.get('phone') or 'your phone'}"
+        return "not linked", "scan the QR code in Settings > WhatsApp"
+    who = state.get("name") or state.get("phone") or "your phone"
+    if not state.get("connected"):
+        return "linked but not connected", f"linked as {who}; reconnecting, so new messages are not coming in yet"
+    return "connected", f"linked as {who}"
 
 
 async def mcp_servers(only=None):
