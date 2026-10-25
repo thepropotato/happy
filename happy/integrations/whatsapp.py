@@ -5,7 +5,6 @@ import base64
 import hashlib
 import logging
 import os
-import re
 import shutil
 import socket
 import subprocess
@@ -155,23 +154,6 @@ def own_chat():
     from happy.config import Config
 
     return Config().get("whatsapp.own_chat_id") or None
-
-
-def names():
-    """Every name the person might say for someone on WhatsApp: saved names, profile names and group names, in Latin letters."""
-    try:
-        contacts = httpx.get(f"{BASE}/contacts", timeout=10).json()
-        groups = httpx.get(f"{BASE}/groups", timeout=10).json()
-    except (httpx.HTTPError, ValueError):
-        return []
-    said = set()
-    for each in (contacts if isinstance(contacts, list) else []) + (groups if isinstance(groups, list) else []):
-        for name in (each.get("name"), each.get("profile")):
-            # THE SPEECH MODEL ONLY SPELLS LATIN LETTERS, AND A NAME THAT IS REALLY A NUMBER IS NOT SAID AS ONE.
-            plain = " ".join(re.findall(r"[A-Za-z][A-Za-z'.-]*", name or ""))
-            if 3 <= len(plain) <= 40 and not plain.lower().startswith(("http", "www")):
-                said.add(plain)
-    return sorted(said)
 
 
 def spec():

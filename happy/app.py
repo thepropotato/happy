@@ -18,7 +18,6 @@ log = logging.getLogger("happy")
 FOLLOW_SECONDS = 4.0
 # A SPOKEN REQUEST THIS SOON AFTER THE LAST ONE THAT SOUNDS LIKE A FIX OF IT REPLACES IT.
 CORRECTION_SECONDS = 8.0
-NAMES_EVERY = 600
 # THE CLOCK IS READ, NOT SLEPT ON: A TIMER SET FOR THREE HOURS DOES NOT SURVIVE THE LID GOING DOWN.
 TICK = 20
 CHAT_EVERY = 3
@@ -159,7 +158,6 @@ class Happy:
                              echo_cancel=self.cfg.get("input.echo_cancel", True) is not False,
                              on_barge=self.barged, echo=self.is_echo, refresh_devices=self.reload_sound)
             parts["the microphone"] = self.listener.start
-            threading.Thread(target=self.teach_names, name="names", daemon=True).start()
         pending = set(parts)
         lock = threading.Lock()
 
@@ -222,22 +220,6 @@ class Happy:
     def key_up(self):
         if self.listener:
             self.listener.key_up()
-
-    def teach_names(self):
-        """Gives the ears the names on WhatsApp once it has synced, and again now and then, so a spoken name is heard as itself."""
-        from happy.integrations import whatsapp
-
-        known = None
-        while True:
-            stt = getattr(self.listener, "stt", None)
-            if stt is not None and whatsapp.listening():
-                found = whatsapp.names()
-                if found and found != known:
-                    stt.know(found)
-                    known = found
-                    log.info("listening for %d names from WhatsApp", len(found))
-            # THE FIRST REQUEST CAN COME SECONDS AFTER START, AND A NAME HEARD BEFORE THE LIST ARRIVES IS MISHEARD.
-            time.sleep(NAMES_EVERY if known else 1)
 
     def retune(self):
         """Takes up changed settings while running, from any thread: nothing in the settings waits on a restart."""
