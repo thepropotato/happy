@@ -31,8 +31,15 @@ def when(message):
     return time.strftime(fmt, time.localtime(stamp)).lstrip("0")
 
 
-def line(message, with_chat=True):
-    who = "Me" if message.get("fromMe") else (message.get("from") or "").split(" (")[0] or "Them"
+def me():
+    from happy.agent.prompt import owner
+
+    return owner()
+
+
+def line(message, with_chat=True, them="Them"):
+    # THEIR OWN MESSAGES UNDER THEIR OWN NAME: "Me" WAS READ AS THE OTHER PERSON, AND THEIR WORDS WERE REPORTED AS THE REPLY.
+    who = me() if message.get("fromMe") else (message.get("from") or "").split(" (")[0] or them
     # A PHOTO NOT DOWNLOADED YET STILL HAS ITS TYPE; WITHOUT IT, IT READ AS AN EMPTY MESSAGE.
     kind = message.get("mediaType") or (message.get("type") if message.get("type") not in (None, "chat", "text") else None)
     body = message.get("body") or ""
@@ -44,7 +51,7 @@ def line(message, with_chat=True):
     return f"[{when(message)}{where}] {who}: {body}"
 
 
-def listing(messages, with_chat=True):
+def listing(messages, with_chat=True, them="Them"):
     if isinstance(messages, str):
         return messages
     if isinstance(messages, dict):
@@ -54,7 +61,7 @@ def listing(messages, with_chat=True):
         messages = found
     if not messages:
         return "No messages found."
-    return "\n".join(line(m, with_chat) for m in messages)
+    return "\n".join(line(m, with_chat, them) for m in messages)
 
 
 @tool(say="Checking WhatsApp.", label="Checking WhatsApp", local_only=True, needs=connected)
@@ -89,7 +96,7 @@ async def whatsapp_read(
     count: Annotated[int, "how many recent messages"] = 10,
     people_only: Annotated[bool, "with no chat: true to leave groups out"] = False,
 ):
-    """Read what someone said: the latest messages in one WhatsApp chat, newest last. With no chat, the newest messages received across all chats."""
+    """Read what someone said on WhatsApp, or whether they wrote at all, like 'any word from Jane' or 'has Jane replied': the latest messages in their chat, newest last, and the last thing they wrote. With no chat, the newest messages received across all chats."""
     if not chat.strip():
         import asyncio
 
@@ -100,14 +107,32 @@ async def whatsapp_read(
             return found or "No messages received yet."
         return "Newest received, newest first:\n" + "\n".join(
             line(m) + (" (group)" if m.get("isGroup") else "") for m in found)
-    data = await ask("get_messages", contact=[chat], limit=max(1, min(count, 50)))
+    data = await messages_in(chat, max(1, min(count, 50)))
+    if not isinstance(data, list) or not data:
+        return listing(data, with_chat=False)
+    data = sorted(data, key=lambda m: m.get("timestamp") or 0)
+    chat = re.sub(r"\s*\([^()]*\)$", "", chat.strip()) or chat
+    theirs = [m for m in data if not m.get("fromMe")]
+    if not theirs:
+        older = await messages_in(chat, 1, received_only=True)
+        theirs = older if isinstance(older, list) else []
+    # WHO SAID THE LAST THING IS STATED, NOT LEFT TO BE WORKED OUT: "ANY WORD FROM HER" WAS ANSWERED WITH HIS OWN MESSAGE.
+    notes = [f"Chat with {chat}, newest last. Lines from {me()} are {me()}'s own messages."]
+    if data[-1].get("fromMe"):
+        notes.append(f"The newest message is {me()}'s own, not {chat}'s.")
+    notes.append(f"The last message from {chat}: {line(theirs[-1], False, chat)}" if theirs
+                 else f"{chat} has sent nothing in the messages synced so far.")
+    return "\n".join(notes) + "\n\n" + listing(data, with_chat=False, them=chat)
+
+
+async def messages_in(chat, count, received_only=False):
+    """One chat's newest messages, as a list when the chat was found, or what went wrong."""
+    data = await ask("get_messages", contact=[chat], limit=count, received_only=received_only)
     if isinstance(data, dict) and isinstance(data.get(chat), list):
-        data = data[chat]
-    elif isinstance(data, dict) and len(data) == 1 and isinstance(next(iter(data.values())), list):
-        data = next(iter(data.values()))
-    if isinstance(data, list):
-        data = sorted(data, key=lambda m: m.get("timestamp") or 0)
-    return listing(data, with_chat=False)
+        return data[chat]
+    if isinstance(data, dict) and len(data) == 1 and isinstance(next(iter(data.values())), list):
+        return next(iter(data.values()))
+    return data
 
 
 @tool(say="Counting up your chats.", label="WhatsApp stats", local_only=True, needs=connected)
@@ -140,8 +165,15 @@ async def whatsapp_search(
     count: int = 10,
 ):
     """Search WhatsApp messages by words, person, who sent them, file type or date."""
+    # A KIND IT DOES NOT KNOW, LIKE "text", FILTERED EVERY MESSAGE OUT, AND THE EMPTY RESULT READ AS SILENCE.
+    kind = kind if kind.strip().lower() in ("document", "image", "video", "audio") else ""
     data = await ask("query_messages", text=words, contact=chat, from_me=sent_by_me, kind=kind, since=since,
                      limit=max(1, min(count, 40)))
+    if chat.strip() and not (data.get("messages") or data.get("results") if isinstance(data, dict) else data):
+        # A NAME THAT MATCHES NOBODY IS SAID TO, WITH WHO IT COULD BE, AS A READ SAYS IT, NOT PASSED OFF AS NO MESSAGES.
+        probe = await messages_in(chat, 1)
+        if isinstance(probe, dict) and probe.get("error"):
+            return json.dumps(probe, ensure_ascii=False)
     return listing(data)
 
 

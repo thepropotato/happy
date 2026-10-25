@@ -6,6 +6,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from whatsapp_server import contacts as knowledge
 from whatsapp_server import nearing
@@ -139,6 +140,12 @@ class WhatsAppClient:
 
     async def resolve_contact_with_source(self, query: str) -> dict[str, str | None]:
         asked = (query or "").strip()
+        bare = re.sub(r"\s*\([^()]*\)$", "", asked)
+
+        # A NAME HANDED BACK WITH ITS NOTE STILL ON, LIKE "Aunty (WhatsApp profile name Notjane)", IS STILL
+        # THAT NAME, UNLESS SOMEONE IS SAVED WITH THE BRACKETS AS PART OF IT.
+        if bare and bare != asked and not await self.exact_contact(asked):
+            asked = bare
         known = knowledge.recall(asked, "whatsapp")
         looked = known or asked
         original = None if known else self.pending_original(asked)
@@ -238,18 +245,46 @@ class WhatsAppClient:
 
         return number if "@" in number else f"{number}@s.whatsapp.net"
 
-    async def nearest(self, asked: str) -> list[str]:
+    async def nearest(self, asked: str) -> list[tuple[str, str]]:
+        """THE PEOPLE asked COULD MEAN, ONCE EACH, AS (THE NAME A LOOKUP TAKES, THEIR PROFILE NAME).
+
+        ONE PERSON CAN BE SAVED UNDER A NAME, KNOWN BY A PROFILE NAME AND HELD UNDER A SECOND
+        ID AS WELL, AND LISTED SEPARATELY THEY READ AS THREE PEOPLE: "Aunty", "Notjane" AND
+        "Aunty (profile Notjane)" WERE PUT TO THE PERSON AS A CHOICE, AND THE THIRD, WHICH NO
+        LOOKUP TAKES, WAS THE ONE PICKED. EACH NAME IS RESOLVED, AND ONE ID IS ONE PERSON."""
         contacts = await self.get_contacts()
         names = [c.get("name") for c in contacts]
-        # A PROFILE NAME IS WEIGHED ON ITS OWN BUT SHOWN WITH THE SAVED NAME, WHICH IS WHAT A LOOKUP TAKES.
-        names += [(c["profile"], f"{c.get('name')} (WhatsApp profile name {c['profile']})") for c in contacts
-                  if c.get("profile") and c.get("profile") != c.get("name")]
+        # A PROFILE NAME IS WEIGHED ON ITS OWN BUT STANDS FOR THE SAVED NAME, WHICH IS WHAT A LOOKUP TAKES.
+        names += [(c["profile"], c.get("name")) for c in contacts
+                  if c.get("profile") and c.get("name") and c.get("profile") != c.get("name")]
         chats = await self.get_chats()
 
         if isinstance(chats, list):
             names += [c.get("name") for c in chats]
 
-        return nearing.nearest(asked, names)
+        people, seen = [], set()
+
+        for name in nearing.nearest(asked, names, most=nearing.MOST * 3):
+            try:
+                found = await self.get(f"/resolve-contact?q={quote(name)}")
+            except Exception:
+                found = None
+
+            found = found if isinstance(found, dict) and found.get("jid") else {}
+            who = found.get("jid") or name.lower()
+
+            if who in seen:
+                continue
+
+            seen.add(who)
+            saved = found.get("name") or name
+            profile = found.get("profile") or ""
+            people.append((saved, profile if profile.lower() != saved.lower() else ""))
+
+            if len(people) == nearing.MOST:
+                break
+
+        return people
 
     async def get_contacts(self) -> list[dict[str, str]]:
         try:

@@ -21,6 +21,8 @@ CASES = [
     ("summarise this article for me", "read_tab", {}),
     ("do I have any new whatsapp messages", "whatsapp_unread", {}),
     ("what did john say on whatsapp", ("whatsapp_read", "whatsapp_search"), {"chat": "john"}),
+    ("any word from jane doe?", ("whatsapp_read", "whatsapp_search"), {"chat": "jane"}),
+    ("has jane replied yet", ("whatsapp_read", "whatsapp_search"), {"chat": "jane"}),
     ("find the address I sent to my brother on whatsapp", "whatsapp_find", {"what": "address"}),
     ("tell mom on whatsapp that I'll be home by eight", "whatsapp_send", {"to": "mom"}),
     ("read my latest emails", "gmail__search_threads", {}),
@@ -89,7 +91,9 @@ GMAIL = [
 
 CANNED = {
     "whatsapp_unread": "2 unread messages in 1 chats:\nJohn Doe: 2 unread, last from John Doe: are you coming tomorrow?",
-    "whatsapp_read": "[Fri 23 Oct, 9:10 PM] John Doe: did you reach?\n[Fri 23 Oct, 9:12 PM] Me: yes reached",
+    "whatsapp_read": ("Chat with John Doe, newest last. Lines from John are John's own messages.\n"
+                      "The newest message is John's own, not John Doe's.\nThe last message from John Doe: [Fri 23 Oct, 9:10 PM] John Doe: did you reach?\n\n"
+                      "[Fri 23 Oct, 9:10 PM] John Doe: did you reach?\n[Fri 23 Oct, 9:12 PM] John: yes reached"),
     "whatsapp_find": "Best matches out of 812 messages:\n[Mon 2 Mar, 4:01 PM in John Doe] Me: Flat 12, Example Residency, Road no 1, Springfield 12345",
     "look_at_screen": "Front app: Google Chrome\nWindow: Lofi Girl - YouTube\nGoogle Chrome tab in front: Lofi Girl - YouTube — https://www.youtube.com/watch?v=jfKfPfyJRdk",
     "connections": "Internet: online\nModel: gpt-oss:20b\nWhatsApp: connected (linked as John)\nEmail through gmail (from Claude Code): connected (9 tools)\nMCP server linear (from Claude Code): needs sign-in (401 Unauthorized)\nMCP server freecad (from Claude Code): connected (14 tools)",

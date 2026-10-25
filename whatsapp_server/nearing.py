@@ -40,8 +40,8 @@ def likeness(asked, name):
     return max(whole, each / len(saved), within)
 
 
-def nearest(asked, names):
-    """UP TO THREE SAVED NAMES THAT LOOK LIKE asked, CLOSEST FIRST; A NAME MAY BE (WHAT TO MATCH, WHAT TO SHOW)."""
+def nearest(asked, names, most=MOST):
+    """UP TO most SAVED NAMES THAT LOOK LIKE asked, CLOSEST FIRST; A NAME MAY BE (WHAT TO MATCH, WHAT TO SHOW)."""
     kept = {}
     for name in names:
         matched, shown = name if isinstance(name, tuple) else (name, name)
@@ -49,7 +49,7 @@ def nearest(asked, names):
             kept[str(shown).strip()] = max(kept.get(str(shown).strip(), 0.0), likeness(asked, str(matched)))
     scored = sorted(((score, shown) for shown, score in kept.items()), reverse=True)
 
-    return [shown for score, shown in scored if score >= CLOSE][:MOST]
+    return [shown for score, shown in scored if score >= CLOSE][:most]
 
 
 def missed(asked, close):
@@ -57,7 +57,9 @@ def missed(asked, close):
     if not close:
         return f"No contact matching '{asked}' was found, so nothing was read, and no saved name is close to it."
 
-    named = ", ".join(f"'{name}'" for name in close)
+    # A PERSON IS (NAME, PROFILE NAME); THE NAME IN QUOTES IS THE ONE TO CALL AGAIN WITH, THE PROFILE ONLY SAYS WHO IT IS.
+    named = ", ".join(f"'{name}' (WhatsApp profile name {profile})" if profile else f"'{name}'"
+                      for name, profile in (each if isinstance(each, tuple) else (each, "") for each in close))
     closest = f"The closest saved name is {named}" if len(close) == 1 else f"The closest saved names are {named}"
 
     return (
