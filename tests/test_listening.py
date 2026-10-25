@@ -145,3 +145,25 @@ def test_noise_does_not_cut_happy_off():
 def test_his_own_words_coming_back_do_not_cut_him_off():
     barged, heard = talking_over(load("wake2.wav"), echo=lambda text: True)
     assert not barged and not heard
+
+
+def test_a_microphone_that_stops_handing_over_sound_is_reopened(monkeypatch):
+    monkeypatch.setattr(listener, "STALLED", 0.3)
+    reopened = []
+    ears = listener.Listener("Happy", refresh_devices=lambda: reopened.append(time.monotonic()))
+    ears.fresh_segment()
+    threading.Thread(target=ears.run, daemon=True).start()
+    time.sleep(1.0)
+    ears.stopping.set()
+    assert reopened
+
+
+def test_a_stalled_echo_cancelled_mic_is_reopened_plain(monkeypatch):
+    monkeypatch.setattr(listener, "STALLED", 0.3)
+    ears = listener.Listener("Happy", refresh_devices=lambda: None)
+    ears.mic, ears.opened_on = type("Stuck", (), {"engine": None})(), "John Doe’s AirPods Pro"
+    ears.fresh_segment()
+    threading.Thread(target=ears.run, daemon=True).start()
+    time.sleep(1.0)
+    ears.stopping.set()
+    assert ears.plain_on == "John Doe’s AirPods Pro"

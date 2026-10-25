@@ -23,6 +23,7 @@ PEEKS = (1.4, 1.8, 2.2, 2.6, 3.0, 3.5)
 TRAILING_SILENCE = 0.8
 LONGEST = 20.0
 TAP = 0.35
+STALLED = 2.0
 
 log = logging.getLogger("happy.listener")
 
@@ -107,6 +108,8 @@ class Listener:
         self.name = name
         self.refresh_devices = refresh_devices or self.reopen
         self.opened_on = ""
+        self.mic_name = "the microphone"
+        self.plain_on = None
         self.on_barge = on_barge or (lambda: None)
         self.echo = echo or (lambda text: False)
         self.barging = False
@@ -158,7 +161,8 @@ class Listener:
                 log.info("the microphone moved from %s to %s; reopening it", self.opened_on, now)
                 self.opened_on = now
                 try:
-                    self.refresh_devices() if self.stream is not None else self.reopen()
+                    # A DEVICE THAT CAME BACK HAS A NEW ID, SO THE PLAIN STREAM NEEDS A FRESH DEVICE LIST EVEN WHEN THE OLD MIC WAS NOT ONE.
+                    self.refresh_devices()
                 except Exception:
                     log.exception("the microphone would not reopen on %s", now)
 
@@ -173,7 +177,7 @@ class Listener:
                 self.opened_on = macos.input_device()
             except Exception:
                 self.opened_on = ""
-        if sys.platform == "darwin" and self.echo_cancel and not self.device:
+        if sys.platform == "darwin" and self.echo_cancel and not self.device and self.plain_on != self.opened_on:
             from happy.speech.microphone import EchoCancelled
 
             try:
@@ -185,7 +189,7 @@ class Listener:
             except Exception:
                 log.exception("echo cancellation is not available; listening without it")
                 self.mic = None
-        index, self.mic_name = pick_mic(self.device)
+        index, self.mic_name = pick_mic(self.device or (self.opened_on if self.plain_on == self.opened_on else ""))
         self.stream = sd.InputStream(samplerate=RATE, channels=1, dtype="float32", blocksize=BLOCK,
                                      device=index, callback=self.arrived)
         self.stream.start()
@@ -254,11 +258,25 @@ class Listener:
             self.capture = []
 
     def run(self):
+        last = time.monotonic()
         while not self.stopping.is_set():
             try:
                 block = self.blocks.get(timeout=0.2)
             except queue.Empty:
+                # MACOS STOPS THE AUDIO ENGINE WHEN A DEVICE IS RECONFIGURED, AND NOTHING ELSE WOULD EVER START IT AGAIN.
+                if time.monotonic() - last > STALLED:
+                    running = self.mic.engine.isRunning() if self.mic is not None and self.mic.engine is not None else None
+                    log.warning("%s handed over nothing for %.0fs (engine running: %s); reopening it", self.mic_name, time.monotonic() - last, running)
+                    if self.mic is not None:
+                        # SOME DEVICES, AIRPODS AMONG THEM, NEVER RUN THROUGH VOICE PROCESSING BUT DO HAND OVER A PLAIN STREAM.
+                        self.plain_on = self.opened_on
+                    try:
+                        self.refresh_devices()
+                    except Exception:
+                        log.exception("the microphone would not reopen")
+                    last = time.monotonic()
                 continue
+            last = time.monotonic()
             self.check_silence(block)
             with self.lock:
                 mode = self.mode
