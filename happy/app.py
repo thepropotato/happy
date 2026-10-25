@@ -23,7 +23,8 @@ NAMES_EVERY = 600
 TICK = 20
 CHAT_EVERY = 3
 PHONE = ("\n\n(Sent from their phone in your WhatsApp chat: they are away from the computer and read your answer there. "
-         "Give the answer itself in plain text, and open things on screen only when they ask to.)")
+         "Give the answer itself in plain text, and open things on screen only when they ask to. "
+         "'Here' and 'me' mean this chat: to send them a file, call whatsapp_send with to 'me' and the file's full path.)")
 CORRECTION_CUE = re.compile(r"^(?:no|nope|nah|sorry|wait|actually|i mean|i meant|not that|not him|not her|correction|rather|instead|oops)\b", re.I)
 FACTUAL = {"set_brightness", "set_volume", "set_keyboard_light", "media"}
 STILL_EVERY = 8.0

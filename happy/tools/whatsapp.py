@@ -310,23 +310,98 @@ async def whatsapp_picture(name: Annotated[str, "the person, by name or number"]
     return f"Opened {data.get('name') or name}'s profile picture in Preview."
 
 
+ME = {"me", "myself", "here", "this chat", "my chat", "your chat"}
+
+
+def said_lately():
+    """What the person said this turn and the exchange just before it, or None when the backend cannot say."""
+    from happy import history
+    from happy.tools import asked
+
+    words = asked.get()
+    if words is None:
+        return None
+    # THIS TURN'S REQUEST AND THE ONE BEFORE, SO "YES" TO "SEND IT TO JANE?" OR "TELL HER" STILL NAMES HER.
+    return " ".join([words] + [f"{turn['request']} {turn['reply']}" for turn in history.recent(limit=2)]).lower()
+
+
+def named(person, said):
+    """Whether they named the person, by a word of the name as speech spells it, or by a nickname kept for them."""
+    import difflib
+
+    from whatsapp_server import contacts, nearing
+
+    heard = [nearing.squeeze(w) for w in nearing.words(said)]
+    for part in (nearing.squeeze(w) for w in nearing.words(person)):
+        # A SHORT WORD IS SAID EXACTLY OR NOT AT ALL: LOOSELY, "do" WAS "Doe" AND "any" WAS "Aunty".
+        if any(part == word or min(len(part), len(word)) >= 4 and difflib.SequenceMatcher(None, part, word).ratio() >= 0.8
+               for word in heard):
+            return True
+    kept = contacts.loaded_facts()
+    return any(re.search(rf"\b{re.escape(nickname)}\b", said) for nickname, where in kept.items()
+               if str(where.get("whatsapp", "")).lower() == person.strip().lower())
+
+
 @tool(say="Sending it.", label="Sending to {to} on WhatsApp", local_only=True, needs=connected)
 async def whatsapp_send(
-    to: Annotated[str, "the person or group, by name"],
-    message: Annotated[str, "the exact words to send"],
+    to: Annotated[str, "the person or group, by name; 'me' for the person you are talking with, which goes to their chat with you"],
+    message: Annotated[str, "the exact words to send; with a file, a caption or empty"] = "",
+    file: Annotated[str, "full path of a file on this computer to send, like a document or photo; empty for only words"] = "",
     called: Annotated[str, "the relationship word they used for the person, like 'brother', 'mom' or 'boss', never the name; empty if they only gave a name"] = "",
 ):
-    """Send a WhatsApp message."""
-    data = await ask("send_message", recipients=[to], message=message)
-    said = called.strip().lower().removeprefix("my ").strip()
+    """Send a WhatsApp message, or a file on this computer like a document or photo."""
+    import asyncio
+    from pathlib import Path
+
+    from happy.integrations import whatsapp
+
+    file = file.strip()
+    if file and not Path(file).expanduser().is_file():
+        return f"Error: there is no file at {file}. Find it first, then send it with its full path."
+    if not file and not message.strip():
+        return "Error: nothing to send. Give the words, or a file."
+    said = said_lately()
+    if to.strip().lower() in ME:
+        own = whatsapp.own_chat()
+        if not own:
+            return "Error: your chat with me on WhatsApp is not set up yet, so there is nowhere to send it."
+        if file:
+            body = {"to": own, "url": str(Path(file).expanduser().resolve()), "caption": message, "filename": Path(file).name}
+            data = await asyncio.to_thread(post, "/send-media", body)
+        else:
+            data = await asyncio.to_thread(post, "/send-group", {"groupId": own, "message": message})
+        return data if isinstance(data, str) else json.dumps(data)[:800]
+    # A SEND NOBODY ASKED FOR CANNOT BE TAKEN BACK: "SEND IT HERE" WENT TO THE LAST PERSON TALKED ABOUT, AS THE WORDS "SEND IT HERE".
+    word = called.strip().lower().removeprefix("my ").strip()
+    # "TELL MY BROTHER" NAMES HIM AS SURELY AS HIS NAME DOES, ONCE THE CONTACT IT MEANS WAS LOOKED UP.
+    if said is not None and not named(to, said) and not (word and re.search(rf"\b{re.escape(word)}\b", said)):
+        return (f"Not sent: they never named {to}. Ask them who it should go to, or whether they meant you, "
+                f"and send it only once they say.")
+    if file:
+        data = await ask("send_media_message", recipients=[to], source=str(Path(file).expanduser().resolve()), caption=message)
+    else:
+        data = await ask("send_message", recipients=[to], message=message)
     failed = (isinstance(data, str) and data.lower().startswith("error")) or (isinstance(data, dict) and (data.get("error") or data.get("success") is False))
-    if said and said != to.strip().lower() and not failed:
+    # ONLY A WORD THEY ACTUALLY SAID IS KEPT: A GUESSED "brother" ONCE WROTE A WRONG PERSON INTO THE NOTES FOR GOOD.
+    if word and word != to.strip().lower() and not failed and said is not None and re.search(rf"\b{re.escape(word)}\b", said):
         from happy.tools.notes import note
 
         # "MY BROTHER, JOHN DOE" SAID ONCE IS KEPT, SO TOMORROW "MY BROTHER" NEEDS NO EXPLAINING.
-        note(f"'{said}' means {to.strip()} (their name in WhatsApp)")
-        await hub.call("whatsapp", "remember_contact", {"said": said, "means": to.strip()})
+        note(f"'{word}' means {to.strip()} (their name in WhatsApp)")
+        await hub.call("whatsapp", "remember_contact", {"said": word, "means": to.strip()})
     return data if isinstance(data, str) else json.dumps(data)[:800]
+
+
+def post(path, body):
+    """A send straight through the WhatsApp bridge, for Happy's own chat, which is not a contact."""
+    import httpx
+
+    from happy.integrations import whatsapp
+
+    try:
+        return httpx.post(f"{whatsapp.BASE}{path}", json=body, timeout=60).json()
+    except (httpx.HTTPError, ValueError) as error:
+        return f"Error: could not reach WhatsApp: {error}"
 
 
 @tool(label="Remembering {said}", local_only=True, needs=connected)

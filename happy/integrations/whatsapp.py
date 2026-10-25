@@ -150,6 +150,13 @@ def unlink():
         return False
 
 
+def own_chat():
+    """The id of Happy's own WhatsApp group, where the person writes from their phone; None until it is made."""
+    from happy.config import Config
+
+    return Config().get("whatsapp.own_chat_id") or None
+
+
 def names():
     """Every name the person might say for someone on WhatsApp: saved names, profile names and group names, in Latin letters."""
     try:

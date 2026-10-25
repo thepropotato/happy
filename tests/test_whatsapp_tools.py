@@ -37,3 +37,67 @@ def test_one_person_is_offered_once_under_the_name_a_lookup_takes():
     said = nearing.missed("Jan", [("Jane Doe", "Notjane"), ("Janet", "")])
     assert "'Jane Doe' (WhatsApp profile name Notjane), 'Janet'" in said
 
+
+class Sends:
+    def __init__(self, monkeypatch, said, earlier=()):
+        from happy import history, tools
+        from happy.integrations import whatsapp as bridge
+
+        self.sent, self.posted, self.noted = [], [], []
+        tools.asked.set(said)
+        monkeypatch.setattr(history, "recent", lambda limit=200: [{"request": r, "reply": a} for r, a in earlier])
+        monkeypatch.setattr(bridge, "own_chat", lambda: "123@g.us")
+
+        async def ask(name, **args):
+            self.sent.append((name, args))
+            return {"success": True}
+
+        async def call(server, name, args):
+            self.noted.append(args)
+
+        monkeypatch.setattr(whatsapp, "ask", ask)
+        monkeypatch.setattr(whatsapp, "post", lambda path, body: self.posted.append((path, body)) or {"success": True})
+        monkeypatch.setattr(whatsapp.hub, "call", call)
+        monkeypatch.setattr("happy.tools.notes.note", lambda fact: self.noted.append(fact))
+        monkeypatch.setattr("whatsapp_server.contacts.loaded_facts", lambda: {"sis": {"whatsapp": "Jane Doe"}})
+
+
+def send(**args):
+    return asyncio.run(whatsapp.whatsapp_send(**args))
+
+
+def test_a_send_to_someone_never_named_is_held(monkeypatch):
+    sends = Sends(monkeypatch, "send it here", earlier=[("send it here", ""), ("do i have my resume", "Yes, in Downloads.")])
+    said = send(to="Jane Doe", message="Send it here")
+    assert said.startswith("Not sent") and sends.sent == []
+
+
+def test_a_name_from_the_turn_before_or_a_kept_nickname_is_enough(monkeypatch):
+    sends = Sends(monkeypatch, "tell her i'm coming", earlier=[("any word from jane?", "Jane Doe said see you at six.")])
+    send(to="Jane Doe", message="I'm coming")
+    Sends(monkeypatch, "tell my sis hi")
+    send(to="Jane Doe", message="hi")
+    assert len(sends.sent) == 1
+
+
+def test_here_sends_the_file_to_their_own_chat(monkeypatch, tmp_path):
+    resume = tmp_path / "resume.pdf"
+    resume.write_bytes(b"%PDF")
+    sends = Sends(monkeypatch, "send it here")
+    send(to="me", file=str(resume))
+    assert sends.posted == [("/send-media", {"to": "123@g.us", "url": str(resume), "caption": "", "filename": "resume.pdf"})]
+
+
+def test_only_a_relationship_they_said_is_remembered(monkeypatch):
+    sends = Sends(monkeypatch, "message jane doe hi")
+    send(to="Jane Doe", message="hi", called="brother")
+    assert sends.noted == []
+    sends = Sends(monkeypatch, "tell my brother jane doe hi")
+    send(to="Jane Doe", message="hi", called="brother")
+    assert sends.noted
+
+
+def test_a_relationship_they_said_names_the_contact_it_was_looked_up_as(monkeypatch):
+    sends = Sends(monkeypatch, "tell my brother to come fast")
+    send(to="John Doe", message="Come fast", called="brother")
+    assert len(sends.sent) == 1
