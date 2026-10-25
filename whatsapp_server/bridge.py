@@ -190,6 +190,12 @@ def strip_emoji(text: str) -> str:
     return re.sub(r'\s+', ' ', EMOJI_RE.sub('', text)).strip()
 
 
+def squeeze(text):
+    """A name as it sounds: "-ie", "-y", "-ee", "-ey" endings made alike and runs of one letter cut to one, so "Jonnie" holds "jony"."""
+    words = re.findall(r"[a-z0-9]+", (text or "").lower())
+    return "".join(re.sub(r"(.)\1+", r"\1", re.sub(r"(?:ie|ee|ey|y)$", "i", w)) for w in words)
+
+
 def name_match(query: str, name: str) -> bool:
     """True if query matches name via substring or lenient alphanumeric comparison."""
     q, n = query.lower(), name.lower()
@@ -1500,7 +1506,8 @@ def handle_history_sync(session, evt):
 
 
 def enrich_contacts_from_store(session):
-    if session.contacts_enriched or not session.client or not session.connected:
+    # THE STORE KEEPS FILLING IN AFTER A LINK, SO IT IS READ AGAIN NOW AND THEN RATHER THAN ONCE.
+    if time.time() - session.contacts_enriched < ENRICH_EVERY or not session.client or not session.connected:
         return
     try:
         store_contacts = session.client.contact.get_all_contacts()
@@ -1517,20 +1524,22 @@ def enrich_contacts_from_store(session):
             phone_book_name = info.FullName or info.FirstName or ""
             name = phone_book_name or info.PushName or info.BusinessName or ""
             number = cid.split("@")[0] if "@" in cid else ""
+            # WHAT THEY CALL THEMSELVES ON WHATSAPP, KEPT BESIDE THE SAVED NAME: IT IS HOW PEOPLE ARE OFTEN ASKED FOR.
+            profile = {"profile": clean(info.PushName or ""), "business": clean(info.BusinessName or "")}
             if cid in existing_ids:
-                if name:
-                    for c in session.contacts:
-                        if c["id"] == cid:
-                            if phone_book_name or not c.get("name") or c["name"] == c.get("number"):
-                                c["name"] = clean(name)
-                            break
+                for c in session.contacts:
+                    if c["id"] == cid:
+                        if name and (phone_book_name or not c.get("name") or c["name"] == c.get("number")):
+                            c["name"] = clean(name)
+                        c.update({k: v for k, v in profile.items() if v})
+                        break
             else:
                 if not name:
                     name = number or cid
-                session.contacts.append({"id": cid, "name": clean(name), "number": number, "status": ""})
+                session.contacts.append({"id": cid, "name": clean(name), "number": number, "status": "", **{k: v for k, v in profile.items() if v}})
                 existing_ids.add(cid)
     if store_contacts:
-        session.contacts_enriched = True
+        session.contacts_enriched = time.time()
 
 
 def bulk_resolve_group_lids(session):
@@ -1904,6 +1913,15 @@ def resolve_recipient(session, input_str):
     for found in (exact, loose):
         if found:
             return spoken_to(session, found)
+    # THEN THE SAME NAMES AS THEY SOUND, SINCE SPEECH SPELLS A NAME HOWEVER IT LIKES.
+    heard = squeeze(q)
+    sounded = [c for c in session.contacts if heard and heard in squeeze(c.get("name", ""))]
+    if sounded:
+        return spoken_to(session, sounded)
+    # THEN WHAT THEY CALL THEMSELVES: A CONTACT SAVED UNDER A NICKNAME IS OFTEN ASKED FOR BY THE NAME ON THEIR PROFILE.
+    by_profile = [c for c in session.contacts if q in squeeze(c.get("profile", "")) or squeeze(q) in squeeze(c.get("profile", ""))]
+    if by_profile:
+        return spoken_to(session, by_profile)
     for g in session.groups:
         if g["name"].lower() == q:
             return g["id"]
@@ -2295,8 +2313,9 @@ def search_contacts(username):
     enrich_contacts_from_store(s)
     results = {}
     for c in s.contacts:
-        if (c.get("name") and q in c["name"].lower()) or (c.get("number") and q in c["number"]):
-            results[c["id"]] = {"id": c["id"], "name": c.get("name"), "number": c.get("number")}
+        if (c.get("name") and q in c["name"].lower()) or (c.get("number") and q in c["number"]) or squeeze(q) in squeeze(c.get("profile", "")):
+            results[c["id"]] = {"id": c["id"], "name": c.get("name"), "number": c.get("number"),
+                                **{k: c[k] for k in ("profile", "business") if c.get(k)}}
     for g in s.groups:
         for p in g.get("participants", []):
             if (p.get("name") and q in (p["name"] or "").lower()) or (p.get("number") and q in (p["number"] or "")):
@@ -2478,7 +2497,8 @@ def resolve_contact(username):
     try:
         jid = resolve_recipient(s, q)
         contact = next((c for c in s.contacts if c["id"] == jid), None)
-        return jsonify({"jid": jid, "name": contact["name"] if contact else q, "number": contact["number"] if contact else jid.split("@")[0]})
+        return jsonify({"jid": jid, "name": contact["name"] if contact else q, "number": contact["number"] if contact else jid.split("@")[0],
+                        "profile": (contact or {}).get("profile", "")})
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
 
@@ -2487,6 +2507,105 @@ def resolve_contact(username):
 
 
 
+
+
+def everything_said(s):
+    """Every stored message that says something, with its chat, newest first; status updates and channels left out."""
+    names = s.build_jid_to_name()
+    groups = {g["id"] for g in s.groups}
+    out = []
+    for jid in set(s.messages) | set(s.media):
+        if "@newsletter" in jid or "@broadcast" in jid:
+            continue
+        for store in (s.messages.get(jid, []), s.media.get(jid, [])):
+            for m in store:
+                if m.get("type") != "reaction" and said_something(m):
+                    out.append({**m, "chatName": names.get(jid, jid.split("@")[0]), "chatJid": jid,
+                                "isGroup": jid in groups or jid.endswith("@g.us")})
+    out.sort(key=lambda m: m.get("timestamp") or 0, reverse=True)
+    return out
+
+
+@app.get("/<username>/latest")
+def latest(username):
+    """The newest messages received across every chat, for "what's my last message" with no one named."""
+    s = get_session(username)
+    limit = max(1, min(int(request.args.get("limit", 3)), 20))
+    people_only = request.args.get("people") == "1"
+    with s.lock:
+        found = [m for m in everything_said(s) if not m.get("fromMe") and not (people_only and m["isGroup"])][:limit]
+    return jsonify(clean(found))
+
+
+@app.get("/<username>/stats")
+def stats(username):
+    """Counts and patterns across all of WhatsApp: how many chats and groups, how busy, and who is waiting on a reply."""
+    s = get_session(username)
+    now = time.time()
+    day_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    with s.lock:
+        said = everything_said(s)
+        chats = [c for c in s.chats if "@newsletter" not in c["id"] and "@broadcast" not in c["id"]]
+        groups = [c for c in chats if c.get("isGroup")]
+        week = [m for m in said if (m.get("timestamp") or 0) >= now - 7 * 86400]
+        today = [m for m in said if (m.get("timestamp") or 0) >= day_start]
+        busy = {}
+        for m in week:
+            busy.setdefault(m["chatJid"], {"name": m["chatName"], "isGroup": m["isGroup"], "messages": 0})["messages"] += 1
+        newest = {}
+        for m in said:
+            newest.setdefault(m["chatJid"], m)
+        # A ONE-TO-ONE CHAT WHOSE LAST WORD IS THEIRS, THIS WEEK, IS SOMEBODY STILL WAITING TO HEAR BACK.
+        waiting = [{"name": m["chatName"], "said": (m.get("body") or "")[:80], "timestamp": m.get("timestamp"),
+                    "kind": m.get("mediaType") or (m.get("type") if m.get("type") not in (None, "chat", "text") else None)}
+                   for m in newest.values() if not m["isGroup"] and not m.get("fromMe") and (m.get("timestamp") or 0) >= now - 7 * 86400]
+        biggest = sorted(s.groups, key=lambda g: -(g.get("participantCount") or 0))[:3]
+        oldest = min((m.get("timestamp") or now for m in said), default=now)
+    return jsonify(clean({
+        "chats": len(chats), "groups": len(groups), "people_chats": len(chats) - len(groups),
+        "archived": sum(1 for c in chats if c.get("archived")), "contacts": len(s.contacts),
+        "unread_chats": sum(1 for c in chats if (c.get("unreadCount") or 0) > 0),
+        "unread_messages": sum(c.get("unreadCount") or 0 for c in chats),
+        "messages_synced": len(said), "synced_since": datetime.fromtimestamp(oldest).strftime("%d %b %Y"),
+        "today": {"received": sum(1 for m in today if not m.get("fromMe")), "sent": sum(1 for m in today if m.get("fromMe")),
+                  "chats": len({m["chatJid"] for m in today})},
+        "this_week": {"received": sum(1 for m in week if not m.get("fromMe")), "sent": sum(1 for m in week if m.get("fromMe"))},
+        "busiest_this_week": sorted(busy.values(), key=lambda b: -b["messages"])[:5],
+        "waiting_on_your_reply": sorted(waiting, key=lambda w: -(w["timestamp"] or 0))[:8],
+        "biggest_groups": [{"name": g["name"], "members": g.get("participantCount")} for g in biggest],
+    }))
+
+
+@app.get("/<username>/profile-picture")
+def profile_picture(username):
+    """Downloads someone's profile picture, by name or number, and says where it was saved."""
+    q = request.args.get("q", "")
+    s = get_session(username)
+    if not s.client or not s.connected:
+        return jsonify({"error": "WhatsApp is not connected right now"}), 503
+    try:
+        jid = resolve_recipient(s, q)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    contact = next((c for c in s.contacts if c["id"] == jid), {})
+    try:
+        info = s.client.get_profile_picture(make_jid(jid))
+    except Exception as e:
+        # WHATSAPP REFUSES WHEN THERE IS NO PICTURE OR THEIR PRIVACY SETTING HIDES IT, AND THE TWO LOOK THE SAME HERE.
+        logger.info(f"[picture] user={username} none for {jid}: {e}")
+        return jsonify({"jid": jid, "name": contact.get("name") or q, "picture": None,
+                        "why": "no profile picture, or their privacy setting hides it from you"})
+    if not info.URL:
+        return jsonify({"jid": jid, "name": contact.get("name") or q, "picture": None,
+                        "why": "no profile picture, or their privacy setting hides it from you"})
+    import httpx
+
+    target = Path(s.dl_dir) / f"profile-{jid.split('@')[0]}.jpg"
+    try:
+        target.write_bytes(httpx.get(info.URL, timeout=15).raise_for_status().content)
+    except Exception as e:
+        return jsonify({"error": f"the picture could not be downloaded: {e}"}), 502
+    return jsonify({"jid": jid, "name": contact.get("name") or q, "profile": contact.get("profile", ""), "picture": str(target)})
 
 
 @app.post("/<username>/send")

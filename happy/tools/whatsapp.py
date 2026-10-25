@@ -33,7 +33,11 @@ def when(message):
 
 def line(message, with_chat=True):
     who = "Me" if message.get("fromMe") else (message.get("from") or "").split(" (")[0] or "Them"
-    body = message.get("body") or (f"[{message.get('mediaType')}]" if message.get("hasMedia") else "")
+    # A PHOTO NOT DOWNLOADED YET STILL HAS ITS TYPE; WITHOUT IT, IT READ AS AN EMPTY MESSAGE.
+    kind = message.get("mediaType") or (message.get("type") if message.get("type") not in (None, "chat", "text") else None)
+    body = message.get("body") or ""
+    if kind and body != f"[{kind}]":
+        body = f"[{kind}] {body}".strip()
     if message.get("filename"):
         body += f" (file {message['filename']})"
     where = f" in {message.get('chatName')}" if with_chat and message.get("chatName") else ""
@@ -67,12 +71,35 @@ async def whatsapp_unread():
     return f"{data.get('unread_messages', '?')} unread messages in {len(rows)} chats:\n" + "\n".join(rows)
 
 
+def bridge(path, **params):
+    """A read straight from the WhatsApp bridge, for what the MCP server has no tool for."""
+    import httpx
+
+    from happy.integrations import whatsapp
+
+    try:
+        return httpx.get(f"{whatsapp.BASE}{path}", params=params, timeout=15).json()
+    except (httpx.HTTPError, ValueError) as error:
+        return f"Could not reach WhatsApp: {error}"
+
+
 @tool(say="Opening that chat.", label="Reading the chat with {chat}", local_only=True, needs=connected)
 async def whatsapp_read(
-    chat: Annotated[str, "person or group name, a short partial name is fine"],
+    chat: Annotated[str, "person or group name, a short partial name is fine; empty for the newest messages from anyone"] = "",
     count: Annotated[int, "how many recent messages"] = 10,
+    people_only: Annotated[bool, "with no chat: true to leave groups out"] = False,
 ):
-    """Read what someone said: the latest messages in one WhatsApp chat, newest last."""
+    """Read what someone said: the latest messages in one WhatsApp chat, newest last. With no chat, the newest messages received across all chats."""
+    if not chat.strip():
+        import asyncio
+
+        # TEN IS THE DEFAULT FOR ONE CHAT; ACROSS EVERY CHAT "THE LAST MESSAGE" WANTS ONLY THE NEWEST FEW.
+        wanted = 3 if count == 10 else max(1, min(count, 10))
+        found = await asyncio.to_thread(bridge, "/latest", limit=wanted, people="1" if people_only else "0")
+        if isinstance(found, str) or not found:
+            return found or "No messages received yet."
+        return "Newest received, newest first:\n" + "\n".join(
+            line(m) + (" (group)" if m.get("isGroup") else "") for m in found)
     data = await ask("get_messages", contact=[chat], limit=max(1, min(count, 50)))
     if isinstance(data, dict) and isinstance(data.get(chat), list):
         data = data[chat]
@@ -81,6 +108,26 @@ async def whatsapp_read(
     if isinstance(data, list):
         data = sorted(data, key=lambda m: m.get("timestamp") or 0)
     return listing(data, with_chat=False)
+
+
+@tool(say="Counting up your chats.", label="WhatsApp stats", local_only=True, needs=connected)
+async def whatsapp_stats():
+    """Numbers and patterns across all of WhatsApp: how many chats and groups, unread, today's and this week's activity, busiest chats, the biggest groups, and who is waiting on a reply."""
+    import asyncio
+
+    data = await asyncio.to_thread(bridge, "/stats")
+    if isinstance(data, str):
+        return data
+    busiest = ", ".join(f"{b['name']}{' (group)' if b['isGroup'] else ''} {b['messages']}" for b in data["busiest_this_week"]) or "none"
+    waiting = "; ".join(f"{w['name']} ({when(w)}): {w['said'] or '[' + (w.get('kind') or 'message') + ']'}"
+                        for w in data["waiting_on_your_reply"]) or "nobody"
+    biggest = ", ".join(f"{g['name']} ({g['members']} members)" for g in data["biggest_groups"]) or "none"
+    return (f"{data['chats']} chats: {data['people_chats']} with people and {data['groups']} groups, {data['archived']} archived. "
+            f"{data['contacts']} contacts. Unread: {data['unread_messages']} messages in {data['unread_chats']} chats.\n"
+            f"Today: {data['today']['received']} received and {data['today']['sent']} sent, across {data['today']['chats']} chats. "
+            f"This week: {data['this_week']['received']} received, {data['this_week']['sent']} sent.\n"
+            f"Busiest this week (messages): {busiest}.\nWaiting on your reply: {waiting}.\nBiggest groups: {biggest}.\n"
+            f"Counted from {data['messages_synced']} messages synced since {data['synced_since']}.")
 
 
 @tool(say="Searching your chats.", label="Searching WhatsApp for {words}", local_only=True, needs=connected)
@@ -203,9 +250,32 @@ async def whatsapp_find(
 
 @tool(label="Looking up {name}", local_only=True, needs=connected)
 async def whatsapp_contact(name: Annotated[str, "a name, or a relationship like dad or brother"]):
-    """Look up a WhatsApp contact by name or nickname."""
+    """Look up a WhatsApp contact by name or nickname: their saved name, number, and the name on their WhatsApp profile ("profile")."""
     data = await ask("search_contacts", query=name)
     return data if isinstance(data, str) else json.dumps(data, ensure_ascii=False)[:2000]
+
+
+@tool(say="Getting their picture.", label="Showing {name}'s profile picture", local_only=True, needs=connected)
+async def whatsapp_picture(name: Annotated[str, "the person, by name or number"]):
+    """Show someone's WhatsApp profile picture (DP) on screen."""
+    import asyncio
+
+    import httpx
+
+    from happy.integrations import whatsapp
+    from happy.system import native
+
+    try:
+        reply = await asyncio.to_thread(httpx.get, f"{whatsapp.BASE}/profile-picture", params={"q": name}, timeout=25)
+        data = reply.json()
+    except (httpx.HTTPError, ValueError) as error:
+        return f"Could not reach WhatsApp: {error}"
+    if data.get("error"):
+        return data["error"]
+    if not data.get("picture"):
+        return f"{data.get('name') or name} has {data.get('why') or 'no profile picture'}."
+    native.open_path(data["picture"], app="Preview")
+    return f"Opened {data.get('name') or name}'s profile picture in Preview."
 
 
 @tool(say="Sending it.", label="Sending to {to} on WhatsApp", local_only=True, needs=connected)

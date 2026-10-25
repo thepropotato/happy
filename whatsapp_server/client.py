@@ -239,7 +239,11 @@ class WhatsAppClient:
         return number if "@" in number else f"{number}@s.whatsapp.net"
 
     async def nearest(self, asked: str) -> list[str]:
-        names = [c.get("name") for c in await self.get_contacts()]
+        contacts = await self.get_contacts()
+        names = [c.get("name") for c in contacts]
+        # A PROFILE NAME IS WEIGHED ON ITS OWN BUT SHOWN WITH THE SAVED NAME, WHICH IS WHAT A LOOKUP TAKES.
+        names += [(c["profile"], f"{c.get('name')} (WhatsApp profile name {c['profile']})") for c in contacts
+                  if c.get("profile") and c.get("profile") != c.get("name")]
         chats = await self.get_chats()
 
         if isinstance(chats, list):
