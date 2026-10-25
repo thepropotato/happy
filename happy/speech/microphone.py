@@ -8,6 +8,35 @@ log = logging.getLogger("happy.microphone")
 
 RATE = 16000
 BLOCK = 1600
+TAPS = 63
+
+
+class Resampler:
+    """Any rate down to 16 kHz exactly, a block at a time: AirPods hand over 24 kHz, which halving made 12 kHz heard as 16."""
+
+    def __init__(self, source_rate):
+        self.ratio = source_rate / RATE
+        middle = np.arange(TAPS) - (TAPS - 1) / 2
+        cutoff = 0.45 / self.ratio
+        taps = 2 * cutoff * np.sinc(2 * cutoff * middle) * np.hamming(TAPS)
+        self.taps = (taps / taps.sum()).astype(np.float32)
+        self.history = np.zeros(TAPS - 1, np.float32)
+        self.left = np.zeros(0, np.float32)
+        self.at = 0.0
+
+    def __call__(self, samples):
+        joined = np.concatenate([self.history, samples])
+        self.history = joined[-(TAPS - 1):]
+        smooth = np.convolve(joined, self.taps, mode="valid").astype(np.float32)
+        source = np.concatenate([self.left, smooth])
+        count = int(np.floor((len(source) - 1 - self.at) / self.ratio)) + 1 if len(source) - 1 >= self.at else 0
+        where = self.at + np.arange(count) * self.ratio
+        out = np.interp(where, np.arange(len(source)), source).astype(np.float32)
+        after = self.at + count * self.ratio
+        drop = min(int(after), len(source))
+        self.left = source[drop:]
+        self.at = after - drop
+        return out
 
 
 class EchoCancelled:
@@ -31,7 +60,8 @@ class EchoCancelled:
         except Exception:
             log.info("this macOS cannot turn down the ducking of other audio")
         source = node.outputFormatForBus_(0)
-        self.step = max(1, round(source.sampleRate() / RATE))
+        self.resample = Resampler(source.sampleRate())
+        log.info("the microphone hands over %d Hz", source.sampleRate())
         node.installTapOnBus_bufferSize_format_block_(0, 4800, source, self.arrived)
         self.engine.prepare()
         ok, error = self.engine.startAndReturnError_(None)
@@ -41,8 +71,7 @@ class EchoCancelled:
     def arrived(self, buffer, when):
         frames = buffer.frameLength()
         samples = np.array(buffer.floatChannelData()[0][:frames], dtype=np.float32)
-        usable = len(samples) - len(samples) % self.step
-        down = samples[:usable].reshape(-1, self.step).mean(axis=1)
+        down = self.resample(samples)
         self.pending = np.concatenate([self.pending, down])
         while len(self.pending) >= BLOCK:
             self.deliver(self.pending[:BLOCK].copy())

@@ -66,6 +66,13 @@ def real_words(text):
     return len(words) >= 2 or (len(words) == 1 and len(words[0]) >= 3)
 
 
+def looping(text):
+    """Whether the recognizer got stuck repeating itself on noise, like "I'm sorry." eight times while nobody spoke."""
+    parts = [" ".join(re.findall(r"[a-z']+", part.lower())) for part in re.split(r"[.!?,;]+", text or "")]
+    counts = collections.Counter(part for part in parts if len(part.split()) >= 2)
+    return any(count >= 3 for count in counts.values())
+
+
 class Endpoint:
     """Decides when someone has finished speaking, counting audio rather than wall-clock time."""
 
@@ -359,6 +366,11 @@ class Listener:
         if how != "overheard":
             self.on_state("transcribing")
         text = self.stt(audio)
+        if looping(text):
+            log.info("heard a loop, not words; dropped (%s): %r", how, text)
+            if how != "overheard":
+                self.on_state("missed")
+            return
         if how == "barge":
             command = after_name(text, self.name)
             if not real_words(text) or self.echo(text) or command is None:

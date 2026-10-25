@@ -236,7 +236,8 @@ class Happy:
                     stt.know(found)
                     known = found
                     log.info("listening for %d names from WhatsApp", len(found))
-            time.sleep(NAMES_EVERY if known else 30)
+            # THE FIRST REQUEST COMES SECONDS AFTER START; WAITING 30 HEARD "AUNTY" AS "ANYTHING".
+            time.sleep(NAMES_EVERY if known else 1)
 
     def retune(self):
         """Takes up changed settings while running, from any thread: nothing in the settings waits on a restart."""

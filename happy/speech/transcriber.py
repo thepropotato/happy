@@ -47,7 +47,15 @@ class Transcriber:
     def __call__(self, samples: np.ndarray) -> str:
         if len(samples) < RATE // 4:
             return ""
-        stream = self.recognizer.create_stream(hotwords=self.names)
+        # 900 NAMES PULL WORDS OUT OF NOISE ("I'M SORRY" EIGHT TIMES, SENT TO A CONTACT), SO THEY ONLY RESPELL WORDS ALREADY HEARD WITHOUT THEM.
+        plain = self.decode(samples, "")
+        if not plain or not self.names:
+            return plain
+        named = self.decode(samples, self.names)
+        return named if len(named.split()) <= len(plain.split()) + 2 else plain
+
+    def decode(self, samples, hotwords):
+        stream = self.recognizer.create_stream(hotwords=hotwords)
         stream.accept_waveform(RATE, samples.astype(np.float32))
         self.recognizer.decode_stream(stream)
         return stream.result.text.strip()
