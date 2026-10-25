@@ -132,6 +132,7 @@ class Happy:
                              echo_cancel=self.cfg.get("input.echo_cancel", True) is not False,
                              on_barge=self.barged, echo=self.is_echo)
             parts["the microphone"] = self.listener.start
+            threading.Thread(target=self.teach_names, name="names", daemon=True).start()
         pending = set(parts)
         lock = threading.Lock()
 
@@ -194,6 +195,21 @@ class Happy:
     def key_up(self):
         if self.listener:
             self.listener.key_up()
+
+    def teach_names(self):
+        """Gives the ears the names on WhatsApp once it has synced, and again now and then, so a spoken name is heard as itself."""
+        from happy.integrations import whatsapp
+
+        known = None
+        while True:
+            stt = getattr(self.listener, "stt", None)
+            if stt is not None and whatsapp.listening():
+                found = whatsapp.names()
+                if found and found != known:
+                    stt.know(found)
+                    known = found
+                    log.info("listening for %d names from WhatsApp", len(found))
+            time.sleep(NAMES_EVERY if known else 30)
 
     def barged(self):
         """The person talked over Happy: stop talking, drop the turn, and listen to them instead."""
