@@ -26,10 +26,15 @@ class Tool:
     label: str = ""
     local_only: bool = False
     needs: Callable | None = None
+    check: Callable | None = None
     params: dict = field(default_factory=dict)
 
     def ready(self):
         return self.needs is None or bool(self.needs())
+
+    def refuse(self, args):
+        """Why these arguments are turned away before anything is drawn, or None to go ahead."""
+        return self.check(args) if self.check else None
 
     def show(self, args):
         try:
@@ -87,7 +92,7 @@ def schema_of(fn):
     return {"type": "object", "properties": props, "required": required}
 
 
-def tool(say="", label="", local_only=False, needs=None):
+def tool(say="", label="", local_only=False, needs=None, check=None):
     """Registers a function as a tool; its docstring is what the model reads."""
 
     def wrap(fn):
@@ -95,7 +100,7 @@ def tool(say="", label="", local_only=False, needs=None):
         schema = schema_of(fn)
         REGISTRY[fn.__name__] = Tool(
             name=fn.__name__, fn=fn, description=doc, schema=schema, say=say, label=label,
-            local_only=local_only, needs=needs, params=schema["properties"],
+            local_only=local_only, needs=needs, check=check, params=schema["properties"],
         )
         return fn
 
@@ -158,6 +163,9 @@ async def call(name, args):
     tool_ = REGISTRY.get(name)
     if tool_ is None:
         return f"Error: there is no tool called {name}."
+    refused = tool_.refuse(args)
+    if refused:
+        return refused
     try:
         clean = prepare(tool_, args)
     except ValueError as error:

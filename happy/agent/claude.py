@@ -70,6 +70,10 @@ class Claude(Backend):
 
     def wrap(self, registered):
         async def handler(args):
+            refused = registered.refuse(args)
+            if refused:
+                self.emit(Acted(registered.name, refused, False))
+                return {"content": [{"type": "text", "text": refused}], "is_error": True}
             self.emit(Act(registered.name, args, registered.show(args), registered.say))
             result = await tools.call(registered.name, args)
             if isinstance(result, Image):

@@ -342,7 +342,15 @@ def named(person, said):
                if str(where.get("whatsapp", "")).lower() == person.strip().lower())
 
 
-@tool(say="Sending it.", label="Sending to {to} on WhatsApp", local_only=True, needs=connected)
+def wordless(args):
+    """A send with nothing in it is the model guessing at a reply they have not given yet."""
+    if (args.get("message") or "").strip() or (args.get("file") or "").strip():
+        return None
+    return ("Error: not sent, and nothing was sent: they have not given the words. Do not send anything until they say "
+            "the exact words. Go back to what they asked and do that.")
+
+
+@tool(say="Sending it.", label="Sending to {to} on WhatsApp", local_only=True, needs=connected, check=wordless)
 async def whatsapp_send(
     to: Annotated[str, "the person or group, by name; 'me' for the person you are talking with, which goes to their chat with you"],
     message: Annotated[str, "the exact words to send; with a file, a caption or empty"] = "",
@@ -358,8 +366,6 @@ async def whatsapp_send(
     file = file.strip()
     if file and not Path(file).expanduser().is_file():
         return f"Error: there is no file at {file}. Find it first, then send it with its full path."
-    if not file and not message.strip():
-        return "Error: nothing to send. Give the words, or a file."
     said = said_lately()
     if to.strip().lower() in ME:
         own = whatsapp.own_chat()

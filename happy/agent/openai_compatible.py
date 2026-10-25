@@ -186,6 +186,8 @@ class OpenAICompatible(Backend):
             result = (f"You already called {name} with these arguments in this turn, and it said: "
                       f"{self.done_calls[(name, json.dumps(args, sort_keys=True))][:300]} Do not call it again; use that, "
                       f"try something different, or answer.")
+        elif registered.refuse(args):
+            result = registered.refuse(args)
         else:
             emit(Act(name, args, registered.show(args), registered.say))
             result = await tools.call(name, args)
