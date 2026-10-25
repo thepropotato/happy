@@ -178,6 +178,45 @@ def find_files(
     return "\n".join(lines)
 
 
+def size_of(count):
+    for unit in ("bytes", "KB", "MB", "GB"):
+        if count < 1024 or unit == "GB":
+            return f"{count:.0f} {unit}" if unit == "bytes" else f"{count:.1f} {unit}"
+        count /= 1024
+
+
+@tool(label="Looking in {folder}")
+def list_folder(folder: Annotated[str, "a folder by name, like downloads, desktop or 'happy project', or a path"]):
+    """What is inside a folder: how many files and folders, what kinds, and the newest ones. Use it for 'how many files', 'what's in' and 'latest download'."""
+    hits = locate(folder, folders=True)
+    place = next((Path(p) for p in hits if Path(p).is_dir()), None)
+    if place is None:
+        return f"Found no folder called {folder}."
+    try:
+        entries = [e for e in place.iterdir() if not e.name.startswith(".")]
+    except PermissionError:
+        return f"{place} cannot be read: allow Happy in System Settings > Privacy & Security > Files and Folders."
+    files = [e for e in entries if e.is_file()]
+    folders = [e for e in entries if e.is_dir()]
+    kinds = {}
+    for e in files:
+        kind = e.suffix.lower().lstrip(".") or "no extension"
+        kinds[kind] = kinds.get(kind, 0) + 1
+    common = ", ".join(f"{n} {k}" for k, n in sorted(kinds.items(), key=lambda kv: -kv[1])[:6])
+    newest = sorted(entries, key=lambda e: e.stat().st_mtime, reverse=True)[:15]
+    lines = [f"{place}: {len(files)} files and {len(folders)} folders" + (f" (files: {common})" if common else "") + ".", "Newest first:"]
+    for e in newest:
+        stat = e.stat()
+        when = time.strftime("%d %b %Y", time.localtime(stat.st_mtime))
+        lines.append(f"{e.name}{'/' if e.is_dir() else ''} ({'folder' if e.is_dir() else size_of(stat.st_size)}, {when})")
+    return "\n".join(lines)
+
+
+# WORDS THAT ASK TO SEE SOMETHING; WITHOUT ONE, A PAGE OPENING ON SCREEN WOULD BREAK INTO WHAT THEY ARE DOING.
+SHOW = re.compile(r"\b(?:open|show|visit|go to|take me|pull up|bring up|launch|display|let me see|watch|play|put on|navigate|load)\b")
+REFERENCE = re.compile(r"(?:the |that |this )?(?:link|page|site|website|url|result|article|one|it)")
+
+
 def as_url(text):
     text = text.strip()
     if "://" in text:
