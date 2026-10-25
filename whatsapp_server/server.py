@@ -457,7 +457,7 @@ async def query_messages(
     """Search WhatsApp messages with filters. Use for: "what did X send me?", "messages from Y in Z group", "last message in group", "recent messages", and for finding a file, photo or video somebody sent. All filtering happens in-memory - single call, instant results.
 
     A WORD OR PHRASE IN A MESSAGE IS FOUND WITH text, NEVER BY READING THE CHAT. "search for
-    rajahmundry in Tara's chat", "find the message with my address", "did Sam mention the
+    springfield in Jane's chat", "find the message with my address", "did Sam mention the
     invoice": pass text with the words to look for, and the chat or sender if they named one.
     Leave both empty to search every chat. Reading the latest messages instead only ever
     shows the latest ones, so the word is never found that way.
@@ -498,14 +498,14 @@ async def query_messages(
     - "first message in Dhurandhar group from Siddu today"  -> group="dhurandhar", sender="siddu", date="today", oldest_first=true, limit=1
     - "messages I sent to User"                             -> contact="user", from_me=true
     - "last message Rasool sent in Zookie Bhai group"       -> group="zookie", sender="rasool", limit=1
-    - "last message received from Jaswanth / what did Athul say last" -> sender="jaswanth", limit=1
+    - "last message received from John / what did Jane say last" -> sender="john", limit=1
     - "yesterday's messages from User in WhatsApp"          -> sender="user", date="yesterday"
     - "first message today in Just Mumbai"                  -> group="just mumbai", date="today", oldest_first=true, limit=1
-    - "the zip Priya sent yesterday"                        -> sender="priya", kind="document", date="yesterday"
+    - "the zip Jane sent yesterday"                         -> sender="jane", kind="document", date="yesterday"
     - "that PDF Tara sent last week"                        -> sender="tara", kind="document", since="2026-09-08", until="2026-09-14"
     - "photos mum sent this month"                          -> sender="mum", kind="image", since="2026-09-01"
     - "what did Tara send before the 10th"                  -> sender="tara", until="2026-09-09"
-    - "search for rajahmundry in Priya's chat"              -> contact="priya", text="rajahmundry"
+    - "search for springfield in Jane's chat"              -> contact="jane", text="springfield"
     - "find where anyone mentioned the invoice"             -> text="invoice"
 
     A day they name is a day where they are, not in UTC - "yesterday" and "today" are worked
@@ -522,7 +522,7 @@ async def query_messages(
         since: Earliest day to look at, as "yesterday" or "YYYY-MM-DD". The whole of that day counts. Use with until for a stretch of days; leave until empty for "any time after this".
         until: Latest day to look at, as "today" or "YYYY-MM-DD". The whole of that day counts. Leave since empty for "any time before this".
         kind: Only messages carrying this sort of thing: "document" for a file of any sort (zip, PDF, spreadsheet), "image", "video", "audio", "sticker". Several with commas. Leave empty for ordinary messages.
-        text: Words that must be in the message, in any order, e.g. "rajahmundry" or "533103". Leave empty when they did not say what the message said.
+        text: Words that must be in the message, in any order, e.g. "springfield" or "12345". Leave empty when they did not say what the message said.
         filename: Part of the file's name, when they actually said it. Leave empty when they described the file instead of naming it - kind and sender find it.
     """
     import re as _re

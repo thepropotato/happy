@@ -1904,7 +1904,7 @@ def resolve_recipient(session, input_str):
     q = input_str.strip().lower()
 
     # TWO PEOPLE SAVED UNDER ONE NAME IS ORDINARY, AND THE FIRST IN THE LIST IS NOT THE
-    # ONE MEANT: "Athul" MATCHED A NUMBER WITH NO CHAT AT ALL WHILE THE Athul WHO HAD JUST
+    # ONE MEANT: "John" MATCHED A NUMBER WITH NO CHAT AT ALL WHILE THE John WHO HAD JUST
     # SENT SOMETHING SAT SECOND, SO A REAL UNREAD MESSAGE CAME BACK AS NONE AND WAS
     # RETRACTED TO HIM AS A MISTAKE. THE ONE HE HAS ACTUALLY TALKED TO IS THE ONE HE MEANS.
     exact = [c for c in session.contacts if c.get("name", "").lower() == q]
@@ -2430,7 +2430,7 @@ def with_media(s, entry):
         return entry
 
     # A STICKER OR A VOICE NOTE CARRIES NO WORDS, SO ITS body IS "" AND A READER TAKES THAT
-    # FOR AN EMPTY MESSAGE: THE CHAT LIST SAID "[sticker]" FROM Athul AND get_messages SAID
+    # FOR AN EMPTY MESSAGE: THE CHAT LIST SAID "[sticker]" FROM John AND get_messages SAID
     # NOTHING, SO A REAL STICKER WAS RETRACTED AS A MISTAKE. WHAT THE LIST SAYS IS WHAT THE
     # MESSAGE SAYS.
     if not entry.get("body"):
