@@ -28,16 +28,12 @@ log = logging.getLogger("happy.listener")
 
 
 def pick_mic(wanted=""):
-    """The built-in mic unless one is named, so Bluetooth headphones stay in their good audio mode."""
+    """The named mic, else whichever one the system is set to, headphones included."""
     devices = [(i, d) for i, d in enumerate(sd.query_devices()) if d["max_input_channels"] > 0]
     if wanted:
         for i, d in devices:
             if wanted.lower() in d["name"].lower():
                 return i, d["name"]
-    for i, d in devices:
-        name = d["name"].lower()
-        if ("macbook" in name or "built-in" in name or "internal" in name) and "microphone" in name:
-            return i, d["name"]
     default = sd.default.device[0]
     for i, d in devices:
         if i == default:
@@ -106,8 +102,10 @@ class Listener:
     """Listens all the time, but only speech that starts by addressing Happy by name goes anywhere."""
 
     def __init__(self, name, wake=True, device="", on_heard=None, on_state=None, on_level=None, echo_cancel=True,
-                 on_barge=None, echo=None):
+                 on_barge=None, echo=None, refresh_devices=None):
         self.name = name
+        self.refresh_devices = refresh_devices or self.reopen
+        self.opened_on = ""
         self.on_barge = on_barge or (lambda: None)
         self.echo = echo or (lambda text: False)
         self.barging = False
@@ -141,18 +139,46 @@ class Listener:
         self.open_mic()
         self.worker = threading.Thread(target=self.run, name="ears", daemon=True)
         self.worker.start()
+        if sys.platform == "darwin":
+            threading.Thread(target=self.follow_input, name="microphone follower", daemon=True).start()
+
+    def follow_input(self):
+        """Moves to the system's microphone when it changes (headphones in or out), unless one is named in settings."""
+        from happy.system import macos
+
+        while not self.stopping.wait(1.0):
+            if self.device:
+                continue
+            try:
+                now = macos.input_device()
+            except Exception:
+                continue
+            if now and self.opened_on and now != self.opened_on:
+                log.info("the microphone moved from %s to %s; reopening it", self.opened_on, now)
+                self.opened_on = now
+                try:
+                    self.refresh_devices() if self.stream is not None else self.reopen()
+                except Exception:
+                    log.exception("the microphone would not reopen on %s", now)
 
     def open_mic(self):
         """Echo-cancelled on macOS, so a video playing is not taken for the person talking; a plain stream elsewhere."""
         self.stream = None
         self.mic = None
+        if sys.platform == "darwin":
+            from happy.system import macos
+
+            try:
+                self.opened_on = macos.input_device()
+            except Exception:
+                self.opened_on = ""
         if sys.platform == "darwin" and self.echo_cancel and not self.device:
             from happy.speech.microphone import EchoCancelled
 
             try:
                 self.mic = EchoCancelled(self.blocks.put)
                 self.mic.start()
-                self.mic_name = self.mic.name
+                self.mic_name = f"{self.opened_on or 'the default microphone'}, with echo cancellation"
                 log.info("listening on %s", self.mic_name)
                 return
             except Exception:

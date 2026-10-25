@@ -157,7 +157,7 @@ class Happy:
             self.listener = Listener(self.name, wake=self.cfg.get("wake_word"), device=self.cfg.get("input.device") or "",
                              on_heard=self.heard, on_state=self.heard_state, on_level=self.face.ear,
                              echo_cancel=self.cfg.get("input.echo_cancel", True) is not False,
-                             on_barge=self.barged, echo=self.is_echo)
+                             on_barge=self.barged, echo=self.is_echo, refresh_devices=self.reload_sound)
             parts["the microphone"] = self.listener.start
             threading.Thread(target=self.teach_names, name="names", daemon=True).start()
         pending = set(parts)

@@ -17,7 +17,6 @@ class EchoCancelled:
         self.deliver = deliver
         self.engine = None
         self.pending = np.zeros(0, np.float32)
-        self.name = "the default microphone, with echo cancellation"
 
     def start(self):
         from AVFoundation import AVAudioEngine

@@ -248,6 +248,15 @@ def trusted():
 
 def output_device():
     """The sound output macOS is using right now, by name, read fresh from CoreAudio."""
+    return sound_device("dOut")
+
+
+def input_device():
+    """The microphone macOS is using right now, by name, read fresh from CoreAudio."""
+    return sound_device("dIn ")
+
+
+def sound_device(selector):
     import struct
 
     class Address(ctypes.Structure):
@@ -267,7 +276,7 @@ def output_device():
         failed = audio.AudioObjectGetPropertyData(ctypes.c_uint32(owner), ctypes.byref(where), 0, None, ctypes.byref(size), ctypes.byref(value))
         return None if failed else value.value
 
-    device = read(1, "dOut", ctypes.c_uint32)
+    device = read(1, selector, ctypes.c_uint32)
     name = read(device, "lnam", ctypes.c_void_p) if device else None
     if not name:
         return ""
