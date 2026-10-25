@@ -50,3 +50,8 @@ def test_weather_now_is_quick_and_another_day_goes_to_the_model():
     assert match("weather in new york") == ("weather", {"where": "new york"})
     assert match("what's the weather like in hyderabad tomorrow") is None
     assert match("will it rain this afternoon") is None
+
+
+def test_listing_reminders_is_quick_and_setting_one_is_not():
+    assert match("what reminders do I have") == ("reminder", {"action": "list"})
+    assert match("remind me to call mom at four") is None

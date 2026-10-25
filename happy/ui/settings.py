@@ -72,6 +72,7 @@ class Settings:
             "name": cfg.get("name") or "Happy",
             "colour": cfg.get("colour") or "#658761",
             "wake": bool(cfg.get("wake_word")),
+            "login": cfg.get("start_at_login") is not False,
             "key": cfg.get("push_to_talk"),
             "voice": cfg.get("voice") or "alba",
             "voices": voices(),
@@ -217,6 +218,13 @@ class Settings:
             cfg.save()
             if key == "colour":
                 self.tint(value)
+            if key == "start_at_login":
+                import sys
+
+                from happy import paths
+                from happy.system import native
+
+                native.start_at_login(bool(value), [sys.executable, "-m", "happy", "run", "--quiet"], paths.REPO)
             self.restart = self.restart or key in ("name", "push_to_talk", "voice")
             self.send()
         elif kind == "model":

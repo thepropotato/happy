@@ -495,6 +495,10 @@ class Face(QObject):
     def reply_add(self, delta):
         self.emit({"is": "piece", "text": delta})
 
+    def announce(self, text):
+        """Something Happy says unasked, like a reminder, shown as its own message."""
+        self.emit({"is": "message", "who": "happy", "text": text, "unprompted": True})
+
     def began(self, call, tool, label, args):
         self.calls[call] = time.monotonic()
         self.emit({"is": "began", "id": call, "name": tool, "why": label, "args": args})

@@ -2918,6 +2918,34 @@ def create_group(username):
     return jsonify({"id": gid, "name": clean(name)})
 
 
+@app.post("/<username>/set-group-name")
+def set_group_name(username):
+    """Rename a group, and the copy of its name kept here, so the two never disagree."""
+    body = request.json or {}
+    group, name = (body.get("group") or "").strip(), (body.get("name") or "").strip()
+    s = get_session(username)
+
+    if not group or not name:
+        return jsonify({"error": "group and name are required"}), 400
+
+    if not s.client or not s.connected:
+        return jsonify({"error": "Not connected"}), 503
+
+    try:
+        s.client.set_group_name(make_jid(group), name)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+    with s.lock:
+        for each in s.groups + s.chats:
+            if each["id"] == group:
+                each["name"] = clean(name)
+
+    persist(s)
+
+    return jsonify({"id": group, "name": clean(name)})
+
+
 @app.post("/<username>/set-group-photo")
 def set_group_photo(username):
     """Put a picture on a group. The photo comes as base64 of a JPEG."""

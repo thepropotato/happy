@@ -179,4 +179,4 @@ def available(local=True):
 
 
 def load():
-    from happy.tools import apps, browser, coding, controls, downloads, files, notes, other_mcps, screen, status, weather, web, whatsapp  # noqa: F401
+    from happy.tools import apps, browser, coding, controls, downloads, files, notes, other_mcps, reminders, routines, screen, status, weather, web, whatsapp  # noqa: F401

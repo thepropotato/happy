@@ -239,3 +239,20 @@ def untrash(held, original):
         "if ($item) { $item.InvokeVerb('undelete'); 'ok' }")
     if found != "ok":
         raise Failed("it is no longer in the Recycle Bin; it may have been emptied")
+
+
+STARTUP = Path(os.environ.get("APPDATA", "")) / "Microsoft/Windows/Start Menu/Programs/Startup/Happy.vbs"
+
+
+def start_at_login(on, command, folder):
+    """A script in the Startup folder that starts Happy with no console window when the person logs in."""
+    if not on:
+        STARTUP.unlink(missing_ok=True)
+        return
+    windowless = [command[0].replace("python.exe", "pythonw.exe")] + command[1:]
+    line = " ".join(f'""{part}""' for part in windowless)
+    script = f'Set shell = CreateObject("WScript.Shell")\nshell.CurrentDirectory = "{folder}"\nshell.Run "{line}", 0\n'
+    if STARTUP.exists() and STARTUP.read_text() == script:
+        return
+    STARTUP.parent.mkdir(parents=True, exist_ok=True)
+    STARTUP.write_text(script)

@@ -14,6 +14,7 @@ WINDOWS = sys.platform == "win32"
 DEFAULTS = {
     "name": "Happy",
     "wake_word": True,
+    "start_at_login": True,
     "push_to_talk": "right_option" if MAC else "right_ctrl",
     "voice": "alba",
     "colour": "#658761",
@@ -29,6 +30,7 @@ COMMENTS = {
     "push_to_talk": "Hold this key to talk: right_option, right_command, right_ctrl or right_shift.",
     "voice": "A Pocket TTS voice: alba, marius, javert, jean, cosette, anna, vera, charles, paul, george, mary, jane, michael, eve.",
     "persona": "Path to a text file whose way of talking Happy should copy.",
+    "start_at_login": "Start Happy when you log in, so reminders go off even after a restart.",
     "projects": "Folder where new coding projects are created. Empty means it is worked out.",
 }
 

@@ -50,6 +50,10 @@ class ConsoleFace:
         if not ok:
             self.out("\033[2m    (that step failed)\033[0m")
 
+    def announce(self, text):
+        self.close_line()
+        self.out(f"\033[1mhappy ›\033[0m {text}")
+
     def trouble(self, text):
         self.note(text)
 

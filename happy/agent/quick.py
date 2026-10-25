@@ -286,6 +286,17 @@ def machine(text):
     return None
 
 
+def reminded(text):
+    """Asking what reminders are set, which needs no model to answer."""
+    if re.fullmatch(r"(?:what|which) reminders (?:do i have|have i (?:got|set)|are (?:set|there|coming up))(?: (?:today|now|right now))?|"
+                    r"(?:list|show|read|tell me) (?:all )?(?:my |the )?reminders|(?:my |any )?reminders\??|do i have any reminders(?: set)?", text):
+        return "reminder", {"action": "list"}
+    match = re.fullmatch(r"(?:stop|don't|do not|no more) remind(?:ing)? me (?:to |about )?(?P<what>.+?)(?: anymore| any more)?", text)
+    if match:
+        return "reminder", {"action": "forget", "what": match.group("what")}
+    return None
+
+
 def forecast(text):
     """The weather right now, asked plainly; another day goes to the model, which answers only that day."""
     match = re.fullmatch(r"(?:what(?:'s| is) the |how(?:'s| is) the |check the |tell me the )?(?:weather|temperature)(?: like)?"
@@ -384,7 +395,7 @@ def match(text):
         return "stop", {}
     if said in GREETINGS:
         return "reply", {"text": GREETINGS[said]}
-    for rule in (levels, media, browser, keys, machine, connected, coding, computer, forecast, apps, clock):
+    for rule in (levels, media, browser, keys, machine, connected, coding, computer, forecast, reminded, apps, clock):
         try:
             found = rule(said)
         except Exception:

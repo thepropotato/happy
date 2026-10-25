@@ -304,6 +304,10 @@ const Settings = (() => {
       toggle(word.wake, (on) => ask({ do: 'set', key: 'wake_word', value: on })),
     )
 
+    row(block, 'Start when I log in', 'Reminders only go off while Happy is running.').append(
+      toggle(word.login, (on) => ask({ do: 'set', key: 'start_at_login', value: on })),
+    )
+
     const keyed = row(block, 'Hold to talk', 'Hold it anywhere, talk, let go.')
     const keys = element('select')
 

@@ -367,3 +367,25 @@ def untrash(held, original):
         raise Failed("it is no longer in the Trash; it may have been emptied")
     Path(original).parent.mkdir(parents=True, exist_ok=True)
     shutil.move(held, original)
+
+
+AGENT = Path.home() / "Library" / "LaunchAgents" / "com.happy.agent.plist"
+
+
+def start_at_login(on, command, folder):
+    """A LaunchAgent that starts Happy when the person logs in, carrying this PATH so it finds the same tools."""
+    import os
+    import plistlib
+
+    if not on:
+        AGENT.unlink(missing_ok=True)
+        return
+    wanted = {"Label": "com.happy.agent", "ProgramArguments": command, "WorkingDirectory": str(folder),
+              "RunAtLoad": True, "ProcessType": "Interactive",
+              "EnvironmentVariables": {"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
+              "StandardOutPath": str(Path.home() / ".happy" / "happy.out"),
+              "StandardErrorPath": str(Path.home() / ".happy" / "happy.out")}
+    if AGENT.exists() and plistlib.loads(AGENT.read_bytes()) == wanted:
+        return
+    AGENT.parent.mkdir(parents=True, exist_ok=True)
+    AGENT.write_bytes(plistlib.dumps(wanted))

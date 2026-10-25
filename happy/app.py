@@ -7,7 +7,7 @@ import re
 import threading
 import time
 
-from happy import history, tools
+from happy import history, reminders, routines, timing, tools
 from happy.agent import Act, Acted, Problem, Text, choose, quick
 from happy.integrations import discovered, whatsapp
 from happy.integrations.mcp import hub
@@ -19,6 +19,11 @@ FOLLOW_SECONDS = 4.0
 # A SPOKEN REQUEST THIS SOON AFTER THE LAST ONE THAT SOUNDS LIKE A FIX OF IT REPLACES IT.
 CORRECTION_SECONDS = 8.0
 NAMES_EVERY = 600
+# THE CLOCK IS READ, NOT SLEPT ON: A TIMER SET FOR THREE HOURS DOES NOT SURVIVE THE LID GOING DOWN.
+TICK = 20
+CHAT_EVERY = 3
+PHONE = ("\n\n(Sent from their phone in your WhatsApp chat: they are away from the computer and read your answer there. "
+         "Give the answer itself in plain text, and open things on screen only when they ask to.)")
 CORRECTION_CUE = re.compile(r"^(?:no|nope|nah|sorry|wait|actually|i mean|i meant|not that|not him|not her|correction|rather|instead|oops)\b", re.I)
 FACTUAL = {"set_brightness", "set_volume", "set_keyboard_light", "media"}
 STILL_EVERY = 8.0
@@ -45,6 +50,8 @@ class Happy:
         self.activity = ""
         self.saying = ""
         self.last_result = None
+        self.quiet = False
+        self.chat = None
 
     def run(self):
         asyncio.run(self.main())
@@ -69,6 +76,10 @@ class Happy:
                 self.face.trouble(f"{self.backend.name} did not start: {error}")
         self.ready.set()
         self.face.state("idle")
+        threading.Thread(target=self.keep_time, name="reminders", daemon=True).start()
+        self.login_item()
+        if "whatsapp" in self.extra_servers and self.cfg.get("whatsapp.own_chat", True) is not False:
+            threading.Thread(target=self.keep_chat, name="own chat", daemon=True).start()
         key = (self.cfg.get("push_to_talk") or "").replace("_", " ")
         if self.backend is None:
             self.face.ready("Ready for everyday commands. Pick a model in Settings for everything else.")
@@ -211,6 +222,82 @@ class Happy:
                     log.info("listening for %d names from WhatsApp", len(found))
             time.sleep(NAMES_EVERY if known else 30)
 
+    def login_item(self):
+        """Keeps Happy starting at login when the setting says so, which is what lets a reminder survive a restart."""
+        import sys
+
+        from happy import paths
+        from happy.system import native
+
+        try:
+            native.start_at_login(self.cfg.get("start_at_login") is not False,
+                                  [sys.executable, "-m", "happy", "run", "--quiet"], paths.REPO)
+        except Exception:
+            log.exception("could not set Happy to start at login")
+
+    def keep_chat(self):
+        """Watches Happy's own WhatsApp group for requests the person writes from their phone."""
+        from happy.integrations.own_chat import Chat
+
+        self.chat = Chat(self.cfg)
+        while True:
+            try:
+                for text in self.chat.requests():
+                    log.info("from the phone: %s", text)
+                    self.loop.call_soon_threadsafe(self.from_phone, text)
+            except Exception as error:
+                log.debug("own chat: %s", error)
+            time.sleep(CHAT_EVERY)
+
+    def from_phone(self, text):
+        # A REQUEST FROM THE PHONE WAITS ITS TURN RATHER THAN CUTTING OFF SOMEONE TALKING AT THE COMPUTER.
+        if self.busy():
+            self.loop.call_later(2, self.from_phone, text)
+            return
+        self.begin(text + PHONE, "whatsapp", shown=text)
+
+    def keep_time(self):
+        """Fires reminders as they come due; the ones missed while Happy was off are said together, once."""
+        while True:
+            try:
+                fired = reminders.due()
+            except Exception:
+                log.exception("reminders could not be read")
+                fired = []
+            if fired and self.loop:
+                self.loop.call_soon_threadsafe(self.remind, fired)
+            time.sleep(TICK)
+
+    def remind(self, fired):
+        missed = [r for r in fired if r["missed"]]
+        now = [r for r in fired if not r["missed"]]
+        lines = [f"Reminder: {r['what']}." for r in now if not r["routine"]]
+        if missed:
+            said = "; ".join(f"{r['what']} at {timing.spoken(r['at'])}" for r in missed)
+            lines.append(f"While I was off, you had {'a reminder' if len(missed) == 1 else f'{len(missed)} reminders'}: {said}.")
+        if lines:
+            text = " ".join(lines)
+            log.info("reminder: %s", text)
+            self.face.announce(text)
+            if self.speaker:
+                # SPOKEN EVEN WHILE A PHONE REQUEST IS QUIETLY RUNNING: THE REMINDER IS FOR WHOEVER IS IN THE ROOM.
+                self.speaker.blip()
+                self.speaker.say(text)
+            history.finish(history.begin("", "reminder", "reminder"), text, [], 0.0)
+        for row in now:
+            if row["routine"]:
+                self.run_routine(row["routine"])
+
+    def run_routine(self, name):
+        """Runs a routine a reminder set off, waiting for whatever Happy is in the middle of to finish first."""
+        routine = routines.named(name)
+        if not routine:
+            return
+        if self.busy():
+            self.loop.call_later(5, self.run_routine, name)
+            return
+        self.begin(routines.request(routine), "routine", shown=f"Running your {routine['name']} routine")
+
     def barged(self):
         """The person talked over Happy: stop talking, drop the turn, and listen to them instead."""
         if self.speaker:
@@ -268,15 +355,15 @@ class Happy:
             if self.backend:
                 asyncio.ensure_future(self.backend.interrupt())
 
-    def begin(self, text, how):
-        shown, text, how = text, *self.corrected(text, how)
+    def begin(self, text, how, shown=None):
+        shown, text, how = shown or text, *self.corrected(text, how)
         self.interrupt()
         previous = self.task
         self.task = asyncio.create_task(self.turn(text, how, previous, shown))
 
     def corrected(self, text, how):
         """A spoken fix of what was just said becomes one request carrying both, so the model acts on the fix."""
-        if how == "typed":
+        if how in ("typed", "routine"):
             return text, how
         earlier, at = self.last_spoken
         self.last_spoken = (text, time.monotonic())
@@ -298,6 +385,8 @@ class Happy:
         return len(again) >= 3 and difflib.SequenceMatcher(None, said, again).ratio() >= 0.6
 
     def say(self, text):
+        if self.quiet:
+            return
         if not text or not self.speaker:
             if text:
                 log.info("would say: %s", text)
@@ -313,8 +402,19 @@ class Happy:
             except (asyncio.TimeoutError, asyncio.CancelledError, Exception):
                 pass
         log.info("request (%s): %s", how, shown)
+        # WHOEVER ASKED FROM THE PHONE IS NOT IN THE ROOM, SO THE ANSWER IS WRITTEN BACK, NOT SPOKEN.
+        self.quiet = how == "whatsapp"
         self.face.user(shown)
-        found = quick.match(text)
+        # WHAT THEY ACTUALLY WROTE, WITHOUT THE NOTE A PHONE REQUEST CARRIES FOR THE MODEL.
+        bare = shown if how == "whatsapp" else text
+        routine = routines.asked_for(bare) if how != "routine" else None
+        if routine:
+            # A ROUTINE NAMED PLAINLY GOES STRAIGHT TO ITS STEPS, BEFORE ANY MODEL GETS TO GUESS AT IT.
+            text = routines.request(routine) + (PHONE if how == "whatsapp" else "")
+            how = "whatsapp" if how == "whatsapp" else "routine"
+        found = None if routine or how == "routine" else quick.match(bare)
+        if found and found[0] == "stop" and how == "whatsapp":
+            found = ("reply", {"text": "Okay."})
         if found and found[0] == "stop":
             if self.speaker:
                 self.speaker.stop()
@@ -332,9 +432,12 @@ class Happy:
         if found and found[0] == "reply":
             self.face.reply(found[1]["text"])
             self.say(found[1]["text"])
-            await asyncio.to_thread(history.finish, await asyncio.to_thread(history.begin, text, how, "quick"),
+            await asyncio.to_thread(history.finish, await asyncio.to_thread(history.begin, shown, how, "quick"),
                                     found[1]["text"], [], 0.0)
-            await self.settle()
+            if how == "whatsapp" and self.chat:
+                await asyncio.to_thread(self.chat.send, found[1]["text"])
+            self.quiet = False
+            await self.settle(listen=how != "whatsapp")
             return
         self.face.state("thinking")
         started = time.monotonic()
@@ -369,7 +472,10 @@ class Happy:
             self.say(f"Something went wrong. {self.plain(str(error))}")
         finally:
             await asyncio.to_thread(history.finish, record, self.reply, self.steps, time.monotonic() - started, failed)
-            await self.settle()
+            if how == "whatsapp" and self.chat:
+                await asyncio.to_thread(self.chat.send, self.reply or "I didn't come up with an answer for that.")
+            self.quiet = False
+            await self.settle(listen=how != "whatsapp")
 
     async def think(self, text, started):
         sentences = Sentences()
@@ -469,13 +575,13 @@ class Happy:
             if doing.split(" ")[0].lower().endswith("ing"):
                 self.say(f"Still {doing[0].lower()}{doing[1:]}.")
 
-    async def settle(self):
+    async def settle(self, listen=True):
         if self.speaker:
             await asyncio.to_thread(self.speaker.wait)
         if self.task is asyncio.current_task() or not self.busy():
             self.face.state("idle")
             self.face.done()
-        if self.task is asyncio.current_task() and self.listener and self.cfg.get("follow_up", True) is not False:
+        if listen and self.task is asyncio.current_task() and self.listener and self.cfg.get("follow_up", True) is not False:
             # A REPLY IS OFTEN ANSWERED, SO FOR A MOMENT AFTER IT NOBODY HAS TO SAY THE NAME AGAIN.
             await asyncio.sleep(0.3)
             self.listener.listen_now(wait=FOLLOW_SECONDS, announce=False)
