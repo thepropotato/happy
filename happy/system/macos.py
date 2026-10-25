@@ -2,6 +2,7 @@
 
 import ctypes
 import ctypes.util
+import os
 import subprocess
 import time
 from functools import cache
@@ -146,6 +147,13 @@ def paste(text):
         board.setString_forType_(before, NSPasteboardTypeString)
 
 
+def front_is_happy():
+    from AppKit import NSWorkspace
+
+    app = NSWorkspace.sharedWorkspace().frontmostApplication()
+    return bool(app) and app.processIdentifier() == os.getpid()
+
+
 def frontmost():
     from AppKit import NSWorkspace
 
@@ -232,6 +240,9 @@ def selected_text():
     from ApplicationServices import (AXUIElementCopyAttributeValue, AXUIElementCreateSystemWide,
                                      kAXFocusedUIElementAttribute, kAXSelectedTextAttribute)
 
+    # ASKING HAPPY'S OWN WINDOW RUNS ITS WEB VIEW ON THIS THREAD, AND CHROMIUM KILLS THE APP FOR IT.
+    if front_is_happy():
+        return ""
     system = AXUIElementCreateSystemWide()
     err, focused = AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute, None)
     if err or focused is None:

@@ -126,6 +126,8 @@ def click(target: Annotated[str, "the words on the button, link or item to click
 
     if not native.trusted():
         return "Happy needs Accessibility permission to click: System Settings, Privacy & Security, Accessibility."
+    if native.front_is_happy():
+        return "Happy's own panel is in front, so there is nothing of theirs to click. Ask them to bring up the app they mean."
     app = NSWorkspace.sharedWorkspace().frontmostApplication()
     root = AXUIElementCreateApplication(app.processIdentifier())
     AXUIElementSetAttributeValue(root, "AXManualAccessibility", True)
