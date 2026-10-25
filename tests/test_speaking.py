@@ -14,7 +14,7 @@ class FakeCard:
 
     played = []
 
-    def __init__(self, samplerate, channels, dtype, blocksize, callback):
+    def __init__(self, samplerate, channels, dtype, blocksize, callback, device=None):
         self.rate, self.block, self.callback = samplerate, blocksize, callback
         self.running = False
 

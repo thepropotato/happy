@@ -33,8 +33,9 @@ def reload_devices():
 
 
 class Speaker:
-    def __init__(self, voice="alba", on_level=None, on_speaking=None, refresh_devices=None):
+    def __init__(self, voice="alba", on_level=None, on_speaking=None, refresh_devices=None, device=""):
         self.voice = voice
+        self.device = device
         self.on_level = on_level or (lambda level: None)
         self.on_speaking = on_speaking or (lambda speaking: None)
         self.refresh_devices = refresh_devices or reload_devices
@@ -146,18 +147,32 @@ class Speaker:
         if self.stream is not None:
             return
         self.follow_output()
+        index = self.named_output()
         try:
             self.stream = sd.OutputStream(samplerate=self.rate, channels=1, dtype="float32",
-                                          blocksize=int(self.rate * 0.03), callback=self.fill)
+                                          blocksize=int(self.rate * 0.03), callback=self.fill, device=index)
             self.stream.start()
-            log.info("speaking through %s", sd.query_devices(kind="output")["name"])
+            log.info("speaking through %s", sd.query_devices(index, "output")["name"])
         except Exception:
             log.exception("no speaker to play through")
             self.stream = None
 
+    def named_output(self):
+        """The speaker picked in settings, learning the devices again if it was plugged in since; None means the system's."""
+        if not self.device:
+            return None
+        for attempt in range(2):
+            for i, d in enumerate(sd.query_devices()):
+                if d["max_output_channels"] > 0 and self.device.lower() in d["name"].lower():
+                    return i
+            if attempt == 0:
+                self.refresh_devices()
+        log.info("%s is not connected; speaking through the system's output", self.device)
+        return None
+
     def follow_output(self):
         """The sound library learns the devices once; if the output changed since (headphones in or out), it learns them again."""
-        if sys.platform != "darwin":
+        if sys.platform != "darwin" or self.device:
             return
         try:
             from happy.system import macos

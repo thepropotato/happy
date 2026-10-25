@@ -149,7 +149,7 @@ class Happy:
             from happy.speech.speaker import Speaker
 
             self.speaker = Speaker(self.cfg.get("voice") or "alba", on_level=self.face.mouth, on_speaking=self.speaking,
-                                   refresh_devices=self.reload_sound)
+                                   refresh_devices=self.reload_sound, device=self.cfg.get("output.device") or "")
             parts["the voice"] = self.speaker.start
         if self.want_listening:
             from happy.speech.listener import Listener
@@ -253,6 +253,8 @@ class Happy:
             if device != self.listener.device:
                 self.listener.device = device
                 threading.Thread(target=self.listener.reopen, name="microphone", daemon=True).start()
+        if self.speaker:
+            self.speaker.device = self.cfg.get("output.device") or ""
         voice = self.cfg.get("voice") or "alba"
         if self.speaker and self.ready.is_set() and voice != self.speaker.voice:
             threading.Thread(target=self.speaker.use_voice, args=(voice,), name="voice change", daemon=True).start()

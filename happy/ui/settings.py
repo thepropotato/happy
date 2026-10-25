@@ -80,6 +80,10 @@ class Settings:
             "key": cfg.get("push_to_talk"),
             "voice": cfg.get("voice") or "alba",
             "voices": voices(),
+            "microphone": cfg.get("input.device") or "",
+            "speaker": cfg.get("output.device") or "",
+            "microphones": sound_devices("input"),
+            "speakers": sound_devices("output"),
             "keys": KEYS,
             "whatsapp": self.whatsapp,
             "services": self.services,
@@ -425,6 +429,21 @@ def remember_services(rows):
         SERVICES_SEEN.write_text(json.dumps(rows))
     except OSError:
         pass
+
+
+def sound_devices(kind):
+    """The microphones or speakers connected right now, by name."""
+    try:
+        if sys.platform == "darwin":
+            from happy.system import macos
+
+            return macos.sound_devices("inpt" if kind == "input" else "outp")
+        import sounddevice as sd
+
+        names = [d["name"] for d in sd.query_devices() if d[f"max_{kind}_channels"] > 0]
+        return list(dict.fromkeys(names))
+    except Exception:
+        return []
 
 
 @cache

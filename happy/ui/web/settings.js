@@ -209,6 +209,29 @@ const Settings = (() => {
 
     voices.onchange = () => ask({ do: 'set', key: 'voice', value: voices.value })
     voiced.append(voices)
+
+    device(block, 'Microphone', 'What Happy hears through.', 'input.device', word.microphone, word.microphones)
+    device(block, 'Speaker', 'What Happy talks through.', 'output.device', word.speaker, word.speakers)
+  }
+
+  function device(block, main, sub, key, chosen, names) {
+    const line = row(block, main, sub)
+    const choose = element('select')
+    const system = element('option', '', 'Same as the system')
+
+    system.value = ''
+    choose.append(system)
+
+    for (const name of chosen && !(names || []).includes(chosen) ? [...(names || []), chosen] : names || []) {
+      const option = element('option', '', name)
+
+      option.value = name
+      option.selected = name === chosen
+      choose.append(option)
+    }
+
+    choose.onchange = () => ask({ do: 'set', key, value: choose.value })
+    line.append(choose)
   }
 
   function model(state) {
