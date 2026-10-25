@@ -1,9 +1,10 @@
-"""Screen brightness, sound, the keyboard light and whatever is playing."""
+"""Screen brightness, sound, the keyboard light, whatever is playing, and the machine itself: battery, Wi-Fi, clipboard and power."""
 
 import os
 import re
 import subprocess
 import sys
+import time
 from typing import Annotated, Literal
 
 from happy.system import Failed, native
@@ -116,3 +117,72 @@ def computer(action: Literal["lock", "sleep_display", "dark_mode", "light_mode"]
     dark = "true" if action == "dark_mode" else "false"
     native.osascript(f'tell application "System Events" to tell appearance preferences to set dark mode to {dark}')
     return "Dark mode on." if dark == "true" else "Light mode on."
+
+
+@tool(label="Checking the battery")
+def battery():
+    """How much battery is left, whether it is charging, and how long it will last."""
+    found = native.battery()
+    if found is None:
+        return "This computer has no battery; it runs on mains power."
+    percent, charging, left = found
+    hours, _, minutes = left.partition(":")
+    lasts = f", about {int(hours)}h {int(minutes)}m left" if left and left != "0:00" and not charging else ""
+    return f"Battery is at {percent}%, {'charging' if charging else 'not charging'}{lasts}."
+
+
+@tool(label="Wi-Fi {action}")
+def wifi(action: Literal["status", "on", "off"] = "status"):
+    """Whether the Wi-Fi is on and which network it is on, or turn it on or off."""
+    if action != "status":
+        native.set_wifi(action == "on")
+        time.sleep(2)
+    on, name = native.wifi()
+    if not on:
+        return "Wi-Fi is off."
+    return f"Wi-Fi is on{', connected to ' + name if name else ''}."
+
+
+@tool(label="Clipboard: {action}")
+def clipboard(action: Literal["read", "write"] = "read",
+              text: Annotated[str, "what to put on the clipboard, for write"] = ""):
+    """Read what is copied on the clipboard, or copy some text onto it."""
+    if action == "write":
+        native.set_clipboard(text)
+        return "Copied to the clipboard."
+    held = native.get_clipboard()
+    return f"The clipboard holds:\n{held[:4000]}" if held.strip() else "The clipboard is empty."
+
+
+# SAID FIRST, DONE AFTER: RESTART AND SHUT DOWN WAIT LONG ENOUGH TO BE HEARD AND STOPPED.
+POWER_DELAY = 10
+pending = None
+
+
+def cancel_power():
+    """Stops a restart or shut down that has been announced but not done yet."""
+    global pending
+    if pending and pending.is_alive():
+        pending.cancel()
+        pending = None
+        return True
+    return False
+
+
+@tool(label="{action}")
+def power(action: Literal["sleep", "restart", "shut_down", "cancel"]):
+    """Put the computer to sleep, restart it or shut it down. Restart and shut down wait 10 seconds so they can be stopped; "cancel" stops one."""
+    global pending
+    import threading
+
+    if action == "cancel":
+        return "Cancelled; the computer stays on." if cancel_power() else "Nothing was about to restart or shut down."
+    if action == "sleep":
+        native.power("sleep")
+        return "Going to sleep."
+    cancel_power()
+    pending = threading.Timer(POWER_DELAY, native.power, args=(action,))
+    pending.daemon = True
+    pending.start()
+    verb = "Restarting" if action == "restart" else "Shutting down"
+    return f"{verb} in {POWER_DELAY} seconds; apps will ask about anything unsaved. Say stop to cancel."

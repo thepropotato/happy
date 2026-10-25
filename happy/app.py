@@ -318,6 +318,13 @@ class Happy:
         if found and found[0] == "stop":
             if self.speaker:
                 self.speaker.stop()
+            from happy.tools import controls
+
+            if controls.cancel_power():
+                self.face.reply("Cancelled; the computer stays on.")
+                self.say("Cancelled, the computer stays on.")
+                await self.settle()
+                return
             self.face.reply("")
             self.face.state("idle")
             self.face.done()

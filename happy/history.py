@@ -23,6 +23,13 @@ CREATE TABLE IF NOT EXISTS turns (
     failed  INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS turns_at ON turns(at);
+CREATE TABLE IF NOT EXISTS trashed (
+    id       INTEGER PRIMARY KEY,
+    at       REAL NOT NULL,
+    original TEXT NOT NULL,
+    held     TEXT NOT NULL,
+    restored INTEGER NOT NULL DEFAULT 0
+);
 """
 
 
@@ -65,3 +72,26 @@ def since(seconds):
         rows = db.execute("SELECT request, reply FROM turns WHERE at > ? AND reply != '' ORDER BY at",
                           (time.time() - seconds,)).fetchall()
     return [dict(row) for row in rows]
+
+
+def trashed(original, held):
+    """Notes something Happy moved to the Trash, so it can be put back."""
+    with lock, connect() as db:
+        db.execute("INSERT INTO trashed (at, original, held) VALUES (?, ?, ?)", (time.time(), original, held))
+
+
+def trashed_matching(words):
+    """The latest thing Happy deleted whose name holds the words, or the latest of all with none."""
+    with lock, connect() as db:
+        rows = db.execute("SELECT * FROM trashed WHERE restored = 0 ORDER BY at DESC").fetchall()
+    wanted = words.lower().split()
+    for row in rows:
+        name = row["original"].rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
+        if all(word in name for word in wanted):
+            return dict(row)
+    return None
+
+
+def untrashed(row):
+    with lock, connect() as db:
+        db.execute("UPDATE trashed SET restored = 1 WHERE id = ?", (row,))

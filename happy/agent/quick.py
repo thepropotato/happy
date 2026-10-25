@@ -265,6 +265,47 @@ def computer(text):
     return None
 
 
+def machine(text):
+    """Battery, Wi-Fi and power, said the plain ways."""
+    if re.fullmatch(r"(?:how much |what(?:'s| is) (?:the |my )?|check (?:the |my )?)?battery(?: level| percentage| left| life| status)?(?: is (?:left|there))?|"
+                    r"how much (?:charge|battery) (?:is left|do i have)(?: left)?|is (?:the |my )?(?:laptop|mac|battery) charging", text):
+        return "battery", {}
+    match = re.fullmatch(r"(?:turn |switch )?(?:the )?wi-?fi (?P<w>on|off)|(?:turn |switch )(?P<v>on|off) (?:the )?wi-?fi", text)
+    if match:
+        return "wifi", {"action": match.group("w") or match.group("v")}
+    if re.fullmatch(r"is (?:the |my )?wi-?fi (?:on|off)|(?:which|what) wi-?fi (?:network )?am i on|what(?:'s| is) (?:the |my )?wi-?fi", text):
+        return "wifi", {}
+    if re.fullmatch(r"(?:restart|reboot) (?:the |my )?(?:computer|mac|laptop|pc|system)", text):
+        return "power", {"action": "restart"}
+    if re.fullmatch(r"(?:shut down|shutdown|turn off|power off|switch off) (?:the |my )?(?:computer|mac|laptop|pc|system)", text):
+        return "power", {"action": "shut_down"}
+    if re.fullmatch(r"(?:put (?:the |my )?(?:computer|mac|laptop|pc) to sleep|(?:sleep|go to sleep) (?:the |my )?(?:computer|mac|laptop|pc))", text):
+        return "power", {"action": "sleep"}
+    if re.fullmatch(r"(?:cancel|stop|don't) (?:the )?(?:restart|shut ?down|reboot)", text):
+        return "power", {"action": "cancel"}
+    return None
+
+
+def forecast(text):
+    """The weather right now, asked plainly; another day goes to the model, which answers only that day."""
+    match = re.fullmatch(r"(?:what(?:'s| is) the |how(?:'s| is) the |check the |tell me the )?(?:weather|temperature)(?: like)?"
+                         r"(?: (?:in|at|for) (?P<where>[a-z .,'-]+?))?(?: (?:today|now|right now|outside))?(?: like)?", text)
+    if not match or re.search(r"\b(?:tomorrow|tonight|week|weekend|later|evening|morning|afternoon|day|days|\w+day)\b", match.group("where") or ""):
+        return None
+    return "weather", {"where": (match.group("where") or "").strip()}
+
+
+def spoken_weather(result):
+    """'Hyderabad, now: clear, 29°C (feels like 27°C), ...' said as a sentence without the symbols."""
+    match = re.match(r"(?P<place>[^,]+)[^:]*, now: (?P<sky>[^,]+), (?P<t>-?\d+)°C \(feels like (?P<f>-?\d+)°C\).*"
+                     r"high (?P<hi>-?\d+)°C, low (?P<lo>-?\d+)°C, (?P<rain>\d+)% chance", result)
+    if not match:
+        return result
+    feels = f", feels like {match['f']}" if match["f"] != match["t"] else ""
+    rain = "no rain expected" if int(match["rain"]) < 10 else f"{match['rain']} percent chance of rain"
+    return f"{match['place']}: {match['sky']}, {match['t']} degrees{feels}. High of {match['hi']}, low of {match['lo']}, {rain}."
+
+
 def apps(text):
     from happy.tools.apps import find_app
 
@@ -321,6 +362,7 @@ SPOKEN = {
     "set_brightness": spoken_level,
     "set_volume": spoken_level,
     "set_keyboard_light": spoken_level,
+    "weather": spoken_weather,
 }
 
 
@@ -342,7 +384,7 @@ def match(text):
         return "stop", {}
     if said in GREETINGS:
         return "reply", {"text": GREETINGS[said]}
-    for rule in (levels, media, browser, keys, connected, coding, computer, apps, clock):
+    for rule in (levels, media, browser, keys, machine, connected, coding, computer, forecast, apps, clock):
         try:
             found = rule(said)
         except Exception:

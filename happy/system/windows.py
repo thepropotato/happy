@@ -174,3 +174,68 @@ def selected_text():
 
 def trusted():
     return True
+
+
+def battery():
+    out = powershell("$b = Get-CimInstance Win32_Battery; if ($b) { \"$($b.EstimatedChargeRemaining) $($b.BatteryStatus) $($b.EstimatedRunTime)\" }")
+    if not out:
+        return None
+    percent, status, minutes = (out.split() + ["", ""])[:3]
+    left = int(minutes) if minutes.isdigit() and int(minutes) < 10000 else 0
+    return int(percent), status in ("2", "6", "7", "8", "9"), f"{left // 60}:{left % 60:02d}" if left else ""
+
+
+def wifi():
+    out = powershell("netsh wlan show interfaces")
+    state = next((line.split(":", 1)[1].strip() for line in out.splitlines() if line.strip().startswith("State")), "")
+    name = next((line.split(":", 1)[1].strip() for line in out.splitlines() if line.strip().startswith("SSID")), "")
+    if not state:
+        raise Failed("this PC has no Wi-Fi")
+    return state != "disconnected" or bool(name), name
+
+
+def set_wifi(on):
+    try:
+        powershell(f'netsh interface set interface name="Wi-Fi" admin={"enabled" if on else "disabled"}')
+    except Failed as error:
+        raise Failed(f"Windows needs administrator rights to switch the Wi-Fi ({error})") from None
+
+
+def get_clipboard():
+    return powershell("Get-Clipboard -Raw")
+
+
+def set_clipboard(text):
+    subprocess.run(["clip"], input=text.encode("utf-16-le"), check=True)
+
+
+def power(action):
+    if action == "sleep":
+        subprocess.run(["rundll32.exe", "powrprof.dll,SetSuspendState", "0,1,0"])
+    else:
+        subprocess.run(["shutdown", "/r" if action == "restart" else "/s", "/t", "0"])
+
+
+def trash(path):
+    """Sends a file to the Recycle Bin; the bin keeps where it came from, so that is what is returned."""
+    from ctypes import wintypes
+
+    class Operation(ctypes.Structure):
+        _fields_ = [("hwnd", wintypes.HWND), ("wFunc", ctypes.c_uint), ("pFrom", wintypes.LPCWSTR),
+                    ("pTo", wintypes.LPCWSTR), ("fFlags", ctypes.c_ushort), ("fAnyOperationsAborted", wintypes.BOOL),
+                    ("hNameMappings", ctypes.c_void_p), ("lpszProgressTitle", wintypes.LPCWSTR)]
+
+    # FO_DELETE WITH FOF_ALLOWUNDO, NO CONFIRMATION AND NO PROGRESS WINDOW.
+    operation = Operation(None, 3, str(path) + "\0", None, 0x40 | 0x10 | 0x400 | 0x4, False, None, None)
+    if ctypes.windll.shell32.SHFileOperationW(ctypes.byref(operation)) != 0:
+        raise Failed("the Recycle Bin refused it")
+    return str(path)
+
+
+def untrash(held, original):
+    found = powershell(
+        "$bin = (New-Object -ComObject Shell.Application).NameSpace(10); "
+        f"$item = $bin.Items() | Where-Object {{ (Join-Path $bin.GetDetailsOf($_, 1) $_.Name) -eq '{original}' }} | Select-Object -First 1; "
+        "if ($item) { $item.InvokeVerb('undelete'); 'ok' }")
+    if found != "ok":
+        raise Failed("it is no longer in the Recycle Bin; it may have been emptied")

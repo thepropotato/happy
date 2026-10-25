@@ -1,6 +1,7 @@
 """Searching the web and reading what comes back, without opening anything on screen."""
 
 import re
+import time
 from typing import Annotated
 
 import httpx
@@ -12,6 +13,7 @@ from happy.tools.browser import text_of
 ENGINES = ("google", "bing", "yahoo", "duckduckgo", "brave", "mojeek")
 LONGEST = 6000
 results = []
+searched_at = 0.0
 last_read = ""
 
 
@@ -21,8 +23,9 @@ def web_search(query: Annotated[str, "what to look up, in a few words"]):
     from ddgs import DDGS
     from ddgs.exceptions import DDGSException
 
-    global results
+    global results, searched_at
     results = []
+    searched_at = time.monotonic()
     for engine in ENGINES:
         try:
             results = [r for r in DDGS(timeout=8).text(query, max_results=8, backend=engine) if r.get("href")]

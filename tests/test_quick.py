@@ -34,3 +34,19 @@ def test_levels_are_said_as_a_direction_and_followed_up():
 def test_coding_goes_to_a_coding_agent_with_its_project():
     assert match("fix the failing tests in the open slate project") == (
         "hand_off_coding", {"task": "fix the failing tests in the open slate project", "folder": "open slate"})
+
+
+def test_the_machine_answers_battery_wifi_and_power_without_a_model():
+    assert match("How much battery is left?") == ("battery", {})
+    assert match("turn off the wifi") == ("wifi", {"action": "off"})
+    assert match("is the wifi on") == ("wifi", {})
+    assert match("restart my mac") == ("power", {"action": "restart"})
+    assert match("cancel the shutdown") == ("power", {"action": "cancel"})
+    assert match("is wifi connected") == ("connections", {"about": "wifi"})
+
+
+def test_weather_now_is_quick_and_another_day_goes_to_the_model():
+    assert match("what's the weather") == ("weather", {"where": ""})
+    assert match("weather in new york") == ("weather", {"where": "new york"})
+    assert match("what's the weather like in hyderabad tomorrow") is None
+    assert match("will it rain this afternoon") is None

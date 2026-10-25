@@ -293,3 +293,77 @@ def cursor_from_background():
         return True
     except Exception:
         return False
+
+
+def battery():
+    """(percent, charging, time left) from pmset, or None on a Mac without a battery."""
+    import re
+
+    out = subprocess.run(["pmset", "-g", "batt"], capture_output=True, text=True).stdout
+    match = re.search(r"(\d+)%; ([\w ]+);(?: (\d+:\d+) remaining)?", out)
+    if not match:
+        return None
+    state = match.group(2).strip()
+    return int(match.group(1)), state in ("charging", "charged", "finishing charge") or "AC Power" in out, match.group(3) or ""
+
+
+def wifi_device():
+    import re
+
+    out = subprocess.run(["networksetup", "-listallhardwareports"], capture_output=True, text=True).stdout
+    match = re.search(r"Hardware Port: (?:Wi-Fi|AirPort)\nDevice: (\w+)", out)
+    if not match:
+        raise Failed("this Mac has no Wi-Fi")
+    return match.group(1)
+
+
+def wifi():
+    """(on, network name) for the Wi-Fi."""
+    device = wifi_device()
+    power = subprocess.run(["networksetup", "-getairportpower", device], capture_output=True, text=True).stdout
+    if not power.strip().endswith("On"):
+        return False, ""
+    route = subprocess.run(["ipconfig", "getsummary", device], capture_output=True, text=True).stdout
+    name = next((line.split(" : ", 1)[1].strip() for line in route.splitlines() if line.strip().startswith("SSID :")), "")
+    # RECENT MACOS HIDES THE NETWORK'S NAME FROM ANY APP WITHOUT LOCATION ACCESS.
+    return True, "" if name == "<redacted>" else name
+
+
+def set_wifi(on):
+    subprocess.run(["networksetup", "-setairportpower", wifi_device(), "on" if on else "off"], check=True)
+
+
+def get_clipboard():
+    return subprocess.run(["pbpaste"], capture_output=True, text=True).stdout
+
+
+def set_clipboard(text):
+    subprocess.run(["pbcopy"], input=text, text=True, check=True)
+
+
+def power(action):
+    """Sleep, restart or shut down the way the menu does, so apps still ask about unsaved work."""
+    if action == "sleep":
+        subprocess.run(["pmset", "sleepnow"], capture_output=True)
+        return
+    osascript(f'tell application "System Events" to {"restart" if action == "restart" else "shut down"}')
+
+
+def trash(path):
+    """Moves a file to the Trash the way Finder does, and returns where it ended up."""
+    from Foundation import NSFileManager, NSURL
+
+    moved, landed, error = NSFileManager.defaultManager().trashItemAtURL_resultingItemURL_error_(
+        NSURL.fileURLWithPath_(str(path)), None, None)
+    if not moved:
+        raise Failed(str(error.localizedDescription()) if error else "the Trash refused it")
+    return landed.path()
+
+
+def untrash(held, original):
+    import shutil
+
+    if not Path(held).exists():
+        raise Failed("it is no longer in the Trash; it may have been emptied")
+    Path(original).parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(held, original)
