@@ -23,7 +23,7 @@ tell application "{app}"
     set act to active tab index of w
     repeat with t in tabs of w
       set ti to ti + 1
-      set out to out & wi & tab & ti & tab & (ti = act) & tab & (title of t) & tab & (URL of t) & linefeed
+      set out to out & wi & (character id 9) & ti & (character id 9) & (ti = act) & (character id 9) & (title of t) & (character id 9) & (URL of t) & linefeed
     end repeat
   end repeat
   return out
@@ -39,7 +39,7 @@ tell application "Safari"
     set cur to index of current tab of w
     repeat with t in tabs of w
       set ti to ti + 1
-      set out to out & wi & tab & ti & tab & (ti = cur) & tab & (name of t) & tab & (URL of t) & linefeed
+      set out to out & wi & (character id 9) & ti & (character id 9) & (ti = cur) & (character id 9) & (name of t) & (character id 9) & (URL of t) & linefeed
     end repeat
   end repeat
   return out
