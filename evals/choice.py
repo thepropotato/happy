@@ -28,7 +28,7 @@ CASES = [
     ("fix the failing tests in the open slate project", "hand_off_coding", {"folder": "open slate"}),
     ("open youtube and search for lofi music", "open_link", {}),
     ("set the brightness a little lower, like thirty", "set_brightness", {"level": 30}),
-    ("can you make the screen a little less bright", "set_brightness", {"change": "down"}),
+    ("can you make the screen a little less bright", "set_brightness", [{"change": "down"}, {"by": "-"}]),
     ("it's too loud", "set_volume", {}),
     ("press command shift t", "press_keys", {}),
     ("remember that my brother's name on whatsapp is John Doe", "remember", {}),
@@ -42,7 +42,8 @@ CASES = [
     ("check my email", "gmail__search_threads", {}),
     ("draft an email to john saying I'll call him tonight", "gmail__create_draft", {}),
     ("I want you to search for the current price of PS5 in India.", "web_search", {"query": "ps5"}),
-    ("what's the weather going to be like in hyderabad tomorrow", "web_search", {"query": "hyderabad"}),
+    ("what's the weather going to be like in hyderabad tomorrow", "weather", {"where": "hyderabad", "when": "tomorrow"}),
+    ("will it rain this afternoon", "weather", {}),
     ("who won the formula one race last weekend", "web_search", {}),
     ("look up how many calories are in a dosa", "web_search", {"query": "dosa"}),
     ("google the release date of GTA 6", "web_search", {"query": "gta"}),
@@ -51,7 +52,7 @@ CASES = [
     ("what's in my desktop folder", "list_folder", {"folder": "desktop"}),
     ("what's jane doe's name on her whatsapp profile", "whatsapp_contact", {"name": "jane"}),
     ("can you show me jane doe's DP", "whatsapp_picture", {"name": "jane"}),
-    ("how many days are left until christmas", "clock", {}),
+    ("how many days are left until christmas", "clock", {"until": "christmas"}),
     ("what's the last message i got on whatsapp", "whatsapp_read", {}),
     ("who messaged me last on whatsapp", "whatsapp_read", {}),
     ("how many whatsapp groups am i part of", "whatsapp_stats", {}),
@@ -59,6 +60,23 @@ CASES = [
     ("which whatsapp chat have i been most active in this week", "whatsapp_stats", {}),
     ("search all my whatsapp chats for the wifi password", ("whatsapp_find", "whatsapp_search"), {}),
     ("is it already past five in the evening", "clock", {}),
+    ("remind me to call the dentist at four", "reminder", {"action": "set", "what": "dentist"}),
+    ("remind me to drink water every hour", "reminder", {"action": "set", "when": "every hour"}),
+    ("what reminders do I have", "reminder", {"action": "list"}),
+    ("stop reminding me to drink water", "reminder", {"action": "forget", "what": "water"}),
+    ("move the dentist reminder to six in the evening", "reminder", {"action": "change", "what": "dentist"}),
+    ("download a picture of tyrion lannister", "find_images", {"query": "tyrion"}),
+    ("download this https://example.com/files/report.pdf", "download", {"where": "example.com"}),
+    ("what does my resume say about my last job", "read_file", {"what": "resume"}),
+    ("delete the screenshot on my desktop called old notes", "move_to_trash", {"what": "old notes"}),
+    ("bring back the file you just deleted", "restore_from_trash", {}),
+    ("save that as a routine called morning brief", "routine", {"action": "save", "name": "morning brief"}),
+    ("what routines have I saved", "routine", {"action": "list"}),
+    ("what's on my clipboard", "clipboard", {}),
+    ("from now on talk like a knight from game of thrones", "personality", {"style": "knight"}),
+    ("stop the accent and talk normally again", "personality", {}),
+    ("my brother is John Doe in my contacts, remember that", "remember", {"fact": "brother"}),
+    ("tell my brother John Doe on whatsapp that I'm on my way", "whatsapp_send", {"called": "brother"}),
 ]
 
 GMAIL = [
@@ -85,6 +103,9 @@ CANNED = {
                   "2. Amazon.in: Ps5 — www.amazon.in\n   Discover a wide selection of PS5 games, consoles, and gaming accessories.\n"
                   "3. Sony PS5 Consoles | Reliance Digital — www.reliancedigital.in\n   Compare Slim, Digital, & Disc Models.\n\n"
                   "The snippets are short; read_result reads a whole page.",
+    "find_images": "1. Tyrion Lannister Season 8 — 1920x1080, from wallpapercave.com\n2. Peter Dinklage as Tyrion — 800x1200, from wikipedia.org\n\nThe first ones are the best matches; download saves one by its number.",
+    "weather": "Hyderabad, Telangana, India, the next seven days:\nToday: clear, 23 to 32°C, 0% chance of rain\nMonday 26 Oct: partly cloudy, 22 to 31°C, 10% chance of rain",
+    "reminder": "Reminder set: call the dentist, 4 PM today.",
     "read_tab": "Why sleep matters — https://example.com/sleep\n\nSleep consolidates memory and clears waste from the backend. Adults need 7 to 9 hours.",
 }
 
@@ -110,7 +131,8 @@ async def main(base_url, model):
     backend = openai_compatible.OpenAICompatible(Config(), base_url, model)
     await backend.start()
     score, rows = 0, []
-    for text, want, want_args in CASES:
+    only = os.environ.get("ONLY", "").lower()
+    for text, want, want_args in [c for c in CASES if only in c[0].lower()] if only else CASES:
         picked.clear()
         await backend.reset()
         started, first, spoken = time.monotonic(), None, []
@@ -132,14 +154,16 @@ async def main(base_url, model):
             await backend.turn(text, emit)
         took = time.monotonic() - started
         wanted = want if isinstance(want, tuple) else (want,)
-        hits = [c for c in picked if c[0] in wanted and all(str(v).lower() in json.dumps(c[1]).lower() for v in want_args.values())]
+        # A LIST OF ARGUMENTS IS THE SAME INSTRUCTION WRITTEN DIFFERENT WAYS, LIKE "DOWN" OR A NEGATIVE STEP.
+        options = want_args if isinstance(want_args, list) else [want_args]
+        hits = [c for c in picked if c[0] in wanted and any(all(str(v).lower() in json.dumps(c[1]).lower() for v in o.values()) for o in options)]
         right = bool(hits)
         chosen = hits[0] if hits else (picked[0] if picked else (None, {}))
         score += right
         trail = " → ".join(c[0] for c in picked)
         rows.append(f"{'✓' if right else '✗'} {took:5.1f}s first {first or 0:4.1f}s  {text!r} -> {trail} {json.dumps(chosen[1])[:80]} | said: {''.join(spoken)[:90]!r}")
         print(rows[-1], flush=True)
-    print(f"\n{model}: {score}/{len(CASES)}")
+    print(f"\n{model}: {score}/{len(rows)}")
 
 
 if __name__ == "__main__":

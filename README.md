@@ -8,6 +8,11 @@ A voice agent that lives on your computer, not inside a project folder. Bring yo
 - "Do I have unread WhatsApp messages?" "Find the address I sent my dad." "Tell mom I'll be late."
 - "Read my latest emails." (through whichever email MCP server you add) "Summarise this article." "What's on my screen?"
 - "Build me a snake game." Happy opens a coding agent in a Terminal window with the task typed in, so you watch it work.
+- "Remind me to call the dentist at four." "Remind me to drink water every hour." "Remind me again in ten minutes."
+- "What's the weather?" "Will it rain this afternoon?" "How much battery is left?" "Turn the Wi-Fi off."
+- "What does my resume say about my last job?" "Delete old notes." "Bring it back."
+- "Download a picture of Tyrion Lannister." "Download this" (a link you give, or the page in front).
+- "Save that as a routine called morning brief." Then "morning brief", or "run my morning brief every weekday at 7".
 
 Happy's face is its smile, in the bottom-right corner of the screen; drag it anywhere. The smile moves with what Happy is doing: listening, working something out, talking (the mouth follows the voice), pleased when a turn ends, and sorry when one goes wrong. Click it and the panel opens down the right edge of the screen, a quarter of the screen wide. The panel shows the whole conversation, every request with the steps Happy took (click a step to see what went in and what came back) and the answer. There's a box for typing too. The settings open in the same panel. A menu-bar icon opens it as well.
 
@@ -41,11 +46,18 @@ Everyday commands (brightness, volume, the keyboard light, play and pause, tabs,
 - **Never silent**: it says "one sec" if a reply is slow to start, a short line when a slow task begins, and what it's still doing during long tasks.
 - **Speech, not text**: links, file paths and markdown are never read out. "Here's the link" is spoken, and the link shows in the bubble.
 
+## Remembering, reminders and routines
+
+- **Memory**: when you explain who you mean ("my brother is John Doe in my contacts"), Happy keeps it in `~/.happy/memory.md` without being asked, so tomorrow "my brother" is already known. "Remember …" and "forget …" work for anything else.
+- **Reminders** are worked out from your words in code ("at four" is the next four o'clock, "tomorrow at 4" is the afternoon) and said back in full so a wrong guess is heard. They repeat by the hour, the day, weekdays or named days. One missed while Happy was off is said when it starts again. Happy starts at login (a switch under Talking in the settings) so reminders survive a restart.
+- **Routines** are a name for a few requests. Saying the name replays them as one request, and a reminder can run one at a set time.
+
 ## Connections
 
 - **Your MCP servers.** Paste the install command a service gives for Claude Code or Codex (or its MCP URL, or its JSON) into Services in the settings. Happy registers it in Claude Code's user list, so it's there for every model. Servers you already set up in Claude Code, Claude Desktop, Cursor, VS Code or Windsurf show up on their own. Each one shows whether it really answers. Servers that need a sign-in get a **Sign in** button: with Claude as the model it opens Claude Code's MCP screen, otherwise Happy signs in through your browser itself. Local models get a service's tools directly, while they fit.
 - **Email** comes from an email MCP server. With Claude, the claude.ai Gmail connector works as it is. Google's official Gmail server (`gmailmcp.googleapis.com`) is a preset in Setup. Google asks each person to bring their own OAuth client for it and keeps it in a developer preview. It searches, reads, labels and drafts mail, but doesn't send.
 - **WhatsApp** ships with Happy, in `whatsapp_server`, since nobody else serves it. It runs in its own Python environment under `~/.happy/envs` and keeps its data in `~/.happy/whatsapp`. Link it once from Setup by scanning the QR code, like WhatsApp Web.
+- **Happy's own WhatsApp chat**: once WhatsApp is linked, Happy makes a group with its name and nobody else in it. Write there from your phone and Happy does it on the computer and answers in the chat, without speaking aloud. It only takes messages from your own account. Turn it off with `own_chat = false` under `[whatsapp]` in the config.
 - **Coding** goes to the first agent installed (Claude Code, Codex, Gemini CLI, Cursor Agent, opencode, Qwen Code or Amp), opened in a visible Terminal.
 
 Setup installs Claude Code if it's missing. It keeps the list of services, and no subscription is needed for that.
@@ -58,7 +70,11 @@ happy persona ~/Downloads/got-s01.srt      # copy the way people talk in any sub
 happy say "Hello there"                    # hear the voice
 ```
 
-Settings live in `~/.happy/config.toml`: `voice` (14 Kyutai Pocket TTS voices), `push_to_talk`, `wake_word`, `brain`, `input.device`. Remembered facts go in `~/.happy/memory.md`, the persona in `~/.happy/persona.md`, and secrets in `~/.happy/secrets.toml` (readable only by you).
+Settings live in `~/.happy/config.toml`: `voice` (14 Kyutai Pocket TTS voices), `push_to_talk`, `wake_word`, `call_me` (what Happy calls you, like "my lord"), `start_at_login`, `brain`, `input.device`.
+
+**Personality**: under Talking in the settings, describe how Happy should talk ("like a knight from Game of Thrones"), or paste a whole script or subtitles. A long paste is learned from a sample into short style notes, and only those notes are used, so pasting a book costs nothing at runtime. Saying "from now on, talk like a pirate" or "talk normally again" does the same by voice. Either takes effect on the next reply.
+
+Remembered facts go in `~/.happy/memory.md`, the persona in `~/.happy/persona.md`, and secrets in `~/.happy/secrets.toml` (readable only by you).
 
 ## Commands
 
@@ -88,7 +104,8 @@ mic ──► Silero VAD ──► Parakeet (speech to text, on the CPU) ──�
 |---|---|
 | `happy/app.py` | one running Happy: a turn from request to spoken answer |
 | `happy/cli.py` | the `happy` command |
-| `happy/history.py` | the local conversation history |
+| `happy/history.py` | the local conversation history, and what Happy moved to the Trash |
+| `happy/timing.py`, `happy/reminders.py`, `happy/routines.py` | spoken times, reminders and routines, kept in the same database |
 | `happy/speech` | microphone listener, transcription, "was that said to Happy?", the voice, text made speakable, model downloads |
 | `happy/agent` | quick commands that skip the model, the prompt, the Claude and OpenAI-compatible backends, choosing one |
 | `happy/tools` | every action, each defined once and handed to every backend |
