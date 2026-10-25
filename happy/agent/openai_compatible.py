@@ -9,6 +9,7 @@ from openai import APIError, AsyncOpenAI
 
 from happy import tools
 from happy.agent import Act, Acted, Backend, Problem, Text
+from happy.agent.deeds import correction, unbacked
 from happy.agent.prompt import stamped, system_prompt
 from happy.tools import Image
 
@@ -114,13 +115,13 @@ class OpenAICompatible(Backend):
             starts = [i for i, m in enumerate(self.history) if m["role"] == "user"]
             self.history = self.history[starts[-KEEP_TURNS]:]
         said = []
-        nudged = False
+        nudged = corrected = False
         self.done_calls = {}
         for _ in range(STEPS):
             if self.cancelled:
                 return "".join(said)
             try:
-                content, calls = await self.step(emit, said)
+                content, calls, held = await self.step(emit, said)
             except APIError as error:
                 message = str(error)
                 if not nudged and ("tool" in message.lower() or "parse" in message.lower() or "json" in message.lower()):
@@ -137,10 +138,21 @@ class OpenAICompatible(Backend):
             if calls:
                 message["tool_calls"] = calls
             self.history.append(message)
+            if held and not calls and not corrected:
+                corrected = True
+                log.info("sent back an unbacked claim: %s", held[:200])
+                self.history.append({"role": "user", "content": correction(unbacked(held, self.done()))})
+                continue
+            if held and not calls:
+                said.append("That part is not done.")
+                emit(Text("That part is not done."))
             if not calls:
                 return "".join(said)
             for call in calls:
                 await self.run(call, emit)
+            if held and not unbacked(held, self.done()):
+                said.append(held)
+                emit(Text(held))
         emit(Text("I ran out of steps on that one."))
         return "".join(said)
 
@@ -149,6 +161,17 @@ class OpenAICompatible(Backend):
             model=self.model, messages=[self.system] + self.history, tools=self.schemas, stream=True,
             temperature=0.2, extra_body=self.extra())
         content, calls = [], {}
+        # A SENTENCE IS SPOKEN ONLY ONCE IT IS SEEN NOT TO CLAIM SOMETHING NO TOOL DID; FROM A CLAIM ON, THE ROUND IS HELD.
+        pending, held = "", ""
+
+        def release(text):
+            nonlocal held
+            claim = unbacked(text, self.done())
+            clean, held = text.split(claim, 1)[0] if claim else text, text[text.index(claim):] if claim else ""
+            if clean:
+                said.append(clean)
+                emit(Text(clean))
+
         async for chunk in stream:
             if self.cancelled:
                 await stream.close()
@@ -158,8 +181,17 @@ class OpenAICompatible(Backend):
             delta = chunk.choices[0].delta
             if delta.content:
                 content.append(delta.content)
-                said.append(delta.content)
-                emit(Text(delta.content))
+                if held:
+                    held += delta.content
+                    continue
+                pending += delta.content
+                ends = [m.end() for m in re.finditer(r"[.!?]\s+|\n", pending)]
+                if ends:
+                    whole, pending = pending[:ends[-1]], pending[ends[-1]:]
+                    release(whole)
+                    if held:
+                        held += pending
+                        pending = ""
             for part in delta.tool_calls or []:
                 slot = calls.setdefault(part.index or 0, {"id": "", "name": "", "arguments": ""})
                 if part.id:
@@ -172,7 +204,12 @@ class OpenAICompatible(Backend):
         for index, slot in sorted(calls.items()):
             listed.append({"id": slot["id"] or f"call_{index}_{int(time.time() * 1000)}", "type": "function",
                            "function": {"name": slot["name"], "arguments": slot["arguments"] or "{}"}})
-        return "".join(content), listed
+        if not held:
+            release(pending)
+        return "".join(content), listed, held
+
+    def done(self):
+        return {name for name, _ in self.done_calls}
 
     async def run(self, call, emit):
         name = call["function"]["name"]
