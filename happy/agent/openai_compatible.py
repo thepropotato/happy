@@ -18,6 +18,8 @@ STEPS = 10
 FORGET_AFTER = 15 * 60
 KEEP_TURNS = 12
 RESULT_LIMIT = 4000
+# THE PROMPT AND TOOLS ALONE ARE ABOUT 2800 TOKENS, AND A SEARCH RESULT OR TWO PLUS A FEW TURNS IS MANY THOUSAND MORE.
+WINDOW = 32768
 
 
 def repair(raw):
@@ -52,7 +54,29 @@ class OpenAICompatible(Backend):
         self.cancelled = False
         self.done_calls = {}
 
+    async def roomy(self):
+        """The same model with a window that fits Happy; Ollama loads 4096 by default, which cut answers short and dropped turns."""
+        import httpx
+
+        native = str(self.client.base_url).rstrip("/").removesuffix("/v1")
+        roomy = self.model if self.model.endswith("-happy") else (f"{self.model}-happy" if ":" in self.model else f"{self.model}:latest-happy")
+        async with httpx.AsyncClient(base_url=native, timeout=120) as http:
+            shown = await http.post("/api/show", json={"model": roomy})
+            if shown.status_code == 200 and f"num_ctx {WINDOW}" in " ".join(shown.json().get("parameters", "").split()):
+                return roomy
+            made = await http.post("/api/create", json={"model": roomy, "from": self.model, "parameters": {"num_ctx": WINDOW}, "stream": False})
+            if made.status_code != 200:
+                log.warning("could not give %s a %d-token window: %s", self.model, WINDOW, made.text[:200])
+                return self.model
+        log.info("made %s, %s with a %d-token window", roomy, self.model, WINDOW)
+        return roomy
+
     async def start(self):
+        if self.ollama:
+            try:
+                self.model = await self.roomy()
+            except Exception as error:
+                log.warning("could not give %s a bigger window: %s", self.model, error)
         self.tool_list = tools.available(local=True)
         self.schemas = [{"type": "function", "function": {"name": t.name, "description": t.description,
                                                           "parameters": t.schema}} for t in self.tool_list]
