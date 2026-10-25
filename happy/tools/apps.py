@@ -1,6 +1,7 @@
 """Opening and closing apps, files, folders and links."""
 
 import difflib
+import re
 import os
 import shutil
 import sys
@@ -11,7 +12,7 @@ from pathlib import Path
 from typing import Annotated
 
 from happy.system import Failed, native
-from happy.tools import tool
+from happy.tools import asked, tool
 
 ALIASES = {
     "vs code": "Visual Studio Code", "vscode": "Visual Studio Code", "code": "Visual Studio Code",
@@ -188,9 +189,23 @@ def as_url(text):
 
 @tool(label="Opening {where}")
 def open_link(where: Annotated[str, "a full URL, a site like youtube.com, or words to search for"]):
-    """Open a website or a search page in the browser, only when they ask to open, visit or show it. To find something out, use web_search. Never to check mail or messages."""
-    if where.strip().isdigit():
-        return f"Nothing opened. To read search result {where.strip()}, call read_result with that number; it stays out of sight."
+    """Open a website or a search page in the browser, only when they ask to open, visit or show it. A search result opens by its number. To find something out, use web_search. Never to check mail or messages."""
+    said = asked.get()
+    if said is not None and not SHOW.search(said.lower()):
+        return "Nothing opened: they asked to find something out, not to see a page. Answer from what you found."
+    from happy.tools import web
+
+    wanted = where.strip().lower()
+    if wanted.isdigit():
+        # A SEARCH RESULT BY NUMBER IS ITS REAL ADDRESS; ANY ADDRESS THE MODEL WRITES ITSELF IS INVENTED.
+        number = int(wanted)
+        if not 1 <= number <= len(web.results):
+            return f"There is no search result {number} to open."
+        where = web.results[number - 1]["href"]
+    elif REFERENCE.fullmatch(wanted):
+        if not web.last_read:
+            return f"Nothing opened: '{where}' names no page. Give the site, or the number of a search result."
+        where = web.last_read
     url = as_url(where)
     if sys.platform == "darwin":
         native.open_path(url)

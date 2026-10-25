@@ -12,6 +12,7 @@ from happy.tools.browser import text_of
 ENGINES = ("google", "bing", "yahoo", "duckduckgo", "brave", "mojeek")
 LONGEST = 6000
 results = []
+last_read = ""
 
 
 @tool(say="Searching.", label="Searching for {query}")
@@ -78,6 +79,8 @@ def read_result(number: Annotated[int, "the result's number from web_search"]):
         return f"Could not reach {url}: {failure}. Try another result."
     if page.status_code >= 400 or len(text) < 200:
         return f"Could not read {url}: the site sent no readable text (status {page.status_code}). Try another result."
+    global last_read
+    last_read = url
     price = stated_price(page.text)
     heading = f"{results[number - 1].get('title', '')} — {url}" + (f"\nThe page's own price: {price}" if price else "")
     return f"{heading}\n\n{text[:LONGEST]}"

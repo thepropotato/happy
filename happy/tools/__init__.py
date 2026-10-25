@@ -40,6 +40,8 @@ class Tool:
 
 REGISTRY: dict[str, Tool] = {}
 reporter: contextvars.ContextVar[Callable[[str], None] | None] = contextvars.ContextVar("reporter", default=None)
+# WHAT THE PERSON SAID THIS TURN, FOR A TOOL THAT MUST NOT GO BEYOND IT; None WHEN THE BACKEND CANNOT SAY.
+asked: contextvars.ContextVar[str | None] = contextvars.ContextVar("asked", default=None)
 
 
 def report(text):
