@@ -379,6 +379,12 @@ SPOKEN = {
 
 def clock(text):
     """Plain questions about the time or date, which need no model at all."""
+    match = re.fullmatch(r"how (?:many|long) (?:days )?(?:are |is )?(?:there |left |is it )*(?:left )?(?:until|till|til|to|before|for) (?P<day>[\w' ]+?)(?: left)?", text)
+    if match:
+        from happy.tools.status import countable
+
+        # A DAY ONLY THE PERSON KNOWS, LIKE THEIR BIRTHDAY, GOES TO THE MODEL, WHICH CAN LOOK IT UP IN WHAT IT REMEMBERS.
+        return ("clock", {"until": match.group("day")}) if countable(match.group("day")) else None
     asked = r"(?:what(?:'s|s| is)?|tell me|and|what about|how about) (?:the )?(?:time|date|day)"
     after = r"(?: (?:is it|it is|is|now|right now|today|is today|of the week|please))*"
     if re.fullmatch(asked + after, text) or re.fullmatch(r"what(?:'s|s| is) today(?:'s date)?|(?:the )?(?:time|date) please", text):

@@ -55,3 +55,16 @@ def test_weather_now_is_quick_and_another_day_goes_to_the_model():
 def test_listing_reminders_is_quick_and_setting_one_is_not():
     assert match("what reminders do I have") == ("reminder", {"action": "list"})
     assert match("remind me to call mom at four") is None
+
+
+def test_days_until_a_date_are_counted_in_code():
+    from datetime import date
+
+    from happy.tools.status import days_until
+
+    today = date(2026, 10, 25)
+    assert days_until("christmas", today) == "Christmas is in 61 days, on Friday 25 December."
+    assert days_until("new year", today) == "New Year is in 68 days, on Friday 1 January 2027."
+    assert days_until("21 may", today) == "Friday 21 May 2027 is in 208 days."
+    assert match("how many days are left until christmas") == ("clock", {"until": "christmas"})
+    assert match("how long until my birthday") is None
