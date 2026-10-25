@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-import random
 import re
 import threading
 import time
@@ -15,11 +14,9 @@ from happy.speech.spoken_text import Sentences
 
 log = logging.getLogger("happy")
 
-FIRST_FILLER = 3.0
 FOLLOW_SECONDS = 4.0
 FACTUAL = {"set_brightness", "set_volume", "set_keyboard_light", "media"}
 STILL_EVERY = 8.0
-FILLERS = ["One sec.", "Give me a moment.", "Let me see.", "Just a moment."]
 
 
 class Happy:
@@ -40,6 +37,7 @@ class Happy:
         self.spoken_at = 0.0
         self.answered = False
         self.activity = ""
+        self.saying = ""
         self.last_result = None
 
     def run(self):
@@ -323,6 +321,7 @@ class Happy:
         sentences = Sentences()
         self.answered = False
         self.activity = ""
+        self.saying = ""
         self.last_result = None
         self.spoken_at = 0.0
         self.face.reply("")
@@ -343,6 +342,7 @@ class Happy:
                     self.answered = True
                     self.say(sentence)
                 self.activity = event.label
+                self.saying = event.say
                 quick.remember(event.tool)
                 call = f"c{len(self.steps)}"
                 self.face.began(call, event.tool, event.label, event.args)
@@ -404,20 +404,16 @@ class Happy:
         return first if 0 < len(first) <= 140 else "Done."
 
     async def keep_talking(self, started):
-        """Fills silence while a turn runs: a quick filler early, then a word on what it is doing."""
-        filled = False
+        """Fills a long silence only with what the running tool is actually doing, never a stock phrase."""
         while True:
             await asyncio.sleep(0.4)
             if self.speaker and not self.speaker.idle():
                 continue
-            now = time.monotonic()
-            quiet = now - max(self.spoken_at, started)
-            if not filled and not self.answered and self.spoken_at == 0 and quiet > FIRST_FILLER:
-                filled = True
-                self.say(random.choice(FILLERS))
-            elif quiet > STILL_EVERY:
-                doing = self.activity.split(":")[0].strip().lower() if self.activity else ""
-                self.say(f"Still {doing.removeprefix('still ')}." if doing.endswith("ing") else "Still working on it.")
+            if time.monotonic() - max(self.spoken_at, started) <= STILL_EVERY:
+                continue
+            doing = self.saying.rstrip(".").strip() or self.activity.split(":")[0].strip()
+            if doing.split(" ")[0].lower().endswith("ing"):
+                self.say(f"Still {doing[0].lower()}{doing[1:]}.")
 
     async def settle(self):
         if self.speaker:
