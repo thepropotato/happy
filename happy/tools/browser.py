@@ -1,9 +1,12 @@
 """Browser tabs: listing, switching, closing, opening and reading them."""
 
 import html
+import io
 import re
 import sys
+from pathlib import Path
 from typing import Annotated, Literal
+from urllib.parse import unquote, urlparse
 
 import httpx
 
@@ -179,9 +182,16 @@ def page_text(app, tab):
             return text
     except Failed:
         pass
-    reply = httpx.get(tab["url"], follow_redirects=True, timeout=15,
-                      headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Safari/605.1.15"})
-    return text_of(reply.text)
+    if tab["url"].startswith("file://"):
+        body = Path(unquote(urlparse(tab["url"]).path)).read_bytes()
+    else:
+        body = httpx.get(tab["url"], follow_redirects=True, timeout=15,
+                         headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 Safari/605.1.15"}).content
+    if body.startswith(b"%PDF"):
+        from happy.tools.files import pdf_text
+
+        return pdf_text(io.BytesIO(body))
+    return text_of(body.decode("utf-8", "replace"))
 
 
 @tool(label="Reading {match}")
