@@ -1,6 +1,8 @@
 """Speech to text with NVIDIA Parakeet, run on the CPU through sherpa-onnx."""
 
+import difflib
 import os
+import re
 
 import numpy as np
 import sherpa_onnx
@@ -21,6 +23,10 @@ def vocab_for(folder):
     return vocab
 
 
+def words(text):
+    return re.findall(r"[a-z']+", text.lower())
+
+
 class Transcriber:
     def __init__(self):
         folder = models.ensure(["stt"])["stt"]
@@ -39,10 +45,12 @@ class Transcriber:
             hotwords_score=NAME_PULL,
         )
         self.names = ""
+        self.name_words = set()
 
     def know(self, names):
         """The names to hear as themselves, like the person's contacts."""
         self.names = "/".join(names)
+        self.name_words = {word for name in names for word in words(name)}
 
     def __call__(self, samples: np.ndarray) -> str:
         if len(samples) < RATE // 4:
@@ -52,7 +60,15 @@ class Transcriber:
         if not plain or not self.names:
             return plain
         named = self.decode(samples, self.names)
-        return named if len(named.split()) <= len(plain.split()) + 2 else plain
+        return named if self.respelled(plain, named) else plain
+
+    def respelled(self, plain, named):
+        """Whether the names only swapped heard words for names; "Happy" once grew "Happy birthday" out of nothing."""
+        before, after = words(plain), words(named)
+        for kind, _, _, start, end in difflib.SequenceMatcher(a=before, b=after, autojunk=False).get_opcodes():
+            if kind != "equal" and not all(word in self.name_words for word in after[start:end]):
+                return False
+        return True
 
     def decode(self, samples, hotwords):
         stream = self.recognizer.create_stream(hotwords=hotwords)
