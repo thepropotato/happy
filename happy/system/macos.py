@@ -259,71 +259,80 @@ def trusted():
 
 def output_device():
     """The sound output macOS is using right now, by name, read fresh from CoreAudio."""
-    return sound_device("dOut")
+    return audio_name(audio_read(1, "dOut"))
 
 
 def input_device():
     """The microphone macOS is using right now, by name, read fresh from CoreAudio."""
-    return sound_device("dIn ")
+    return audio_name(audio_read(1, "dIn "))
+
+
+def input_is_bluetooth():
+    """Whether the Mac is listening through a Bluetooth headset, whose microphone is call quality."""
+    device = audio_read(1, "dIn ")
+    return bool(device) and audio_read(device, "tran") in (fourcc("blue"), fourcc("blea"))
+
+
+def builtin_microphone():
+    """The name of the Mac's own microphone, or empty on a Mac without one."""
+    return next((audio_name(device) for device in audio_devices()
+                 if audio_read(device, "tran") == fourcc("bltn") and audio_has(device, "inpt")), "")
 
 
 def sound_devices(scope):
     """The names of every device with sound going "inpt" (microphones) or "outp" (speakers), read fresh from CoreAudio."""
+    return [name for device in audio_devices() if audio_has(device, scope) and (name := audio_name(device))]
+
+
+class AudioAddress(ctypes.Structure):
+    _fields_ = [("selector", ctypes.c_uint32), ("scope", ctypes.c_uint32), ("element", ctypes.c_uint32)]
+
+
+def fourcc(text):
     import struct
 
-    class Address(ctypes.Structure):
-        _fields_ = [("selector", ctypes.c_uint32), ("scope", ctypes.c_uint32), ("element", ctypes.c_uint32)]
+    return struct.unpack(">I", text.encode())[0]
 
-    def where(selector, kind="glob"):
-        return ctypes.byref(Address(*struct.unpack(">II", (selector + kind).encode()), 0))
 
-    audio = ctypes.CDLL(ctypes.util.find_library("CoreAudio"))
-    foundation = ctypes.CDLL(ctypes.util.find_library("CoreFoundation"))
-    foundation.CFStringGetCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_long, ctypes.c_uint32]
+@cache
+def core_audio():
+    return ctypes.CDLL(ctypes.util.find_library("CoreAudio"))
+
+
+def audio_read(owner, selector, kind=ctypes.c_uint32, scope="glob"):
+    """One CoreAudio property of a device, or of the whole system when the owner is 1; None when it has none."""
+    value = kind()
+    size = ctypes.c_uint32(ctypes.sizeof(value))
+    where = AudioAddress(fourcc(selector), fourcc(scope), 0)
+    failed = core_audio().AudioObjectGetPropertyData(ctypes.c_uint32(owner), ctypes.byref(where), 0, None, ctypes.byref(size), ctypes.byref(value))
+    return None if failed else value.value
+
+
+def audio_has(device, scope):
     size = ctypes.c_uint32(0)
-    if audio.AudioObjectGetPropertyDataSize(ctypes.c_uint32(1), where("dev#"), 0, None, ctypes.byref(size)):
+    where = AudioAddress(fourcc("stm#"), fourcc(scope), 0)
+    core_audio().AudioObjectGetPropertyDataSize(ctypes.c_uint32(device), ctypes.byref(where), 0, None, ctypes.byref(size))
+    return size.value > 0
+
+
+def audio_devices():
+    size = ctypes.c_uint32(0)
+    where = AudioAddress(fourcc("dev#"), fourcc("glob"), 0)
+    if core_audio().AudioObjectGetPropertyDataSize(ctypes.c_uint32(1), ctypes.byref(where), 0, None, ctypes.byref(size)):
         return []
     ids = (ctypes.c_uint32 * (size.value // 4))()
-    audio.AudioObjectGetPropertyData(ctypes.c_uint32(1), where("dev#"), 0, None, ctypes.byref(size), ids)
-    names = []
-    for device in ids:
-        streams = ctypes.c_uint32(0)
-        audio.AudioObjectGetPropertyDataSize(ctypes.c_uint32(device), where("stm#", scope), 0, None, ctypes.byref(streams))
-        name = ctypes.c_void_p()
-        length = ctypes.c_uint32(ctypes.sizeof(name))
-        if not streams.value or audio.AudioObjectGetPropertyData(ctypes.c_uint32(device), where("lnam"), 0, None, ctypes.byref(length), ctypes.byref(name)) or not name.value:
-            continue
-        text = ctypes.create_string_buffer(256)
-        foundation.CFStringGetCString(name, text, 256, 0x08000100)
-        foundation.CFRelease(name)
-        names.append(text.value.decode())
-    return names
+    core_audio().AudioObjectGetPropertyData(ctypes.c_uint32(1), ctypes.byref(where), 0, None, ctypes.byref(size), ids)
+    return list(ids)
 
 
-def sound_device(selector):
-    import struct
-
-    class Address(ctypes.Structure):
-        _fields_ = [("selector", ctypes.c_uint32), ("scope", ctypes.c_uint32), ("element", ctypes.c_uint32)]
-
-    def code(text):
-        return struct.unpack(">I", text.encode())[0]
-
-    audio = ctypes.CDLL(ctypes.util.find_library("CoreAudio"))
-    foundation = ctypes.CDLL(ctypes.util.find_library("CoreFoundation"))
-    foundation.CFStringGetCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_long, ctypes.c_uint32]
-
-    def read(owner, selector, kind):
-        where = Address(code(selector), code("glob"), 0)
-        value = kind()
-        size = ctypes.c_uint32(ctypes.sizeof(value))
-        failed = audio.AudioObjectGetPropertyData(ctypes.c_uint32(owner), ctypes.byref(where), 0, None, ctypes.byref(size), ctypes.byref(value))
-        return None if failed else value.value
-
-    device = read(1, selector, ctypes.c_uint32)
-    name = read(device, "lnam", ctypes.c_void_p) if device else None
+def audio_name(device):
+    if not device:
+        return ""
+    name = audio_read(device, "lnam", ctypes.c_void_p)
     if not name:
         return ""
+    foundation = ctypes.CDLL(ctypes.util.find_library("CoreFoundation"))
+    foundation.CFStringGetCString.argtypes = [ctypes.c_void_p, ctypes.c_char_p, ctypes.c_long, ctypes.c_uint32]
     text = ctypes.create_string_buffer(256)
     foundation.CFStringGetCString(name, text, 256, 0x08000100)
     foundation.CFRelease(ctypes.c_void_p(name))
