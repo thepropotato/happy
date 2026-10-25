@@ -324,6 +324,17 @@ SPOKEN = {
 }
 
 
+def clock(text):
+    """Plain questions about the time or date, which need no model at all."""
+    asked = r"(?:what(?:'s|s| is)?|tell me|and|what about|how about) (?:the )?(?:time|date|day)"
+    after = r"(?: (?:is it|it is|is|now|right now|today|is today|of the week|please))*"
+    if re.fullmatch(asked + after, text) or re.fullmatch(r"what(?:'s|s| is) today(?:'s date)?|(?:the )?(?:time|date) please", text):
+        # ONLY WHAT WAS ASKED: A QUESTION ABOUT THE DATE ANSWERED WITH THE TIME TOO READS AS NOT LISTENING.
+        named = [part for part in ("time", "date", "day") if re.search(rf"\b{part}\b", text)]
+        return "clock", {"part": named[0] if len(named) == 1 else "date" if "today" in text and not named else "all"}
+    return None
+
+
 def match(text):
     """The tool call an everyday command means, 'stop' for stop, or None for the brain."""
     said = clean(text)
@@ -331,7 +342,7 @@ def match(text):
         return "stop", {}
     if said in GREETINGS:
         return "reply", {"text": GREETINGS[said]}
-    for rule in (levels, media, browser, keys, connected, coding, computer, apps):
+    for rule in (levels, media, browser, keys, connected, coding, computer, apps, clock):
         try:
             found = rule(said)
         except Exception:
