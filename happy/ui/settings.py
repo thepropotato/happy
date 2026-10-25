@@ -2,12 +2,14 @@
 
 import asyncio
 import base64
+import json
 import subprocess
 import sys
 import threading
 import time
 from functools import cache
 
+from happy import paths
 from happy.config import Config, save_secret
 from happy.speech import models
 
@@ -21,6 +23,7 @@ PANES = {
 }
 SERVICE_CHECK = 20
 SERVICES_FRESH = 300
+SERVICES_SEEN = paths.HOME / "services.json"
 
 
 class Settings:
@@ -33,7 +36,7 @@ class Settings:
         self.speech = {"ready": not models.missing(), "progress": None, "text": "", "failed": False}
         self.brains = []
         self.whatsapp = {"state": "busy", "text": "Getting WhatsApp ready…"}
-        self.services = None
+        self.services = remembered_services()
         self.qr_polling = False
         self.checking = False
         self.checked_at = 0.0
@@ -47,7 +50,13 @@ class Settings:
     def check_services_later(self):
         if not self.checking:
             self.checking = True
+            self.send()
             threading.Thread(target=self.check_services, daemon=True).start()
+
+    def refresh_services(self):
+        """Checks the services again when what is shown is old, keeping it on screen meanwhile."""
+        if self.services is None or time.monotonic() - self.checked_at > SERVICES_FRESH:
+            self.check_services_later()
 
     def send(self, **extra):
         self.emit({"is": "settings", **self.snapshot(), **extra})
@@ -69,6 +78,7 @@ class Settings:
             "keys": KEYS,
             "whatsapp": self.whatsapp,
             "services": self.services,
+            "services_checking": self.checking,
             "permissions": self.permissions(),
         }
 
@@ -127,9 +137,7 @@ class Settings:
             if not whatsapp.start_bridge():
                 self.whatsapp = {"state": "failed", "text": "WhatsApp would not start; the log is in ~/.happy/whatsapp-bridge.log."}
             else:
-                state = whatsapp.status() or {}
-                self.whatsapp = ({"state": "linked", "text": f"Linked as {state.get('name') or state.get('phone') or 'your phone'}"}
-                                 if state.get("linked") else {"state": "unlinked", "text": "Optional. Link it like WhatsApp Web."})
+                self.whatsapp = linked(whatsapp.status() or {})
         except Exception as error:
             self.whatsapp = {"state": "failed", "text": f"WhatsApp could not be set up: {error}"}
         self.send()
@@ -179,8 +187,9 @@ class Settings:
 
         try:
             self.services = asyncio.run(asyncio.wait_for(check(), SERVICE_CHECK))
+            remember_services(self.services)
         except Exception as error:
-            self.services = []
+            self.services = self.services or []
             self.notice = f"Could not check the services: {error}"
         self.checking = False
         self.checked_at = time.monotonic()
@@ -194,12 +203,12 @@ class Settings:
         kind = order.get("do")
         cfg = Config()
         if kind == "settings":
+            # THE SERVICES TAKE SECONDS TO CHECK, SO THEY START THE MOMENT THE SETTINGS OPEN, NOT WHEN THEIR CARD DOES.
+            self.later(self.refresh_whatsapp)
             self.send()
+            self.refresh_services()
         elif kind == "services":
-            if self.services is None or time.monotonic() - self.checked_at > SERVICES_FRESH:
-                self.services = None
-                self.send()
-                self.check_services_later()
+            self.refresh_services()
         elif kind == "set":
             key, value = order.get("key"), order.get("value")
             if key == "name":
@@ -264,9 +273,8 @@ class Settings:
 
     def service_change(self, ok, message):
         self.notice = message
-        self.services = None
-        self.send()
         self.checking = True
+        self.send()
         self.check_services()
         self.restart = self.restart or (ok and not self.first)
 
@@ -294,6 +302,16 @@ class Settings:
             ok = False
         self.service_change(ok, f"Signed in to {name}." if ok else f"Could not sign in to {name}.")
 
+    def refresh_whatsapp(self):
+        from happy.integrations import whatsapp
+
+        if self.whatsapp.get("state") not in ("linked", "unlinked"):
+            return
+        state = whatsapp.status()
+        if state is not None and linked(state) != self.whatsapp:
+            self.whatsapp = linked(state)
+            self.send()
+
     def unlink_whatsapp(self):
         from happy.integrations import whatsapp
 
@@ -302,8 +320,7 @@ class Settings:
         if whatsapp.unlink():
             self.whatsapp = {"state": "unlinked", "text": "Unlinked. Link it again like WhatsApp Web."}
         else:
-            state = whatsapp.status() or {}
-            self.whatsapp = {"state": "linked", "text": f"Linked as {state.get('name') or state.get('phone') or 'your phone'}"}
+            self.whatsapp = linked(whatsapp.status() or {})
             self.notice = "WhatsApp would not unlink; the log is in ~/.happy/whatsapp-bridge.log."
         self.send()
 
@@ -320,8 +337,7 @@ class Settings:
             for _ in range(150):
                 code = whatsapp.qr_code()
                 if code == "linked":
-                    state = whatsapp.status() or {}
-                    self.whatsapp = {"state": "linked", "text": f"Linked as {state.get('name') or 'your phone'}"}
+                    self.whatsapp = linked(whatsapp.status() or {})
                     self.emit({"is": "qr", "linked": True})
                     self.send()
                     return
@@ -356,6 +372,29 @@ class Settings:
             CGRequestScreenCaptureAccess()
         if what in PANES:
             subprocess.Popen(["open", PANES[what]])
+
+
+def linked(state):
+    """What the WhatsApp row says, from the bridge's status."""
+    if not state.get("linked"):
+        return {"state": "unlinked", "text": "Optional. Link it like WhatsApp Web."}
+    who = state.get("name") or state.get("phone") or "your phone"
+    return {"state": "linked", "text": f"Linked as {who}" if state.get("connected") else f"Linked as {who}, connecting…"}
+
+
+def remembered_services():
+    """The last check's rows, shown at once while a new check runs; None before there has ever been one."""
+    try:
+        return json.loads(SERVICES_SEEN.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def remember_services(rows):
+    try:
+        SERVICES_SEEN.write_text(json.dumps(rows))
+    except OSError:
+        pass
 
 
 @cache

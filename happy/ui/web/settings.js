@@ -163,7 +163,7 @@ const Settings = (() => {
     model(word.model)
     you(word)
     whatsapp(word.whatsapp)
-    services(word.services)
+    services(word.services, word.services_checking)
 
     if (word.permissions && word.permissions.length) permissions(word.permissions)
 
@@ -353,9 +353,18 @@ const Settings = (() => {
     }
   }
 
-  function services(list) {
+  // A CHECK TAKES SECONDS, SO THE LAST ONE'S ROWS STAY UP, DIMMED, AND THE HEADER AND BODY SAY THE SAME THING WHILE IT RUNS.
+  function services(list, checking) {
     const working = (list || []).filter((each) => each.state === 'connected').length
-    const block = section('services', 'Services', list ? `${working} of ${list.length} working` : opened === 'services' ? 'checking…' : 'your MCP servers', list && working === list.length ? 'good' : list ? 'wait' : '')
+    const counted = list ? `${working} of ${list.length} working` : ''
+    const summary = checking || !list ? (counted ? `${counted} · checking…` : 'checking…') : counted
+    const block = section('services', 'Services', summary, checking || !list ? 'wait' : working === list.length ? 'good' : 'wait')
+
+    if (checking || !list) block.classList.add('checking')
+
+    if (!list) {
+      for (let i = 0; i < 3; i++) block.append(element('div', 'row placeholder'))
+    }
 
     for (const each of list || []) {
       const state = each.state === 'connected' ? `<span class="good">${escape(each.detail)}</span>` : `<span class="wait">${escape(each.state)}</span>`
@@ -365,7 +374,7 @@ const Settings = (() => {
       if (each.removable) line.append(button('Remove', () => ask({ do: 'service_remove', name: each.name })))
     }
 
-    if (list && !list.length) row(block, 'None yet', 'Paste an install command below to add one.')
+    if (list && !list.length && !checking) row(block, 'None yet', 'Paste an install command below to add one.')
 
     const adding = element('div', 'adding')
     const pasted = field('service', 'Paste a claude or codex "mcp add" command, or a URL')

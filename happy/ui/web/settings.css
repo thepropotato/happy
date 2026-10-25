@@ -303,6 +303,41 @@
   transform: translateX(14px);
 }
 
+/* WHILE A CHECK RUNS THE WHOLE CARD SAYS SO: LAST TIME'S ROWS DIM, OR PLACEHOLDERS STAND IN FOR THEM. */
+.block.checking > .row:not(.placeholder) {
+  opacity: 0.55;
+  transition: opacity 160ms;
+}
+
+.row.placeholder::before {
+  content: '';
+  flex: 1;
+  height: 10px;
+  max-width: 60%;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  /* STEPPED, BECAUSE EVERY FRAME IS A WHOLE REPAINT IN QT; FIVE A SECOND IS ENOUGH FOR A PULSE. */
+  animation: waiting 1.6s steps(8) infinite alternate;
+}
+
+.row.placeholder:nth-of-type(2)::before {
+  max-width: 45%;
+}
+
+.row.placeholder:nth-of-type(3)::before {
+  max-width: 52%;
+}
+
+@keyframes waiting {
+  from {
+    opacity: 0.45;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 .bar-progress {
   height: 4px;
   margin-top: 7px;
