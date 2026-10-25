@@ -31,9 +31,10 @@ def test_levels_are_said_as_a_direction_and_followed_up():
     assert match("a bit more") == ("set_brightness", {"change": "up", "by": 5})
 
 
-def test_coding_goes_to_a_coding_agent_with_its_project():
-    assert match("fix the failing tests in the open slate project") == (
-        "hand_off_coding", {"task": "fix the failing tests in the open slate project", "folder": "open slate"})
+def test_handing_off_is_left_to_the_model():
+    for said in ("fix the failing tests in the open slate project", "write a shopping list in the notes app",
+                 "create a file called test.txt on the desktop"):
+        assert match(said) is None
 
 
 def test_the_machine_answers_battery_wifi_and_power_without_a_model():

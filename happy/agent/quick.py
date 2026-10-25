@@ -240,19 +240,6 @@ def connected(text):
     return None
 
 
-CODING = re.compile(r"(?:fix|build|implement|refactor|debug|write|add|create|make|scaffold|set up|update|migrate|port|test)\b.*"
-                    r"\b(?:code|tests?|bugs?|app|apps|script|function|feature|repo|repository|project|codebase|website|api|endpoint|game|cli)\b")
-PROJECT = re.compile(r"\b(?:in|on|for|of|to) (?:the |my )?(?P<name>[\w .-]+?) (?:project|repo|repository|codebase|app|website|site)\b")
-
-
-def coding(text):
-    """Plain coding requests go straight to a coding agent on screen, with the project they named."""
-    if not CODING.match(text) or len(text.split()) < 3:
-        return None
-    named = PROJECT.search(text)
-    return "hand_off_coding", {"task": text, "folder": named.group("name") if named else ""}
-
-
 def computer(text):
     if re.fullmatch(r"lock (?:the |my )?(?:screen|computer|mac|laptop|pc)", text):
         return "computer", {"action": "lock"}
@@ -401,7 +388,7 @@ def match(text):
         return "stop", {}
     if said in GREETINGS:
         return "reply", {"text": GREETINGS[said]}
-    for rule in (levels, media, browser, keys, machine, connected, coding, computer, forecast, reminded, apps, clock):
+    for rule in (levels, media, browser, keys, machine, connected, computer, forecast, reminded, apps, clock):
         try:
             found = rule(said)
         except Exception:

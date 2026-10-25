@@ -85,7 +85,7 @@ def hand_off_coding(
     task: Annotated[str, "the full task for the coding agent, in the person's words plus any detail they gave"],
     folder: Annotated[str, "the project folder or its name; empty for a new project"] = "",
 ):
-    """Give any coding, building, debugging or software task, new or in an existing project, to a coding agent opened on screen. Pass the project's name as said; this finds the folder itself."""
+    """Give any software task to a coding agent opened on screen: writing, fixing or running code and tests, building, debugging, new or in an existing project. Pass the project's name as said; this finds the folder itself."""
     from happy.tools.apps import locate
 
     agents = installed()
