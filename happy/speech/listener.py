@@ -34,6 +34,7 @@ def pick_mic(wanted=""):
         for i, d in devices:
             if wanted.lower() in d["name"].lower():
                 return i, d["name"]
+        log.info("%s is not connected; listening on the system's microphone", wanted)
     default = sd.default.device[0]
     for i, d in devices:
         if i == default:
@@ -174,6 +175,7 @@ class Listener:
                 # A BLUETOOTH HEADSET'S MIC IS CALL QUALITY AND DRAGS ITS SOUND DOWN WITH IT; ITS SPEAKERS ARE OUT OF THE MAC'S EARSHOT ANYWAY.
                 if not wanted and macos.input_is_bluetooth():
                     wanted = macos.builtin_microphone()
+                    log.info("the Mac's input %s is a Bluetooth headset; listening on %s instead", self.opened_on, wanted)
             except Exception:
                 self.opened_on = ""
         if sys.platform == "darwin" and self.echo_cancel and not wanted:

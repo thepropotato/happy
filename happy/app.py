@@ -235,7 +235,8 @@ class Happy:
             device = self.cfg.get("input.device") or ""
             if device != self.listener.device:
                 self.listener.device = device
-                threading.Thread(target=self.listener.reopen, name="microphone", daemon=True).start()
+                # A MIC PLUGGED IN SINCE START IS NOT IN THE SOUND LIBRARY'S LIST UNTIL IT IS READ AGAIN.
+                threading.Thread(target=self.reload_sound, name="microphone", daemon=True).start()
         if self.speaker:
             self.speaker.device = self.cfg.get("output.device") or ""
         voice = self.cfg.get("voice") or "alba"
