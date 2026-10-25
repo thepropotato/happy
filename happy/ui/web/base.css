@@ -59,12 +59,6 @@
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-@font-face {
-  font-family: 'Inter';
-  src: url('fonts/InterVariable.ttf') format('truetype');
-  font-weight: 100 900;
-}
-
 * {
   margin: 0;
   padding: 0;
@@ -78,6 +72,12 @@ body {
   overflow: hidden;
   user-select: none;
   -webkit-font-smoothing: antialiased;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('fonts/InterVariable.ttf') format('truetype');
+  font-weight: 100 900;
 }
 
 body {

@@ -23,7 +23,9 @@ from happy.config import Config
 log = logging.getLogger("happy.ui")
 WEB = Path(__file__).parent / "web"
 ASSETS = Path(__file__).parent / "assets"
-SMILE_SIZE = (120, 70)
+SMILE_SIZE = (96, 56)
+SMILE_INSET = (27, 21)
+CORNER = 30
 GAP = 10
 MOODS = {"idle": "idle", "asleep": "idle", "listening": "listening", "hearing": "hearing", "thinking": "thinking",
          "working": "thinking", "speaking": "speaking", "error": "idle", "waking": "loading", "setup": "loading",
@@ -205,6 +207,10 @@ class Panel(Web):
         from AppKit import NSEvent, NSEventMaskLeftMouseDown, NSEventMaskRightMouseDown
 
         def clicked(event):
+            # A CLICK THAT ACTIVATES HAPPY REACHES THIS MONITOR TOO, SO WHERE IT LANDED DECIDES, NOT WHO GOT IT.
+            here = QCursor.pos()
+            if self.frameGeometry().contains(here) or self.face.mascot.frameGeometry().contains(here):
+                return
             if self.isVisible() and not self.keeps_open():
                 QTimer.singleShot(0, self.hide)
 
@@ -224,7 +230,7 @@ class Panel(Web):
 
     def place(self):
         screen = (QGuiApplication.screenAt(self.face.mascot.geometry().center()) or QGuiApplication.primaryScreen()).availableGeometry()
-        width = max(380, round(screen.width() * 0.2))
+        width = max(400, round(screen.width() * 0.25))
         self.setFixedSize(width, screen.height() - GAP * 2)
         self.move(screen.right() - width - GAP + 1, screen.top() + GAP)
 
@@ -311,8 +317,11 @@ class Face(QObject):
     def place_mascot(self):
         screen = QGuiApplication.primaryScreen().availableGeometry()
         x, y = self.cfg.get("face.x"), self.cfg.get("face.y")
-        if x is None or y is None or not screen.adjusted(-40, -40, 40, 40).contains(QPoint(int(x), int(y))):
-            x, y = screen.right() - SMILE_SIZE[0] - GAP, screen.bottom() - SMILE_SIZE[1] - GAP
+        whole = QGuiApplication.primaryScreen().geometry()
+        if x is None or y is None or not whole.adjusted(-40, -40, 40, 40).contains(QPoint(int(x), int(y))):
+            # THE SAME GAP TO THE SMILE ITSELF FROM THE RIGHT EDGE AND THE BOTTOM; THE CORNER IS CLEAR OF THE DOCK.
+            x = whole.x() + whole.width() - CORNER - (SMILE_SIZE[0] - SMILE_INSET[0])
+            y = whole.y() + whole.height() - CORNER - (SMILE_SIZE[1] - SMILE_INSET[1])
         self.mascot.move(int(x), int(y))
 
     def remember_place(self):
@@ -338,7 +347,12 @@ class Face(QObject):
         if native():
             from AppKit import NSApplication
 
-            NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+            # WITHOUT A REAL ACTIVATION THE PANEL GETS NO HOVER, AND ITS FIRST CLICK ONLY ACTIVATES IT.
+            app = NSApplication.sharedApplication()
+            if hasattr(app, "activate"):
+                app.activate()
+            else:
+                app.activateIgnoringOtherApps_(True)
         self.send_panel({"is": "shown"})
 
     def toggle_panel(self):

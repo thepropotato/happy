@@ -9,7 +9,7 @@ A voice agent that lives on your computer, not inside a project folder. Bring yo
 - "Read my latest emails." (through whichever email MCP server you add) "Summarise this article." "What's on my screen?"
 - "Build me a snake game." Happy opens a coding agent in a Terminal window with the task typed in, so you watch it work.
 
-Happy's face is its smile, in the bottom-right corner of the screen; drag it anywhere. The smile moves with what Happy is doing: listening, working something out, talking (the mouth follows the voice), pleased when a turn ends, and sorry when one goes wrong. Click it and the panel opens down the right edge of the screen. The panel shows the whole conversation, every request with the steps Happy took (click a step to see what went in and what came back) and the answer. There's a box for typing too. The settings open in the same panel. A menu-bar icon opens it as well.
+Happy's face is its smile, in the bottom-right corner of the screen; drag it anywhere. The smile moves with what Happy is doing: listening, working something out, talking (the mouth follows the voice), pleased when a turn ends, and sorry when one goes wrong. Click it and the panel opens down the right edge of the screen, a quarter of the screen wide. The panel shows the whole conversation, every request with the steps Happy took (click a step to see what went in and what came back) and the answer. There's a box for typing too. The settings open in the same panel. A menu-bar icon opens it as well.
 
 ## Install
 
