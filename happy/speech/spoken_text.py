@@ -55,7 +55,7 @@ def markdown_out(text):
 
 
 def say_clock(match):
-    """A clock time the way it is said: 1:01 AM is "1 oh 1 AM", 10:00 AM is "10 AM"."""
+    """A clock time the way it is said: a leading zero minute is "oh", and a whole hour is just the hour."""
     hour, minute, half = match.group(1), match.group(2), (match.group(3) or "").replace(".", "")
     spoken = hour if minute == "00" and half else f"{hour} o'clock" if minute == "00" else f"{hour} oh {minute[1]}" if minute[0] == "0" else f"{hour} {minute}"
     return f"{spoken} {half.upper()}".strip()

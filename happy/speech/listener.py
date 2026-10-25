@@ -67,7 +67,7 @@ def real_words(text):
 
 
 def looping(text):
-    """Whether the recognizer got stuck repeating itself on noise, like "I'm sorry." eight times while nobody spoke."""
+    """Whether the recognizer got stuck repeating one phrase, which it does on noise and people do not."""
     parts = [" ".join(re.findall(r"[a-z']+", part.lower())) for part in re.split(r"[.!?,;]+", text or "")]
     counts = collections.Counter(part for part in parts if len(part.split()) >= 2)
     return any(count >= 3 for count in counts.values())

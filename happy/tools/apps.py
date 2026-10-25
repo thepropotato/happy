@@ -109,7 +109,7 @@ def locate(query, folders=False):
         return [str(PLACES[key])]
     first, _, rest = key.replace("\\", "/").partition("/")
     if rest and first in PLACES:
-        # "DESKTOP/PORTFOLIO" IS A PATH FROM A PLACE, WHICH SPOTLIGHT TAKES AS ONE UNKNOWN WORD.
+        # A PATH FROM A KNOWN PLACE, WHICH SPOTLIGHT WOULD TAKE AS ONE UNKNOWN WORD.
         inside = next((PLACES[first] / name for name in os.listdir(PLACES[first]) if name.lower() == rest.strip("/")), None)
         if inside is not None:
             return [str(inside)]

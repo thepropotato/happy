@@ -236,7 +236,7 @@ class Happy:
                     stt.know(found)
                     known = found
                     log.info("listening for %d names from WhatsApp", len(found))
-            # THE FIRST REQUEST COMES SECONDS AFTER START; WAITING 30 HEARD "AUNTY" AS "ANYTHING".
+            # THE FIRST REQUEST CAN COME SECONDS AFTER START, AND A NAME HEARD BEFORE THE LIST ARRIVES IS MISHEARD.
             time.sleep(NAMES_EVERY if known else 1)
 
     def retune(self):

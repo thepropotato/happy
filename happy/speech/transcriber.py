@@ -55,7 +55,7 @@ class Transcriber:
     def __call__(self, samples: np.ndarray) -> str:
         if len(samples) < RATE // 4:
             return ""
-        # 900 NAMES PULL WORDS OUT OF NOISE ("I'M SORRY" EIGHT TIMES, SENT TO A CONTACT), SO THEY ONLY RESPELL WORDS ALREADY HEARD WITHOUT THEM.
+        # A LONG LIST OF NAMES PULLS WORDS OUT OF NOISE, SO THE NAMES ONLY RESPELL WHAT WAS HEARD WITHOUT THEM.
         plain = self.decode(samples, "")
         if not plain or not self.names:
             return plain
@@ -63,7 +63,7 @@ class Transcriber:
         return named if self.respelled(plain, named) else plain
 
     def respelled(self, plain, named):
-        """Whether the names only swapped heard words for names; "Happy" once grew "Happy birthday" out of nothing."""
+        """Whether the names only swapped heard words for names, adding nothing that is not a name."""
         before, after = words(plain), words(named)
         for kind, _, _, start, end in difflib.SequenceMatcher(a=before, b=after, autojunk=False).get_opcodes():
             if kind != "equal" and not all(word in self.name_words for word in after[start:end]):

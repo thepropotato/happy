@@ -12,7 +12,7 @@ TAPS = 63
 
 
 class Resampler:
-    """Any rate down to 16 kHz exactly, a block at a time: AirPods hand over 24 kHz, which halving made 12 kHz heard as 16."""
+    """Any input rate down to exactly 16 kHz, a block at a time, filtered first so nothing above the new rate folds back."""
 
     def __init__(self, source_rate):
         self.ratio = source_rate / RATE
