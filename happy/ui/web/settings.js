@@ -210,7 +210,7 @@ const Settings = (() => {
     voices.onchange = () => ask({ do: 'set', key: 'voice', value: voices.value })
     voiced.append(voices)
 
-    device(block, 'Microphone', 'What Happy hears through. Bluetooth mics only if picked.', 'input.device', word.microphone, word.microphones)
+    device(block, 'Microphone', 'What Happy hears through.', 'input.device', word.microphone, word.microphones)
     device(block, 'Speaker', 'What Happy talks through.', 'output.device', word.speaker, word.speakers)
   }
 

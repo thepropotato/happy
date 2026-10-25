@@ -267,18 +267,6 @@ def input_device():
     return audio_name(audio_read(1, "dIn "))
 
 
-def input_is_bluetooth():
-    """Whether the Mac is listening through a Bluetooth headset, whose microphone is call quality."""
-    device = audio_read(1, "dIn ")
-    return bool(device) and audio_read(device, "tran") in (fourcc("blue"), fourcc("blea"))
-
-
-def builtin_microphone():
-    """The name of the Mac's own microphone, or empty on a Mac without one."""
-    return next((audio_name(device) for device in audio_devices()
-                 if audio_read(device, "tran") == fourcc("bltn") and audio_has(device, "inpt")), "")
-
-
 def sound_devices(scope):
     """The names of every device with sound going "inpt" (microphones) or "outp" (speakers), read fresh from CoreAudio."""
     return [name for device in audio_devices() if audio_has(device, scope) and (name := audio_name(device))]

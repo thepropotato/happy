@@ -166,19 +166,14 @@ class Listener:
         """Echo-cancelled on macOS, so a video playing is not taken for the person talking; a plain stream elsewhere."""
         self.stream = None
         self.mic = None
-        wanted = self.device
         if sys.platform == "darwin":
             from happy.system import macos
 
             try:
                 self.opened_on = macos.input_device()
-                # A BLUETOOTH HEADSET'S MIC IS CALL QUALITY AND DRAGS ITS SOUND DOWN WITH IT; ITS SPEAKERS ARE OUT OF THE MAC'S EARSHOT ANYWAY.
-                if not wanted and macos.input_is_bluetooth():
-                    wanted = macos.builtin_microphone()
-                    log.info("the Mac's input %s is a Bluetooth headset; listening on %s instead", self.opened_on, wanted)
             except Exception:
                 self.opened_on = ""
-        if sys.platform == "darwin" and self.echo_cancel and not wanted:
+        if sys.platform == "darwin" and self.echo_cancel and not self.device:
             from happy.speech.microphone import EchoCancelled
 
             try:
@@ -190,7 +185,7 @@ class Listener:
             except Exception:
                 log.exception("echo cancellation is not available; listening without it")
                 self.mic = None
-        index, self.mic_name = pick_mic(wanted)
+        index, self.mic_name = pick_mic(self.device)
         self.stream = sd.InputStream(samplerate=RATE, channels=1, dtype="float32", blocksize=BLOCK,
                                      device=index, callback=self.arrived)
         self.stream.start()
