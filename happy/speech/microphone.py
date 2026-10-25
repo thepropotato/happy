@@ -62,7 +62,8 @@ class EchoCancelled:
         source = node.outputFormatForBus_(0)
         self.resample = Resampler(source.sampleRate())
         log.info("the microphone hands over %d Hz", source.sampleRate())
-        node.installTapOnBus_bufferSize_format_block_(0, 4800, source, self.arrived)
+        # A FIXED SAMPLE COUNT IS A LONGER WAIT ON A SLOWER DEVICE, SO EACH DELIVERY IS ONE BLOCK'S WORTH OF TIME.
+        node.installTapOnBus_bufferSize_format_block_(0, round(source.sampleRate() * BLOCK / RATE), source, self.arrived)
         self.engine.prepare()
         ok, error = self.engine.startAndReturnError_(None)
         if not ok:
