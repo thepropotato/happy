@@ -140,6 +140,14 @@ def qr_code():
     return base64.b64decode(image.split(",", 1)[1]) if image.startswith("data:image") else None
 
 
+def unlink():
+    """Logs the phone out and forgets its session, so linking again needs a new scan."""
+    try:
+        return bool(httpx.post(f"{BASE}/disconnect", timeout=15).json().get("success"))
+    except (httpx.HTTPError, ValueError):
+        return False
+
+
 def spec():
     """How to launch the WhatsApp MCP server, or None until it is installed."""
     if not installed():

@@ -64,6 +64,8 @@ class Settings:
             "colour": cfg.get("colour") or "#658761",
             "wake": bool(cfg.get("wake_word")),
             "key": cfg.get("push_to_talk"),
+            "voice": cfg.get("voice") or "alba",
+            "voices": voices(),
             "keys": KEYS,
             "whatsapp": self.whatsapp,
             "services": self.services,
@@ -206,7 +208,7 @@ class Settings:
             cfg.save()
             if key == "colour":
                 self.tint(value)
-            self.restart = self.restart or key in ("name", "push_to_talk")
+            self.restart = self.restart or key in ("name", "push_to_talk", "voice")
             self.send()
         elif kind == "model":
             self.choose_model(order, cfg)
@@ -214,6 +216,8 @@ class Settings:
             self.later(self.prepare_speech)
         elif kind == "whatsapp_link":
             self.later(self.poll_qr)
+        elif kind == "whatsapp_unlink":
+            self.later(self.unlink_whatsapp)
         elif kind == "service_add":
             self.later(lambda: self.service_change(*self.add_service(order.get("text", ""))))
         elif kind == "service_remove":
@@ -290,6 +294,19 @@ class Settings:
             ok = False
         self.service_change(ok, f"Signed in to {name}." if ok else f"Could not sign in to {name}.")
 
+    def unlink_whatsapp(self):
+        from happy.integrations import whatsapp
+
+        self.whatsapp = {"state": "busy", "text": "Unlinking…"}
+        self.send()
+        if whatsapp.unlink():
+            self.whatsapp = {"state": "unlinked", "text": "Unlinked. Link it again like WhatsApp Web."}
+        else:
+            state = whatsapp.status() or {}
+            self.whatsapp = {"state": "linked", "text": f"Linked as {state.get('name') or state.get('phone') or 'your phone'}"}
+            self.notice = "WhatsApp would not unlink; the log is in ~/.happy/whatsapp-bridge.log."
+        self.send()
+
     def poll_qr(self):
         """Shows WhatsApp's code in the panel until the phone has scanned it."""
         import time
@@ -339,6 +356,16 @@ class Settings:
             CGRequestScreenCaptureAccess()
         if what in PANES:
             subprocess.Popen(["open", PANES[what]])
+
+
+@cache
+def voices():
+    try:
+        from pocket_tts.utils.utils import _ORIGINS_OF_PREDEFINED_VOICES
+
+        return sorted(_ORIGINS_OF_PREDEFINED_VOICES)
+    except Exception:
+        return ["alba"]
 
 
 def granted(key):

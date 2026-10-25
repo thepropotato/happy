@@ -111,6 +111,7 @@ class Web(QWidget):
         self.view = QWebEngineView(self)
         self.view.setAttribute(Qt.WA_TranslucentBackground)
         self.view.setStyleSheet("background: transparent")
+        self.view.setContextMenuPolicy(Qt.NoContextMenu)
         self.view.page().setBackgroundColor(Qt.transparent)
         settings = self.view.settings()
         settings.setAttribute(QWebEngineSettings.LocalContentCanAccessFileUrls, True)

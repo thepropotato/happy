@@ -199,6 +199,20 @@ const Settings = (() => {
     }
 
     if (state.failed) line.append(button('Try again', () => ask({ do: 'speech_retry' })))
+
+    const voiced = row(block, 'Voice', 'Who Happy sounds like.')
+    const voices = element('select')
+
+    for (const each of word.voices || []) {
+      const option = element('option', '', each.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()))
+
+      option.value = each
+      option.selected = each === word.voice
+      voices.append(option)
+    }
+
+    voices.onchange = () => ask({ do: 'set', key: 'voice', value: voices.value })
+    voiced.append(voices)
   }
 
   function model(state) {
@@ -313,6 +327,21 @@ const Settings = (() => {
     const line = row(block, good ? state.text : 'Not linked', good ? 'Read, search and send messages.' : escape(state.text))
 
     if (state.state === 'unlinked') line.append(button('Link', () => ask({ do: 'whatsapp_link' }), true))
+
+    // UNLINKING FORGETS THE SESSION AND ITS HISTORY, SO IT TAKES A SECOND CLICK.
+    if (good) {
+      const unlink = button('Unlink', () => {
+        if (unlink.dataset.sure) return ask({ do: 'whatsapp_unlink' })
+        unlink.dataset.sure = '1'
+        unlink.textContent = 'Unlink, sure?'
+        setTimeout(() => {
+          delete unlink.dataset.sure
+          unlink.textContent = 'Unlink'
+        }, 3000)
+      })
+
+      line.append(unlink)
+    }
 
     if (qr && !good) {
       const holder = element('div', 'qr')
