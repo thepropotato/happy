@@ -1,11 +1,11 @@
-"""Reading what is inside a file, and deleting to the Trash in a way that can be undone."""
+"""Reading what is inside a file, writing text into one, and deleting to the Trash in a way that can be undone."""
 
 import re
 import time
 import zipfile
 from html import unescape
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from happy import history
 from happy.system import Failed, native
@@ -109,11 +109,71 @@ def native_png(path):
         return out.read_bytes()
 
 
-def guarded(path):
-    """Refuses the folders a slip of the tongue must never bin: home, its standard folders, and anything outside home."""
+def guarded(path, doing="delete"):
+    """Refuses the folders a slip of the tongue must never touch: home, its standard folders, and anything outside home."""
     resolved = path.resolve()
     if resolved in {p.resolve() for p in PLACES.values()} or Path.home().resolve() not in resolved.parents:
-        raise LookupError(f"{path} is not something I delete; do that one yourself in Finder.")
+        raise LookupError(f"{path} is not something I {doing}; do that one yourself.")
+
+
+def destination(name, folder):
+    """Where a file to write goes: inside the folder named, else the existing file of that name, else the Desktop."""
+    given = Path(name.strip().strip('"')).expanduser()
+    if given.is_absolute():
+        return given
+    if folder.strip():
+        place = PLACES.get(folder.lower().removeprefix("my ").removesuffix(" folder").strip())
+        if place is None:
+            found = [Path(p) for p in locate(folder, folders=True) if Path(p).is_dir()]
+            if not found:
+                raise LookupError(f"Found no folder called {folder}.")
+            place = found[0]
+        return place / given.name
+    try:
+        return one(name)
+    except LookupError:
+        return PLACES["desktop"] / given.name
+
+
+@tool(say="Writing it.", label="Writing {name}")
+def write_file(
+    name: Annotated[str, "the file's name with its ending, like notes.txt, or a path"],
+    text: Annotated[str, "exactly what goes in the file"],
+    folder: Annotated[str, "the folder for it, like desktop or documents; empty to use the file of that name, or the Desktop for a new one"] = "",
+    how: Annotated[Literal["new", "add", "replace"], "new makes a file, add puts the text at the end, replace rewrites all of it"] = "new",
+):
+    """Write text into a file on this computer: make a new one, add to the end of one, or rewrite one. A rewritten file's old version goes to the Trash, where restore_from_trash brings it back. Opens the file after so they see it."""
+    try:
+        path = destination(name, folder)
+        guarded(path, "write to")
+    except LookupError as error:
+        return str(error)
+    if path.suffix.lower() in PICTURES | set(OFFICE) | {".pdf"} or path.exists() and b"\0" in path.read_bytes()[:4000]:
+        return f"{path.name} is not a plain text file, so writing into it would break it."
+    if path.is_dir():
+        return f"{path} is a folder; give the file a name."
+    if not path.parent.is_dir():
+        return f"There is no folder at {path.parent}."
+    existed = path.exists()
+    if existed and how == "new":
+        return f"{path} already exists. Add to it, or replace what is in it."
+    try:
+        if existed and how == "replace":
+            history.trashed(str(path), native.trash(path))
+            path.write_text(text)
+        elif existed and how == "add":
+            before = path.read_text(errors="replace")
+            path.write_text(before + ("" if not before or before.endswith("\n") else "\n") + text)
+        else:
+            path.write_text(text)
+        native.open_path(path)
+    except (OSError, Failed) as error:
+        return f"Could not write {path}: {error}"
+    if not existed:
+        return f"Wrote {path} and opened it."
+    if how == "add":
+        return f"Added to {path} and opened it."
+    return f"Rewrote {path} and opened it. The old version is in the Trash."
 
 
 @tool(say="Moving it to the Trash.", label="Deleting {what}")
@@ -140,12 +200,14 @@ def restore_from_trash(what: Annotated[str, "words from the name of what was del
         return ("I have not deleted anything like that. Things deleted by hand have to be put back from the Trash in Finder."
                 if what else "I have not deleted anything to bring back.")
     original, held = Path(found["original"]), found["held"]
-    if original.exists():
-        return f"Something is already at {original}, so I left the deleted one in the Trash."
+    swapped = original.exists()
     try:
+        if swapped:
+            # WHAT TOOK ITS PLACE GOES TO THE TRASH IN TURN, SO PUTTING ONE BACK NEVER LOSES THE OTHER.
+            history.trashed(str(original), native.trash(original))
         native.untrash(held, original)
     except Failed as error:
         return f"Could not bring back {original.name}: {error}"
     history.untrashed(found["id"])
     when = time.strftime("%d %b at %I:%M %p", time.localtime(found["at"])).replace(" 0", " ")
-    return f"Put {original.name} back in {original.parent} (deleted {when})."
+    return f"Put {original.name} back in {original.parent} (deleted {when})." + (" The one that replaced it is in the Trash." if swapped else "")

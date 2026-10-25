@@ -79,6 +79,8 @@ CASES = [
     ("stop the accent and talk normally again", "personality", {}),
     ("my brother is John Doe in my contacts, remember that", "remember", {"fact": "brother"}),
     ("tell my brother John Doe on whatsapp that I'm on my way", "whatsapp_send", {"called": "brother"}),
+    ("create a file on the desktop called test.txt and write some dialogue from game of thrones in it", "write_file", {"name": "test.txt"}),
+    ("rewrite test.txt on my desktop so it only says hello", "write_file", {"how": "replace"}),
 ]
 
 GMAIL = [
@@ -110,6 +112,7 @@ CANNED = {
     "find_images": "1. Tyrion Lannister Season 8 — 1920x1080, from wallpapercave.com\n2. Peter Dinklage as Tyrion — 800x1200, from wikipedia.org\n\nThe first ones are the best matches; download saves one by its number.",
     "weather": "Hyderabad, Telangana, India, the next seven days:\nToday: clear, 23 to 32°C, 0% chance of rain\nMonday 26 Oct: partly cloudy, 22 to 31°C, 10% chance of rain",
     "reminder": "Reminder set: call the dentist, 4 PM today.",
+    "write_file": "Wrote /Users/johndoe/Desktop/test.txt and opened it.",
     "read_tab": "Why sleep matters — https://example.com/sleep\n\nSleep consolidates memory and clears waste from the backend. Adults need 7 to 9 hours.",
 }
 
