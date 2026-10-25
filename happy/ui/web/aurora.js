@@ -23,6 +23,8 @@ const MOODS = {
 // HALF SIZE. IT IS ALL BLUR.
 const COARSE = 2
 
+const DRIFT_FPS = 8
+
 function rgb(hex) {
   const value = parseInt(hex.slice(1), 16)
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255]
@@ -39,6 +41,7 @@ const Aurora = (() => {
   let target = MOODS.loading.room.map(rgb)
   let shown = target.map((each) => each.slice())
   let clock = 0
+  let last = 0
 
   function fit() {
     canvas.width = Math.max(1, Math.floor(canvas.clientWidth / COARSE))
@@ -56,10 +59,13 @@ const Aurora = (() => {
     }))
   }
 
-  function frame() {
-    clock += 0.0045
+  function frame(at) {
+    const frames = last ? Math.min(6, ((at - last) / 1000) * 60) : 1
 
-    shown = shown.map((each, index) => toward(each, target[index], 0.03))
+    last = at
+    clock += 0.0045 * frames
+
+    shown = shown.map((each, index) => toward(each, target[index], 1 - 0.97 ** frames))
 
     const { width, height } = canvas
     paint.clearRect(0, 0, width, height)
@@ -83,7 +89,11 @@ const Aurora = (() => {
     }
 
     paint.globalCompositeOperation = 'source-over'
-    requestAnimationFrame(frame)
+
+    const changing = shown.some((each, index) => each.some((value, part) => Math.abs(value - target[index][part]) > 1))
+
+    if (changing) requestAnimationFrame(frame)
+    else setTimeout(() => requestAnimationFrame(frame), 1000 / DRIFT_FPS)
   }
 
   return {

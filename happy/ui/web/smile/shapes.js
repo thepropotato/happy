@@ -53,7 +53,7 @@ for (const key of Object.keys(SHAPES)) mixture[key] = key === 'loading' ? 1 : 0
 
 function towards(mood, whole) {
   const want = SHAPES[mood] || SHAPES.idle
-  const step = whole ? 1 : EASE
+  const step = whole === true ? 1 : whole || EASE
 
   for (const key of ['wide', 'curve', 'open', 'lip']) holding[key] += (want[key] - holding[key]) * step
   for (const key of Object.keys(mixture)) mixture[key] += ((key === mood ? 1 : 0) - mixture[key]) * step
