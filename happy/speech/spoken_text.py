@@ -13,6 +13,7 @@ SITES = {
 URL = re.compile(r"(?:https?://|www\.)[^\s<>()\[\]]+[^\s<>()\[\].,;:!?'\"]")
 EMAIL = re.compile(r"\b([\w.+-]+)@([\w-]+(?:\.[\w-]+)+)\b")
 PATH = re.compile(r"(?<![\w.])(?:~|/(?:Users|home|Applications|Volumes|tmp|var|opt)|[A-Z]:\\)[^\s,;:!?'\"]*[^\s,;:!?'\".)]")
+CLOCK = re.compile(r"\b([01]?\d|2[0-3]):([0-5]\d)\b(?:\s*([AaPp]\.?[Mm]\.?)(?![a-z]))?")
 EMOJI = re.compile("[\U0001F000-\U0001FAFF☀-➿️‍]")
 
 
@@ -53,12 +54,20 @@ def markdown_out(text):
     return text
 
 
+def say_clock(match):
+    """A clock time the way it is said: 1:01 AM is "1 oh 1 AM", 10:00 AM is "10 AM"."""
+    hour, minute, half = match.group(1), match.group(2), (match.group(3) or "").replace(".", "")
+    spoken = hour if minute == "00" and half else f"{hour} o'clock" if minute == "00" else f"{hour} oh {minute[1]}" if minute[0] == "0" else f"{hour} {minute}"
+    return f"{spoken} {half.upper()}".strip()
+
+
 def speakable(text):
     text = markdown_out(text)
     text = URL.sub(lambda m: say_url(m, text), text)
     text = EMAIL.sub(lambda m: f"{m.group(1).replace('.', ' dot ')} at {m.group(2).replace('.', ' dot ')}", text)
     text = PATH.sub(lambda m: say_path(m.group(0)), text)
     text = EMOJI.sub("", text)
+    text = CLOCK.sub(say_clock, text)
     text = re.sub(r"(\d)\s*%", r"\1 percent", text)
     text = re.sub(r"[$]\s?(\d[\d,.]*)", r"\1 dollars", text)
     text = re.sub(r"₹\s?(\d[\d,.]*)", r"\1 rupees", text)
