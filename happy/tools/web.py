@@ -58,7 +58,9 @@ def google_page(page):
         link = heading.xpath("ancestor::a[@href][1]")
         if not link:
             if not overview and "AI" in title:
-                overview = " ".join(heading.getparent().text_content().split())[len(title):]
+                overview = " ".join(" ".join(heading.getparent().itertext()).split())[len(title):]
+                # WHAT FOLLOWS THE ANSWER IS GOOGLE'S OWN BUTTONS AND SOURCE CARDS, READ OUT AS IF THEY WERE THE ANSWER.
+                overview = re.split(r"\s(?:Shared\s*\d+\s*files|Show all|AI responses may include mistakes)", overview)[0]
             continue
         href = link[0].get("href")
         # GOOGLE'S OWN /goto ADDRESS LEADS TO THE PAGE WHEN FETCHED; THE REAL ONE IS NOWHERE ON THE PAGE.
