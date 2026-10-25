@@ -53,9 +53,7 @@ class Happy:
         self.last_result = None
         self.quiet = False
         self.chat = None
-        from happy.agent.prompt import persona_stamp
-
-        self.persona_at = persona_stamp()
+        self.prompted = ""
 
     def run(self):
         asyncio.run(self.main())
@@ -78,6 +76,9 @@ class Happy:
             except Exception as error:
                 log.exception("model did not start")
                 self.face.trouble(f"{self.backend.name} did not start: {error}")
+            from happy.agent.prompt import system_prompt
+
+            self.prompted = system_prompt(self.cfg)
         self.ready.set()
         self.face.state("idle")
         threading.Thread(target=self.keep_time, name="reminders", daemon=True).start()
@@ -530,12 +531,13 @@ class Happy:
                 self.answered = True
                 self.say(event.message)
 
-        from happy.agent.prompt import persona_stamp
+        from happy.agent.prompt import system_prompt
 
-        if persona_stamp() != self.persona_at:
-            # A NEW WAY OF TALKING, SET IN THE SETTINGS OR BY VOICE, APPLIES FROM THE NEXT TURN WITHOUT A RESTART.
-            self.persona_at = persona_stamp()
+        # ANYTHING THE PROMPT IS BUILT FROM, CHANGED IN THE SETTINGS, BY VOICE OR BY remember, APPLIES FROM THE NEXT TURN.
+        prompt = system_prompt(self.cfg)
+        if self.prompted and prompt != self.prompted:
             await self.backend.refresh()
+        self.prompted = prompt
         guard = asyncio.create_task(self.keep_talking(started))
         try:
             final = await self.backend.turn(text, emit)

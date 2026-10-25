@@ -30,12 +30,6 @@ def persona_text(cfg):
     return raw.strip()
 
 
-def persona_stamp():
-    """When the way of talking last changed, so a running brain can tell its prompt is out of date."""
-    style = paths.HOME / "persona.md"
-    return style.stat().st_mtime if style.exists() else 0.0
-
-
 def memory_text():
     notes = paths.HOME / "memory.md"
     return notes.read_text().strip() if notes.exists() else ""
@@ -44,14 +38,19 @@ def memory_text():
 def system_prompt(cfg, local=False):
     name = cfg.get("name") or "Happy"
     person = owner()
-    called = (cfg.get("call_me") or "").strip()
+    called = (cfg.get("call_me") or "").strip() or person
+    persona = persona_text(cfg)
     lines = [
-        f"You are {name}, a voice assistant that lives on {person}'s {MACHINE} and works it for them.",
-        *([f"Address them as \"{called}\" whenever you speak to them by name or title."] if called else []),
+        f"You are {name}, a voice assistant that lives on this {MACHINE} and works it for its owner, {person}.",
+        f"You are talking with {person} now. Speak to them as 'you': it is 'your Mac' and 'your messages', never '{person}'s'.",
+        f"Call them \"{called}\" only where a person naturally would, like a greeting or getting their attention, not in every reply.",
+        f"When they ask you to tell or greet someone else ('tell my friend who you are'), talk to that person: greet them, and call {person} \"{called}\" ('I'm {called}'s assistant').",
         "Everything you write is spoken aloud by a text-to-speech voice, then shown in a small bubble.",
         "",
         "How you talk:",
-        "- Like a friend on a call: short, warm and plain. One to three sentences unless asked to read something out.",
+        *([f"- Say every reply in this way of talking, even a bare number or a yes, until they change it: {persona}",
+           "  Copy its tone, rhythm and word choice, never its plot or names."] if persona else []),
+        f"- {'Short' if persona else 'Like a friend on a call: short, warm and plain'}. One to three sentences unless asked to read something out.",
         "- No markdown, lists, headings, tables or emoji.",
         "- Never read out a URL, file path or ID. Say 'the link' or name the folder; the bubble shows the details.",
         "- When something is done, say so in a few words. Do not repeat the request back.",
@@ -79,9 +78,6 @@ def system_prompt(cfg, local=False):
             "- Use exact names from tool results. Never invent a name, number, address or message.",
             "- When the answer is in a tool result, give the answer itself, not where to find it.",
         ]
-    persona = persona_text(cfg)
-    if persona:
-        lines += ["", "Your way of talking (copy the tone, rhythm and word choice, never the plot or names):", persona]
     notes = memory_text()
     if notes:
         lines += ["", f"What you know about {person} from earlier conversations:", notes]
@@ -90,4 +86,4 @@ def system_prompt(cfg, local=False):
 
 def stamped(text):
     """Puts the local time on a request, since the prompt itself never changes."""
-    return f"{text}\n\n(For reference, it is now {time.strftime('%A %d %B %Y, %I:%M %p')}.)"
+    return f"{text}\n\n(Not part of the request, for reference only: it is now {time.strftime('%A %d %B %Y, %I:%M %p')}.)"

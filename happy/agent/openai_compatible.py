@@ -77,10 +77,7 @@ class OpenAICompatible(Backend):
                 self.model = await self.roomy()
             except Exception as error:
                 log.warning("could not give %s a bigger window: %s", self.model, error)
-        self.tool_list = tools.available(local=True)
-        self.schemas = [{"type": "function", "function": {"name": t.name, "description": t.description,
-                                                          "parameters": t.schema}} for t in self.tool_list]
-        self.system = {"role": "system", "content": system_prompt(self.cfg, local=self.local)}
+        self.prepare()
         from happy import history
 
         for turn in history.since(FORGET_AFTER)[-6:]:
@@ -90,8 +87,15 @@ class OpenAICompatible(Backend):
     async def reset(self):
         self.history = []
 
-    async def refresh(self):
+    def prepare(self):
+        """The prompt and the tools, built once and again only when one of them changed, to keep the prefix cache."""
+        self.tool_list = tools.available(local=True)
+        self.schemas = [{"type": "function", "function": {"name": t.name, "description": t.description,
+                                                          "parameters": t.schema}} for t in self.tool_list]
         self.system = {"role": "system", "content": system_prompt(self.cfg, local=self.local)}
+
+    async def refresh(self):
+        self.prepare()
 
     async def interrupt(self):
         self.cancelled = True
