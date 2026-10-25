@@ -4,6 +4,7 @@ import difflib
 import re
 import os
 import shutil
+import subprocess
 import sys
 import time
 import urllib.parse
@@ -106,6 +107,12 @@ def locate(query, folders=False):
     key = query.lower().removesuffix(" folder").removeprefix("my ").strip()
     if key in PLACES and PLACES[key].exists():
         return [str(PLACES[key])]
+    first, _, rest = key.replace("\\", "/").partition("/")
+    if rest and first in PLACES:
+        # "DESKTOP/PORTFOLIO" IS A PATH FROM A PLACE, WHICH SPOTLIGHT TAKES AS ONE UNKNOWN WORD.
+        inside = next((PLACES[first] / name for name in os.listdir(PLACES[first]) if name.lower() == rest.strip("/")), None)
+        if inside is not None:
+            return [str(inside)]
     words = [w for w in key.replace("-", " ").replace("_", " ").split()
              if w not in ("the", "my", "folder", "file", "project", "repo")]
     if not words:
@@ -146,8 +153,6 @@ def open_file(
     elif app:
         kind, how = code_editor(app)
         if kind == "cli":
-            import subprocess
-
             subprocess.Popen([how, path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
             native.open_path(path, app=how)
@@ -185,9 +190,49 @@ def size_of(count):
         count /= 1024
 
 
+def folder_sizes(folders, limit=20):
+    """Each folder's total size in bytes, everything inside counted; empty when it would take too long."""
+    if not folders:
+        return {}
+    if sys.platform != "win32":
+        try:
+            out = subprocess.run(["du", "-sk", *map(str, folders)], capture_output=True, text=True, timeout=limit).stdout
+        except subprocess.TimeoutExpired:
+            return {}
+        sizes = {}
+        for line in out.splitlines():
+            kb, _, path = line.partition("\t")
+            if kb.isdigit():
+                sizes[path] = int(kb) * 1024
+        return sizes
+    ends, sizes = time.monotonic() + limit, {}
+    for folder in folders:
+        total = 0
+        for root, _, names in os.walk(folder):
+            if time.monotonic() > ends:
+                return {}
+            for name in names:
+                try:
+                    total += os.lstat(os.path.join(root, name)).st_size
+                except OSError:
+                    pass
+        sizes[str(folder)] = total
+    return sizes
+
+
+def files_within(folder, limit=8):
+    """How many files are in a folder counting every folder inside it, or None when it would take too long."""
+    ends, count = time.monotonic() + limit, 0
+    for _, _, names in os.walk(folder):
+        if time.monotonic() > ends:
+            return None
+        count += len(names)
+    return count
+
+
 @tool(label="Looking in {folder}")
 def list_folder(folder: Annotated[str, "a folder by name, like downloads, desktop or 'happy project', or a path"]):
-    """What is inside a folder: how many files and folders, what kinds, and the newest ones. Use it for 'how many files', 'what's in' and 'latest download'."""
+    """What is inside a folder: how many files and folders, what kinds, how big each one is and in all, and the newest ones. Use it for 'how many files', 'how big', 'what's in' and 'latest download'."""
     hits = locate(folder, folders=True)
     place = next((Path(p) for p in hits if Path(p).is_dir()), None)
     if place is None:
@@ -204,11 +249,19 @@ def list_folder(folder: Annotated[str, "a folder by name, like downloads, deskto
         kinds[kind] = kinds.get(kind, 0) + 1
     common = ", ".join(f"{n} {k}" for k, n in sorted(kinds.items(), key=lambda kv: -kv[1])[:6])
     newest = sorted(entries, key=lambda e: e.stat().st_mtime, reverse=True)[:15]
-    lines = [f"{place}: {len(files)} files and {len(folders)} folders" + (f" (files: {common})" if common else "") + ".", "Newest first:"]
+    sizes = folder_sizes(folders)
+    whole = sum(e.stat().st_size for e in files) + sum(sizes.values())
+    lines = [f"{place}: {len(files)} files and {len(folders)} folders" + (f" (files: {common})" if common else "") + ".",
+             f"In all: {size_of(whole)}." if sizes or not folders else "Folder sizes took too long to add up."]
+    if folders:
+        within = files_within(place)
+        lines.append(f"Counting everything inside its folders too: {within} files." if within is not None else "Too many files inside to count them all.")
+    lines.append("Newest first:")
     for e in newest:
         stat = e.stat()
         when = time.strftime("%d %b %Y", time.localtime(stat.st_mtime))
-        lines.append(f"{e.name}{'/' if e.is_dir() else ''} ({'folder' if e.is_dir() else size_of(stat.st_size)}, {when})")
+        size = size_of(sizes[str(e)]) if str(e) in sizes else "" if e.is_dir() else size_of(stat.st_size)
+        lines.append(f"{e.name}{'/' if e.is_dir() else ''} ({'folder, ' if e.is_dir() else ''}{size}{', ' if size else ''}{when})")
     return "\n".join(lines)
 
 
