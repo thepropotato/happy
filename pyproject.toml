@@ -23,6 +23,9 @@ dependencies = [
     "pynput>=1.8; sys_platform != 'darwin'",
     "pyobjc-framework-avfoundation>=11 ; sys_platform == 'darwin'",
     "pyside6-webengine>=6.12",
+    "ddgs>=9.16.1",
+    "trafilatura>=2.3.1",
+    "curl-cffi>=0.16.3",
 ]
 
 [project.scripts]

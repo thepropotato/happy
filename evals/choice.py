@@ -41,6 +41,12 @@ CASES = [
     ("do you have access to my linear account", "connections", {}),
     ("check my email", "gmail__search_threads", {}),
     ("draft an email to ravi saying I'll call him tonight", "gmail__create_draft", {}),
+    ("I want you to search for the current price of PS5 in India.", "web_search", {"query": "ps5"}),
+    ("what's the weather going to be like in hyderabad tomorrow", "web_search", {"query": "hyderabad"}),
+    ("who won the formula one race last weekend", "web_search", {}),
+    ("look up how many calories are in a dosa", "web_search", {"query": "dosa"}),
+    ("google the release date of GTA 6", "web_search", {"query": "gta"}),
+    ("open flipkart and show me the ps5 listings", "open_link", {"where": "flipkart"}),
 ]
 
 GMAIL = [
@@ -63,6 +69,10 @@ CANNED = {
     "open_file": "Opened /Users/venupulagam/Documents/Resume 2026.pdf in Finder.",
     "hand_off_coding": "Opened Claude Code in a Terminal window in /Users/venupulagam/Desktop/projects/open-slate with the task.",
     "whatsapp_search": "[Mon 19 Oct, 10:02 AM in Office] Suresh (boss): [document] (file Q3-plan.pdf)",
+    "web_search": "1. Sony PlayStation5 Online in India at Best Prices - Flipkart — www.flipkart.com\n   The PS5 gaming console delivers eye-catching graphics with hardware that supports ray tracing.\n"
+                  "2. Amazon.in: Ps5 — www.amazon.in\n   Discover a wide selection of PS5 games, consoles, and gaming accessories.\n"
+                  "3. Sony PS5 Consoles | Reliance Digital — www.reliancedigital.in\n   Compare Slim, Digital, & Disc Models.\n\n"
+                  "The snippets are short; read_result reads a whole page.",
     "read_tab": "Why sleep matters — https://example.com/sleep\n\nSleep consolidates memory and clears waste from the backend. Adults need 7 to 9 hours.",
 }
 

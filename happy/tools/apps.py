@@ -188,7 +188,9 @@ def as_url(text):
 
 @tool(label="Opening {where}")
 def open_link(where: Annotated[str, "a full URL, a site like youtube.com, or words to search for"]):
-    """Open a website or a web search in the browser, when they ask to open, visit or search something. Never to check mail or messages."""
+    """Open a website or a search page in the browser, only when they ask to open, visit or show it. To find something out, use web_search. Never to check mail or messages."""
+    if where.strip().isdigit():
+        return f"Nothing opened. To read search result {where.strip()}, call read_result with that number; it stays out of sight."
     url = as_url(where)
     if sys.platform == "darwin":
         native.open_path(url)
