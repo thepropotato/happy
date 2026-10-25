@@ -14,7 +14,7 @@ import sounddevice as sd
 
 from happy.speech import models
 from happy.speech.transcriber import Transcriber
-from happy.speech.addressing import addressed, mentions
+from happy.speech.addressing import addressed, mentions, sounds_like
 
 RATE = 16000
 BLOCK = 1600
@@ -46,6 +46,22 @@ def pick_mic(wanted=""):
 
 
 FILLERS = {"um", "uh", "hmm", "mm", "mhm", "ah", "oh", "er", "erm", "huh", "the", "a"}
+
+
+# SAID OVER HAPPY, THESE ONLY MEAN "BE QUIET"; THEY ARE NOT A NEW REQUEST.
+STOPS = {"stop", "wait", "quiet", "enough", "cancel", "never mind", "nevermind", "shut up", "hold on", "be quiet", "stop talking", "ok stop", "okay stop"}
+
+
+def after_name(text, name):
+    """What follows the name when it opens what was said over Happy, or None when the name is not among the first words."""
+    if not mentions(text, name):
+        return None
+    command = addressed(text, name)
+    if command is not None:
+        return command
+    words = re.findall(r"[\w']+", text)
+    first = next(w for w in words[:3] if sounds_like(w, name))
+    return text.split(first, 1)[1].lstrip(" ,.!?;:-").strip()
 
 
 def real_words(text):
@@ -286,7 +302,7 @@ class Listener:
             self.capture.append(block)
         if verdict == "done":
             audio = np.concatenate(self.capture)
-            how = "barge" if self.barged else "woken" if self.woken else "overheard"
+            how = "barge" if self.barged or self.barging else "woken" if self.woken else "overheard"
             self.capture = []
             self.fresh_segment()
             self.barging = self.deaf.is_set() and self.mic is not None
@@ -295,7 +311,8 @@ class Listener:
             self.peeks.pop(0)
             opening = self.stt(np.concatenate(self.capture))
             if self.barging:
-                if real_words(opening) and not self.echo(opening):
+                # LEAKED ECHO TRANSCRIBES AS OTHER WORDS THAN HAPPY SAID, SO ONLY HIS NAME, WHICH HE NEVER SAYS, CUTS HIM OFF.
+                if real_words(opening) and not self.echo(opening) and mentions(opening, self.name):
                     self.woken = self.barged = True
                     log.info("barged in: %r", opening)
                     self.on_barge()
@@ -317,12 +334,19 @@ class Listener:
             self.on_state("transcribing")
         text = self.stt(audio)
         if how == "barge":
-            if not real_words(text) or self.echo(text):
+            command = after_name(text, self.name)
+            if not real_words(text) or self.echo(text) or command is None:
                 self.on_state("missed")
                 return
             log.info("heard (barge): %r", text)
-            command = addressed(text, self.name)
-            self.on_heard(command if command else text, "barge")
+            if self.deaf.is_set():
+                self.on_barge()
+            if re.sub(r"[^a-z ]", "", command.lower()).strip() in STOPS:
+                self.on_state("missed")
+            elif command:
+                self.on_heard(command, "barge")
+            else:
+                self.listen_now()
             return
         if how in ("overheard", "woken"):
             command = addressed(text, self.name)

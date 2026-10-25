@@ -123,9 +123,16 @@ def talking_over(audio, echo=lambda text: False):
 
 
 @pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
-def test_talking_over_happy_cuts_him_off():
+def test_talking_over_happy_by_name_cuts_him_off():
+    barged, heard = talking_over(load("wake2.wav"))
+    assert barged and heard and heard[0][1] == "barge" and "pause" in heard[0][0].lower(), (barged, heard)
+
+
+@pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
+def test_talking_over_happy_without_his_name_does_not_cut_him_off():
+    # LEAKED ECHO TRANSCRIBES AS STRAY WORDS LIKE "I THINK", SO WORDS WITHOUT THE NAME MUST NOT START A TURN.
     barged, heard = talking_over(load("neg1.wav"))
-    assert barged and heard and heard[0][1] == "barge", (barged, heard)
+    assert not barged and not heard, (barged, heard)
 
 
 def test_noise_does_not_cut_happy_off():
@@ -136,5 +143,5 @@ def test_noise_does_not_cut_happy_off():
 
 @pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
 def test_his_own_words_coming_back_do_not_cut_him_off():
-    barged, heard = talking_over(load("neg1.wav"), echo=lambda text: True)
+    barged, heard = talking_over(load("wake2.wav"), echo=lambda text: True)
     assert not barged and not heard
