@@ -19,8 +19,32 @@ STEPS = 10
 FORGET_AFTER = 15 * 60
 KEEP_TURNS = 12
 RESULT_LIMIT = 4000
+# THIS MUCH TEXT WITH NO WORD IN IT IS THE MODEL COLLAPSING INTO PUNCTUATION, NOT ANSWERING.
+BABBLE = 40
 # THE PROMPT AND TOOLS ALONE ARE ABOUT 2800 TOKENS, AND A SEARCH RESULT OR TWO PLUS A FEW TURNS IS MANY THOUSAND MORE.
 WINDOW = 32768
+
+
+def babbling(text):
+    """Whether the end of what the model wrote is a run of dots and question marks with no word in it."""
+    tail = text[-BABBLE:]
+    return len(tail) == BABBLE and not any(c.isalnum() for c in tail) and sum(c in "?.…" for c in tail) >= BABBLE // 4
+
+
+def sense(text):
+    """Text up to the last word, plus the mark that closed it, with any collapse into punctuation after it dropped."""
+    last = max((i for i, c in enumerate(text) if c.isalnum()), default=-1)
+    if last < 0:
+        return ""
+    end = last + 1
+    while end < len(text) and text[end] in ".!?)\"”'’":
+        end += 1
+    kept = text[:end]
+    # AN ASIDE OPENED JUST BEFORE THE COLLAPSE NEVER CLOSES, SO IT GOES WITH IT.
+    opened = kept.rfind("(")
+    if opened > max(kept.rfind(")"), max(kept.rfind(m) for m in ".!?")):
+        kept = kept[:opened].rstrip()
+    return kept
 
 
 def repair(raw):
@@ -169,9 +193,12 @@ class OpenAICompatible(Backend):
             nonlocal held
             claim = unbacked(text, self.done())
             clean, held = text.split(claim, 1)[0] if claim else text, text[text.index(claim):] if claim else ""
-            if clean:
+            # A "SENTENCE" OF NOTHING BUT "… ? …" IS NEITHER SHOWN NOR SPOKEN.
+            if clean and any(c.isalnum() for c in clean):
                 said.append(clean)
                 emit(Text(clean))
+
+        babbled = False
 
         async for chunk in stream:
             if self.cancelled:
@@ -182,6 +209,11 @@ class OpenAICompatible(Backend):
             delta = chunk.choices[0].delta
             if delta.content:
                 content.append(delta.content)
+                if babbling("".join(content)):
+                    babbled = True
+                    log.warning("the model collapsed into punctuation; cut it off: %r", "".join(content)[-80:])
+                    await stream.close()
+                    break
                 if held:
                     held += delta.content
                     continue
@@ -205,6 +237,9 @@ class OpenAICompatible(Backend):
         for index, slot in sorted(calls.items()):
             listed.append({"id": slot["id"] or f"call_{index}_{int(time.time() * 1000)}", "type": "function",
                            "function": {"name": slot["name"], "arguments": slot["arguments"] or "{}"}})
+        if babbled:
+            pending, held = sense(pending), sense(held)
+            content = [sense("".join(content))]
         if not held:
             release(pending)
         return "".join(content), listed, held
