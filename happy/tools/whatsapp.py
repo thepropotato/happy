@@ -213,9 +213,11 @@ async def whatsapp_stats():
     waiting = "; ".join(f"{w['name']} ({when(w)}): {w['said'] or '[' + (w.get('kind') or 'message') + ']'}"
                         for w in data["waiting_on_your_reply"]) or "nobody"
     biggest = ", ".join(f"{g['name']} ({g['members']} members)" for g in data["biggest_groups"]) or "none"
+    today = ", ".join(f"{b['name']}{' (group)' if b['isGroup'] else ''} {b['messages']}" for b in data.get("busiest_today", []))
     return (f"{data['chats']} chats: {data['people_chats']} with people and {data['groups']} groups, {data['archived']} archived. "
             f"{data['contacts']} contacts. Unread: {data['unread_messages']} messages in {data['unread_chats']} chats.\n"
-            f"Today: {data['today']['received']} received and {data['today']['sent']} sent, across {data['today']['chats']} chats. "
+            f"Today: {data['today']['received']} received and {data['today']['sent']} sent, across {data['today']['chats']} chats"
+            f"{': ' + today if today else ''}. "
             f"This week: {data['this_week']['received']} received, {data['this_week']['sent']} sent.\n"
             f"Busiest this week (messages): {busiest}.\nWaiting on your reply: {waiting}.\nBiggest groups: {biggest}.\n"
             f"Counted from {data['messages_synced']} messages synced since {data['synced_since']}.")

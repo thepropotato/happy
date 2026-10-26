@@ -134,3 +134,13 @@ def test_a_day_is_read_whole_oldest_first_without_reactions(monkeypatch):
 def test_a_sticker_is_not_shown_as_a_file():
     assert whatsapp.line({"timestamp": 0, "from": "Jane Doe", "type": "sticker", "body": "", "filename": "3A5B749E.webp"}) \
         .endswith("Jane Doe: [sticker]")
+
+
+def test_stats_say_which_chats_were_busy_today(monkeypatch):
+    stats = {"chats": 2, "people_chats": 1, "groups": 1, "archived": 0, "contacts": 3, "unread_messages": 0, "unread_chats": 0,
+             "today": {"received": 4, "sent": 0, "chats": 2}, "this_week": {"received": 4, "sent": 0},
+             "busiest_today": [{"name": "Office", "isGroup": True, "messages": 3}, {"name": "Jane Doe", "isGroup": False, "messages": 1}],
+             "busiest_this_week": [], "waiting_on_your_reply": [], "biggest_groups": [], "messages_synced": 4, "synced_since": "1 Oct 2026"}
+    monkeypatch.setattr(whatsapp, "bridge", lambda path, **params: stats)
+    said = asyncio.run(whatsapp.whatsapp_stats())
+    assert "across 2 chats: Office (group) 3, Jane Doe 1." in said

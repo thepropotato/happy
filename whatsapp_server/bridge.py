@@ -2549,9 +2549,12 @@ def stats(username):
         groups = [c for c in chats if c.get("isGroup")]
         week = [m for m in said if (m.get("timestamp") or 0) >= now - 7 * 86400]
         today = [m for m in said if (m.get("timestamp") or 0) >= day_start]
-        busy = {}
+        busy, busy_today = {}, {}
         for m in week:
             busy.setdefault(m["chatJid"], {"name": m["chatName"], "isGroup": m["isGroup"], "messages": 0})["messages"] += 1
+        # WITH ONLY A TOTAL FOR TODAY, "ANY GROUP TODAY?" WAS ANSWERED NO WHILE A GROUP HAD SIXTY MESSAGES.
+        for m in today:
+            busy_today.setdefault(m["chatJid"], {"name": m["chatName"], "isGroup": m["isGroup"], "messages": 0})["messages"] += 1
         newest = {}
         for m in said:
             newest.setdefault(m["chatJid"], m)
@@ -2570,6 +2573,7 @@ def stats(username):
         "today": {"received": sum(1 for m in today if not m.get("fromMe")), "sent": sum(1 for m in today if m.get("fromMe")),
                   "chats": len({m["chatJid"] for m in today})},
         "this_week": {"received": sum(1 for m in week if not m.get("fromMe")), "sent": sum(1 for m in week if m.get("fromMe"))},
+        "busiest_today": sorted(busy_today.values(), key=lambda b: -b["messages"])[:8],
         "busiest_this_week": sorted(busy.values(), key=lambda b: -b["messages"])[:5],
         "waiting_on_your_reply": sorted(waiting, key=lambda w: -(w["timestamp"] or 0))[:8],
         "biggest_groups": [{"name": g["name"], "members": g.get("participantCount")} for g in biggest],
