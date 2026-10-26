@@ -1,4 +1,4 @@
-"""Happy's voice: Kyutai Pocket TTS, streamed sentence by sentence and cut off the moment someone talks over it."""
+"""Happy's voice: Kyutai Pocket TTS, streamed sentence by sentence, paused the moment someone talks over it."""
 
 import collections
 import logging
@@ -14,6 +14,9 @@ from happy import paths
 from happy.speech.spoken_text import speakable
 
 log = logging.getLogger("happy.speaker")
+
+# A PAUSE LONGER THAN THIS GOES BACK TO THE START OF THE SENTENCE; HALF A WORD AFTER A GAP SOUNDS BROKEN.
+REWIND_AFTER = 1.5
 
 
 def chime(rate, rising=True):
@@ -50,6 +53,13 @@ class Speaker:
         self.speaking = False
         self.chime_until = 0.0
         self.recent = collections.deque(maxlen=4)
+        self.lines = {}
+        self.made = {}
+        self.next_line = 0
+        self.playing = None
+        self.hold = "playing"
+        self.paused_at = 0.0
+        self.ramp = None
 
     def warm(self):
         """Downloads and prepares the voice without starting to play anything."""
@@ -91,7 +101,10 @@ class Speaker:
             self.recent.append(spoken)
             with self.busy_lock:
                 self.busy += 1
-            self.texts.put(spoken)
+            with self.audio_lock:
+                line, self.next_line = self.next_line, self.next_line + 1
+                self.lines[line] = text.strip()
+            self.texts.put((line, spoken))
         return spoken
 
     def blip(self, rising=True):
@@ -100,8 +113,29 @@ class Speaker:
         self.chime_until = time.monotonic() + len(sound) / self.rate + 0.2
         self.play(sound)
 
+    def pause(self):
+        """Goes quiet mid-word, keeping the place; what was still to come keeps being made."""
+        with self.audio_lock:
+            if self.hold == "playing":
+                self.hold = "fading"
+
+    def paused(self):
+        return self.hold != "playing"
+
+    def resume(self):
+        """Carries on from the pause, or from the start of the sentence when the pause was long."""
+        with self.audio_lock:
+            if self.hold == "playing":
+                return
+            line = self.playing
+            if self.hold == "paused" and time.monotonic() - self.paused_at > REWIND_AFTER and line in self.made:
+                rest = [each for each in self.audio if each[0] != line]
+                ended = [each for each in self.audio if each[0] == line and each[1] is None]
+                self.audio = collections.deque([(line, chunk) for chunk in self.made[line]] + ended + rest)
+            self.hold, self.ramp = "playing", "in"
+
     def stop(self):
-        """Stops talking now, dropping anything not yet said."""
+        """Stops talking now; returns the sentences not yet heard, the one cut off included, as they were written."""
         self.cut.set()
         while not self.texts.empty():
             try:
@@ -112,6 +146,11 @@ class Speaker:
                 break
         with self.audio_lock:
             self.audio.clear()
+            unheard = [self.lines[line] for line in sorted(self.lines)]
+            self.lines.clear()
+            self.made.clear()
+            self.hold, self.playing, self.ramp = "playing", None, None
+        return unheard
 
     def idle(self):
         with self.audio_lock:
@@ -125,22 +164,27 @@ class Speaker:
 
     def synthesise(self):
         while True:
-            text = self.texts.get()
+            line, text = self.texts.get()
             self.cut.clear()
             try:
                 for chunk in self.model.generate_audio_stream(self.state, text, stop=self.cut):
                     if self.cut.is_set():
                         break
-                    self.play(chunk.numpy().astype(np.float32))
+                    self.play(chunk.numpy().astype(np.float32), line)
             except Exception:
                 log.exception("could not say %r", text)
             finally:
+                if not self.cut.is_set():
+                    # THE END OF A SENTENCE IS MARKED IN THE AUDIO, SO IT COUNTS AS HEARD ONLY ONCE IT HAS PLAYED.
+                    self.play(None, line)
                 with self.busy_lock:
                     self.busy -= 1
 
-    def play(self, samples):
+    def play(self, samples, line=None):
         with self.audio_lock:
-            self.audio.append(samples)
+            self.audio.append((line, samples))
+            if line is not None and samples is not None:
+                self.made.setdefault(line, []).append(samples)
         self.ensure_stream()
 
     def ensure_stream(self):
@@ -188,15 +232,29 @@ class Speaker:
     def fill(self, out, frames, timing, status):
         written = 0
         with self.audio_lock:
-            while written < frames and self.audio:
-                head = self.audio[0]
+            while written < frames and self.audio and self.hold != "paused":
+                line, head = self.audio[0]
+                if head is None:
+                    self.audio.popleft()
+                    self.lines.pop(line, None)
+                    self.made.pop(line, None)
+                    continue
+                if line is not None:
+                    self.playing = line
                 take = min(frames - written, len(head))
                 out[written:written + take, 0] = head[:take]
                 written += take
                 if take == len(head):
                     self.audio.popleft()
                 else:
-                    self.audio[0] = head[take:]
+                    self.audio[0] = (line, head[take:])
+            # ONE BLOCK OF FADE EACH WAY, SO A PAUSE IS NOT A CLICK.
+            if self.hold == "fading":
+                out[:written, 0] *= np.linspace(1, 0, written, dtype=np.float32)
+                self.hold, self.paused_at = "paused", time.monotonic()
+            elif self.ramp == "in" and written:
+                out[:written, 0] *= np.linspace(0, 1, written, dtype=np.float32)
+                self.ramp = None
         out[written:, 0] = 0
         if written:
             self.last_sound = time.monotonic()
