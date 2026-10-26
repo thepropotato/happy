@@ -81,6 +81,9 @@ CASES = [
     ("tell my brother John Doe on whatsapp that I'm on my way", "whatsapp_send", {"called": "brother"}),
     ("create a file on the desktop called test.txt and write some dialogue from game of thrones in it", "write_file", {"name": "test.txt"}),
     ("rewrite test.txt on my desktop so it only says hello", "write_file", {"how": "replace"}),
+    ("what are all the apps that are open on my computer right now", "open_apps", {}),
+    ("summarise what was talked about today in the office group on whatsapp", "whatsapp_read",
+     [{"chat": "office", "day": "today"}, {"chat": "office", "day": time.strftime("%Y-%m-%d")}]),
 ]
 
 GMAIL = [

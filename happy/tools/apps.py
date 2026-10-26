@@ -75,6 +75,17 @@ def quit_app(name: Annotated[str, "the app's name"]):
     return f"Quit {target}."
 
 
+@tool(label="Checking which apps are open")
+def open_apps():
+    """Which apps are open right now, and which one is in front."""
+    running = native.running_apps()
+    if not running:
+        return "No apps are open."
+    front = native.frontmost()
+    rest = sorted((name for name in running if name != front), key=str.lower)
+    return f"{len(running)} apps open. In front: {front or 'none'}.\nAlso open: {', '.join(rest) or 'nothing else'}."
+
+
 def score(path, words, folders):
     name = Path(path).name.lower()
     joined = " ".join(words)
