@@ -4,6 +4,7 @@ import asyncio
 import contextvars
 import inspect
 import json
+import re
 import types
 import typing
 from dataclasses import dataclass, field
@@ -47,6 +48,38 @@ REGISTRY: dict[str, Tool] = {}
 reporter: contextvars.ContextVar[Callable[[str], None] | None] = contextvars.ContextVar("reporter", default=None)
 # WHAT THE PERSON SAID THIS TURN, FOR A TOOL THAT MUST NOT GO BEYOND IT; None WHEN THE BACKEND CANNOT SAY.
 asked: contextvars.ContextVar[str | None] = contextvars.ContextVar("asked", default=None)
+# WHAT EVERY TOOL HANDED BACK THIS TURN, SO A NAME A TOOL SHOWED COUNTS AS KNOWN.
+seen: contextvars.ContextVar[list | None] = contextvars.ContextVar("seen", default=None)
+GENERIC = {"the", "a", "an", "my", "this", "that", "file", "folder", "document", "doc", "of", "in", "on", "for", "and",
+           "pdf", "txt", "docx", "xlsx", "pptx", "png", "jpg", "jpeg", "md", "csv", "zip", "json"}
+
+
+def said_lately():
+    """What the person said this turn and the exchange just before it, or None when the backend cannot say."""
+    from happy import history
+
+    words = asked.get()
+    if words is None:
+        return None
+    # THIS TURN'S REQUEST AND THE ONE BEFORE, SO "YES" TO "SEND IT TO JANE?" OR "TELL HER" STILL NAMES HER.
+    return " ".join([words] + [f"{turn['request']} {turn['reply']}" for turn in history.recent(limit=2)]).lower()
+
+
+def named_file(args):
+    """A file name nobody gave: not in what they said lately, not a real path, and not in anything a tool showed this turn."""
+    from pathlib import Path
+
+    what = (args.get("what") or "").strip().strip('"')
+    said = said_lately()
+    if said is None or not what or Path(what).expanduser().exists():
+        return None
+    known = said + " " + " ".join(seen.get() or []).lower()
+    words = [w for w in re.split(r"[^\w']+", what.lower()) if w and w not in GENERIC]
+    if all(w in known for w in words):
+        return None
+    # A NAME THE MODEL MADE UP SENT IT LOOKING FOR A "WHATSAPP CHAT LOG" IT ALREADY HELD, THEN TO SAY IT COULD NOT READ WHATSAPP.
+    return (f"Error: no file was looked for: nobody named a file called {what}, and no tool showed one. "
+            "Do not guess at files. Answer from what your tools already gave you, or ask which file they mean.")
 
 
 def report(text):
@@ -177,6 +210,9 @@ async def call(name, args):
             result = await asyncio.to_thread(tool_.fn, **clean)
     except Exception as error:
         return f"Error: {name} failed: {error}"
+    shown = seen.get()
+    if shown is not None:
+        shown.append(str(getattr(result, "note", result)))
     return "Done." if result is None else result
 
 

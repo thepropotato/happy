@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 
 from happy import history
 from happy.system import Failed, native
-from happy.tools import Image, tool
+from happy.tools import Image, named_file, tool
 from happy.tools.apps import PLACES, locate
 
 LONGEST = 8000
@@ -64,7 +64,7 @@ def pdf_text(path):
     return text + (f"\n\n(Read the first {len(pages)} of {len(reader.pages)} pages.)" if len(pages) < len(reader.pages) else "")
 
 
-@tool(say="Reading it.", label="Reading {what}")
+@tool(say="Reading it.", label="Reading {what}", check=named_file)
 def read_file(what: Annotated[str, "the file's name as said, like 'my resume' or 'tax invoice', or a path"]):
     """Read what is inside a file on this computer: PDFs, Word, PowerPoint and Excel files, text and code, and pictures."""
     try:
@@ -176,7 +176,7 @@ def write_file(
     return f"Rewrote {path} and opened it. The old version is in the Trash."
 
 
-@tool(say="Moving it to the Trash.", label="Deleting {what}")
+@tool(say="Moving it to the Trash.", label="Deleting {what}", check=named_file)
 def move_to_trash(what: Annotated[str, "the file or folder's name exactly as said, or a path"]):
     """Delete a file or folder by moving it to the Trash, where restore_from_trash can bring it back."""
     try:

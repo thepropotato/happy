@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Annotated
 
 from happy.system import Failed, native
-from happy.tools import asked, tool
+from happy.tools import asked, named_file, tool
 
 ALIASES = {
     "vs code": "Visual Studio Code", "vscode": "Visual Studio Code", "code": "Visual Studio Code",
@@ -136,7 +136,7 @@ def code_editor(app):
     return "app", path
 
 
-@tool(label="Opening {what}")
+@tool(label="Opening {what}", check=named_file)
 def open_file(
     what: Annotated[str, "a path, or the name of a file or folder, like 'happy project' or 'resume pdf'"],
     app: Annotated[str, "app to open it in, like 'vs code', 'finder' or 'preview'; empty for the default"] = "",

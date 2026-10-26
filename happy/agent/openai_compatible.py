@@ -107,6 +107,7 @@ class OpenAICompatible(Backend):
     async def turn(self, text, emit):
         self.cancelled = False
         tools.asked.set(text)
+        tools.seen.set([])
         if time.time() - self.last > FORGET_AFTER:
             self.history = []
         self.last = time.time()
