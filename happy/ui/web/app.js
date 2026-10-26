@@ -187,6 +187,7 @@ function hear(word) {
       showing()
       refresh()
     },
+    unsaid: () => Talk.unsaid(word.text),
     began: () => {
       Talk.began(word)
       showing()

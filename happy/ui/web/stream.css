@@ -104,6 +104,11 @@
   margin: 0 0 8px;
 }
 
+/* WHAT HE NEVER GOT TO SAY, BECAUSE HE WAS TALKED OVER. */
+.line.happy .words .unsaid {
+  opacity: 0.42;
+}
+
 .line.happy .words strong {
   color: #fff;
   font-weight: 620;

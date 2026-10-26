@@ -162,6 +162,70 @@ const Talk = (() => {
     return built
   }
 
+  // ── WHAT WAS NEVER HEARD ──
+
+  // AN INVISIBLE CHARACTER SURVIVES MARKDOWN, SO IT MARKS WHERE THE CUT LANDS IN THE DRAWN ANSWER.
+  const MARK = '\u2063'
+
+  // A LIST OR HEADING MARKER STAYS AT THE START OF ITS LINE, OR THE LINE STOPS BEING ONE.
+  const OPENER = /^(?:\s*(?:[-*+]|\d+[.)]|#{1,6}|>)\s+)+/
+
+  function faded(text) {
+    if (!text.data.trim()) return
+
+    const span = element('span', 'unsaid')
+
+    text.replaceWith(span)
+    span.append(text)
+  }
+
+  // EVERY WORD AFTER THE MARK FADES; WITHOUT ONE, THE WHOLE BLOCK DOES.
+  function fade(words, marked) {
+    const walker = document.createTreeWalker(words, NodeFilter.SHOW_TEXT)
+    const texts = []
+    let on = !marked
+
+    while (walker.nextNode()) texts.push(walker.currentNode)
+
+    for (const text of texts) {
+      if (on) {
+        faded(text)
+        continue
+      }
+
+      const at = text.data.indexOf(MARK)
+
+      if (at < 0) continue
+
+      const after = text.splitText(at)
+
+      after.data = after.data.slice(MARK.length)
+      faded(after)
+      on = true
+    }
+  }
+
+  // HE WAS CUT OFF IN THIS SENTENCE: FROM ITS START TO THE END OF THE ANSWER WAS NEVER HEARD.
+  function dim(box, sentence) {
+    if (!box || !sentence) return
+
+    const lines = [...box.querySelectorAll('.line.happy .words')]
+    const from = lines.findIndex((words) => (words.raw || '').includes(sentence))
+
+    if (from < 0) return
+
+    const words = lines[from]
+    const raw = words.raw
+    const at = raw.indexOf(sentence) + (sentence.match(OPENER) || [''])[0].length
+
+    Prose.write(words, raw.slice(0, at) + MARK + raw.slice(at))
+    words.raw = raw
+
+    fade(words, true)
+
+    for (const later of lines.slice(from + 1)) fade(later, false)
+  }
+
   // ── ONE CALL ──
 
   // A TOOL NAME ALONE IS "search" FOUR TIMES IN A ROW.
@@ -332,6 +396,8 @@ const Talk = (() => {
 
     if (at < reply.length) box.append(make('happy', reply.slice(at)).line)
 
+    dim(box, each.unsaid)
+
     box.append(older(each))
   }
 
@@ -443,6 +509,10 @@ const Talk = (() => {
 
       Prose.grow(prose.words, text)
       settle(was)
+    },
+
+    unsaid(sentence) {
+      dim(turn || [...stream.querySelectorAll('.turn')].pop(), sentence)
     },
 
     began(word) {

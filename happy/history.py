@@ -20,7 +20,8 @@ CREATE TABLE IF NOT EXISTS turns (
     steps   TEXT NOT NULL DEFAULT '[]',
     model   TEXT NOT NULL DEFAULT '',
     seconds REAL,
-    failed  INTEGER NOT NULL DEFAULT 0
+    failed  INTEGER NOT NULL DEFAULT 0,
+    unsaid  TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS turns_at ON turns(at);
 CREATE TABLE IF NOT EXISTS trashed (
@@ -38,6 +39,8 @@ def connect():
     db = sqlite3.connect(FILE, timeout=5)
     db.row_factory = sqlite3.Row
     db.executescript(SCHEMA)
+    if "unsaid" not in {row["name"] for row in db.execute("PRAGMA table_info(turns)")}:
+        db.execute("ALTER TABLE turns ADD COLUMN unsaid TEXT NOT NULL DEFAULT ''")
     return db
 
 
@@ -52,6 +55,12 @@ def finish(turn, reply, steps, seconds, failed=False):
     with lock, connect() as db:
         db.execute("UPDATE turns SET reply = ?, steps = ?, seconds = ?, failed = ? WHERE id = ?",
                    (reply, json.dumps(steps, ensure_ascii=False, default=str), seconds, int(failed), turn))
+
+
+def unsaid(turn, sentence):
+    """Notes the sentence a reply was cut off in, so the part never heard is shown faded."""
+    with lock, connect() as db:
+        db.execute("UPDATE turns SET unsaid = ? WHERE id = ?", (sentence, turn))
 
 
 def recent(limit=200, search=""):

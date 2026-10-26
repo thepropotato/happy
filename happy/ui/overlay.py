@@ -521,6 +521,10 @@ class Face(QObject):
     def reply_add(self, delta):
         self.emit({"is": "piece", "text": delta})
 
+    def unsaid(self, sentence):
+        """The answer was cut off in this sentence; from here on it was never heard."""
+        self.emit({"is": "unsaid", "text": sentence})
+
     def announce(self, text):
         """Something Happy says unasked, like a reminder, shown as its own message."""
         self.emit({"is": "message", "who": "happy", "text": text, "unprompted": True})
@@ -565,7 +569,7 @@ def past(limit=40):
     rows = []
     for turn in reversed(history.recent(limit=limit)):
         rows.append({
-            "message": turn["request"], "reply": turn["reply"], "seconds": turn["seconds"],
+            "message": turn["request"], "reply": turn["reply"], "seconds": turn["seconds"], "unsaid": turn.get("unsaid") or "",
             "tools": [{"name": step.get("tool"), "why": step.get("label"), "args": step.get("args"),
                        "result": step.get("result"), "failed": step.get("ok") is False} for step in turn["steps"]],
         })

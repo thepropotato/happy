@@ -27,6 +27,13 @@ PHONE = ("\n\n(Sent from their phone in your WhatsApp chat: they are away from t
 CORRECTION_CUE = re.compile(r"^(?:no|nope|nah|sorry|wait|actually|i mean|i meant|not that|not him|not her|correction|rather|instead|oops)\b", re.I)
 FACTUAL = {"set_brightness", "set_volume", "set_keyboard_light", "media"}
 STILL_EVERY = 8.0
+# "WAIT" OVER HAPPY HOLDS HIM THIS LONG BEFORE HE GIVES UP ON THE REST.
+HOLD_SECONDS = 15.0
+# WHAT A PERSON TALKED OVER CAN BE PICKED UP AGAIN FOR THIS LONG.
+LEFTOVER_SECONDS = 120.0
+LEFTOVER_LIMIT = 800
+PICK_UP = re.compile(r"(?:ok(?:ay)?,? |yeah,? |so,? )?(?:go on|continue|carry on|keep going|go ahead|what were you saying|"
+                     r"where were you|you were saying|finish (?:that|what you were saying))[.!?]*", re.I)
 
 
 def brain(cfg):
@@ -63,6 +70,11 @@ class Happy:
         self.narrated = set()
         self.brain = None
         self.extra_servers = {}
+        self.record = None
+        self.said_for = None
+        self.streamed = ""
+        self.leftover = ([], 0.0)
+        self.hold_timer = None
 
     def run(self):
         asyncio.run(self.main())
@@ -156,7 +168,8 @@ class Happy:
             self.listener = Listener(self.name, wake=self.cfg.get("wake_word"), device=self.cfg.get("input.device") or "",
                              on_heard=self.heard, on_state=self.heard_state, on_level=self.face.ear,
                              echo_cancel=self.cfg.get("input.echo_cancel", True) is not False,
-                             on_barge=self.barged, echo=self.is_echo, refresh_devices=self.reload_sound)
+                             on_barge=self.barged, on_cut_in=self.heard_over, echo=self.is_echo,
+                             refresh_devices=self.reload_sound)
             parts["the microphone"] = self.listener.start
         pending = set(parts)
         lock = threading.Lock()
@@ -210,10 +223,10 @@ class Happy:
         if not self.ready.is_set():
             self.face.progress(f"Not ready yet: {self.waiting.lower()}")
             return
-        if self.speaker:
-            self.speaker.stop()
         if self.loop:
-            self.loop.call_soon_threadsafe(self.interrupt)
+            self.loop.call_soon_threadsafe(self.cut_off)
+        elif self.speaker:
+            self.speaker.stop()
         if self.listener:
             self.listener.key_down()
 
@@ -374,12 +387,93 @@ class Happy:
         self.begin(routines.request(routine), "routine", shown=f"Running your {routine['name']} routine")
 
     def barged(self):
-        """The person talked over Happy: stop talking, drop the turn, and listen to them instead."""
+        """The person started talking over Happy: he pauses, and what they said decides what happens next."""
         if self.speaker:
-            self.speaker.stop()
-        if self.loop:
-            self.loop.call_soon_threadsafe(self.interrupt)
+            self.speaker.pause()
         self.face.state("listening")
+
+    def heard_over(self, text, by_name):
+        """Called from the listening thread with what was said over Happy."""
+        if self.loop:
+            self.loop.call_soon_threadsafe(self.cut_in, text, by_name)
+
+    def cut_in(self, text, by_name=False):
+        from happy.speech.listener import meaning
+
+        wants, command = meaning(text, self.name, by_name)
+        log.info("said over Happy (%s): %r", wants, text)
+        if wants == "carry on":
+            self.carry_on()
+        elif wants == "wait":
+            if self.speaker:
+                self.speaker.pause()
+            if self.listener:
+                self.listener.holding = True
+            if self.hold_timer:
+                self.hold_timer.cancel()
+            self.hold_timer = self.loop.call_later(HOLD_SECONDS, self.gave_up)
+            self.face.state("listening")
+        elif wants == "stop":
+            self.cut_off()
+            if not self.busy():
+                self.face.state("idle")
+        else:
+            self.cut_off()
+            self.begin(command, "barge")
+
+    def carry_on(self):
+        self.release()
+        if self.speaker and self.speaker.paused():
+            self.speaker.resume()
+        talking = self.speaker and self.speaker.speaking
+        self.face.state("speaking" if talking else "working" if self.busy() and self.activity else "thinking" if self.busy() else "idle")
+
+    def gave_up(self):
+        log.info("nothing more after %.0fs of holding; stopping", HOLD_SECONDS)
+        self.cut_off()
+        if not self.busy():
+            self.face.state("idle")
+
+    def release(self):
+        if self.hold_timer:
+            self.hold_timer.cancel()
+            self.hold_timer = None
+        if self.listener:
+            self.listener.holding = False
+
+    def cut_off(self, cancel=True):
+        """Stops Happy mid-answer, keeping what was not heard so it can be picked up again, and drops the turn."""
+        self.release()
+        unheard = self.speaker.stop() if self.speaker else []
+        if unheard:
+            self.leftover = (unheard, time.monotonic())
+            log.info("cut off before: %s", " ".join(unheard)[:300])
+            self.face.unsaid(unheard[0])
+            if self.said_for:
+                self.loop.run_in_executor(None, history.unsaid, self.said_for, unheard[0])
+        if cancel:
+            self.interrupt()
+
+    def picked_up(self, text):
+        """The sentences talked over, when this asks to hear them after all."""
+        rest, at = self.leftover
+        if not rest or time.monotonic() - at > LEFTOVER_SECONDS or not PICK_UP.fullmatch(text.strip()):
+            return []
+        self.leftover = ([], 0.0)
+        return rest
+
+    def leftover_note(self):
+        """For the model: the part of its last answer that was talked over, once."""
+        rest, at = self.leftover
+        self.leftover = ([], 0.0)
+        if not rest or time.monotonic() - at > LEFTOVER_SECONDS:
+            return ""
+        unheard = " ".join(rest)
+        if len(unheard) > LEFTOVER_LIMIT:
+            unheard = unheard[:LEFTOVER_LIMIT].rsplit(" ", 1)[0] + "…"
+        return (f'\n\n(They talked over your last answer and missed this part: "{unheard}" '
+                "If this request is about that answer or a word in it, answer it, then finish the missed part in your own words. "
+                "If it is about anything else, answer only it and do not mention the missed part.)")
 
     def is_echo(self, text):
         """Whether what was heard is Happy's own last words coming back through the microphone."""
@@ -471,6 +565,7 @@ class Happy:
             return
         if self.speaker.say(text):
             self.spoken_at = time.monotonic()
+            self.said_for = self.record
 
     async def turn(self, text, how, previous, shown=None):
         shown = shown or text
@@ -480,11 +575,23 @@ class Happy:
             except (asyncio.TimeoutError, asyncio.CancelledError, Exception):
                 pass
         log.info("request (%s): %s", how, shown)
+        self.record = None
         # WHOEVER ASKED FROM THE PHONE IS NOT IN THE ROOM, SO THE ANSWER IS WRITTEN BACK, NOT SPOKEN.
         self.quiet = how == "whatsapp"
         self.face.user(shown)
         # WHAT THEY ACTUALLY WROTE, WITHOUT THE NOTE A PHONE REQUEST CARRIES FOR THE MODEL.
         bare = shown if how == "whatsapp" else text
+        rest = [] if how in ("whatsapp", "routine") else self.picked_up(bare)
+        if rest:
+            # ASKED TO GO ON, HE SAYS WHAT WAS TALKED OVER WORD FOR WORD; NOTHING ABOUT IT NEEDS THINKING.
+            self.reply = " ".join(rest)
+            self.record = await asyncio.to_thread(history.begin, shown, how, "picked up")
+            self.face.reply(self.reply)
+            for sentence in rest:
+                self.say(sentence)
+            await asyncio.to_thread(history.finish, self.record, self.reply, [], 0.0)
+            await self.settle()
+            return
         routine = routines.asked_for(bare) if how != "routine" else None
         if routine:
             # A ROUTINE NAMED PLAINLY GOES STRAIGHT TO ITS STEPS, BEFORE ANY MODEL GETS TO GUESS AT IT.
@@ -494,8 +601,7 @@ class Happy:
         if found and found[0] == "stop" and how == "whatsapp":
             found = ("reply", {"text": "Okay."})
         if found and found[0] == "stop":
-            if self.speaker:
-                self.speaker.stop()
+            self.cut_off(cancel=False)
             from happy.tools import controls
 
             if controls.cancel_power():
@@ -508,10 +614,10 @@ class Happy:
             self.face.done()
             return
         if found and found[0] == "reply":
+            self.record = await asyncio.to_thread(history.begin, shown, how, "quick")
             self.face.reply(found[1]["text"])
             self.say(found[1]["text"])
-            await asyncio.to_thread(history.finish, await asyncio.to_thread(history.begin, shown, how, "quick"),
-                                    found[1]["text"], [], 0.0)
+            await asyncio.to_thread(history.finish, self.record, found[1]["text"], [], 0.0)
             if how == "whatsapp" and self.chat:
                 await asyncio.to_thread(self.chat.send, found[1]["text"])
             self.quiet = False
@@ -519,8 +625,9 @@ class Happy:
             return
         self.face.state("thinking")
         started = time.monotonic()
-        self.steps, self.reply, failed = [], "", False
+        self.steps, self.reply, self.streamed, failed = [], "", "", False
         record = await asyncio.to_thread(history.begin, shown, how, "quick" if found else self.backend.name if self.backend else "")
+        self.record = record
         try:
             if found:
                 name, args = found
@@ -537,10 +644,11 @@ class Happy:
                 self.reply = "I don't have a model to think with yet. Pick one in Setup."
                 self.say(self.reply)
             else:
-                await self.think(text, started)
+                await self.think(text + ("" if how == "whatsapp" else self.leftover_note()), started)
         except asyncio.CancelledError:
             failed = True
-            self.reply = self.reply or "(interrupted)"
+            # WHAT WAS ALREADY ON SCREEN IS THE REPLY, SO A TALKED-OVER ANSWER KEEPS ITS WORDS.
+            self.reply = self.reply or self.streamed.strip() or "(interrupted)"
             raise
         except Exception as error:
             failed = True
@@ -573,6 +681,7 @@ class Happy:
                     held.append(event.delta)
                     return
                 self.face.reply_add(event.delta)
+                self.streamed += event.delta
                 for sentence in sentences.add(event.delta):
                     self.answered = True
                     self.say(sentence)
