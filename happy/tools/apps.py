@@ -281,6 +281,38 @@ SHOW = re.compile(r"\b(?:open|show|visit|go to|take me|pull up|bring up|launch|d
 REFERENCE = re.compile(r"(?:the |that |this )?(?:link|page|site|website|url|result|article|one|it)")
 
 
+SEARCHES = {"q", "query", "search_query", "k", "p", "keywords", "term"}
+
+
+def typed_address(args):
+    """An address past a site's front page that the model typed itself, when nobody said it and no tool showed it."""
+    from happy.tools import said_lately, seen, web
+
+    where = (args.get("where") or "").strip()
+    said = said_lately()
+    if said is None or " " in where or not ("://" in where or "." in where):
+        return None
+    parts = urllib.parse.urlparse(where if "://" in where else "https://" + where)
+    if not re.search(r"[a-z]", parts.netloc, re.I):
+        return f"Error: nothing opened: {where} is not an address. Call web_search to find the page, then open_link with the result's number."
+    if not parts.path.strip("/") and not parts.query or SEARCHES & set(urllib.parse.parse_qs(parts.query)):
+        return None
+    known = " ".join([said, *(seen.get() or []), *(r.get("href", "") for r in web.results), web.last_read]).lower()
+    whole = set(re.split(r"[^a-z0-9]+", known))
+    known = known.replace(" ", "")
+    words = [w for w in re.split(r"[^a-z0-9]+", (parts.path + " " + parts.query).lower()) if len(w) >= 2 and w not in ("wiki", "html", "php")]
+    # A SEGMENT WITH NO LETTERS, LIKE "..." OR "??", IS A PLACEHOLDER FOR AN ID THE MODEL DID NOT HAVE.
+    blank = any(not re.search(r"[a-z0-9]", part, re.I) for part in re.split(r"[/=&]", (parts.path.strip("/") + "&" + parts.query).strip("&")))
+    # AN ID MUST MATCH WHOLE, OR THE FIRST FEW LETTERS OF A REAL ONE PASS FOR IT; A PLAIN WORD MAY BE RUN TOGETHER, LIKE "LOFIGIRL".
+    if not blank and all(w in whole or not re.search(r"\d", w) and (w in known or w.rstrip("s") in known) for w in words):
+        return None
+    site = parts.netloc.removeprefix("www.").split(".")[0]
+    # A VIDEO ID WRITTEN FROM MEMORY OPENED "THIS VIDEO ISN'T AVAILABLE ANYMORE"; ONLY A SEARCH CAN HAND OVER A REAL ONE.
+    return (f"Error: nothing opened: nobody gave you {parts.netloc}{parts.path}{'?' + parts.query if parts.query else ''}, "
+            f"so that address is made up and would show a missing page. Find the real one: call web_search with "
+            f"query set to what they asked for followed by \"{site}\", then open_link with the result's number.")
+
+
 def as_url(text):
     text = text.strip()
     if "://" in text:
@@ -290,7 +322,7 @@ def as_url(text):
     return "https://www.google.com/search?q=" + urllib.parse.quote_plus(text)
 
 
-@tool(label="Opening {where}")
+@tool(label="Opening {where}", check=typed_address)
 def open_link(where: Annotated[str, "a full URL, a site like youtube.com, or words to search for"]):
     """Open a website or a search page in the browser, only when they ask to open, visit or show it. A search result opens by its number. To find something out, use web_search. Never to check mail or messages."""
     said = asked.get()
