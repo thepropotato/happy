@@ -82,6 +82,10 @@ def speakable(text):
     text = re.sub(r"\betc\.", "and so on", text)
     text = text.replace("—", ", ").replace("–", ", ").replace("…", "...")
     text = re.sub(r"[*#_|<>{}\[\]\\^~]", " ", text)
+    # QUOTE MARKS ARE SILENT, AND AROUND A STRETCHED WORD THEY MADE THE VOICE SAY "OKIEE OKIE" AS THREE OKIES.
+    text = re.sub(r"[\"“”„«»]", "", text)
+    # A STRETCHED WORD IS SAID ONCE: "Bruuu" IS "Bru". LOWERCASE ONLY, SO "III" STAYS A NUMBER.
+    text = re.sub(r"([a-z])\1{2,}", r"\1", text)
     text = re.sub(r"\s*:\s*$", ".", text, flags=re.M)
     text = re.sub(r"\s+([.,!?])", r"\1", text)
     text = re.sub(r"([.,!?])\1+", r"\1", text)

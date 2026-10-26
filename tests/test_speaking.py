@@ -140,3 +140,11 @@ def test_the_wake_chime_is_not_happy_talking(spoken):
     speaker.blip()
     time.sleep(0.8)
     assert True not in talking, talking
+
+
+def test_quote_marks_and_stretched_letters_are_not_handed_to_the_voice():
+    from happy.speech.spoken_text import speakable
+
+    assert speakable("It says, “Okiee okie.”") == "It says, Okiee okie."
+    assert speakable('She said "Bruuu, sooo good"') == "She said Bru, so good"
+    assert speakable("World War III, don't") == "World War III, don't"
