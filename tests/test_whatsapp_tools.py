@@ -101,3 +101,36 @@ def test_a_relationship_they_said_names_the_contact_it_was_looked_up_as(monkeypa
     sends = Sends(monkeypatch, "tell my brother to come fast")
     send(to="John Doe", message="Come fast", called="brother")
     assert len(sends.sent) == 1
+
+
+def read_group(monkeypatch, messages, **args):
+    async def ask(name, **asked):
+        return sorted(messages, key=lambda m: -m["timestamp"])[:asked["limit"]]
+
+    monkeypatch.setattr(whatsapp, "ask", ask)
+    monkeypatch.setattr(whatsapp, "me", lambda: "John")
+    return asyncio.run(whatsapp.whatsapp_read(chat="Office", **args))
+
+
+def test_reactions_do_not_use_up_a_read(monkeypatch):
+    group = [{"timestamp": 100 + i, "fromMe": False, "from": "Jane Doe", "body": f"line {i}"} for i in range(3)]
+    group += [{"timestamp": 200 + i, "fromMe": False, "from": "Jane Doe", "type": "reaction", "body": "😂"} for i in range(5)]
+    said = read_group(monkeypatch, group, count=3)
+    assert "😂" not in said and all(f"line {i}" in said for i in range(3))
+
+
+def test_a_day_is_read_whole_oldest_first_without_reactions(monkeypatch):
+    start, _ = whatsapp.day_bounds("today")
+    group = [{"timestamp": start - 60, "fromMe": False, "from": "Jane Doe", "body": "yesterday's"},
+             {"timestamp": start + 60, "fromMe": False, "from": "Jane Doe", "body": "first today"},
+             {"timestamp": start + 120, "fromMe": False, "from": "Jane Doe", "type": "reaction", "body": "😂"},
+             {"timestamp": start + 180, "fromMe": True, "body": "second today"}]
+    said = read_group(monkeypatch, group, day="today")
+    assert said.startswith("Chat with Office, today, oldest first: 2 messages, and 1 reactions left out.")
+    assert "yesterday's" not in said and "😂" not in said
+    assert said.index("first today") < said.index("second today")
+
+
+def test_a_sticker_is_not_shown_as_a_file():
+    assert whatsapp.line({"timestamp": 0, "from": "Jane Doe", "type": "sticker", "body": "", "filename": "3A5B749E.webp"}) \
+        .endswith("Jane Doe: [sticker]")

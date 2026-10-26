@@ -6,7 +6,7 @@ import time
 from typing import Annotated
 
 from happy.integrations.mcp import hub
-from happy.tools import report, tool
+from happy.tools import report, said_lately, tool
 
 
 def connected():
@@ -45,7 +45,8 @@ def line(message, with_chat=True, them="Them"):
     body = message.get("body") or ""
     if kind and body != f"[{kind}]":
         body = f"[{kind}] {body}".strip()
-    if message.get("filename"):
+    # A STICKER'S FILE IS A HASH, AND "(file 3A5B…)" READ AS A FILE TO GO AND FIND.
+    if message.get("filename") and kind != "sticker":
         body += f" (file {message['filename']})"
     where = f" in {message.get('chatName')}" if with_chat and message.get("chatName") else ""
     return f"[{when(message)}{where}] {who}: {body}"
@@ -90,13 +91,73 @@ def bridge(path, **params):
         return f"Could not reach WhatsApp: {error}"
 
 
+# A DAY IS READ FROM THIS MANY OF THE CHAT'S NEWEST MESSAGES, AND SHOWN IN THIS MANY CHARACTERS, NEWEST KEPT.
+DAY_READ = 600
+DAY_BUDGET = 3400
+
+
+def day_bounds(day):
+    """The start and end of a day they named, in their own time, or None when it is not a day."""
+    import datetime
+
+    word = day.strip().lower()
+    today = datetime.date.today()
+    if word == "today":
+        date = today
+    elif word == "yesterday":
+        date = today - datetime.timedelta(days=1)
+    else:
+        try:
+            date = datetime.date.fromisoformat(word)
+        except ValueError:
+            return None
+    start = time.mktime(date.timetuple())
+    return start, time.mktime((date + datetime.timedelta(days=1)).timetuple())
+
+
+def without_reactions(messages):
+    """The messages that say something, and how many reactions were left out: an emoji on a message is not a message."""
+    said = [m for m in messages if m.get("type") != "reaction"]
+    return said, len(messages) - len(said)
+
+
+async def whole_day(chat, day):
+    bounds = day_bounds(day)
+    if bounds is None:
+        return "Error: day is 'today', 'yesterday' or a date like 2026-10-26."
+    data = await messages_in(chat, DAY_READ)
+    if not isinstance(data, list) or not data:
+        return listing(data, with_chat=False)
+    data = sorted(data, key=lambda m: m.get("timestamp") or 0)
+    chat = re.sub(r"\s*\([^()]*\)$", "", chat.strip()) or chat
+    said, reactions = without_reactions([m for m in data if bounds[0] <= (m.get("timestamp") or 0) < bounds[1]])
+    if not said:
+        return f"Nothing was said in {chat} {day}" + (f", only {reactions} reactions." if reactions else ".")
+    lines = [line(m, False, chat) for m in said]
+    kept, size = [], 0
+    for text in reversed(lines):
+        size += len(text) + 1
+        if size > DAY_BUDGET:
+            break
+        kept.insert(0, text)
+    notes = [f"Chat with {chat}, {day}, oldest first: {len(said)} messages"
+             + (f", and {reactions} reactions left out." if reactions else ".")
+             + f" Lines from {me()} are {me()}'s own messages."]
+    if len(data) == DAY_READ and (data[0].get("timestamp") or 0) > bounds[0]:
+        notes.append(f"Only the last {len(said)} messages of that day were synced.")
+    if len(kept) < len(lines):
+        notes.append(f"The {len(lines) - len(kept)} earliest messages of that day are not shown; these are the latest.")
+    return "\n".join(notes) + "\n\n" + "\n".join(kept)
+
+
 @tool(say="Opening that chat.", label="Reading the chat with {chat}", local_only=True, needs=connected)
 async def whatsapp_read(
     chat: Annotated[str, "person or group name, a short partial name is fine; empty for the newest messages from anyone"] = "",
     count: Annotated[int, "how many recent messages"] = 10,
     people_only: Annotated[bool, "with no chat: true to leave groups out"] = False,
+    day: Annotated[str, "'today', 'yesterday' or YYYY-MM-DD for all of that day's messages in the chat; empty for the latest few"] = "",
 ):
-    """Read what someone said on WhatsApp, or whether they wrote at all, like 'any word from Jane' or 'has Jane replied': the latest messages in their chat, newest last, and the last thing they wrote. With no chat, the newest messages received across all chats."""
+    """Read what someone said on WhatsApp, or whether they wrote at all, like 'any word from Jane' or 'has Jane replied': the latest messages in their chat, newest last, and the last thing they wrote. With a day, everything said in the chat that day, for what a chat was about or a summary of it. With no chat, the newest messages received across all chats."""
     if not chat.strip():
         import asyncio
 
@@ -107,10 +168,15 @@ async def whatsapp_read(
             return found or "No messages received yet."
         return "Newest received, newest first:\n" + "\n".join(
             line(m) + (" (group)" if m.get("isGroup") else "") for m in found)
-    data = await messages_in(chat, max(1, min(count, 50)))
+    if day.strip():
+        return await whole_day(chat, day)
+    count = max(1, min(count, 50))
+    # REACTIONS ARE FETCHED PAST AND LEFT OUT: HALF OF A GROUP'S LATEST FIFTY WERE EMOJI ON OTHER MESSAGES.
+    data = await messages_in(chat, min(count * 3, 150))
     if not isinstance(data, list) or not data:
         return listing(data, with_chat=False)
     data = sorted(data, key=lambda m: m.get("timestamp") or 0)
+    data = without_reactions(data)[0][-count:] or data[-1:]
     chat = re.sub(r"\s*\([^()]*\)$", "", chat.strip()) or chat
     theirs = [m for m in data if not m.get("fromMe")]
     if not theirs:
@@ -311,18 +377,6 @@ async def whatsapp_picture(name: Annotated[str, "the person, by name or number"]
 
 
 ME = {"me", "myself", "here", "this chat", "my chat", "your chat"}
-
-
-def said_lately():
-    """What the person said this turn and the exchange just before it, or None when the backend cannot say."""
-    from happy import history
-    from happy.tools import asked
-
-    words = asked.get()
-    if words is None:
-        return None
-    # THIS TURN'S REQUEST AND THE ONE BEFORE, SO "YES" TO "SEND IT TO JANE?" OR "TELL HER" STILL NAMES HER.
-    return " ".join([words] + [f"{turn['request']} {turn['reply']}" for turn in history.recent(limit=2)]).lower()
 
 
 def named(person, said):
