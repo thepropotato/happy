@@ -21,7 +21,29 @@ def note(fact):
     return "Remembered."
 
 
-@tool(label="Remembering")
+# WORDS ANY FACT IS WRITTEN WITH, SO ONLY WHAT THE FACT IS ABOUT HAS TO BE IN WHAT THEY SAID.
+PLAIN = {"is", "are", "was", "be", "has", "have", "the", "a", "an", "my", "me", "i", "mine", "of", "in", "on", "at", "to",
+         "for", "and", "with", "as", "his", "her", "their", "name", "named", "called", "contact", "contacts", "means",
+         "whatsapp", "who", "this", "that", "they", "them", "person", "user"}
+
+
+def told(args):
+    """A fact is kept only when the person said it; names read off a chat or a page are not theirs to remember."""
+    from happy.tools import their_words
+
+    said = their_words()
+    if said is None:
+        return None
+    words = [w for w in re.findall(r"[\w]+", (args.get("fact") or "").lower()) if w not in PLAIN and len(w) > 2]
+    missing = [w for w in words if w not in said]
+    if not missing:
+        return None
+    # NINE FACTS ABOUT A GROUP'S MEMBERS WERE ONCE SAVED FROM A CHAT THAT WAS ONLY BEING SUMMED UP.
+    return (f"Error: not remembered: they did not say {', '.join(missing[:3])}. Remember only what they told you "
+            "in their own words. Carry on with what they asked.")
+
+
+@tool(label="Remembering", check=told)
 def remember(fact: Annotated[str, "the fact as a short sentence, like 'My brother is John Doe in my contacts'"]):
     """Remember a fact for every future conversation. Call it when they ask you to remember something, and also without being asked whenever they explain who or what they mean: a person ('my brother is John Doe'), a place ('home is Flat 12, Example Residency') or an account. Then carry on with what they asked."""
     return note(fact)

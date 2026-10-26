@@ -31,3 +31,24 @@ def test_a_made_up_file_is_turned_away():
 def test_a_real_path_and_an_unknown_backend_go_ahead():
     assert check("/etc/hosts", "anything") is None
     assert check("WhatsApp chat log", None) is None
+
+
+def told(fact, said):
+    from happy.tools import notes
+
+    original = tools.their_words
+    tools.their_words = lambda: said
+    try:
+        return notes.told({"fact": fact})
+    finally:
+        tools.their_words = original
+
+
+def test_a_fact_they_said_is_remembered():
+    assert told("My brother is John Doe in my contacts", "my brother is john doe in my contacts, remember that") is None
+    assert told("My brother's name on WhatsApp is John Doe", "remember that my brother's name on whatsapp is john doe") is None
+
+
+def test_a_fact_read_off_a_chat_is_not_theirs_to_remember():
+    refused = told("Jane Doe is a contact in WhatsApp", "summarise what was said today in that group")
+    assert refused and refused.startswith("Error: not remembered") and "jane" in refused

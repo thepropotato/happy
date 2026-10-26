@@ -65,6 +65,16 @@ def said_lately():
     return " ".join([words] + [f"{turn['request']} {turn['reply']}" for turn in history.recent(limit=2)]).lower()
 
 
+def their_words():
+    """What the person said this turn and in the two requests before, without Happy's replies, or None when the backend cannot say."""
+    from happy import history
+
+    words = asked.get()
+    if words is None:
+        return None
+    return " ".join([words] + [turn["request"] for turn in history.recent(limit=2)]).lower()
+
+
 def named_file(args):
     """A file name nobody gave: not in what they said lately, not a real path, and not in anything a tool showed this turn."""
     from pathlib import Path
