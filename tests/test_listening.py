@@ -106,45 +106,74 @@ def test_the_name_is_acknowledged_while_the_sentence_is_still_going():
     assert woke_at is not None and woke_at < speech_ends - 1.0, (woke_at, speech_ends)
 
 
-def talking_over(audio, echo=lambda text: False):
-    """Feeds audio to a listener that believes Happy is speaking, with echo cancellation on."""
-    barged, heard = [], []
-    ears = listener.Listener("Happy", on_heard=lambda text, how: heard.append((text, how)),
-                             on_barge=lambda: barged.append(True), echo=echo)
+def talking_over(audio, echo=lambda text: False, headphones=False):
+    """Feeds audio to a listener that believes Happy is speaking: on headphones, or with echo cancellation on."""
+    paused, said = [], []
+    ears = listener.Listener("Happy", on_barge=lambda: paused.append(True),
+                             on_cut_in=lambda text, by_name: said.append(listener.meaning(text, "Happy", by_name)), echo=echo)
     ears.stt = Transcriber()
-    ears.mic = object()
-    ears.deaf.set()
-    ears.fresh_segment()
-    silence = np.zeros(listener.BLOCK * 15, np.float32)
-    for chunk in (audio, silence):
-        for start in range(0, len(chunk), listener.BLOCK):
-            ears.overhear(chunk[start:start + listener.BLOCK], ears.mode)
-    return barged, heard
+    ears.mic = None if headphones else object()
+    listener.on_headphones, real = (lambda: headphones), listener.on_headphones
+    try:
+        ears.deaf.set()
+        ears.fresh_segment()
+        silence = np.zeros(listener.BLOCK * 15, np.float32)
+        for chunk in (audio, silence):
+            for start in range(0, len(chunk), listener.BLOCK):
+                ears.overhear(chunk[start:start + listener.BLOCK], ears.mode)
+    finally:
+        listener.on_headphones = real
+    return paused, said
 
 
 @pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
-def test_talking_over_happy_by_name_cuts_him_off():
-    barged, heard = talking_over(load("wake2.wav"))
-    assert barged and heard and heard[0][1] == "barge" and "pause" in heard[0][0].lower(), (barged, heard)
+def test_talking_over_happy_by_name_pauses_him_and_is_a_request():
+    paused, said = talking_over(load("wake2.wav"))
+    assert paused and said and said[0][0] == "request" and "pause" in said[0][1].lower(), (paused, said)
 
 
 @pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
-def test_talking_over_happy_without_his_name_does_not_cut_him_off():
+def test_on_headphones_talking_over_happy_needs_no_name():
+    paused, said = talking_over(load("neg1.wav"), headphones=True)
+    assert paused and said and said[0][0] == "request", (paused, said)
+
+
+@pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
+def test_through_echo_cancellation_words_without_his_name_only_pause_him():
     # LEAKED ECHO TRANSCRIBES AS STRAY WORDS LIKE "I THINK", SO WORDS WITHOUT THE NAME MUST NOT START A TURN.
-    barged, heard = talking_over(load("neg1.wav"))
-    assert not barged and not heard, (barged, heard)
+    paused, said = talking_over(load("neg1.wav"))
+    assert said and said[0][0] == "carry on", (paused, said)
 
 
-def test_noise_does_not_cut_happy_off():
+def test_noise_does_not_pause_happy():
     hiss = (np.random.default_rng(1).standard_normal(listener.RATE * 3) * 0.02).astype(np.float32)
-    barged, heard = talking_over(hiss)
-    assert not barged and not heard
+    paused, said = talking_over(hiss)
+    assert not paused and not said
 
 
 @pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
-def test_his_own_words_coming_back_do_not_cut_him_off():
-    barged, heard = talking_over(load("wake2.wav"), echo=lambda text: True)
-    assert not barged and not heard
+def test_his_own_words_coming_back_only_pause_him():
+    paused, said = talking_over(load("wake2.wav"), echo=lambda text: True)
+    assert said and said[0][0] == "carry on", (paused, said)
+
+
+def test_what_words_said_over_happy_ask_of_him():
+    assert listener.meaning("Yeah.", "Happy") == ("carry on", "")
+    assert listener.meaning("Okay, okay.", "Happy") == ("carry on", "")
+    assert listener.meaning("Mm-hmm, right.", "Happy") == ("carry on", "")
+    assert listener.meaning("Go on.", "Happy") == ("carry on", "")
+    assert listener.meaning("", "Happy") == ("carry on", "")
+    assert listener.meaning("Stop.", "Happy") == ("stop", "")
+    assert listener.meaning("Okay, stop.", "Happy") == ("stop", "")
+    assert listener.meaning("Happy, stop.", "Happy") == ("stop", "")
+    assert listener.meaning("Thank you.", "Happy") == ("stop", "")
+    assert listener.meaning("Wait.", "Happy") == ("wait", "")
+    assert listener.meaning("Hold on.", "Happy") == ("wait", "")
+    assert listener.meaning("Happy.", "Happy") == ("wait", "")
+    assert listener.meaning("What does crore mean?", "Happy") == ("request", "What does crore mean?")
+    assert listener.meaning("Happy, what does crore mean?", "Happy") == ("request", "what does crore mean?")
+    assert listener.meaning("What does crore mean?", "Happy", by_name=True) == ("carry on", "")
+    assert listener.meaning("Happy, what does crore mean?", "Happy", by_name=True) == ("request", "what does crore mean?")
 
 
 def test_a_microphone_that_stops_handing_over_sound_is_reopened(monkeypatch):

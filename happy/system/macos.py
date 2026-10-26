@@ -267,6 +267,16 @@ def input_device():
     return audio_name(audio_read(1, "dIn "))
 
 
+def headphones():
+    """Whether macOS is playing into something worn, which its microphone cannot hear: the headphone jack, or a Bluetooth headset."""
+    device = audio_read(1, "dOut")
+    if not device:
+        return False
+    if audio_read(device, "ssrc", scope="outp") == fourcc("hdpn"):
+        return True
+    return audio_read(device, "tran") in (fourcc("blue"), fourcc("blea")) and audio_has(device, "inpt")
+
+
 def sound_devices(scope):
     """The names of every device with sound going "inpt" (microphones) or "outp" (speakers), read fresh from CoreAudio."""
     return [name for device in audio_devices() if audio_has(device, scope) and (name := audio_name(device))]

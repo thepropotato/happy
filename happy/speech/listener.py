@@ -24,6 +24,8 @@ TRAILING_SILENCE = 0.8
 LONGEST = 20.0
 TAP = 0.35
 STALLED = 2.0
+# THIS MUCH OF THEIR VOICE OVER HAPPY PAUSES HIM; A CLICK OR A COUGH IS SHORTER.
+ONSET = 0.3
 
 log = logging.getLogger("happy.listener")
 
@@ -47,7 +49,16 @@ FILLERS = {"um", "uh", "hmm", "mm", "mhm", "ah", "oh", "er", "erm", "huh", "the"
 
 
 # SAID OVER HAPPY, THESE ONLY MEAN "BE QUIET"; THEY ARE NOT A NEW REQUEST.
-STOPS = {"stop", "wait", "quiet", "enough", "cancel", "never mind", "nevermind", "shut up", "hold on", "be quiet", "stop talking", "ok stop", "okay stop"}
+STOPS = {"stop", "quiet", "enough", "cancel", "never mind", "nevermind", "shut up", "be quiet", "stop talking", "ok stop",
+         "okay stop", "no", "nope", "no no", "forget it", "that's enough", "that's all", "thanks", "thank you",
+         "ok thanks", "okay thanks", "okay thank you", "ok thank you"}
+WAITS = {"wait", "hold on", "hang on", "one sec", "one second", "just a sec", "just a second", "wait a second",
+         "wait a minute", "wait wait", "give me a second", "pause"}
+# SAID OVER HAPPY, THESE ARE SOMEBODY LISTENING ALONG, SO HE CARRIES ON.
+NODS = {"yeah", "yes", "yep", "yup", "okay", "ok", "right", "sure", "alright", "cool", "nice", "mm", "hmm", "mhm",
+        "uh", "huh", "aha", "ah", "oh", "wow", "true", "exactly", "interesting"}
+CARRY_ON = {"all right", "got it", "i see", "go on", "go ahead", "continue", "carry on", "keep going", "uh huh", "mm hmm",
+            "makes sense", "i know", "fair enough", "and then"}
 
 
 def after_name(text, name):
@@ -60,6 +71,41 @@ def after_name(text, name):
     words = re.findall(r"[\w']+", text)
     first = next(w for w in words[:3] if sounds_like(w, name))
     return text.split(first, 1)[1].lstrip(" ,.!?;:-").strip()
+
+
+def meaning(text, name, by_name=False):
+    """What words said over Happy ask of him: ("carry on" | "wait" | "stop", "") or ("request", what to do).
+    by_name is for a mic that still hears a little of him: a new request then has to start with his name."""
+    command = after_name(text or "", name)
+    if command == "":
+        return "wait", ""
+    named = command is not None
+    command = (text or "") if command is None else command
+    words = re.sub(r"[^a-z' ]", " ", command.lower()).split()
+    said = " ".join(words)
+    # "OKAY, GO ON" AND "YEAH, WAIT" MEAN WHAT FOLLOWS THE NOD.
+    after = " ".join(words[next((i for i, word in enumerate(words) if word not in NODS), len(words)):])
+    if not after or after in CARRY_ON:
+        return "carry on", ""
+    if said in STOPS or after in STOPS:
+        return "stop", ""
+    if after in WAITS:
+        return "wait", ""
+    if not real_words(said) or by_name and not named:
+        return "carry on", ""
+    return "request", command.strip()
+
+
+def on_headphones():
+    """Whether the Mac is playing into headphones, which the microphone cannot hear."""
+    if sys.platform != "darwin":
+        return False
+    from happy.system import macos
+
+    try:
+        return macos.headphones()
+    except Exception:
+        return False
 
 
 def real_words(text):
@@ -104,16 +150,20 @@ class Listener:
     """Listens all the time, but only speech that starts by addressing Happy by name goes anywhere."""
 
     def __init__(self, name, wake=True, device="", on_heard=None, on_state=None, on_level=None, echo_cancel=True,
-                 on_barge=None, echo=None, refresh_devices=None):
+                 on_barge=None, on_cut_in=None, echo=None, refresh_devices=None):
         self.name = name
         self.refresh_devices = refresh_devices or self.reopen
         self.opened_on = ""
         self.mic_name = "the microphone"
         self.plain_on = None
         self.on_barge = on_barge or (lambda: None)
+        self.on_cut_in = on_cut_in or (lambda text, by_name: None)
         self.echo = echo or (lambda text: False)
         self.barging = False
         self.barged = False
+        self.holding = False
+        self.was_speaking = False
+        self.headphones = False
         self.echo_cancel = echo_cancel
         self.stream = None
         self.mic = None
@@ -313,13 +363,16 @@ class Listener:
 
     def overhear(self, block, mode):
         """Follows speech in the room: the name wakes Happy the moment it is said, and while Happy is
-        talking, real words from the person cut him off. Barging in needs echo cancellation, or Happy
-        would cut himself off with his own voice."""
+        talking, the person's voice pauses him until what they said decides what happens. Talking over
+        him needs a microphone that cannot hear him: headphones, or echo cancellation."""
         self.ring.append(block)
         speaking = self.deaf.is_set()
-        barge = speaking and self.mic is not None
-        if barge != self.barging and not self.woken:
-            self.barging = barge
+        if speaking != self.was_speaking:
+            self.was_speaking = speaking
+            self.headphones = speaking and on_headphones()
+        over = self.holding or speaking and (self.headphones or self.mic is not None)
+        if over != self.barging and not self.woken and not self.barged:
+            self.barging = over
             if self.segment.started is not None:
                 self.fresh_segment()
                 self.capture = []
@@ -327,7 +380,7 @@ class Listener:
                     if self.mode == "ignoring":
                         self.mode = "idle"
                         mode = "idle"
-        if (speaking and not barge) or (not self.wake_enabled and not self.barging):
+        if not self.barging and (speaking or not self.wake_enabled):
             if self.segment.started is not None:
                 self.fresh_segment()
                 self.capture = []
@@ -345,27 +398,20 @@ class Listener:
             self.capture = list(self.ring)[-10:]
         else:
             self.capture.append(block)
+        if self.barging and not self.barged and self.segment.last_speech - self.segment.started >= ONSET:
+            self.barged = True
+            log.info("paused for speech (%s)", "headphones" if self.headphones else "held" if self.holding else "echo cancellation")
+            self.on_barge()
         if verdict == "done":
             audio = np.concatenate(self.capture)
-            how = "barge" if self.barged or self.barging else "woken" if self.woken else "overheard"
+            how = "barge" if self.barged else "aside" if self.barging else "woken" if self.woken else "overheard"
             self.capture = []
             self.fresh_segment()
-            self.barging = self.deaf.is_set() and self.mic is not None
+            self.barging = over
             self.finish(audio, how)
-        elif not self.woken and self.peeks and len(self.capture) * BLOCK / RATE >= self.peeks[0]:
+        elif not self.barging and not self.woken and self.peeks and len(self.capture) * BLOCK / RATE >= self.peeks[0]:
             self.peeks.pop(0)
             opening = self.stt(np.concatenate(self.capture))
-            if self.barging:
-                # LEAKED ECHO TRANSCRIBES AS OTHER WORDS THAN HAPPY SAID, SO ONLY HIS NAME, WHICH HE NEVER SAYS, CUTS HIM OFF.
-                if real_words(opening) and not self.echo(opening) and mentions(opening, self.name):
-                    self.woken = self.barged = True
-                    log.info("barged in: %r", opening)
-                    self.on_barge()
-                elif not self.peeks:
-                    with self.lock:
-                        self.mode = "ignoring"
-                    self.capture = []
-                return
             if addressed(opening, self.name) is not None:
                 self.woken = True
                 self.on_state("listening")
@@ -375,23 +421,16 @@ class Listener:
                 self.capture = []
 
     def finish(self, audio, how):
-        if how != "overheard":
+        if how not in ("overheard", "aside"):
             self.on_state("transcribing")
         text = self.stt(audio)
-        if how == "barge":
-            command = after_name(text, self.name)
-            if not real_words(text) or self.echo(text) or command is None:
-                self.on_state("missed")
-                return
+        if how in ("barge", "aside"):
+            # ON HEADPHONES NOTHING OF HIS COMES BACK, SO WORDS OF HIS THEY REPEAT ARE THEIRS.
+            if self.mic is not None and not self.headphones and self.echo(text):
+                log.info("heard his own words back: %r", text)
+                text = ""
             log.info("heard (barge): %r", text)
-            if self.deaf.is_set():
-                self.on_barge()
-            if re.sub(r"[^a-z ]", "", command.lower()).strip() in STOPS:
-                self.on_state("missed")
-            elif command:
-                self.on_heard(command, "barge")
-            else:
-                self.listen_now()
+            self.on_cut_in(text, not self.headphones and not self.holding)
             return
         if how in ("overheard", "woken"):
             command = addressed(text, self.name)
