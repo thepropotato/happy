@@ -80,14 +80,11 @@ def google_page(page):
     return overview[:1500], found
 
 
-@tool(say="Searching.", label="Searching for {query}")
-def web_search(query: Annotated[str, "what to look up, in a few words"]):
-    """Search the web to find out something: prices, news, facts, how-tos, anything not on this computer. Gives numbered results; read one with read_result."""
+def search(query):
+    """Google's overview and results, or the first other engine that answers, without numbering them for read_result."""
     from ddgs import DDGS
     from ddgs.exceptions import DDGSException
 
-    global searched_at
-    searched_at = time.monotonic()
     overview, found = google(query)
     for engine in ENGINES if not found else ():
         try:
@@ -96,6 +93,15 @@ def web_search(query: Annotated[str, "what to look up, in a few words"]):
             continue
         if found:
             break
+    return overview, found
+
+
+@tool(say="Searching.", label="Searching for {query}")
+def web_search(query: Annotated[str, "what to look up, in a few words"]):
+    """Search the web to find out something: prices, news, facts, how-tos, anything not on this computer. Gives numbered results; read one with read_result."""
+    global searched_at
+    searched_at = time.monotonic()
+    overview, found = search(query)
     if not found:
         return f"No search engine found anything for {query}. Try fewer or plainer words."
     tell_apart(found)

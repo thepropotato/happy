@@ -287,18 +287,19 @@ def reminded(text):
 def forecast(text):
     """The weather right now, asked plainly; another day goes to the model, which answers only that day."""
     match = re.fullmatch(r"(?:what(?:'s| is) the |how(?:'s| is) the |check the |tell me the )?(?:weather|temperature)(?: like)?"
-                         r"(?: (?:in|at|for) (?P<where>[a-z .,'-]+?))?(?: (?:today|now|right now|outside))?(?: like)?", text)
+                         r"(?: (?:in|at|for) (?P<where>[a-z .,'-]+?))?(?: (?:today|now|right now|currently|at the moment|outside))?(?: like)?", text)
     if not match or re.search(r"\b(?:tomorrow|tonight|week|weekend|later|evening|morning|afternoon|day|days|\w+day)\b", match.group("where") or ""):
         return None
     return "weather", {"where": (match.group("where") or "").strip()}
 
 
 def spoken_weather(result):
-    """'Hyderabad, now: clear, 29°C (feels like 27°C), ...' said as a sentence without the symbols."""
+    """'Springfield, now: clear, 29°C (feels like 27°C), ...' said as a sentence without the symbols."""
     match = re.match(r"(?P<place>[^,]+)[^:]*, now: (?P<sky>[^,]+), (?P<t>-?\d+)°C \(feels like (?P<f>-?\d+)°C\).*"
                      r"high (?P<hi>-?\d+)°C, low (?P<lo>-?\d+)°C, (?P<rain>\d+)% chance", result)
     if not match:
-        return result
+        missing = re.match(r"Could not get the weather: found no place called (?P<place>.+?), by sound", result)
+        return f"I couldn't find a place called {missing['place']}." if missing else result
     feels = f", feels like {match['f']}" if match["f"] != match["t"] else ""
     rain = "no rain expected" if int(match["rain"]) < 10 else f"{match['rain']} percent chance of rain"
     return f"{match['place']}: {match['sky']}, {match['t']} degrees{feels}. High of {match['hi']}, low of {match['lo']}, {rain}."

@@ -49,7 +49,8 @@ def test_the_machine_answers_battery_wifi_and_power_without_a_model():
 def test_weather_now_is_quick_and_another_day_goes_to_the_model():
     assert match("what's the weather") == ("weather", {"where": ""})
     assert match("weather in new york") == ("weather", {"where": "new york"})
-    assert match("what's the weather like in hyderabad tomorrow") is None
+    assert match("how's the weather in springfeld illinois currently") == ("weather", {"where": "springfeld illinois"})
+    assert match("what's the weather like in springfield tomorrow") is None
     assert match("will it rain this afternoon") is None
 
 

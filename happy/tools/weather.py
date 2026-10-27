@@ -1,5 +1,6 @@
 """The weather anywhere, from Open-Meteo, which needs no key; with no place named, wherever this computer is."""
 
+import zipfile
 from datetime import datetime
 from functools import cache
 from typing import Annotated
@@ -39,8 +40,20 @@ def place(name):
     if country.strip():
         wanted = country.strip().lower()
         found = [f for f in found if wanted in (f.get("country", "").lower(), f.get("country_code", "").lower(), f.get("admin1", "").lower())] or found
+    from happy.tools import places
+
+    # THE GEOCODER ALSO MATCHES PREFIXES, SO ONLY A RESULT NAMED EXACTLY WHAT WAS SAID IS TRUSTED.
+    exact = [f for f in found if places.flat(f["name"]) == places.flat(city)]
+    if not exact:
+        try:
+            guessed = places.guess(name)
+        except (httpx.HTTPError, OSError, zipfile.BadZipFile):
+            guessed = None
+        if guessed:
+            return guessed
+    found = exact or found
     if not found:
-        raise LookupError(f"found no place called {name}")
+        raise LookupError(f"found no place called {name}, by sound or by a web search; do not remember it")
     best = max(found, key=lambda f: f.get("population") or 0)
     label = ", ".join(part for part in (best["name"], best.get("admin1"), best.get("country")) if part)
     return label, best["latitude"], best["longitude"]
