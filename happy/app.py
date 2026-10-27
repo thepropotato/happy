@@ -640,6 +640,8 @@ class Happy:
                 self.reply = result
                 self.say(self.plain(result))
                 log.info("fast path %s %s -> %s (%.0f ms)", name, args, result, (time.monotonic() - started) * 1000)
+                if self.backend:
+                    self.backend.heard(shown, result)
             elif self.backend is None:
                 self.reply = "I don't have a model to think with yet. Pick one in Setup."
                 self.say(self.reply)

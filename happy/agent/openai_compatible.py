@@ -112,6 +112,12 @@ class OpenAICompatible(Backend):
     async def reset(self):
         self.history = []
 
+    def heard(self, request, reply):
+        if time.time() - self.last > FORGET_AFTER:
+            self.history = []
+        self.last = time.time()
+        self.history += [{"role": "user", "content": stamped(request)}, {"role": "assistant", "content": reply}]
+
     def prepare(self):
         """The prompt and the tools, built once and again only when one of them changed, to keep the prefix cache."""
         self.tool_list = tools.available(local=True)

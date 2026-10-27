@@ -44,6 +44,9 @@ class Backend:
     async def interrupt(self):
         pass
 
+    def heard(self, request, reply):
+        """A turn the fast path answered, so a correction that comes next has something to correct."""
+
     async def reset(self):
         pass
 
