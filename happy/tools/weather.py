@@ -2,7 +2,6 @@
 
 import zipfile
 from datetime import datetime
-from functools import cache
 from typing import Annotated
 
 import httpx
@@ -19,16 +18,42 @@ SKIES = {0: "clear", 1: "mostly clear", 2: "partly cloudy", 3: "overcast", 45: "
          96: "thunderstorms with hail", 99: "thunderstorms with hail"}
 
 
-@cache
-def here():
-    """Where this computer is, from its internet address, asked once per run."""
+HELD = 600
+found_at = {"at": 0.0, "where": None}
+
+
+def whereabouts():
+    """(name, latitude, longitude, how it was found, why it is not precise), from Location Services when allowed, else the internet address."""
+    import time
+
+    if found_at["where"] and time.time() - found_at["at"] < HELD:
+        return found_at["where"]
+    from happy.system import native
+    from happy.tools import places
+
+    why = "this computer has no Location Services Happy can ask"
+    try:
+        lat, lon, metres = native.locate()
+        found = (*places.nearest(lat, lon), f"from Location Services, within {metres:.0f} m", "")
+    except AttributeError:
+        found = None
+    except (RuntimeError, OSError, httpx.HTTPError) as error:
+        found, why = None, str(error)
     for url, read in (("https://ipinfo.io/json", lambda d: (d["city"], *map(float, d["loc"].split(",")))),
-                      ("http://ip-api.com/json", lambda d: (d["city"], d["lat"], d["lon"]))):
+                      ("http://ip-api.com/json", lambda d: (d["city"], d["lat"], d["lon"]))) if not found else ():
         try:
-            return read(httpx.get(url, timeout=5).json())
+            found = (*read(httpx.get(url, timeout=5).json()), "from the internet address", why)
+            break
         except (httpx.HTTPError, KeyError, ValueError):
             continue
-    raise ConnectionError("could not work out where this computer is; name the place")
+    if not found:
+        raise ConnectionError("could not work out where this computer is; name the place")
+    found_at.update(at=time.time(), where=found)
+    return found
+
+
+def here():
+    return whereabouts()[:3]
 
 
 def place(name):
@@ -73,6 +98,19 @@ def span(said):
     if "tomorrow" in said:
         return "tomorrow"
     return "later today"
+
+
+@tool(label="Finding where this computer is")
+def location():
+    """Where this computer is right now: town, state and country. Call it for any question about where they are or what is nearby."""
+    try:
+        name, lat, lon, how, why = whereabouts()
+    except ConnectionError as error:
+        return f"Could not tell where this computer is: {error}."
+    if not why:
+        return f"{name} ({lat:.4f}, {lon:.4f}), {how}."
+    return (f"{name} ({lat:.2f}, {lon:.2f}), {how} only. An internet address usually points at the provider's city, which can be far "
+            f"from where they are, so say it is approximate. Precise location was not available: {why}.")
 
 
 @tool(say="Checking the weather.", label="Weather {when} in {where}")

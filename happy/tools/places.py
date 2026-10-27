@@ -179,3 +179,14 @@ def guess(said):
     if found:
         return label(found)
     return label(town) if town else None
+
+
+def nearest(lat, lon):
+    """(name, latitude, longitude) of the town a point is in: the biggest within a few kilometres of the nearest, so a suburb gives its city."""
+    import math
+
+    towns, _, _ = gazetteer()
+    squash = math.cos(math.radians(lat))
+    away = {id(t): 111 * math.hypot(t["lat"] - lat, (t["lon"] - lon) * squash) for t in towns}
+    closest = min(away.values())
+    return label(max((t for t in towns if away[id(t)] <= closest + 5), key=lambda t: t["people"]))

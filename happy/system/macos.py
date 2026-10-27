@@ -455,3 +455,44 @@ def start_at_login(on, command, folder):
         return
     AGENT.parent.mkdir(parents=True, exist_ok=True)
     AGENT.write_bytes(plistlib.dumps(wanted))
+
+
+LOCATE = Path(__file__).with_name("locate")
+
+
+def locator():
+    """The Location Services helper, built once as a small app, since macOS shows the location prompt only for a program inside one."""
+    import shutil
+
+    from happy import paths
+
+    bundle = paths.HOME / "bin" / "Happy.app"
+    built = bundle / "Contents" / "MacOS" / "locate"
+    source = LOCATE / "main.swift"
+    if built.exists() and built.stat().st_mtime >= max(source.stat().st_mtime, (LOCATE / "Info.plist").stat().st_mtime):
+        return built
+    (paths.HOME / "bin" / "locate").unlink(missing_ok=True)
+    built.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(LOCATE / "Info.plist", bundle / "Contents" / "Info.plist")
+    try:
+        subprocess.run(["swiftc", "-O", str(source), "-o", str(built)], capture_output=True, check=True, timeout=180)
+        subprocess.run(["codesign", "-s", "-", "-f", str(bundle)], capture_output=True, check=True, timeout=30)
+    except (OSError, subprocess.SubprocessError) as error:
+        raise Failed(f"could not build the location helper ({error}); the Xcode command line tools provide swiftc")
+    return built
+
+
+def locate():
+    """(latitude, longitude, metres accurate) from Location Services."""
+    import json
+
+    try:
+        out = subprocess.run([str(locator())], capture_output=True, text=True, timeout=25).stdout
+        answer = json.loads(out.strip().splitlines()[-1])
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError) as error:
+        raise Failed(f"Location Services did not answer ({error})")
+    if answer.get("error") == "denied":
+        raise Failed("Location Services is off for Happy; turn on Happy in System Settings, Privacy & Security, Location Services")
+    if "error" in answer:
+        raise Failed(f"Location Services could not find this Mac ({answer['error']})")
+    return answer["lat"], answer["lon"], answer["accuracy"]
