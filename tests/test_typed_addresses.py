@@ -47,3 +47,11 @@ def test_a_placeholder_for_an_id_is_turned_away():
     assert check("https://github.com/ollama/??", "open the github issue about ollama")
     assert check("https://open.spotify.com/track/...", "open blinding lights on spotify", ["https://open.spotify.com/track/7tR0bQ2p8yLdQvYv3c1KxW"])
     assert check("https://...", "show me elon musk's latest tweet")
+
+
+def test_the_first_letters_of_a_real_id_are_turned_away():
+    page = ["Veera Veera Lyrical (Telugu) — https://www.youtube.com/watch?v=yfHDJWWm0LE"]
+    assert check("https://www.youtube.com/watch?v=yfHD...", "open the tamil lyric video on youtube", page)
+    assert check("https://www.youtube.com/watch?v=yfHD", "open the tamil lyric video on youtube", page)
+    assert check("https://www.youtube.com/watch?v=yfHDJWWm0LE", "open the tamil lyric video on youtube", page) is None
+    assert check("https://www.youtube.com/watch?v=YfHDJWWm0LE", "open the tamil lyric video on youtube", page)

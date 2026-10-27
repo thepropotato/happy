@@ -86,25 +86,93 @@ def web_search(query: Annotated[str, "what to look up, in a few words"]):
     from ddgs import DDGS
     from ddgs.exceptions import DDGSException
 
-    global results, searched_at
-    results = []
+    global searched_at
     searched_at = time.monotonic()
-    overview, results = google(query)
-    for engine in ENGINES if not results else ():
+    overview, found = google(query)
+    for engine in ENGINES if not found else ():
         try:
-            results = [r for r in DDGS(timeout=8).text(query, max_results=8, backend=engine) if r.get("href")]
+            found = [r for r in DDGS(timeout=8).text(query, max_results=8, backend=engine) if r.get("href")]
         except DDGSException:
             continue
-        if results:
+        if found:
             break
-    if not results:
+    if not found:
         return f"No search engine found anything for {query}. Try fewer or plainer words."
-    lines = [f"{i}. {r.get('title', '')} — {r.get('host') or httpx.URL(r['href']).host}\n   {r.get('body', '')}" for i, r in enumerate(results, 1)]
+    tell_apart(found)
+    for older in results:
+        older.pop("fetched", None)
+    # NUMBERS CARRY ON FROM THE LAST SEARCH; "2" HAD MEANT THE FLIPKART PAGE IT READ, AND A LATER SEARCH HANDED "2" TO AN AMAZON ONE.
+    first = len(results) + 1
+    results.extend(found)
+    lines = [f"{i}. {r.get('title', '')} — {r.get('host') or httpx.URL(r['href']).host}\n   {r.get('body', '')}" for i, r in enumerate(found, first)]
     answer = f"Google's AI overview: {overview}\n\n" if overview else ""
     return answer + "\n".join(lines) + "\n\nThe snippets are short; read_result reads a whole page."
 
 
+def own_title(page):
+    """The title a page gives itself, which a result's listed title can leave out, like which language a video is in."""
+    import html
+
+    found = re.search(r"<title[^>]*>(.*?)</title>", page or "", re.S | re.I)
+    return " ".join(html.unescape(found.group(1)).split()).removesuffix(" - YouTube") if found else ""
+
+
+def tell_apart(found):
+    """Each result renamed by its page's own title where that says more than Google's, like which language a video is in or a 1TB console."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    from curl_cffi import requests
+    from curl_cffi.requests.exceptions import RequestException
+
+    def key(result):
+        return re.sub(r"\s*(?:\.\.\.|…)\s*$", "", result.get("title", "")).removesuffix(" - YouTube")
+
+    def fetched(result):
+        try:
+            return requests.get(result["href"], impersonate="safari", timeout=4)
+        except RequestException:
+            return None
+
+    names = [key(r) for r in found]
+    with ThreadPoolExecutor(max(len(found), 1)) as pool:
+        pages = list(pool.map(fetched, found))
+    for result, name, page in zip(found, names, pages):
+        if page is None:
+            continue
+        # KEPT, SO READING A RESULT RIGHT AFTER THE SEARCH DOES NOT FETCH IT AGAIN.
+        result["fetched"] = page
+        title, listed = own_title(page.text), words_of(name)
+        # A TITLE HOLDING ALL OF GOOGLE'S AND MORE, LIKE "DISC EDITION - 1TB", SAYS MORE, AS DOES ANY REAL ONE WHEN RESULTS SHARE A TITLE; "REDDIT" SAYS LESS.
+        if title and (listed < words_of(title) or names.count(name) > 1 and listed & words_of(title)):
+            result["title"] = title
+
+
+def words_of(text):
+    return set(re.findall(r"[a-z0-9]+", text.lower()))
+
+
+def listed(text):
+    """The search result whose title and site hold every word of the text, when a result is named instead of numbered."""
+    named = words_of(text)
+    return next((r for r in reversed(results) if len(named) >= 2 and named <= words_of(f"{r.get('title', '')} {r.get('host', '')}")), None)
+
+
+def version_asked(url, said):
+    """The search result their words name, when the one about to open is another version of it, like the Kannada trailer when they said Hindi."""
+    picked = next((r for r in results if url in (r.get("href"), r.get("address"))), None)
+    if picked is None or not said:
+        return None
+    asked, mine = words_of(said), words_of(picked.get("title", ""))
+    fit = lambda result: len(asked & words_of(result.get("title", "")))
+    # ONLY A NEAR TWIN COUNTS, SO A TITLE THAT MERELY SHARES MORE OF THEIR WORDS, LIKE "OPEN IN THE YOUTUBE APP", NEVER TAKES OVER.
+    twins = [r for r in results if r is not picked and len(mine & words_of(r.get("title", ""))) * 2 >= len(mine | words_of(r.get("title", "")))]
+    best = max(twins, key=fit, default=None)
+    return best if best and fit(best) > fit(picked) else None
+
+
 PRICES = [r'priceToPay[^>]*class="aok-offscreen">\s*([^<]+?)\s*</span>',
+          # FLIPKART KEEPS ITS PRICE ONLY IN THE PAGE'S DATA, SO A ₹44,990 PS5 WAS QUOTED FROM GOOGLE'S OVERVIEW AND DOUBTED.
+          r'"finalPrice"\s*:\s*([\d.]+)',
           r'"@type"\s*:\s*"Offer".{0,300}?"price"\s*:\s*"?([\d.,]+)',
           r'itemprop="price"[^>]*content="([\d.,]+)"',
           r'property="(?:og|product):price:amount"[^>]*content="([\d.,]+)"']
@@ -134,7 +202,7 @@ def read_result(number: Annotated[int, "the result's number from web_search"]):
     # SHOPS TURN AWAY A PLAIN CLIENT; AMAZON LETS SAFARI'S LOOK THROUGH AND BLOCKS CHROME'S, SO SAFARI GOES FIRST.
     for browser in ("safari", "chrome"):
         try:
-            page = requests.get(url, impersonate=browser, timeout=15)
+            page = results[number - 1].pop("fetched", None) or requests.get(url, impersonate=browser, timeout=15)
         except RequestException as error:
             page, failure = None, error
             continue
@@ -150,6 +218,9 @@ def read_result(number: Annotated[int, "the result's number from web_search"]):
     global last_read
     url = str(page.url)
     last_read = url
+    # GOOGLE LISTED THE TELUGU AND TAMIL VIDEOS UNDER ONE CAST LINE; ONLY THE PAGE'S OWN TITLE SAID WHICH ONE IT WAS.
+    title = own_title(page.text) or results[number - 1].get("title", "")
+    results[number - 1].update(address=url, title=title)
     price = stated_price(page.text)
-    heading = f"{results[number - 1].get('title', '')} — {url}" + (f"\nThe page's own price: {price}" if price else "")
+    heading = f"{title} — {url}" + (f"\nThe page's own price: {price}" if price else "")
     return f"{heading}\n\n{text[:LONGEST]}"

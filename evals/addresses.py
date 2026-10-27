@@ -27,6 +27,7 @@ CASES = [
     "open breaking bad on netflix",
     "open the instagram post where Virat Kohli announced his retirement",
     "open the github issue about ollama running out of memory",
+    "can you open the tamil lyric video of Veera Veera from Om on youtube and show it to me",
 ]
 # THE PERSON GAVE THE ADDRESS OR ONLY A SEARCH IS NEEDED, SO THESE MUST STILL OPEN.
 CONTROLS = [
