@@ -53,6 +53,10 @@ def addressed(text, name):
         after = words[i + 1] if i + 1 < len(words) else ""
         greeted = any(b in GREETINGS for b in before)
         if greeted or not after or after in ",.!?;" or after.lower() in GREETINGS or opens(after):
-            rest = text.split(word, 1)[1] if word in text else ""
-            return rest.lstrip(" ,.!?;:-").strip()
+            lead, rest = text.split(word, 1) if word in text else (text, "")
+            rest = rest.lstrip(" ,.!?;:-").strip()
+            if not greeted:
+                return rest
+            # A GREETING IS KEPT: SAID ALONE IT IS ANSWERED WHOLE, AND BEFORE A REQUEST ONLY THE NAME IS DROPPED.
+            return f"{lead.strip(' ,')}, {rest}" if rest else text.strip()
     return None

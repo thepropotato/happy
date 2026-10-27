@@ -45,9 +45,6 @@ def pick_mic(wanted=""):
     return (devices[0][0], devices[0][1]["name"]) if devices else (None, "none")
 
 
-FILLERS = {"um", "uh", "hmm", "mm", "mhm", "ah", "oh", "er", "erm", "huh", "the", "a"}
-
-
 # SAID OVER HAPPY, THESE ONLY MEAN "BE QUIET"; THEY ARE NOT A NEW REQUEST.
 STOPS = {"stop", "quiet", "enough", "cancel", "never mind", "nevermind", "shut up", "be quiet", "stop talking", "ok stop",
          "okay stop", "no", "nope", "no no", "forget it", "that's enough", "that's all", "thanks", "thank you",
@@ -91,7 +88,7 @@ def meaning(text, name, by_name=False):
         return "stop", ""
     if after in WAITS:
         return "wait", ""
-    if not real_words(said) or by_name and not named:
+    if by_name and not named:
         return "carry on", ""
     return "request", command.strip()
 
@@ -106,12 +103,6 @@ def on_headphones():
         return macos.headphones()
     except Exception:
         return False
-
-
-def real_words(text):
-    """Whether a transcript is somebody saying something rather than a cough, a creak or a breath."""
-    words = [w for w in re.findall(r"[a-z']+", (text or "").lower()) if w not in FILLERS]
-    return len(words) >= 2 or (len(words) == 1 and len(words[0]) >= 3)
 
 
 class Endpoint:
@@ -370,6 +361,8 @@ class Listener:
         if speaking != self.was_speaking:
             self.was_speaking = speaking
             self.headphones = speaking and on_headphones()
+            if speaking and not self.headphones and self.mic is None:
+                log.info("talking over Happy will not pause him: no headphones found and no echo cancellation")
         over = self.holding or speaking and (self.headphones or self.mic is not None)
         if over != self.barging and not self.woken and not self.barged:
             self.barging = over
@@ -434,9 +427,11 @@ class Listener:
             return
         if how in ("overheard", "woken"):
             command = addressed(text, self.name)
+            if command is None and how == "woken":
+                # THE CHIME ALREADY SAID HE WAS LISTENING, SO "SAM SING A RHYME" IS A REQUEST THOUGH "SING" OPENS NOTHING ON THE LIST.
+                found = after_name(text, self.name)
+                command = text if found is None else found
             if command is None:
-                if how == "woken":
-                    self.on_state("idle")
                 return
             log.info("heard: %r", text)
             if not command:
@@ -445,7 +440,7 @@ class Listener:
             self.on_heard(command, "wake")
             return
         log.info("heard (%s): %r", how, text)
-        if not text or how == "follow" and not real_words(text):
+        if not text:
             self.on_state("missed")
             return
         command = addressed(text, self.name)

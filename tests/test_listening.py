@@ -44,7 +44,7 @@ def ears_hearing(audio, **kwargs):
 def test_name_then_request_is_heard_as_one_request():
     heard, _ = ears_hearing(load("wake.wav"))
     assert heard and heard[0][1] == "wake", heard
-    assert "brightness" in heard[0][0].lower() and not heard[0][0].lower().startswith("hey")
+    assert "brightness" in heard[0][0].lower() and "happy" not in heard[0][0].lower()
 
 
 @pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
@@ -54,11 +54,19 @@ def test_name_in_passing_is_ignored():
 
 
 def test_addressed():
-    assert addressed("Hey Happy, set the brightness to 20%.", "Happy") == "set the brightness to 20%."
+    assert addressed("Hey Happy, set the brightness to 20%.", "Happy") == "Hey, set the brightness to 20%."
     assert addressed("Happy. Pause the video.", "Happy") == "Pause the video."
     assert addressed("I was so happy yesterday.", "Happy") is None
-    assert addressed("Okay, Happy, what's on my screen?", "Happy") == "what's on my screen?"
-    assert addressed("Hey Happy.", "Happy") == ""
+    assert addressed("Okay, Happy, what's on my screen?", "Happy") == "Okay, what's on my screen?"
+    assert addressed("Happy.", "Happy") == ""
+
+
+def test_a_greeting_with_the_name_is_answered_whole():
+    assert addressed("Hey Happy.", "Happy") == "Hey Happy."
+    assert addressed("Hi Happy", "Happy") == "Hi Happy"
+    assert addressed("Hello, Happy.", "Happy") == "Hello, Happy."
+    assert addressed("Hi Happy, open YouTube.", "Happy") == "Hi, open YouTube."
+    assert addressed("Happy, hi.", "Happy") == "hi."
 
 
 @pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
@@ -68,7 +76,7 @@ def test_name_with_a_pause_after_it_still_wakes():
 
 
 def test_a_name_heard_slightly_wrong_still_counts():
-    assert addressed("Hey Damon, pause the video.", "Daemon") == "pause the video."
+    assert addressed("Hey Damon, pause the video.", "Daemon") == "Hey, pause the video."
     assert addressed("Demon, what is on my screen?", "Daemon") == "what is on my screen?"
     assert addressed("Happi, mute.", "Happy") == "mute."
     assert addressed("Hippie, mute.", "Happy") is None
@@ -172,8 +180,37 @@ def test_what_words_said_over_happy_ask_of_him():
     assert listener.meaning("Happy.", "Happy") == ("wait", "")
     assert listener.meaning("What does crore mean?", "Happy") == ("request", "What does crore mean?")
     assert listener.meaning("Happy, what does crore mean?", "Happy") == ("request", "what does crore mean?")
+    assert listener.meaning("Hi.", "Happy") == ("request", "Hi.")
+    assert listener.meaning("The.", "Happy") == ("request", "The.")
+    assert listener.meaning("Hey Happy.", "Happy") == ("request", "Hey Happy.")
     assert listener.meaning("What does crore mean?", "Happy", by_name=True) == ("carry on", "")
     assert listener.meaning("Happy, what does crore mean?", "Happy", by_name=True) == ("request", "what does crore mean?")
+
+
+def test_a_short_word_after_the_name_is_answered():
+    heard, states = [], []
+    ears = listener.Listener("Happy", on_heard=lambda text, how: heard.append((text, how)), on_state=states.append)
+    for word in ("Hi,", "Ok.", "No.", "The."):
+        ears.stt = lambda audio, word=word: word
+        ears.finish(np.zeros(10, np.float32), "follow")
+    assert heard == [("Hi,", "follow"), ("Ok.", "follow"), ("No.", "follow"), ("The.", "follow")] and "missed" not in states
+
+
+def test_once_the_chime_has_played_the_sentence_is_a_request():
+    heard = []
+    ears = listener.Listener("Sam", on_heard=lambda text, how: heard.append((text, how)), on_state=lambda state: None)
+    for said in ("Sam sing a rhyme.", "Sam the weather today", "Some, what time is it?"):
+        ears.stt = lambda audio, said=said: said
+        ears.finish(np.zeros(10, np.float32), "woken")
+    assert heard == [("sing a rhyme.", "wake"), ("the weather today", "wake"), ("Some, what time is it?", "wake")]
+
+
+def test_the_name_in_passing_without_the_chime_is_still_ignored():
+    heard = []
+    ears = listener.Listener("Sam", on_heard=lambda text, how: heard.append((text, how)), on_state=lambda state: None)
+    ears.stt = lambda audio: "Sam said he would come over later."
+    ears.finish(np.zeros(10, np.float32), "overheard")
+    assert heard == []
 
 
 def test_a_microphone_that_stops_handing_over_sound_is_reopened(monkeypatch):

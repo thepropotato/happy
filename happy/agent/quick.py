@@ -11,7 +11,7 @@ TENS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seve
         "ninety": 90, "hundred": 100}
 WORDS = {"max": 100, "maximum": 100, "full": 100, "min": 0, "minimum": 0, "half": 50, "off": 0, "zero": 0}
 
-FILLER = re.compile(r"^(?:(?:hey|ok|okay|so|um|uh|please|can you|could you|would you|will you|just|now|go ahead and|i want you to|i'd like you to)\s+)+")
+FILLER = re.compile(r"^(?:(?:hey|hi|hello|yo|ok|okay|so|um|uh|please|can you|could you|would you|will you|just|now|go ahead and|i want you to|i'd like you to)\s+)+")
 POLITE = re.compile(r"\s+(?:please|for me|thanks|thank you|right now|now)$")
 
 
