@@ -274,7 +274,13 @@ def headphones():
         return False
     if audio_read(device, "ssrc", scope="outp") == fourcc("hdpn"):
         return True
-    return audio_read(device, "tran") in (fourcc("blue"), fourcc("blea")) and audio_has(device, "inpt")
+    bluetooth = (fourcc("blue"), fourcc("blea"))
+    if audio_read(device, "tran") not in bluetooth:
+        return False
+    # AIRPODS SHOW UP AS TWO DEVICES OF ONE NAME, THE MICROPHONE APART FROM THE SPEAKERS, SO THE MATCH IS BY NAME.
+    name = audio_name(device)
+    return audio_has(device, "inpt") or any(audio_has(d, "inpt") and audio_read(d, "tran") in bluetooth and audio_name(d) == name
+                                            for d in audio_devices())
 
 
 def sound_devices(scope):
