@@ -328,9 +328,25 @@
   white-space: nowrap;
 }
 
-/* OPEN, THE WHOLE SENTENCE WRAPS RATHER THAN BEING CUT. */
+/* OPEN, THE SENTENCE WRAPS AND EVERYTHING HANGS FROM ITS FIRST LINE; THE NAME AND
+   CLOCK MOVE INTO THE FOLD SO THE SENTENCE KEEPS THE WIDTH. */
 .call.open > .face {
-  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.call.open > .face .dot {
+  margin-top: 6.5px;
+}
+
+.call.open > .face .what,
+.call.open > .face .tokens,
+.call.open > .face .took {
+  display: none;
+}
+
+.call.open > .face .go {
+  margin-left: auto;
+  line-height: 17px;
 }
 
 .call.running > .face .why {
@@ -383,47 +399,68 @@
   transform: rotate(90deg);
 }
 
-/* LINED UP UNDER THE NAME AND NOT THE DOT, SO THE FOLD READS AS BELONGING TO THE
-   ROW ABOVE IT. */
+/* ONE LEDGER LINED UP UNDER THE SENTENCE AND NOT THE DOT (10 PADDING + 5 DOT + 8
+   GAP), SO THE FOLD READS AS BELONGING TO THE ROW ABOVE IT. */
 .call .inside {
   display: none;
-  padding: 1px 8px 8px 20px;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 2px 10px 0 23px;
+  padding: 8px 0 10px;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .call.open .inside {
-  display: block;
+  display: grid;
 }
 
-.call .pair + .pair {
-  margin-top: 8px;
-}
-
-.call .label {
-  margin-bottom: 3px;
-  font-size: 9.5px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+.call .inside .key {
+  font-size: 10px;
+  line-height: 16.5px;
   color: var(--faint);
 }
 
-.call .said {
-  margin: 0;
-  font-family: var(--mono);
-  font-size: 10.5px;
-  line-height: 1.5;
+.call .inside .value {
+  min-width: 0;
   color: var(--dim);
   white-space: pre-wrap;
-  word-break: break-word;
-  /* A TOOL CAN HAND BACK A WHOLE PAGE. IT SCROLLS INSIDE ITS OWN ROW RATHER THAN
-     PUSHING THE CONVERSATION OFF THE PANEL. */
+  overflow-wrap: anywhere;
+}
+
+.call .inside .called {
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+.call .inside .meta {
+  color: var(--faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.call .inside .code {
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+
+/* A TOOL CAN HAND BACK A WHOLE PAGE. IT SCROLLS INSIDE ITS OWN ROW RATHER THAN
+   PUSHING THE CONVERSATION OFF THE PANEL. */
+.call .inside .code,
+.call .inside .back {
   max-height: 150px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
 }
 
-.call.failed .pair:last-child .said {
+.call .inside .rule {
+  grid-column: 1 / -1;
+  height: 1px;
+  background: var(--line);
+}
+
+.call.failed .inside .back {
   color: var(--bad);
 }
 
@@ -469,34 +506,13 @@
 
 /* ── THE MARGINALIA ── */
 
-/* ONE FAINT NUMBER UNTIL IT IS ASKED FOR: A BREAKDOWN UNDER EVERY ANSWER IS
-   SOMETHING NOBODY READS AND EVERYBODY SEES. */
-/* THE LEFT EDGE, WITH EVERYTHING ELSE THE TURN OWNS. IT WAS TRIED OUT AT THE
-   RIGHT, WHERE MARGINALIA USUALLY GOES, AND IT READ AS BELONGING TO THE ASKING
-   ABOVE IT RATHER THAN TO THE ANSWER IT IS ACTUALLY ABOUT. */
+/* ONE FAINT NUMBER, THE TURN'S TOTAL. THE LEFT EDGE, WITH EVERYTHING ELSE THE
+   TURN OWNS: AT THE RIGHT IT READ AS BELONGING TO THE ASKING ABOVE IT. */
 .spent {
   font-size: 10px;
   color: rgba(107, 116, 106, 0.55);
   font-variant-numeric: tabular-nums;
   animation: rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-.spent .parts {
-  display: none;
-  color: var(--faint);
-}
-
-.spent:hover .all {
-  display: none;
-}
-
-.spent:hover .parts {
-  display: inline;
-}
-
-.spent b {
-  color: var(--dim);
-  font-weight: 500;
 }
 
 .aside {

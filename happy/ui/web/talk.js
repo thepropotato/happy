@@ -270,23 +270,46 @@ const Talk = (() => {
     return String(said).trim() ? String(said) : null
   }
 
-  // WHAT IS UNDER THE FOLD. null MEANS THE ROW HAS NOTHING TO OPEN.
-  function detail(each) {
-    const pairs = []
+  // A HOME FOLDER IS THE SAME ON EVERY ROW, SO IT IS SAID ONCE AS ~.
+  function homed(text) {
+    return String(text).replace(/(?:\/Users|\/home)\/[^/\s]+/g, '~')
+  }
+
+  function line(box, key, value, kind) {
+    box.append(element('div', 'key', key), element('div', kind ? `value ${kind}` : 'value', value))
+  }
+
+  // WHAT IS UNDER THE FOLD, AS ONE LEDGER: THE TOOL, WHAT IT WAS HANDED, A RULE,
+  // AND WHAT CAME BACK. null MEANS THE ROW HAS NOTHING TO OPEN.
+  function detail(each, read) {
     const said = returned(each)
+    const args = worth(each.args) ? each.args : null
 
-    if (worth(each.args)) pairs.push(['Arguments', body(each.args)])
-    if (said) pairs.push([each.failed ? 'Error' : 'Result', said])
-
-    if (!pairs.length) return null
+    if (!args && !said) return null
 
     const box = element('div', 'inside')
+    const tool = element('div', 'value')
 
-    for (const [label, text] of pairs) {
-      const pair = element('div', 'pair')
+    tool.append(element('span', 'called', each.name || ''))
 
-      pair.append(element('div', 'label', label), element('pre', 'said', text))
-      box.append(pair)
+    for (const part of [read, clock(each.seconds)]) if (part) tool.append(element('span', 'meta', ` · ${part}`))
+
+    box.append(element('div', 'key', 'tool'), tool)
+
+    // AN EMPTY ARGUMENT TELLS A READER NOTHING; ANYTHING NESTED STAYS JSON.
+    if (args && typeof args === 'object' && !Array.isArray(args)) {
+      for (const [key, value] of Object.entries(args)) {
+        if (value === null || String(value).trim() === '') continue
+
+        line(box, key, typeof value === 'object' ? body(value) : homed(value), 'code')
+      }
+    } else if (args) {
+      line(box, 'asked', body(args), 'code')
+    }
+
+    if (said) {
+      box.append(element('div', 'rule'))
+      line(box, each.failed ? 'error' : 'result', homed(said), 'back')
     }
 
     return box
@@ -316,7 +339,7 @@ const Talk = (() => {
 
     face.append(element('span', 'took', live ? '' : clock(each.seconds) || ''))
 
-    const inside = detail(each)
+    const inside = detail(each, read)
 
     if (!inside) {
       face.classList.add('shut')
@@ -398,41 +421,8 @@ const Talk = (() => {
 
     dim(box, each.unsaid)
 
-    box.append(older(each))
-  }
-
-  // WHAT A TURN FROM BEFORE THIS RUN CAN STILL SAY ABOUT ITSELF. thought AND first word WERE
-  // NEVER WRITTEN DOWN, SO THEY ARE ABSENT RATHER THAN WRONG; THE REST IS ON THE ROW.
-  function older(each) {
-    const parts = []
-    const tools = each.tools || []
-
-    // THE TURN'S OWN COUNT WHERE THERE IS ONE. OLDER ROWS HAVE ONLY WHAT THE TOOL ROWS
-    // CARRIED, WHICH MISSES THE ROUND THAT ANSWERED WITHOUT CALLING ANYTHING.
-    const own = each.spent || {}
-    const add = (what) => tools.reduce((sum, one) => sum + (((one.spent || {})[what]) || 0), 0)
-    const read = own.read || add('read')
-    const wrote = own.wrote || add('wrote')
-    const prefill = own.prefill || add('prefill')
-    const tooling = tools.reduce((sum, one) => sum + (one.seconds || 0), 0)
-
-    // THE SAME ORDER AS A LIVE TURN, SO A RELOADED ROW READS THE WAY IT DID WHEN IT RAN.
-    if (own.heard != null) parts.push(`heard <b>${clock(own.heard)}</b>`)
-    if (own.thought != null) parts.push(`thought <b>${clock(own.thought)}</b>`)
-    if (tooling) parts.push(`tools <b>${clock(tooling)}</b>`)
-    if (own.first != null) parts.push(`first word <b>${clock(own.first)}</b>`)
-    if (each.seconds != null) parts.push(`total <b>${clock(each.seconds)}</b>`)
-    if (prefill) parts.push(`prefill <b>${clock(prefill)}</b>`)
-    if (read || wrote) parts.push(`read <b>${count(read)}</b> · wrote <b>${count(wrote)}</b>`)
-
-    const named = tools.map((one) => `${one.name} ${clock(one.seconds)}`).join(' · ')
-    const line = element('div', 'spent')
-
-    line.innerHTML =
-      `<span class="all">${clock(each.seconds) || ''}</span>` +
-      `<span class="parts">${parts.join(' · ')}${named ? `<br />${named}` : ''}</span>`
-
-    return line
+    // A TURN FROM BEFORE THIS RUN SHOWS ITS TOTAL, LIKE A LIVE ONE.
+    if (each.seconds != null) box.append(element('div', 'spent', clock(each.seconds)))
   }
 
   function bare() {
@@ -574,27 +564,7 @@ const Talk = (() => {
     },
 
     spent(word) {
-      const parts = []
-
-      if (word.heard != null) parts.push(`heard <b>${clock(word.heard)}</b>`)
-      if (word.thought != null) parts.push(`thought <b>${clock(word.thought)}</b>`)
-      if (word.first != null) parts.push(`first word <b>${clock(word.first)}</b>`)
-      parts.push(`total <b>${clock(word.total)}</b>`)
-
-      // EVERY ROUND ADDED UP, WHICH IS THE ONLY PLACE THE ROUND THAT ANSWERED —
-      // THE ONE THAT ASKED FOR NO TOOL AND SO HAS NO ROW — IS COUNTED AT ALL.
-      if (word.read || word.wrote) {
-        parts.push(`read <b>${count(word.read)}</b> · wrote <b>${count(word.wrote)}</b>`)
-      }
-
-      const tools = word.tools.map((each) => `${each.name} ${clock(each.seconds)}`).join(' · ')
-      const line = element('div', 'spent')
-
-      line.innerHTML =
-        `<span class="all">${clock(word.total)}</span>` +
-        `<span class="parts">${parts.join(' · ')}${tools ? `<br />${tools}` : ''}</span>`
-
-      land(line)
+      land(element('div', 'spent', clock(word.total) || ''))
     },
 
     aside(text, sort) {
