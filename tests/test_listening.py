@@ -114,12 +114,12 @@ def test_the_name_is_acknowledged_while_the_sentence_is_still_going():
     assert woke_at is not None and woke_at < speech_ends - 1.0, (woke_at, speech_ends)
 
 
-def talking_over(audio, echo=lambda text: False, headphones=False):
+def talking_over(audio, echo=lambda text: False, headphones=False, stt=None):
     """Feeds audio to a listener that believes Happy is speaking: on headphones, or with echo cancellation on."""
     paused, said = [], []
     ears = listener.Listener("Happy", on_barge=lambda: paused.append(True),
                              on_cut_in=lambda text, by_name: said.append(listener.meaning(text, "Happy", by_name)), echo=echo)
-    ears.stt = Transcriber()
+    ears.stt = stt or Transcriber()
     ears.mic = None if headphones else object()
     listener.on_headphones, real = (lambda: headphones), listener.on_headphones
     try:
@@ -151,6 +151,20 @@ def test_through_echo_cancellation_words_without_his_name_only_pause_him():
     # LEAKED ECHO TRANSCRIBES AS STRAY WORDS LIKE "I THINK", SO WORDS WITHOUT THE NAME MUST NOT START A TURN.
     paused, said = talking_over(load("neg1.wav"))
     assert said and said[0][0] == "carry on", (paused, said)
+
+
+@pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
+def test_a_sound_with_no_words_in_it_does_not_pause_him():
+    # TYPING PASSES THE VOICE DETECTOR, SO ONLY A TRANSCRIPT WITH WORDS MAY PAUSE HIM.
+    for headphones in (False, True):
+        paused, said = talking_over(load("wake2.wav"), headphones=headphones, stt=lambda audio: "")
+        assert not paused and not said, (headphones, paused, said)
+
+
+@pytest.mark.skipif(not CLIPS.exists(), reason="no recorded clips")
+def test_stray_words_through_echo_cancellation_do_not_pause_him():
+    paused, said = talking_over(load("wake2.wav"), stt=lambda audio: "Ah, click on.")
+    assert not paused and said == [("carry on", "")], (paused, said)
 
 
 def test_noise_does_not_pause_happy():
