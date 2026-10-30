@@ -162,7 +162,8 @@ def history(args):
 def say(args):
     from happy.speech.speaker import Speaker
 
-    speaker = Speaker(Config().get("voice") or "alba")
+    cfg = Config()
+    speaker = Speaker(cfg.get("voice") or "alba", speed=cfg.get("speech_speed"))
     speaker.start()
     speaker.say(" ".join(args.text))
     time.sleep(0.2)

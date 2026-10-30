@@ -11,12 +11,17 @@ import numpy as np
 import sounddevice as sd
 
 from happy import paths
+from happy.config import speech_speed
 from happy.speech.spoken_text import speakable
+from happy.speech.stretch import Stretcher
 
 log = logging.getLogger("happy.speaker")
 
 # A PAUSE LONGER THAN THIS GOES BACK TO THE START OF THE SENTENCE; HALF A WORD AFTER A GAP SOUNDS BROKEN.
 REWIND_AFTER = 1.5
+# AT A FASTER SPEED A SENTENCE IS PLAYED QUICKER THAN A SLOW COMPUTER MAKES IT, SO IT IS HELD BACK UNTIL ENOUGH IS MADE
+# TO PLAY THROUGH WITHOUT RUNNING DRY. SENTENCES LONGER THAN THIS MAY STILL BREAK ONCE NEAR THE END.
+LONGEST_SENTENCE = 8.0
 
 
 def chime(rate, rising=True):
@@ -36,8 +41,11 @@ def reload_devices():
 
 
 class Speaker:
-    def __init__(self, voice="alba", on_level=None, on_speaking=None, refresh_devices=None, device=""):
+    def __init__(self, voice="alba", on_level=None, on_speaking=None, refresh_devices=None, device="", speed=1.0):
         self.voice = voice
+        self.speed = speech_speed(speed)
+        self.stretcher = None
+        self.output = np.empty(0, np.float32)
         self.device = device
         self.on_level = on_level or (lambda level: None)
         self.on_speaking = on_speaking or (lambda speaking: None)
@@ -60,6 +68,9 @@ class Speaker:
         self.hold = "playing"
         self.paused_at = 0.0
         self.ramp = None
+        self.started = None
+        self.pace = None
+        self.began = {}
 
     def warm(self):
         """Downloads and prepares the voice without starting to play anything."""
@@ -132,6 +143,8 @@ class Speaker:
                 rest = [each for each in self.audio if each[0] != line]
                 ended = [each for each in self.audio if each[0] == line and each[1] is None]
                 self.audio = collections.deque([(line, chunk) for chunk in self.made[line]] + ended + rest)
+                self.reset_stretch()
+                self.started = None
             self.hold, self.ramp = "playing", "in"
 
     def stop(self):
@@ -146,15 +159,17 @@ class Speaker:
                 break
         with self.audio_lock:
             self.audio.clear()
+            self.reset_stretch()
             unheard = [self.lines[line] for line in sorted(self.lines)]
             self.lines.clear()
             self.made.clear()
             self.hold, self.playing, self.ramp = "playing", None, None
+            self.started = None
         return unheard
 
     def idle(self):
         with self.audio_lock:
-            pending = bool(self.audio)
+            pending = bool(self.audio) or bool(len(self.output))
         return self.busy <= 0 and not pending
 
     def wait(self, timeout=60.0):
@@ -166,14 +181,25 @@ class Speaker:
         while True:
             line, text = self.texts.get()
             self.cut.clear()
+            began, made = time.monotonic(), 0
+            self.began[line] = began
             try:
                 for chunk in self.model.generate_audio_stream(self.state, text, stop=self.cut):
                     if self.cut.is_set():
                         break
-                    self.play(chunk.numpy().astype(np.float32), line)
+                    samples = chunk.numpy().astype(np.float32)
+                    made += len(samples)
+                    self.play(samples, line)
             except Exception:
                 log.exception("could not say %r", text)
             finally:
+                took = time.monotonic() - began
+                if made and took > 0 and not self.cut.is_set():
+                    # HOW MANY SECONDS OF VOICE THIS COMPUTER MAKES PER SECOND, SMOOTHED OVER SENTENCES.
+                    now = made / self.rate / took
+                    self.pace = now if self.pace is None else 0.7 * self.pace + 0.3 * now
+                    log.debug("voice made at %.2fx real time", self.pace)
+                self.began.pop(line, None)
                 if not self.cut.is_set():
                     # THE END OF A SENTENCE IS MARKED IN THE AUDIO, SO IT COUNTS AS HEARD ONLY ONCE IT HAS PLAYED.
                     self.play(None, line)
@@ -232,15 +258,42 @@ class Speaker:
     def fill(self, out, frames, timing, status):
         written = 0
         with self.audio_lock:
-            while written < frames and self.audio and self.hold != "paused":
+            while written < frames and (self.audio or len(self.output)) and self.hold != "paused":
+                if len(self.output):
+                    take = min(frames - written, len(self.output))
+                    out[written:written + take, 0] = self.output[:take]
+                    self.output = self.output[take:]
+                    written += take
+                    continue
                 line, head = self.audio[0]
                 if head is None:
+                    if self.stretcher is not None and (len(self.stretcher.input) or self.stretcher.tail is not None):
+                        self.output = self.stretcher.flush()
+                        continue
                     self.audio.popleft()
                     self.lines.pop(line, None)
                     self.made.pop(line, None)
+                    self.reset_stretch()
                     continue
+                speed = self.speed if line is not None else 1.0
+                if speed != 1.0 and line != self.started and not self.ready(line, speed):
+                    break
                 if line is not None:
                     self.playing = line
+                    self.started = line
+                if speed == 1.0 and self.stretcher is not None and (len(self.stretcher.input) or self.stretcher.tail is not None):
+                    self.output = self.stretcher.unstretched()
+                    continue
+                if speed != 1.0:
+                    if self.stretcher is None:
+                        self.stretcher = Stretcher(self.rate)
+                    take = min(max(1, int(self.rate * 0.03)), len(head))
+                    self.output = self.stretcher.process(head[:take], speed)
+                    if take == len(head):
+                        self.audio.popleft()
+                    else:
+                        self.audio[0] = (line, head[take:])
+                    continue
                 take = min(frames - written, len(head))
                 out[written:written + take, 0] = head[:take]
                 written += take
@@ -248,6 +301,13 @@ class Speaker:
                     self.audio.popleft()
                 else:
                     self.audio[0] = (line, head[take:])
+            # RAN OUT MID-SENTENCE: FADE THE LAST FEW MILLISECONDS AND FADE BACK IN, SO A GAP IS NOT A CLICK.
+            dry = written < frames and self.hold == "playing" and self.playing in self.lines
+            if dry and written:
+                edge = min(written, int(self.rate * 0.005))
+                out[written - edge:written, 0] *= np.linspace(1, 0, edge, dtype=np.float32)
+            if dry:
+                self.ramp = "in"
             # ONE BLOCK OF FADE EACH WAY, SO A PAUSE IS NOT A CLICK.
             if self.hold == "fading":
                 out[:written, 0] *= np.linspace(1, 0, written, dtype=np.float32)
@@ -259,6 +319,34 @@ class Speaker:
         if written:
             self.last_sound = time.monotonic()
         self.on_level(float(np.sqrt(np.mean(out[:, 0] ** 2))) if written else 0.0)
+
+    def ready(self, line, speed):
+        """Whether a sentence can start at this speed and play to its end without waiting on the voice being made."""
+        queued = 0
+        for each, samples in self.audio:
+            if each != line:
+                break
+            if samples is None:
+                return True
+            queued += len(samples)
+        seconds = queued / self.rate
+        # HOW FAST THIS SENTENCE IS BEING MADE RIGHT NOW, ONCE THERE IS A LITTLE TO GO ON; ELSE HOW FAST THE LAST ONES WERE.
+        began = self.began.get(line)
+        elapsed = time.monotonic() - began if began is not None else 0.0
+        live = seconds / elapsed if elapsed > 0.2 else None
+        known = [p for p in (live, self.pace) if p is not None]
+        if not known:
+            return False
+        # THE SLOWER OF THE TWO, AND A LITTLE SLOWER STILL, SINCE A GAP SOUNDS WORSE THAN A SHORT WAIT.
+        pace = 0.9 * min(known)
+        # PLAYED AT speed WHILE MADE AT pace, A SENTENCE OF LENGTH L NEEDS L * (1 - pace / speed) SECONDS MADE AHEAD.
+        ahead = LONGEST_SENTENCE * max(0.0, 1 - pace / speed)
+        return seconds >= max(0.25, ahead)
+
+    def reset_stretch(self):
+        if self.stretcher is not None:
+            self.stretcher.reset()
+        self.output = np.empty(0, np.float32)
 
     def housekeep(self):
         """Tells the face when talking starts and stops, and lets the speaker go when quiet."""

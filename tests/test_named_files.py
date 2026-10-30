@@ -29,7 +29,7 @@ def test_a_made_up_file_is_turned_away():
 
 
 def test_a_real_path_and_an_unknown_backend_go_ahead():
-    assert check("/etc/hosts", "anything") is None
+    assert check(__file__, "anything") is None
     assert check("WhatsApp chat log", None) is None
 
 

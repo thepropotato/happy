@@ -21,6 +21,29 @@ const Talk = (() => {
   let prose = null // THE ANSWER BLOCK STILL BEING FILLED IN.
   let status = null // THE ONE LINE SAYING WHAT IS HAPPENING RIGHT NOW.
   let mood = null // THE LAST THING WE WERE TOLD HE WAS DOING.
+  let speed = 1
+  let speeds = [0.75, 1, 1.25, 1.5, 1.75]
+  let speedPill = null
+  let speaking = false
+
+  function pace() {
+    if (speedPill) speedPill.remove()
+    speedPill = null
+    if (!speaking || !stream) return
+
+    const reply = [...stream.querySelectorAll('.line.happy')].pop()
+    if (!reply) return
+
+    speedPill = element('button', 'speech-speed', `${speed}x`)
+    speedPill.type = 'button'
+    speedPill.setAttribute('aria-label', `Speaking at ${speed}x. Change speaking speed`)
+    speedPill.onclick = () => {
+      speed = speeds[(speeds.indexOf(speed) + 1) % speeds.length]
+      ask({ do: 'set', key: 'speech_speed', value: speed })
+      pace()
+    }
+    reply.append(speedPill)
+  }
 
   const running = new Map() // id → A CALL THAT HAS STARTED AND NOT FINISHED.
   let ticking = null
@@ -158,6 +181,7 @@ const Talk = (() => {
     land(built.line, who === 'happy')
 
     if (who === 'happy') prose = built
+    pace()
 
     return built
   }
@@ -557,7 +581,15 @@ const Talk = (() => {
 
     doing(state, word) {
       mood = { state, word }
+      speaking = state === 'speaking'
+      pace()
       revise()
+    },
+
+    speed(value, steps) {
+      if (value !== undefined) speed = value
+      if (steps) speeds = steps
+      pace()
     },
 
     // THE PIECES ALREADY CARRIED EVERY WORD; ONLY THE LIVE LINE COMES DOWN.

@@ -72,6 +72,8 @@ happy say "Hello there"                    # hear the voice
 
 Settings live in `~/.happy/config.toml`: `voice` (14 Kyutai Pocket TTS voices), `push_to_talk`, `wake_word`, `call_me` (what Happy calls you, like "my lord"), `start_at_login`, `brain`, `input.device`.
 
+**Speaking speed**: choose 0.75x, 1x (the default), 1.25x, 1.5x or 1.75x under **Voice and ears**, or tap the speed pill on the reply while Happy speaks. The pill cycles through the steps and wraps to 0.75x. Say or type "talk faster", "slow down", "normal speed", or "set the speed to 1.5" to change it without a model. All three controls save the same `speech_speed` float in `~/.happy/config.toml`; other numeric values snap to the nearest step. Changes affect the unplayed part of a reply and keep the voice's pitch.
+
 **Personality**: under Talking in the settings, describe how Happy should talk ("like a knight from Game of Thrones"), or paste a whole script or subtitles. A long paste is learned from a sample into short style notes, and only those notes are used, so pasting a book costs nothing at runtime. Saying "from now on, talk like a pirate" or "talk normally again" does the same by voice. Either takes effect on the next reply.
 
 Remembered facts go in `~/.happy/memory.md`, the persona in `~/.happy/persona.md`, and secrets in `~/.happy/secrets.toml` (readable only by you).

@@ -80,6 +80,23 @@
   line-height: 1.62;
 }
 
+.speech-speed {
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: var(--block);
+  color: var(--ink);
+  font: 600 11px Inter, sans-serif;
+  cursor: pointer;
+}
+
+.speech-speed:hover,
+.speech-speed:focus-visible {
+  border-color: var(--glow);
+  color: var(--glow);
+}
+
 /* SPOKEN, NOT WRITTEN: THE BREAKS ARE THE ONES THE MICROPHONE HEARD. */
 .line.you .words {
   color: var(--asked, #d3e2cf);
@@ -573,4 +590,3 @@
   background: rgba(255, 255, 255, 0.06);
   box-shadow: 0 0 0 3px rgba(var(--accent), 0.12);
 }
-

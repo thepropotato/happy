@@ -382,6 +382,22 @@ def clock(text):
     return None
 
 
+def speed(text):
+    """Changes how quickly Happy speaks, not the sound volume."""
+    if re.fullmatch(r"(?:talk|speak) faster", text):
+        return "set_speech_speed", {"change": "up"}
+    if re.fullmatch(r"(?:talk|speak) slower|slow down", text):
+        return "set_speech_speed", {"change": "down"}
+    if re.fullmatch(r"(?:(?:talk|speak) at )?normal speed", text):
+        return "set_speech_speed", {"speed": 1.0}
+    found = re.fullmatch(r"(?:set (?:the )?speed to|speed)\s+(\d+(?:\.\d+)?)\s*x?", text)
+    if found:
+        from happy.config import speech_speed
+
+        return "set_speech_speed", {"speed": speech_speed(float(found.group(1)))}
+    return None
+
+
 def match(text):
     """The tool call an everyday command means, 'stop' for stop, or None for the brain."""
     said = clean(text)
@@ -389,7 +405,7 @@ def match(text):
         return "stop", {}
     if said in GREETINGS:
         return "reply", {"text": GREETINGS[said]}
-    for rule in (levels, media, browser, keys, machine, connected, computer, forecast, reminded, apps, clock):
+    for rule in (speed, levels, media, browser, keys, machine, connected, computer, forecast, reminded, apps, clock):
         try:
             found = rule(said)
         except Exception:

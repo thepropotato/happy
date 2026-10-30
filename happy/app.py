@@ -25,7 +25,7 @@ PHONE = ("\n\n(Sent from their phone in your WhatsApp chat: they are away from t
          "Give the answer itself in plain text, and open things on screen only when they ask to. "
          "'Here' and 'me' mean this chat: to send them a file, call whatsapp_send with to 'me' and the file's full path.)")
 CORRECTION_CUE = re.compile(r"^(?:no|nope|nah|sorry|wait|actually|i mean|i meant|not that|not him|not her|correction|rather|instead|oops)\b", re.I)
-FACTUAL = {"set_brightness", "set_volume", "set_keyboard_light", "media"}
+FACTUAL = {"set_brightness", "set_volume", "set_keyboard_light", "media", "set_speech_speed"}
 STILL_EVERY = 8.0
 # "WAIT" OVER HAPPY HOLDS HIM THIS LONG BEFORE HE GIVES UP ON THE REST.
 HOLD_SECONDS = 15.0
@@ -137,6 +137,9 @@ class Happy:
     def wake_up(self):
         """Loads the slow parts, saying which one it is waiting on: WhatsApp, then the voice and microphone together."""
         tools.load()
+        from happy.tools import controls
+
+        controls.on_speed = self.speed_changed
         self.extra_servers = {}
         self.loading("Starting WhatsApp", 0.05)
         try:
@@ -160,7 +163,8 @@ class Happy:
             from happy.speech.speaker import Speaker
 
             self.speaker = Speaker(self.cfg.get("voice") or "alba", on_level=self.face.mouth, on_speaking=self.speaking,
-                                   refresh_devices=self.reload_sound, device=self.cfg.get("output.device") or "")
+                                   refresh_devices=self.reload_sound, device=self.cfg.get("output.device") or "",
+                                   speed=self.cfg.get("speech_speed", 1.0))
             parts["the voice"] = self.speaker.start
         if self.want_listening:
             from happy.speech.listener import Listener
@@ -252,11 +256,37 @@ class Happy:
                 threading.Thread(target=self.reload_sound, name="microphone", daemon=True).start()
         if self.speaker:
             self.speaker.device = self.cfg.get("output.device") or ""
+            self.speaker.speed = self.cfg.get("speech_speed", 1.0)
         voice = self.cfg.get("voice") or "alba"
         if self.speaker and self.ready.is_set() and voice != self.speaker.voice:
             threading.Thread(target=self.speaker.use_voice, args=(voice,), name="voice change", daemon=True).start()
         if self.loop and self.ready.is_set() and brain(self.cfg) != self.brain:
             asyncio.run_coroutine_threadsafe(self.rebrain(), self.loop)
+
+    def speed_changed(self, value):
+        """Puts a saved speed to work without interrupting the reply."""
+        self.cfg.set("speech_speed", value)
+        if self.speaker:
+            self.speaker.speed = value
+        self.face.speed(value)
+
+    def speed_command(self, text):
+        found = quick.speed(quick.clean(text))
+        if not found:
+            return False
+        from happy.tools.controls import set_speech_speed
+
+        try:
+            result = set_speech_speed(**found[1])
+        except (OSError, ValueError) as error:
+            log.exception("could not change speaking speed")
+            self.face.trouble(f"Could not change speaking speed: {error}")
+            self.carry_on()
+            return True
+        self.face.note(result)
+        self.say(result)
+        self.carry_on()
+        return True
 
     async def rebrain(self):
         """Swaps in the model the settings now name, once the turn under way has finished."""
@@ -402,6 +432,8 @@ class Happy:
 
         wants, command = meaning(text, self.name, by_name)
         log.info("said over Happy (%s): %r", wants, text)
+        if self.speed_command(command):
+            return
         if wants == "carry on":
             self.carry_on()
         elif wants == "wait":
@@ -528,6 +560,8 @@ class Happy:
                 asyncio.ensure_future(self.backend.interrupt())
 
     def begin(self, text, how, shown=None):
+        if self.speaker and self.speaker.speaking and self.speed_command(text):
+            return
         shown, text, how = shown or text, *self.corrected(text, how)
         self.interrupt()
         previous = self.task

@@ -167,6 +167,9 @@ function setActionMode(next) {
 }
 
 function hear(word) {
+  if (word.is === 'settings' || word.is === 'speech_speed') {
+    Talk.speed(word.speech_speed, word.speech_speeds)
+  }
   const doing = {
     state: () => {
       settle(word.state)
