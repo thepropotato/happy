@@ -15,7 +15,7 @@ DONE_BY = r"(?:I(?:['’]ve| have)?(?: just)?|It['’]s|has been|have been|is(?:
 
 def unbacked(text, done):
     """The first sentence in text claiming a deed none of the done tools can perform, or None."""
-    if any("__" in name or name == "use_service_tool" for name in done):
+    if any("__" in name or name in ("use_service_tool", "account_connector") for name in done):
         return None
     for sentence in re.split(r"(?<=[.!?])\s+", text):
         for verbs, tools in DEEDS:

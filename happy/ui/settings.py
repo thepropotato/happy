@@ -174,13 +174,11 @@ class Settings:
             listing = asyncio.create_task(asyncio.to_thread(services.connectors))
             await asyncio.wait([*jobs.values(), listing], timeout=SERVICE_CHECK - 4)
             rows = []
-            # A CONNECTOR ON THE CLAUDE ACCOUNT REACHES HAPPY ONLY THROUGH CLAUDE CODE, SO ONLY WITH CLAUDE AS THE MODEL.
-            claude = services.using_claude()
+            # A CONNECTOR ON THE CLAUDE ACCOUNT REACHES HAPPY THROUGH CLAUDE CODE, WHICHEVER MODEL IS THINKING.
             for name, connected in (listing.result() if listing.done() and not listing.exception() else {}).items():
-                working = claude and connected
                 rows.append({"name": name, "source": "claude.ai", "removable": False,
-                             "state": "connected" if working else "only with Claude as the model" if connected else "sign in on claude.ai",
-                             "detail": "through Claude" if working else ""})
+                             "state": "connected" if connected else "sign in on claude.ai",
+                             "detail": "through Claude" if connected else ""})
             for name, job in jobs.items():
                 if job.done() and not job.exception():
                     rows.append(job.result())

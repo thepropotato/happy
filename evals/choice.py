@@ -25,7 +25,7 @@ CASES = [
     ("has jane replied yet", ("whatsapp_read", "whatsapp_search"), {"chat": "jane"}),
     ("find the address I sent to my brother on whatsapp", "whatsapp_find", {"what": "address"}),
     ("tell mom on whatsapp that I'll be home by eight", "whatsapp_send", {"to": "mom"}),
-    ("read my latest emails", "gmail__search_threads", {}),
+    ("read my latest emails", ("gmail__search_threads", "account_connector"), {}),
     ("build me a small snake game in python", "hand_off_coding", {}),
     ("fix the failing tests in the open slate project", "hand_off_coding", {"folder": "open slate"}),
     ("can you ask claude to set up the linkedin mcp server for me", "hand_off_coding", {}),
@@ -44,8 +44,8 @@ CASES = [
     ("can you tell me whether my mail thing is hooked up to you", "connections", {}),
     ("which of my MCP servers are working", "connections", {}),
     ("do you have access to my linear account", "connections", {}),
-    ("check my email", "gmail__search_threads", {}),
-    ("draft an email to john saying I'll call him tonight", "gmail__create_draft", {}),
+    ("check my email", ("gmail__search_threads", "account_connector"), {}),
+    ("draft an email to john saying I'll call him tonight", ("gmail__create_draft", "account_connector"), {}),
     ("I want you to search for the current price of PS5 in India.", "web_search", {"query": "ps5"}),
     ("what's the weather going to be like in springfield tomorrow", "weather", {"where": "springfield", "when": "tomorrow"}),
     ("will it rain this afternoon", "weather", {}),
@@ -112,6 +112,7 @@ CANNED = {
     "find_files": "/Users/johndoe/Desktop/projects/open-slate (changed 14 Oct 2026)\n/Users/johndoe/Documents/Resume 2026.pdf (changed 02 Sep 2026)",
     "open_file": "Opened /Users/johndoe/Documents/Resume 2026.pdf in Finder.",
     "hand_off_coding": "Opened Claude Code in a Terminal window in /Users/johndoe/Desktop/projects/open-slate with the task.",
+    "account_connector": "You have 2 unread emails: GitHub says your open-slate pull request was merged, and Jane Doe asks about dinner on Sunday.",
     "whatsapp_search": "[Mon 19 Oct, 10:02 AM in Office] John Doe (boss): [document] (file Q3-plan.pdf)",
     "web_search": "1. Sony PlayStation5 Online in India at Best Prices - Flipkart — www.flipkart.com\n   The PS5 gaming console delivers eye-catching graphics with hardware that supports ray tracing.\n"
                   "2. Amazon.in: Ps5 — www.amazon.in\n   Discover a wide selection of PS5 games, consoles, and gaming accessories.\n"

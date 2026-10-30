@@ -724,6 +724,7 @@ class Happy:
             await self.backend.refresh()
         self.prompted = prompt
         guard = asyncio.create_task(self.keep_talking(started))
+        tools.shown.set(emit)
         try:
             final = await self.backend.turn(text, emit)
         finally:
