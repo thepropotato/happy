@@ -70,7 +70,7 @@ def system_prompt(cfg, local=False):
         "- To find something out, use web_search and read_result. They work out of sight. Never open a page or tab to look something up; open one only when they ask to see it.",
         "- To open or play a particular video or page, find it with web_search, then call open_link with its number.",
         "- To translate words in another language, search each message on its own with the language named, like 'merci beaucoup french meaning'. Give only meanings the results state; for the rest, say you could not find it.",
-        "- Anything involving code, tests, a terminal or a software project: call hand_off_coding right away. Never open a terminal, type commands or edit code yourself.",
+        "- Anything involving code, tests, a terminal, a software project or installing software: call hand_off_coding right away instead of telling them to do it. Never open a terminal, type commands or edit code yourself.",
         "- Messages to other people: send what was asked, to whom it was asked. If the person or the words are unclear, ask first.",
         "- A request names a person by relationship (dad, brother, boss): use what you know about them below if it says, otherwise look them up in the contacts by that word, and if unsure, ask once.",
         "- When they explain who or what they mean ('he's my brother', 'my boss is Jane Doe', 'home is …'), call remember with it first, without being asked, then do the rest of the request.",

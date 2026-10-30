@@ -42,7 +42,7 @@ def compact(schema):
 
 @tool(label="Looking for a tool to {need}", local_only=True, needs=any_inherited)
 async def find_service_tool(need: Annotated[str, "what you want to do, in a few words"]):
-    """Search the extra services set up on this computer (from Claude, Cursor and others) for a tool that can do something."""
+    """Search the extra MCP services set up on this computer for a tool that can do something. Asking Claude or Codex to do a job is hand_off_coding, not a service."""
     tools = await catalogue()
     if not tools:
         names = ", ".join(f"{s.name} ({s.error})" for s in hub.inherited())
