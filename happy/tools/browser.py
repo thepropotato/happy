@@ -196,7 +196,7 @@ def page_text(app, tab):
 
 @tool(label="Reading {match}")
 def read_tab(match: Annotated[str, "words from the tab's title or address; empty means the tab in front"] = ""):
-    """Read the page or article open in the browser. Use it for 'this article', 'this page' and 'summarise this'."""
+    """Read the page or article open in the browser, and its address. Use it for 'this article', 'this page', 'summarise this' and the link to this tab or meeting."""
     if sys.platform != "darwin":
         return "Reading tabs needs a Mac for now."
     app = front_browser()

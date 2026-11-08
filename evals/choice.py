@@ -83,7 +83,7 @@ CASES = [
     ("from now on talk like a knight from game of thrones", "personality", {"style": "knight"}),
     ("stop the accent and talk normally again", "personality", {}),
     ("my brother is John Doe in my contacts, remember that", "remember", {"fact": "brother"}),
-    ("tell my brother John Doe on whatsapp that I'm on my way", "whatsapp_send", {"called": "brother"}),
+    ("tell my brother John Doe on whatsapp that I'm on my way", "whatsapp_send", {"relation": "brother"}),
     ("create a file on the desktop called test.txt and write some dialogue from game of thrones in it", "write_file", {"name": "test.txt"}),
     ("rewrite test.txt on my desktop so it only says hello", "write_file", {"how": "replace"}),
     ("what are all the apps that are open on my computer right now", "open_apps", {}),

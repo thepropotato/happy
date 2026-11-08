@@ -2,6 +2,8 @@
 
 import asyncio
 
+import pytest
+
 from happy.tools import whatsapp
 from whatsapp_server import nearing
 
@@ -90,16 +92,16 @@ def test_here_sends_the_file_to_their_own_chat(monkeypatch, tmp_path):
 
 def test_only_a_relationship_they_said_is_remembered(monkeypatch):
     sends = Sends(monkeypatch, "message jane doe hi")
-    send(to="Jane Doe", message="hi", called="brother")
+    send(to="Jane Doe", message="hi", relation="brother")
     assert sends.noted == []
     sends = Sends(monkeypatch, "tell my brother jane doe hi")
-    send(to="Jane Doe", message="hi", called="brother")
+    send(to="Jane Doe", message="hi", relation="brother")
     assert sends.noted
 
 
 def test_a_relationship_they_said_names_the_contact_it_was_looked_up_as(monkeypatch):
     sends = Sends(monkeypatch, "tell my brother to come fast")
-    send(to="John Doe", message="Come fast", called="brother")
+    send(to="John Doe", message="Come fast", relation="brother")
     assert len(sends.sent) == 1
 
 
@@ -144,3 +146,32 @@ def test_stats_say_which_chats_were_busy_today(monkeypatch):
     monkeypatch.setattr(whatsapp, "bridge", lambda path, **params: stats)
     said = asyncio.run(whatsapp.whatsapp_stats())
     assert "across 2 chats: Office (group) 3, Jane Doe 1." in said
+
+
+FLAT = {"to": "Jane Doe", "message": "hi", "file": "", "relation": ""}
+PARAMS = {name: {} for name in FLAT}
+
+
+@pytest.mark.parametrize("sent", [
+    {"called": True, "called_with": FLAT},
+    {"called": "whatsapp_send", "arguments": FLAT},
+    {"called_by": "assistant", "name": "whatsapp_send", "arguments": FLAT},
+    {"called_with": {"arguments": FLAT, "called": "whatsapp_send"}},
+])
+def test_buried_arguments_are_dug_out(sent):
+    from happy.agent.openai_compatible import unwrapped
+
+    assert unwrapped(sent, PARAMS) == FLAT
+
+
+def test_flat_arguments_and_empty_envelopes_are_left_alone():
+    from happy.agent.openai_compatible import unwrapped
+
+    assert unwrapped(FLAT, PARAMS) == FLAT
+    empty = {"called": "whatsapp_send", "called_with": {}, "error": "Missing required fields"}
+    assert unwrapped(empty, PARAMS) == empty
+
+
+def test_an_empty_send_does_not_demand_exact_words():
+    refusal = whatsapp.wordless({"to": "Jane Doe", "message": ""})
+    assert "write it in message" in refusal and "exact words" not in refusal

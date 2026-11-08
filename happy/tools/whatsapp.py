@@ -402,16 +402,16 @@ def wordless(args):
     """A send with nothing in it is the model guessing at a reply they have not given yet."""
     if (args.get("message") or "").strip() or (args.get("file") or "").strip():
         return None
-    return ("Error: not sent, and nothing was sent: they have not given the words. Do not send anything until they say "
-            "the exact words. Go back to what they asked and do that.")
+    return ("Error: not sent: the message was empty. If they gave what to send, like a link or what to ask, write it in "
+            "message and send again. If they have not said what to send, ask them what to say.")
 
 
 @tool(say="Sending it.", label="Sending to {to} on WhatsApp", local_only=True, needs=connected, check=wordless)
 async def whatsapp_send(
     to: Annotated[str, "the person or group, by name; 'me' for the person you are talking with, which goes to their chat with you"],
-    message: Annotated[str, "the exact words to send; with a file, a caption or empty"] = "",
+    message: Annotated[str, "the whole message written out: their words, any link, and what they asked you to ask or tell; with a file, a caption or empty"] = "",
     file: Annotated[str, "full path of a file on this computer to send, like a document or photo; empty for only words"] = "",
-    called: Annotated[str, "the relationship word they used for the person, like 'brother', 'mom' or 'boss', never the name; empty if they only gave a name"] = "",
+    relation: Annotated[str, "the relationship word they used for the person, like 'brother', 'mom' or 'boss', never the name; empty if they only gave a name"] = "",
 ):
     """Send a WhatsApp message, or a file on this computer like a document or photo."""
     import asyncio
@@ -434,7 +434,7 @@ async def whatsapp_send(
             data = await asyncio.to_thread(post, "/send-group", {"groupId": own, "message": message})
         return data if isinstance(data, str) else json.dumps(data)[:800]
     # A SEND NOBODY ASKED FOR CANNOT BE TAKEN BACK: "SEND IT HERE" WENT TO THE LAST PERSON TALKED ABOUT, AS THE WORDS "SEND IT HERE".
-    word = called.strip().lower().removeprefix("my ").strip()
+    word = relation.strip().lower().removeprefix("my ").strip()
     # "TELL MY BROTHER" NAMES HIM AS SURELY AS HIS NAME DOES, ONCE THE CONTACT IT MEANS WAS LOOKED UP.
     if said is not None and not named(to, said) and not (word and re.search(rf"\b{re.escape(word)}\b", said)):
         return (f"Not sent: they never named {to}. Ask them who it should go to, or whether they meant you, "
