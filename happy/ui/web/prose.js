@@ -29,7 +29,10 @@ const Prose = (() => {
   // MARKDOWN IS A BLOCK LANGUAGE, SO A LEADING INDENT THE STREAM HAPPENED TO CARRY
   // WOULD TURN AN ORDINARY SENTENCE INTO A CODE BLOCK.
   function level(text) {
-    return String(text || '').replace(/^[ \t]+(?=\S)/gm, (run) => (run.length >= 4 ? '' : run))
+    return String(text || '')
+      .replace(/^[ \t]+(?=\S)/gm, (run) => (run.length >= 4 ? '' : run))
+      // A NUMBER ENDING A LINE, OR ONE NO LIST REACHES, IS AN ANSWER, NOT AN EMPTY LIST ITEM.
+      .replace(/^( {0,3}(?:\d{1,9}(?=[.)][ \t]*$)|\d{3,9}(?=[.)][ \t])))([.)])/gm, '$1\\$2')
   }
 
   function drawn(text) {
