@@ -25,6 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger("whatsapp-bridge")
 
 from neonize import NewClient
+from whatsapp_server import recipients
 from neonize.utils.jid import build_jid, Jid2String
 from neonize.proto.Neonize_pb2 import (
     Message as MessageEv, Connected as ConnectedEv, Disconnected as DisconnectedEv,
@@ -1532,11 +1533,12 @@ def enrich_contacts_from_store(session):
                         if name and (phone_book_name or not c.get("name") or c["name"] == c.get("number")):
                             c["name"] = clean(name)
                         c.update({k: v for k, v in profile.items() if v})
+                        c["saved"] = bool(phone_book_name)
                         break
             else:
                 if not name:
                     name = number or cid
-                session.contacts.append({"id": cid, "name": clean(name), "number": number, "status": "", **{k: v for k, v in profile.items() if v}})
+                session.contacts.append({"id": cid, "name": clean(name), "number": number, "status": "", "saved": bool(phone_book_name), **{k: v for k, v in profile.items() if v}})
                 existing_ids.add(cid)
     if store_contacts:
         session.contacts_enriched = time.time()
@@ -2507,6 +2509,14 @@ def resolve_contact(username):
 
 
 
+
+
+@app.get("/<username>/recipients")
+def recipients_of(username):
+    """Everyone a name could mean for a send, with whether each is saved and has ever been written to."""
+    s = get_session(username)
+    enrich_contacts_from_store(s)
+    return jsonify(clean(recipients.matching(s, request.args.get("q", "").strip(), chat_jid_of, resolve_recipient)))
 
 
 def everything_said(s):

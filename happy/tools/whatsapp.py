@@ -6,7 +6,7 @@ import time
 from typing import Annotated
 
 from happy.integrations.mcp import hub
-from happy.tools import report, said_lately, tool
+from happy.tools import asked, report, said_lately, tool
 
 
 def connected():
@@ -406,6 +406,64 @@ def wordless(args):
             "message and send again. If they have not said what to send, ask them what to say.")
 
 
+# WHO A SEND IS WAITING ON THEIR ANSWER ABOUT, AND THE REQUEST THAT RAISED THE QUESTION, SINCE THE ANSWER COMES ON THE NEXT TURN.
+waiting = {"words": None, "jids": set()}
+
+
+def recipients(name):
+    """Everyone the name could mean, or the reason nobody could be looked up."""
+    import httpx
+
+    from happy.integrations import whatsapp
+
+    try:
+        return httpx.get(f"{whatsapp.BASE}/recipients", params={"q": name}, timeout=30).raise_for_status().json()
+    except (httpx.HTTPError, ValueError) as error:
+        return f"Error: not sent: could not check who that is on WhatsApp: {error}"
+
+
+def answering():
+    """Whether this turn comes straight after the one that put a question to them."""
+    from happy import history
+
+    words = asked.get()
+    if waiting["words"] is None or words == waiting["words"]:
+        return False
+    before = [turn["request"] for turn in history.recent(limit=3) if turn["request"] != words]
+    return bool(before) and before[0] == waiting["words"]
+
+
+def spelled(said, people):
+    """Once asked, their answer as written decides, since matching two names that sound alike by sound would only ask again."""
+    from whatsapp_server import nearing
+
+    exact = [person for person in people if person["name"].lower() == said.lower()]
+    words = set(nearing.words(said))
+    literal = [person for person in people if words <= set(nearing.words(person["name"]))]
+    return next((narrowed for narrowed in (exact, literal) if len(narrowed) == 1), people)
+
+
+def hold(people):
+    waiting.update(words=asked.get(), jids={person["jid"] for person in people})
+
+
+def which_one(said, people):
+    """The question to put when a name fits several people, spelled out, because told only the rule a small model does not ask it."""
+    names = [person["name"] for person in people]
+    shown = [f"{name} ending {' '.join(person['number'][-4:])}" if names.count(name) > 1 else name for name, person in zip(names, people)]
+    choice = ", ".join(shown[:6][:-1]) + f" or {shown[:6][-1]}"
+    twins = "".join(f" The one ending {person['number'][-4:]} is sent with to {person['number']}." for name, person in zip(names, people) if names.count(name) > 1)
+    return (f"Not sent: '{said}' fits {len(people)} contacts. Ask them exactly: \"Which {said} do you mean, {choice}?\" "
+            f"When they choose, send again with to set to the name they chose.{twins}")
+
+
+def first_contact(person):
+    ending = " ".join(person["number"][-4:])
+    return (f"Not sent: {person['name']} is not a saved contact and has never been messaged from this account. Ask them exactly: "
+            f"\"{person['name']}, number ending {ending}, isn't saved and you've never messaged them. Should I send it?\" "
+            f"Send it only if they say yes.")
+
+
 @tool(say="Sending it.", label="Sending to {to} on WhatsApp", local_only=True, needs=connected, check=wordless)
 async def whatsapp_send(
     to: Annotated[str, "the person or group, by name; 'me' for the person you are talking with, which goes to their chat with you"],
@@ -433,16 +491,37 @@ async def whatsapp_send(
         else:
             data = await asyncio.to_thread(post, "/send-group", {"groupId": own, "message": message})
         return data if isinstance(data, str) else json.dumps(data)[:800]
+    from whatsapp_server import contacts
+
+    looked = contacts.recall(to.strip(), "whatsapp") or to.strip()
+    people = await asyncio.to_thread(recipients, looked)
+    if isinstance(people, str):
+        return people
+    told = answering()
+    if len(people) > 1 and told:
+        people = spelled(looked, people)
+    person = people[0] if len(people) == 1 else None
+    answered = told and person is not None and person["jid"] in waiting["jids"]
     # A SEND NOBODY ASKED FOR CANNOT BE TAKEN BACK: "SEND IT HERE" WENT TO THE LAST PERSON TALKED ABOUT, AS THE WORDS "SEND IT HERE".
     word = relation.strip().lower().removeprefix("my ").strip()
     # "TELL MY BROTHER" NAMES HIM AS SURELY AS HIS NAME DOES, ONCE THE CONTACT IT MEANS WAS LOOKED UP.
-    if said is not None and not named(to, said) and not (word and re.search(rf"\b{re.escape(word)}\b", said)):
+    if not answered and said is not None and not named(to, said) and not (word and re.search(rf"\b{re.escape(word)}\b", said)):
         return (f"Not sent: they never named {to}. Ask them who it should go to, or whether they meant you, "
                 f"and send it only once they say.")
+    if len(people) > 1:
+        hold(people)
+        return which_one(to.strip(), people)
+    # NO PICKING FOR THEM: THE ANSWER HAS TO COME FROM THEIR NEXT WORDS, NOT THE SAME TURN THAT RAISED THE QUESTION.
+    if person and asked.get() == waiting["words"] and person["jid"] in waiting["jids"]:
+        return f"Not sent: they have not answered yet. Ask them first, and do not send to {person['name']} until they do."
+    if person and not (person["saved"] or person["talked"] or answered):
+        hold(people)
+        return first_contact(person)
+    target = person["jid"] if person else to
     if file:
-        data = await ask("send_media_message", recipients=[to], source=str(Path(file).expanduser().resolve()), caption=message)
+        data = await ask("send_media_message", recipients=[target], source=str(Path(file).expanduser().resolve()), caption=message)
     else:
-        data = await ask("send_message", recipients=[to], message=message)
+        data = await ask("send_message", recipients=[target], message=message)
     failed = (isinstance(data, str) and data.lower().startswith("error")) or (isinstance(data, dict) and (data.get("error") or data.get("success") is False))
     # ONLY A WORD THEY ACTUALLY SAID IS KEPT: A GUESSED "brother" ONCE WROTE A WRONG PERSON INTO THE NOTES FOR GOOD.
     if word and word != to.strip().lower() and not failed and said is not None and re.search(rf"\b{re.escape(word)}\b", said):

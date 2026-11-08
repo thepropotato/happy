@@ -40,8 +40,12 @@ def test_one_person_is_offered_once_under_the_name_a_lookup_takes():
     assert "'Jane Doe' (WhatsApp profile name Notjane), 'Janet'" in said
 
 
+def person(name, jid=None, number="919876543210", saved=True, talked=True):
+    return {"jid": jid or f"{name}@s.whatsapp.net", "name": name, "number": number, "saved": saved, "talked": talked, "group": False}
+
+
 class Sends:
-    def __init__(self, monkeypatch, said, earlier=()):
+    def __init__(self, monkeypatch, said, earlier=(), people=None, waiting=None):
         from happy import history, tools
         from happy.integrations import whatsapp as bridge
 
@@ -58,6 +62,8 @@ class Sends:
             self.noted.append(args)
 
         monkeypatch.setattr(whatsapp, "ask", ask)
+        monkeypatch.setattr(whatsapp, "recipients", lambda name: people if people is not None else [person(name)])
+        monkeypatch.setattr(whatsapp, "waiting", dict(waiting) if waiting else {"words": None, "jids": set()})
         monkeypatch.setattr(whatsapp, "post", lambda path, body: self.posted.append((path, body)) or {"success": True})
         monkeypatch.setattr(whatsapp.hub, "call", call)
         monkeypatch.setattr("happy.tools.notes.note", lambda fact: self.noted.append(fact))
@@ -175,3 +181,83 @@ def test_flat_arguments_and_empty_envelopes_are_left_alone():
 def test_an_empty_send_does_not_demand_exact_words():
     refusal = whatsapp.wordless({"to": "Jane Doe", "message": ""})
     assert "write it in message" in refusal and "exact words" not in refusal
+
+
+SCHOOL, COLLEGE = person("Jane School", number="911111111111"), person("Jane College", number="912222222222")
+
+
+def test_a_name_fitting_two_contacts_asks_and_sends_nothing(monkeypatch):
+    sends = Sends(monkeypatch, "tell jane hi", people=[SCHOOL, COLLEGE])
+    said = send(to="jane", message="hi")
+    assert "Which jane do you mean, Jane School or Jane College?" in said and sends.sent == []
+
+
+def test_the_model_cannot_answer_its_own_question(monkeypatch):
+    sends = Sends(monkeypatch, "tell jane hi", people=[SCHOOL, COLLEGE])
+    send(to="jane", message="hi")
+    monkeypatch.setattr(whatsapp, "recipients", lambda name: [SCHOOL])
+    assert send(to="Jane School", message="hi").startswith("Not sent") and sends.sent == []
+
+
+def test_their_choice_goes_to_the_one_chosen(monkeypatch):
+    waited = {"words": "tell jane hi", "jids": {SCHOOL["jid"], COLLEGE["jid"]}}
+    sends = Sends(monkeypatch, "the college one", earlier=[("tell jane hi", "Which jane?")], people=[COLLEGE], waiting=waited)
+    send(to="Jane College", message="hi")
+    assert sends.sent == [("send_message", {"recipients": [COLLEGE["jid"]], "message": "hi"})]
+
+
+def test_two_people_with_the_very_same_name_are_told_apart_by_number(monkeypatch):
+    one, two = person("John", "1@s.whatsapp.net", "911111111111"), person("John", "2@s.whatsapp.net", "912222222222")
+    sends = Sends(monkeypatch, "tell john hi", people=[one, two])
+    said = send(to="john", message="hi")
+    assert "John ending 1 1 1 1 or John ending 2 2 2 2" in said and sends.sent == []
+
+
+def test_an_exact_name_settles_it_once_they_have_been_asked(monkeypatch):
+    exact, longer = person("Jane"), SCHOOL
+    waited = {"words": "tell jane hi", "jids": {exact["jid"], longer["jid"]}}
+    sends = Sends(monkeypatch, "just jane", earlier=[("tell jane hi", "Which jane?")], people=[exact, longer], waiting=waited)
+    send(to="Jane", message="hi")
+    assert sends.sent[0][1]["recipients"] == [exact["jid"]]
+
+
+STRANGER = person("Jane", number="919876543210", saved=False, talked=False)
+
+
+def test_a_stranger_never_written_to_needs_a_yes(monkeypatch):
+    sends = Sends(monkeypatch, "tell jane hi", people=[STRANGER])
+    said = send(to="Jane", message="hi")
+    assert "isn't saved" in said and "3 2 1 0" in said and sends.sent == []
+
+
+def test_their_yes_on_the_next_turn_sends_it(monkeypatch):
+    waited = {"words": "tell jane hi", "jids": {STRANGER["jid"]}}
+    sends = Sends(monkeypatch, "yes", earlier=[("tell jane hi", "Should I send it?")], people=[STRANGER], waiting=waited)
+    send(to="Jane", message="hi")
+    assert len(sends.sent) == 1
+
+
+def test_a_yes_does_not_carry_past_the_very_next_turn(monkeypatch):
+    waited = {"words": "tell jane hi", "jids": {STRANGER["jid"]}}
+    sends = Sends(monkeypatch, "tell jane bye", earlier=[("what time is it", "Nine."), ("tell jane hi", "Should I send it?")], people=[STRANGER], waiting=waited)
+    assert "isn't saved" in send(to="Jane", message="bye") and sends.sent == []
+
+
+def test_someone_already_written_to_needs_no_yes(monkeypatch):
+    sends = Sends(monkeypatch, "tell jane hi", people=[person("Jane", saved=False, talked=True)])
+    send(to="Jane", message="hi")
+    assert len(sends.sent) == 1
+
+
+def test_a_saved_contact_never_written_to_needs_no_yes(monkeypatch):
+    sends = Sends(monkeypatch, "tell jane hi", people=[person("Jane", saved=True, talked=False)])
+    send(to="Jane", message="hi")
+    assert len(sends.sent) == 1
+
+
+def test_a_spelled_answer_settles_names_that_sound_alike(monkeypatch):
+    first, second = person("Jon", "1@s.whatsapp.net"), person("John K", "2@s.whatsapp.net")
+    waited = {"words": "tell jon hi", "jids": {first["jid"], second["jid"]}}
+    sends = Sends(monkeypatch, "john", earlier=[("tell jon hi", "Which jon?")], people=[first, second], waiting=waited)
+    send(to="John", message="hi")
+    assert sends.sent[0][1]["recipients"] == [second["jid"]]

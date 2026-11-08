@@ -17,6 +17,30 @@ def squeeze(word):
     return re.sub(r"(.)\1+", r"\1", re.sub(r"(?:ie|ee|ey|y)$", "i", word))
 
 
+def sounds(word):
+    """A WORD AS IT IS SAID, SO TWO SPELLINGS OF ONE NAME COME OUT THE SAME."""
+    said = word.lower()
+    for written, heard in (("ph", "f"), ("sh", "s"), ("th", "t"), ("dh", "d"), ("bh", "b"), ("kh", "k"), ("gh", "g"), ("ck", "k"),
+                           ("q", "k"), ("w", "v"), ("z", "j"), ("ee", "i"), ("oo", "u"), ("ou", "u")):
+        said = said.replace(written, heard)
+    said = re.sub(r"c(?!h)", "k", said)
+    said = re.sub(r"(?:ie|ey)$", "i", said).replace("y", "i")
+    said = re.sub(r"(?<=[aeiou])h(?=[^aeiou])", "", said)
+    return re.sub(r"(.)\1+", r"\1", re.sub(r"([aeiou])[aeiou]+", r"\1", said))
+
+
+def alike(asked, name):
+    """0 WHEN EVERY WORD ASKED IS SAID LIKE A WORD OF THE NAME, 1 WHEN EVERY WORD ONLY STARTS ONE, ELSE None."""
+    said, saved = [sounds(w) for w in words(asked)], [sounds(w) for w in words(name)]
+    if not said or not saved:
+        return None
+    if all(word in saved for word in said):
+        return 0
+    if all(len(word) >= 3 and any(other.startswith(word) for other in saved) for word in said):
+        return 1
+    return None
+
+
 def inside(one, other):
     """HOW WELL one MATCHES THE BEST STRETCH OF other, FOR A NAME HIDDEN IN A LONGER ONE LIKE "notjane"."""
     if len(other) <= len(one) or len(one) < 4:
