@@ -60,6 +60,7 @@ class Speaker:
         self.hold = "playing"
         self.paused_at = 0.0
         self.ramp = None
+        self.rate = None
 
     def warm(self):
         """Downloads and prepares the voice without starting to play anything."""
@@ -109,6 +110,9 @@ class Speaker:
 
     def blip(self, rising=True):
         """The wake chime; it is not Happy talking, so it never changes the face or deafens the microphone."""
+        # THE MICROPHONE OPENS SECONDS BEFORE THE VOICE HAS LOADED, AND A WAKE-UP THEN IS STILL SHOWN ON THE FACE.
+        if self.rate is None:
+            return
         sound = chime(self.rate, rising)
         self.chime_until = time.monotonic() + len(sound) / self.rate + 0.2
         self.play(sound)
