@@ -160,7 +160,8 @@ class Settings:
             hub = Hub()
             found = discovered.everything()
             for name, (spec, source) in found.items():
-                hub.add(name, spec, source)
+                if not spec.get("codex_only"):
+                    hub.add(name, spec, source)
             mine = services.removable()
 
             async def one(name, source):
@@ -170,7 +171,8 @@ class Settings:
                 return {"name": name, "source": source, "state": state, "removable": name in mine,
                         "detail": f"{len(server.tools)} tools" if ok else (server.error or "did not answer")[:90]}
 
-            jobs = {name: asyncio.create_task(one(name, source)) for name, (_, source) in found.items()}
+            jobs = {name: asyncio.create_task(one(name, source)) for name, (spec, source) in found.items()
+                    if not spec.get("codex_only")}
             listing = asyncio.create_task(asyncio.to_thread(services.connectors))
             await asyncio.wait([*jobs.values(), listing], timeout=SERVICE_CHECK - 4)
             rows = []
@@ -186,6 +188,10 @@ class Settings:
                     job.cancel()
                     rows.append({"name": name, "source": found[name][1], "state": "failing", "detail": "did not answer in time",
                                  "removable": name in mine})
+            for name, (spec, source) in found.items():
+                if spec.get("codex_only"):
+                    rows.append({"name": name, "source": source, "state": "only works inside Codex",
+                                 "detail": "", "removable": name in mine})
             try:
                 await asyncio.wait_for(hub.close(), 3)
             except (asyncio.TimeoutError, Exception):

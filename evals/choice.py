@@ -106,7 +106,7 @@ CANNED = {
                       "[Fri 23 Oct, 9:10 PM] John Doe: did you reach?\n[Fri 23 Oct, 9:12 PM] John: yes reached"),
     "whatsapp_find": "Best matches out of 812 messages:\n[Mon 2 Mar, 4:01 PM in John Doe] Me: Flat 12, Example Residency, Road no 1, Springfield 12345",
     "look_at_screen": "Front app: Google Chrome\nWindow: Lofi Girl - YouTube\nGoogle Chrome tab in front: Lofi Girl - YouTube — https://www.youtube.com/watch?v=jfKfPfyJRdk",
-    "connections": "Internet: online\nModel: gpt-oss:20b\nWhatsApp: connected (linked as John)\nEmail through gmail (from Claude Code): connected (9 tools)\nMCP server linear (from Claude Code): needs sign-in (401 Unauthorized)\nMCP server freecad (from Claude Code): connected (14 tools)",
+    "connections": "Internet: online\nModel: gpt-oss:20b\nWhatsApp: connected (linked as John)\nEmail through gmail (from Claude Code): connected (9 tools)\nMCP server linear (from Claude Code): needs sign-in (401 Unauthorized)\nMCP server freecad (from Claude Code): connected (14 tools)\nMCP server docs (from Codex): connected (4 tools)",
     "gmail__search_threads": "thread 18c2a (Sat 24 Oct, 2:10 PM) GitHub <noreply@github.com>: [open-slate] PR merged\nthread 18c1f (Fri 23 Oct) Jane Doe: Dinner on Sunday?",
     "gmail__create_draft": "Draft created: id r-551, to john@example.com.",
     "find_files": "/Users/johndoe/Desktop/projects/open-slate (changed 14 Oct 2026)\n/Users/johndoe/Documents/Resume 2026.pdf (changed 02 Sep 2026)",

@@ -30,6 +30,9 @@ async def mcp_servers(only=None):
     rows = []
 
     async def check(name, source):
+        spec = found[name][0]
+        if spec.get("codex_only"):
+            return name, source, "only works inside Codex", ""
         if name in claude_servers:
             return name, source, claude_servers[name], ""
         server = hub.get(name)
