@@ -186,3 +186,9 @@ def test_a_page_chrome_has_not_let_in_says_how_once(mail, monkeypatch):
     mail.win.app = "Google Chrome"
     said = screen.use_app("click", target="send", app="Google Chrome")
     assert said.endswith("Chrome has not let Happy into its pages.") and mail.done == [("press", "Send")]
+
+
+def test_typing_prefers_a_field_over_a_link_named_exactly():
+    found = [Control("link", "Search"), Control("textbox", "Search input", field=True, kind="text field")]
+    assert screen.ranked(found, "search", fields=True)[0].label == "Search input"
+    assert screen.ranked(found, "search")[0].label == "Search"

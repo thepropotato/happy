@@ -120,7 +120,9 @@ def matches(found, words, fields):
             continue
         kind = 0 if (control.field if fields else control.listed) else 1
         scored.append((fit, kind, not control.enabled, len(name), control))
-    return [s[-1] for s in sorted(scored, key=lambda s: s[:4])]
+    # TYPING WANTS A FIELD: INSTAGRAM'S "SEARCH" LINK NAMED EXACTLY BEAT ITS "SEARCH INPUT" FIELD.
+    order = (lambda s: (s[1], s[0], s[2], s[3])) if fields else (lambda s: s[:4])
+    return [s[-1] for s in sorted(scored, key=order)]
 
 
 def pick(win, target, fields=False, found=None):
