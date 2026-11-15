@@ -14,6 +14,17 @@ if ! command -v claude >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/claude" ]; th
   curl -fsSL https://claude.ai/install.sh | bash || echo "Claude Code could not be installed right now. Happy works without it; adding MCP services needs it, and setup will try again next time."
 fi
 
+if ! command -v agent-browser >/dev/null 2>&1; then
+  echo "Installing agent-browser, which lets Happy work inside pages in your own Chrome…"
+  if command -v brew >/dev/null 2>&1; then
+    brew install --quiet agent-browser || echo "agent-browser could not be installed; pages are worked through accessibility instead."
+  elif command -v npm >/dev/null 2>&1; then
+    npm install -g --silent agent-browser || echo "agent-browser could not be installed; pages are worked through accessibility instead."
+  else
+    echo "agent-browser needs Homebrew or Node; pages are worked through accessibility instead."
+  fi
+fi
+
 if ! uv sync --quiet; then
   echo "Installing Happy's Python packages failed. Check the internet connection and run ./setup.sh again."
   exit 1

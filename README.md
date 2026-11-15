@@ -5,6 +5,7 @@ A voice agent that lives on your computer, not inside a project folder. Bring yo
 - "Set the brightness to 20." "Turn the keyboard light off." "Mute."
 - "Pause the video." "Next song." "Close this tab." "Switch to the Gmail tab."
 - "Open the happy project in VS Code." "Show my resume in Finder."
+- "Click Send in Mail." "Type hello into the search box in Spotify." "In Finder, choose View, as List." Happy works the buttons, fields and menus inside an app by their names, even when the app is behind other windows, and says when it could not see the result.
 - "Do I have unread WhatsApp messages?" "Find the address I sent my dad." "Tell mom I'll be late."
 - "Read my latest emails." (through whichever email MCP server you add) "Summarise this article." "What's on my screen?"
 - "Build me a snake game." Happy opens a coding agent in a Terminal window with the task typed in, so you watch it work.
@@ -58,6 +59,7 @@ Everyday commands (brightness, volume, the keyboard light, play and pause, tabs,
 - **Email** comes from an email MCP server. With Claude, the claude.ai Gmail connector works as it is. Google's official Gmail server (`gmailmcp.googleapis.com`) is a preset in Setup. Google asks each person to bring their own OAuth client for it and keeps it in a developer preview. It searches, reads, labels and drafts mail, but doesn't send.
 - **WhatsApp** ships with Happy, in `whatsapp_server`, since nobody else serves it. It runs in its own Python environment under `~/.happy/envs` and keeps its data in `~/.happy/whatsapp`. Link it once from Setup by scanning the QR code, like WhatsApp Web.
 - **Happy's own WhatsApp chat**: once WhatsApp is linked, Happy makes a group with its name and nobody else in it. Write there from your phone and Happy does it on the computer and answers in the chat, without speaking aloud. It only takes messages from your own account. Turn it off with `own_chat = false` under `[whatsapp]` in the config.
+- **Pages in your Chrome.** Setup installs [agent-browser](https://github.com/vercel-labs/agent-browser), and Happy works pages through it in your own Chrome, signed in as you. Turn on remote debugging once at `chrome://inspect/#remote-debugging`, then allow the prompt Chrome shows the first time. Until then, pages are worked through accessibility, which reaches less.
 - **Coding** goes to the first agent installed (Claude Code, Codex, Gemini CLI, Cursor Agent, opencode, Qwen Code or Amp), opened in a visible Terminal.
 
 Setup installs Claude Code if it's missing. It keeps the list of services, and no subscription is needed for that.
@@ -110,7 +112,7 @@ mic ──► Silero VAD ──► Parakeet (speech to text, on the CPU) ──�
 | `happy/agent` | quick commands that skip the model, the prompt, the Claude and OpenAI-compatible backends, choosing one |
 | `happy/tools` | every action, each defined once and handed to every backend |
 | `happy/integrations` | MCP client with OAuth sign-in, servers found in other apps, adding your own, WhatsApp, connection status |
-| `happy/system` | macOS and Windows system calls |
+| `happy/system` | macOS and Windows system calls, and the controls inside apps: the Accessibility API on macOS, UI Automation on Windows |
 | `happy/ui` | the windows (`overlay.py`), the settings behind the panel, the talk key, and `web/`: the panel and the smile as HTML, CSS and JavaScript, shown in Qt's web view |
 | `whatsapp_server` | the WhatsApp bridge and MCP server Happy ships with |
 | `evals` | tool-choice benchmark with every tool mocked |
@@ -124,6 +126,7 @@ macOS (Apple Silicon) is the tested platform. Windows has the same structure, bu
 ```sh
 uv run pytest -q                 # tests (ears and voice use recorded clips, no mic or speaker)
 uv run python evals/choice.py    # tool choice on the local model
+uv run python evals/choice.py claude sonnet   # the same on Claude, through your Claude Code login
 ```
 
 ## Credits

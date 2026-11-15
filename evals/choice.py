@@ -87,6 +87,12 @@ CASES = [
     ("create a file on the desktop called test.txt and write some dialogue from game of thrones in it", "write_file", {"name": "test.txt"}),
     ("rewrite test.txt on my desktop so it only says hello", "write_file", {"how": "replace"}),
     ("what are all the apps that are open on my computer right now", "open_apps", {}),
+    ("click the send button in mail", "use_app", {"action": "click", "target": "send"}),
+    ("tick the remember me box on this page", "use_app", {"action": "click", "target": "remember"}),
+    ("type hello world into the search box in spotify", "use_app", {"action": "type", "text": "hello world"}),
+    # A CLICK ON A PATH LIKE "VIEW > AS LIST" IS SENT TO THE MENU, SO EITHER FORM DOES IT.
+    ("in finder, choose view as list from the menu", "use_app", [{"action": "menu", "target": "list"}, {"action": "click", "target": "> as list"}]),
+    ("scroll to the bottom of this window", "use_app", {"action": "scroll", "target": "bottom"}),
     ("summarise what was talked about today in the office group on whatsapp", "whatsapp_read",
      [{"chat": "office", "day": "today"}, {"chat": "office", "day": time.strftime("%Y-%m-%d")}]),
 ]
@@ -127,6 +133,34 @@ CANNED = {
 }
 
 
+def claude_backend(model, picked):
+    """Claude through the person's own login; anything outside Happy's tools is recorded and refused, never run."""
+    from claude_agent_sdk import PermissionResultAllow, PermissionResultDeny
+
+    from happy import paths
+    from happy.agent.claude import Claude
+
+    (paths.HOME / "claude-session.json").unlink(missing_ok=True)
+    # THE APP HANDS CLAUDE WHATSAPP THROUGH ITS MCP SERVER; HERE HAPPY'S OWN MOCKED WHATSAPP TOOLS STAND IN FOR IT.
+    for registered in tools.REGISTRY.values():
+        if registered.name.startswith("whatsapp_"):
+            registered.local_only = False
+    cfg = Config()
+    cfg.set("brain.model", model)
+    backend = Claude(cfg)
+
+    async def refuse(name, args, context):
+        if name.startswith("mcp__happy__"):
+            return PermissionResultAllow()
+        # A CONNECTOR LIKE mcp__claude_ai_Gmail__search_threads SCORES AS THE MOCKED gmail__search_threads.
+        parts = name.split("__")
+        picked.append((f"gmail__{parts[-1]}" if "gmail" in name.lower() else name, args))
+        return PermissionResultDeny(message="Not available in this test.")
+
+    backend.permit = refuse
+    return backend
+
+
 async def main(base_url, model):
     tools.load()
     for registered in tools.REGISTRY.values():
@@ -142,14 +176,17 @@ async def main(base_url, model):
         return CANNED.get(name, "Done.")
 
     tools.call = fake
-    from happy.agent import openai_compatible
+    if base_url == "claude":
+        backend = claude_backend(model, picked)
+    else:
+        from happy.agent import openai_compatible
 
-    openai_compatible.tools.call = fake
-    backend = openai_compatible.OpenAICompatible(Config(), base_url, model)
+        openai_compatible.tools.call = fake
+        backend = openai_compatible.OpenAICompatible(Config(), base_url, model)
     await backend.start()
     score, rows = 0, []
     only = os.environ.get("ONLY", "").lower()
-    for text, want, want_args in [c for c in CASES if only in c[0].lower()] if only else CASES:
+    for text, want, want_args in [c for c in CASES if any(o in c[0].lower() for o in only.split("|"))] if only else CASES:
         picked.clear()
         await backend.reset()
         started, first, spoken = time.monotonic(), None, []
@@ -183,6 +220,7 @@ async def main(base_url, model):
     print(f"\n{model}: {score}/{len(rows)}")
 
 
+# `python evals/choice.py claude sonnet` scores Claude through the Claude Code login instead of a local model.
 if __name__ == "__main__":
     asyncio.run(main(sys.argv[1] if len(sys.argv) > 1 else "http://localhost:11434/v1",
                      sys.argv[2] if len(sys.argv) > 2 else "gpt-oss:20b"))

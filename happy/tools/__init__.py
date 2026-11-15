@@ -38,6 +38,8 @@ class Tool:
         return self.check(args) if self.check else None
 
     def show(self, args):
+        if callable(self.label):
+            return self.label(args)
         try:
             return (self.label or self.name.replace("_", " ")).format(**{k: v for k, v in args.items() if v not in (None, "")})
         except (KeyError, IndexError):
