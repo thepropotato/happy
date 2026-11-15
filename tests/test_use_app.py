@@ -67,6 +67,7 @@ def mail(monkeypatch):
 
     # NO TEST REACHES THE PERSON'S REAL CHROME, EVEN WITH agent-browser INSTALLED.
     monkeypatch.setattr(web_controls, "usable", lambda app: False)
+    monkeypatch.setattr(web_controls, "not_let_in", lambda app: "")
     monkeypatch.setattr(screen.native, "trusted", lambda: True)
     screen.listing.update(pid=None, items=[])
     return fake
@@ -176,3 +177,12 @@ def test_a_page_in_chrome_goes_through_agent_browser(mail, monkeypatch):
     said = screen.use_app("click", target="remember me box", app="chrome")
     assert ("click", "@e1") in sent and mail.done == []
     assert "Remember me" in said
+
+
+def test_a_page_chrome_has_not_let_in_says_how_once(mail, monkeypatch):
+    from happy.system import web_controls
+
+    monkeypatch.setattr(web_controls, "not_let_in", lambda app: " Chrome has not let Happy into its pages.")
+    mail.win.app = "Google Chrome"
+    said = screen.use_app("click", target="send", app="Google Chrome")
+    assert said.endswith("Chrome has not let Happy into its pages.") and mail.done == [("press", "Send")]

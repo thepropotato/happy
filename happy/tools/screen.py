@@ -196,16 +196,23 @@ def use_app(
     then_enter: bool = False,
 ):
     """Click, type into, pick a menu item or scroll inside an app by the words on the control, even with the app behind; look lists its controls first."""
-    from happy.system import Failed, controls, web_controls
+    from happy.system import controls, web_controls
 
     if controls is None:
         return "Working inside apps needs a Mac or Windows."
     if not native.trusted():
         return "Happy needs Accessibility permission for that: System Settings, Privacy & Security, Accessibility."
+    front = app or native.frontmost()
+    # A PAGE IN THE PERSON'S CHROME GOES THROUGH agent-browser WHEN IT IS CONNECTED; MENUS STAY WITH THE OS.
+    via = web_controls if action != "menu" and web_controls.usable(front) else controls
+    said = act(via, action, target, text, app, then_enter)
+    return said + ("" if via is web_controls or action == "menu" else web_controls.not_let_in(front))
+
+
+def act(controls, action, target, text, app, then_enter):
+    from happy.system import Failed
+
     try:
-        # A PAGE IN THE PERSON'S CHROME GOES THROUGH agent-browser WHEN IT IS CONNECTED; MENUS STAY WITH THE OS.
-        if action != "menu" and web_controls.usable(app or native.frontmost()):
-            controls = web_controls
         win = controls.window(app)
         win.via = controls
         if action == "click" and re.search(r"\S\s*(?:>|→)\s*\S", target):

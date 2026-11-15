@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 from functools import cache
+from pathlib import Path
 
 from happy import paths
 from happy import persona
@@ -382,10 +383,17 @@ class Settings:
     def permissions(self):
         if sys.platform != "darwin":
             return []
-        return [{"key": key, "title": title, "why": why, "granted": granted(key)} for key, title, why in (
+        listed = [{"key": key, "title": title, "why": why, "granted": granted(key)} for key, title, why in (
             ("microphone", "Microphone", "To hear you."),
             ("accessibility", "Accessibility", "For the talk key, typing and clicking."),
             ("screen", "Screen Recording", "To look at the screen when you ask."))]
+        from happy.system import web_controls
+
+        if web_controls.binary() and Path("/Applications/Google Chrome.app").exists():
+            # ONLY CHROME CAN TURN THIS ON: THE BUTTON OPENS ITS SWITCH, AND ITS OWN PROMPT FOLLOWS ON FIRST USE.
+            listed.append({"key": "chrome", "title": "Chrome pages", "optional": True, "granted": web_controls.allowed(),
+                           "why": "Optional. To work inside pages in your Chrome: switch on remote debugging there, then allow Chrome's prompt."})
+        return listed
 
     def allow(self, what):
         if what == "microphone":
@@ -402,6 +410,14 @@ class Settings:
             from Quartz import CGRequestScreenCaptureAccess
 
             CGRequestScreenCaptureAccess()
+        elif what == "chrome":
+            from happy.system import Failed, web_controls
+
+            try:
+                web_controls.open_inspect()
+            except Failed as error:
+                self.notice = f"Chrome would not open its remote debugging page: {error}"
+            self.send()
         if what in PANES:
             subprocess.Popen(["open", PANES[what]])
 
@@ -456,6 +472,10 @@ def voices():
 
 def granted(key):
     try:
+        if key == "chrome":
+            from happy.system import web_controls
+
+            return web_controls.allowed()
         if key == "microphone":
             from AVFoundation import AVCaptureDevice, AVMediaTypeAudio
 

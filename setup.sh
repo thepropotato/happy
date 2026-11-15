@@ -14,14 +14,19 @@ if ! command -v claude >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/claude" ]; th
   curl -fsSL https://claude.ai/install.sh | bash || echo "Claude Code could not be installed right now. Happy works without it; adding MCP services needs it, and setup will try again next time."
 fi
 
-if ! command -v agent-browser >/dev/null 2>&1; then
-  echo "Installing agent-browser, which lets Happy work inside pages in your own Chrome…"
-  if command -v brew >/dev/null 2>&1; then
-    brew install --quiet agent-browser || echo "agent-browser could not be installed; pages are worked through accessibility instead."
-  elif command -v npm >/dev/null 2>&1; then
-    npm install -g --silent agent-browser || echo "agent-browser could not be installed; pages are worked through accessibility instead."
+# AGENT-BROWSER IS ONE FILE PER SYSTEM ON ITS RELEASES, SO NEITHER HOMEBREW NOR NODE IS NEEDED.
+AGENT_BROWSER=v0.43.0
+if ! command -v agent-browser >/dev/null 2>&1 && [ ! -x "$HOME/.local/bin/agent-browser" ]; then
+  echo "Getting agent-browser, which lets Happy work inside pages in your own Chrome…"
+  case "$(uname -m)" in arm64|aarch64) arch=arm64 ;; *) arch=x64 ;; esac
+  case "$(uname -s)" in Darwin) os=darwin ;; *) os=linux ;; esac
+  mkdir -p "$HOME/.local/bin"
+  if curl -fsSL -o "$HOME/.local/bin/agent-browser" \
+      "https://github.com/vercel-labs/agent-browser/releases/download/$AGENT_BROWSER/agent-browser-$os-$arch"; then
+    chmod +x "$HOME/.local/bin/agent-browser"
   else
-    echo "agent-browser needs Homebrew or Node; pages are worked through accessibility instead."
+    rm -f "$HOME/.local/bin/agent-browser"
+    echo "agent-browser could not be downloaded; pages are worked through accessibility instead, and setup will try again next time."
   fi
 fi
 

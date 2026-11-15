@@ -13,13 +13,17 @@ if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
     powershell -ExecutionPolicy ByPass -c "irm https://claude.ai/install.ps1 | iex"
 }
 
-if (-not (Get-Command agent-browser -ErrorAction SilentlyContinue)) {
-    if (Get-Command npm -ErrorAction SilentlyContinue) {
-        Write-Host "Installing agent-browser, which lets Happy work inside pages in your own Chrome..."
-        npm install -g --silent agent-browser
-        if ($LASTEXITCODE -ne 0) { Write-Host "agent-browser could not be installed; pages are worked through UI Automation instead." }
-    } else {
-        Write-Host "agent-browser needs Node; pages are worked through UI Automation instead."
+# AGENT-BROWSER IS ONE FILE PER SYSTEM ON ITS RELEASES, SO NODE IS NOT NEEDED.
+$agentBrowser = "$env:USERPROFILE\.local\bin\agent-browser.exe"
+if (-not (Get-Command agent-browser -ErrorAction SilentlyContinue) -and -not (Test-Path $agentBrowser)) {
+    Write-Host "Getting agent-browser, which lets Happy work inside pages in your own Chrome..."
+    New-Item -ItemType Directory -Force -Path (Split-Path $agentBrowser) | Out-Null
+    try {
+        Invoke-WebRequest -UseBasicParsing -OutFile $agentBrowser `
+            "https://github.com/vercel-labs/agent-browser/releases/download/v0.43.0/agent-browser-win32-x64.exe"
+    } catch {
+        Remove-Item -Force -ErrorAction SilentlyContinue $agentBrowser
+        Write-Host "agent-browser could not be downloaded; pages are worked through UI Automation instead, and setup will try again next time."
     }
 }
 
