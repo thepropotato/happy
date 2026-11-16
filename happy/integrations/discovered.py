@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 import tomllib
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 HOME = Path.home()
 log = logging.getLogger("happy.integrations")
@@ -93,8 +93,25 @@ def usable(spec):
     return bool(spec.get("command") or spec.get("url") or spec.get("serverUrl"))
 
 
+def offline_first(command, args):
+    """npx asks npm about the package on every start, slow behind a proxy; --prefer-offline uses the copy it has."""
+    args = list(args or [])
+    name = lambda part: PureWindowsPath(str(part)).stem.lower()
+    if name(command) == "npx":
+        at = 0
+    elif name(command) == "cmd" and len(args) > 1 and str(args[0]).lower() == "/c" and name(args[1]) == "npx":
+        at = 2
+    else:
+        return args
+    if not {"--prefer-offline", "--offline", "--prefer-online"} & set(map(str, args)):
+        args.insert(at, "--prefer-offline")
+    return args
+
+
 def normalised(spec):
     out = {k: spec[k] for k in ("command", "args", "env", "cwd", "headers", "codex_only") if k in spec}
+    if out.get("command") and (args := offline_first(out["command"], out.get("args"))):
+        out["args"] = args
     url = spec.get("url") or spec.get("serverUrl")
     if url:
         out["url"] = url
