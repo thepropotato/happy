@@ -145,6 +145,10 @@ uv run python evals/choice.py claude sonnet   # the same on Claude, through your
 
 The panel's text is set in [Inter](https://rsms.me/inter/) (SIL Open Font License, `happy/ui/web/fonts`). Answers are drawn with [marked](https://marked.js.org) (MIT) and cleaned by [DOMPurify](https://github.com/cure53/DOMPurify) (Apache 2.0 / MPL 2.0).
 
+## Privacy and security
+
+Happy has no account and no server of its own. What it keeps stays in `~/.happy`, which it makes readable by your account alone. The [privacy policy](website/privacy.html) lists everything that leaves your computer and where it goes, and the [terms](website/terms.html) cover using Happy and the services it connects to. To report a security problem privately, see [SECURITY.md](SECURITY.md).
+
 ## Support
 
 Happy is free and always will be. If it saves you time, you can support it on [GitHub Sponsors](https://github.com/sponsors/thepropotato).

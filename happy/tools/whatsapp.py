@@ -86,7 +86,7 @@ def bridge(path, **params):
     from happy.integrations import whatsapp
 
     try:
-        return httpx.get(f"{whatsapp.BASE}{path}", params=params, timeout=15).json()
+        return httpx.get(f"{whatsapp.BASE}{path}", params=params, headers=whatsapp.headers(), timeout=15).json()
     except (httpx.HTTPError, ValueError) as error:
         return f"Could not reach WhatsApp: {error}"
 
@@ -366,7 +366,7 @@ async def whatsapp_picture(name: Annotated[str, "the person, by name or number"]
     from happy.system import native
 
     try:
-        reply = await asyncio.to_thread(httpx.get, f"{whatsapp.BASE}/profile-picture", params={"q": name}, timeout=25)
+        reply = await asyncio.to_thread(httpx.get, f"{whatsapp.BASE}/profile-picture", params={"q": name}, headers=whatsapp.headers(), timeout=25)
         data = reply.json()
     except (httpx.HTTPError, ValueError) as error:
         return f"Could not reach WhatsApp: {error}"
@@ -417,7 +417,7 @@ def recipients(name):
     from happy.integrations import whatsapp
 
     try:
-        return httpx.get(f"{whatsapp.BASE}/recipients", params={"q": name}, timeout=30).raise_for_status().json()
+        return httpx.get(f"{whatsapp.BASE}/recipients", params={"q": name}, headers=whatsapp.headers(), timeout=30).raise_for_status().json()
     except (httpx.HTTPError, ValueError) as error:
         return f"Error: not sent: could not check who that is on WhatsApp: {error}"
 
@@ -540,7 +540,7 @@ def post(path, body):
     from happy.integrations import whatsapp
 
     try:
-        return httpx.post(f"{whatsapp.BASE}{path}", json=body, timeout=60).json()
+        return httpx.post(f"{whatsapp.BASE}{path}", json=body, headers=whatsapp.headers(), timeout=60).json()
     except (httpx.HTTPError, ValueError) as error:
         return f"Error: could not reach WhatsApp: {error}"
 

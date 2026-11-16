@@ -222,4 +222,5 @@ def main():
     args = parser.parse_args()
     if not args.command:
         args = parser.parse_args(["run"])
+    paths.keep_private()
     sys.exit(args.go(args) or 0)

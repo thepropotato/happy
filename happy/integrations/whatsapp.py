@@ -5,6 +5,7 @@ import base64
 import hashlib
 import logging
 import os
+import secrets
 import shutil
 import socket
 import subprocess
@@ -78,8 +79,26 @@ def adopt(cfg):
     return False
 
 
+def key():
+    """The bridge's key, made once and kept with Happy's other secrets, so nothing else on the computer or a web page can use the bridge."""
+    from happy import config
+    from whatsapp_server import key as bridge_key
+
+    held = config.secrets().get(bridge_key.NAME)
+    if not held:
+        held = secrets.token_urlsafe(32)
+        config.save_secret(bridge_key.NAME, held)
+    return held
+
+
+def headers():
+    return {"X-Bridge-Key": key()}
+
+
 def environment():
-    return {"HAPPY_WHATSAPP": str(DATA), "PYTHONPATH": str(paths.REPO)}
+    # THE PATH TO THE SECRETS, NEVER THE KEY ITSELF: THIS ENVIRONMENT IS HANDED TO CLAUDE CODE ON A COMMAND LINE ANYONE CAN LIST.
+    key()
+    return {"HAPPY_WHATSAPP": str(DATA), "HAPPY_SECRETS": str(paths.SECRETS), "PYTHONPATH": str(paths.REPO)}
 
 
 def listening():
@@ -121,7 +140,7 @@ def stop_bridge():
 def status():
     """{'linked', 'connected', 'name', 'phone'} from the running bridge, or None when it is not up."""
     try:
-        data = httpx.get(f"{BASE}/status", timeout=3).json()
+        data = httpx.get(f"{BASE}/status", headers=headers(), timeout=3).json()
     except (httpx.HTTPError, ValueError):
         return None
     return {"linked": bool(data.get("authenticated")), "connected": bool(data.get("connected")),
@@ -131,8 +150,8 @@ def status():
 def qr_code():
     """The QR to scan as PNG bytes, 'linked' once a phone is linked, or None while it is still coming."""
     try:
-        httpx.post(f"{BASE}/start", timeout=5)
-        data = httpx.get(f"{BASE}/qr", timeout=5).json()
+        httpx.post(f"{BASE}/start", headers=headers(), timeout=5)
+        data = httpx.get(f"{BASE}/qr", headers=headers(), timeout=5).json()
     except (httpx.HTTPError, ValueError):
         return None
     if data.get("status") == "connected":
@@ -144,7 +163,7 @@ def qr_code():
 def unlink():
     """Logs the phone out and forgets its session, so linking again needs a new scan."""
     try:
-        return bool(httpx.post(f"{BASE}/disconnect", timeout=15).json().get("success"))
+        return bool(httpx.post(f"{BASE}/disconnect", headers=headers(), timeout=15).json().get("success"))
     except (httpx.HTTPError, ValueError):
         return False
 

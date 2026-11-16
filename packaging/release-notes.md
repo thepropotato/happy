@@ -10,4 +10,6 @@ A voice for your computer: say what you want, and Happy does it, out loud and on
 
 On either computer, the first launch sets Happy up: it installs its Python packages and speech models (about 3 GB, a few minutes, needs the internet), then opens the setup window. After that it starts straight away.
 
-Free and open source under the MIT license.
+To check a download, compare `shasum -a 256 Happy.dmg` on a Mac, or `Get-FileHash Happy-Setup.exe` on Windows, with the line for it in `SHA256SUMS.txt`. Only download Happy from this page or its website.
+
+Free and open source under the MIT license. Privacy policy and terms: see the website, or `website/privacy.html` and `website/terms.html` in the repo.

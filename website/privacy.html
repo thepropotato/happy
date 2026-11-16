@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'none'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>Privacy Policy · Happy</title>
+<meta name="description" content="What Happy keeps on your computer, what it sends and to whom, and the choices you have.">
+<meta name="theme-color" content="#0E120E">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<div class="band">
+  <div class="wrap">
+    <nav class="nav">
+      <a class="brand" href="index.html" aria-label="Happy, home"><svg class="brand-mark" viewBox="4 16 56 30" aria-hidden="true"><path d="M12 26 C20 46 44 46 52 26" fill="none" stroke="#8FB58A" stroke-width="7" stroke-linecap="round"/><circle cx="12" cy="26" r="5" fill="#B9D6B3"/><circle cx="52" cy="26" r="5" fill="#B9D6B3"/></svg><span>Happy</span></a>
+      <div class="links">
+        <a href="terms.html">Terms</a>
+        <a class="pill-link" href="index.html#download">Download</a>
+      </div>
+    </nav>
+  </div>
+</div>
+
+<main class="wrap legal">
+  <h1>Privacy Policy</h1>
+  <p class="legal-date">Effective 17 November 2026</p>
+
+  <div class="legal-short">
+    <p>Happy runs on your computer. There is no Happy account, and no Happy server receives your requests. What you say, what Happy does and what it answers stay on your computer, except for what goes to the services you choose, listed below. The developer gets nothing from you unless you turn on <b>Help make Happy better</b>, and then only anonymous counts.</p>
+  </div>
+
+  <nav class="legal-contents" aria-label="On this page">
+    <a href="#kept">Kept on your computer</a>
+    <a href="#sent">What leaves your computer</a>
+    <a href="#counts">Help make Happy better</a>
+    <a href="#website">This website</a>
+    <a href="#choices">Your choices</a>
+    <a href="#contact">Contact</a>
+  </nav>
+
+  <h2 id="who">Who this covers</h2>
+  <p>This policy covers the Happy app for Mac and Windows, its setup, and this website. Happy is a free, open-source project made by an independent developer, <a href="https://github.com/thepropotato">thepropotato</a> on GitHub (“we” and “the developer” below). All of Happy's code is public, so you can check every statement here against <a href="https://github.com/thepropotato/happy">the source</a>.</p>
+
+  <h2 id="kept">What stays on your computer</h2>
+  <p>Happy keeps its things in a folder called <code>.happy</code> in your home folder (<code>~/.happy</code> on a Mac, <code>%USERPROFILE%\.happy</code> on Windows). On a Mac, Happy makes that folder readable by your account alone. It holds:</p>
+  <ul>
+    <li><b>Your history.</b> Each request, the steps Happy took with what went in and came back, and its answer, in <code>history.db</code>. This is what the panel shows.</li>
+    <li><b>What you told it to keep.</b> Remembered facts in <code>memory.md</code>, the way you asked it to talk in <code>persona.md</code>, your reminders and routines, and your settings in <code>config.toml</code>.</li>
+    <li><b>Your keys and sign-ins.</b> API keys in <code>secrets.toml</code> and service sign-ins under <code>oauth</code>, each readable by your account alone. A key you paste is never shown again.</li>
+    <li><b>Your linked WhatsApp.</b> The linked-device session and the copy of your chats Happy reads from, in <code>whatsapp</code>.</li>
+    <li><b>Logs</b> of what Happy did, for fixing problems. They can include the text of requests.</li>
+  </ul>
+  <p><b>Your voice.</b> The microphone is turned into text on your computer, and the audio is never saved or sent anywhere. With the wake word on, Happy listens for its name and only acts on speech addressed to it. With it off, it listens only while you hold the talk key. <b>Happy's voice</b> is also made on your computer.</p>
+  <p>These files are as safe as your computer account. They aren't encrypted by Happy, so turn on FileVault on a Mac or BitLocker on Windows if other people could get at your disk.</p>
+
+  <h2 id="sent">What leaves your computer, and where it goes</h2>
+  <p>To do what you ask, Happy has to talk to other services. Each one gets only what that job needs, and each has its own privacy policy, which applies to what it receives.</p>
+  <dl>
+    <div><dt>The model you choose</dt><dd>Your request, the recent conversation, what you asked Happy to remember, and whatever Happy reads to answer: a web page, a file, an email, WhatsApp messages, or a picture of your screen when you ask about it. With Claude this goes to Anthropic through your own Claude Code. With an API key it goes to the provider whose URL you entered, such as OpenAI, OpenRouter, Groq or Google. With a model on your own machine, through Ollama or LM Studio, it stays on your computer.</dd></div>
+    <div><dt>Web searches</dt><dd>The words searched for go to Google or DuckDuckGo, and the pages Happy reads are fetched from the sites they're on.</dd></div>
+    <div><dt>Weather and where you are</dt><dd>A place name or coordinates go to Open-Meteo. To find where you are, Happy asks Location Services on a Mac if you allow it, and works out the town on your computer. Otherwise it asks ipinfo.io or ip-api.com, which see your internet address.</dd></div>
+    <div><dt>WhatsApp</dt><dd>Happy links to your account as a device, the way WhatsApp Web does, so messages you read and send travel through WhatsApp's servers as they would from your phone.</dd></div>
+    <div><dt>Services you add</dt><dd>MCP servers you connect, such as Gmail or Notion, get what Happy sends their tools, like a search or a draft. You sign in on the service's own page.</dd></div>
+    <div><dt>Your browser</dt><dd>Pages Happy works in your own Chrome are visited as you, with your sign-ins, like any visit you make.</dd></div>
+    <div><dt>Coding agents</dt><dd>When you ask for something to be built, the task is passed to the agent you installed, such as Claude Code or Codex, which sends it to its own provider.</dd></div>
+    <div><dt>Setup and downloads</dt><dd>Setup downloads Python packages, speech models and tools from GitHub, Hugging Face, PyPI and Astral. Happy also checks it's online by contacting Google. These see your internet address, as any download does.</dd></div>
+  </dl>
+  <p>We don't sell, rent or share your information with anyone, and we don't use it for advertising. None of what's listed above passes through the developer.</p>
+
+  <h2 id="counts">Help make Happy better (off unless you turn it on)</h2>
+  <p>Under Privacy in the settings, <b>Help make Happy better</b> is off by default. If you turn it on, each finished request sends these counts and nothing else:</p>
+  <ul>
+    <li>how you asked: by voice, by typing, or from WhatsApp</li>
+    <li>which of Happy's own tools ran, how many failed, and how long it took (services you added are only ever called “mcp”)</li>
+    <li>whether the request failed, went unanswered, or was a correction</li>
+    <li>the model's name, your operating system and its version, and Happy's version</li>
+    <li>a random ID made on your computer (<code>usage-id</code>), so counts can be grouped without knowing whose they are</li>
+  </ul>
+  <p>It <b>never</b> sends your words, Happy's answers, what went into a tool, file names, contacts, messages, or anything from your screen.</p>
+  <p>The counts go to <a href="https://posthog.com/privacy">PostHog</a>, in the United States, which stores them for us. Happy asks PostHog not to build a profile and not to work out a location from your internet address, though PostHog receives that address with any request, as every internet service does. The settings show exactly what was last sent, and <code>happy/usage.py</code> is all of the code that does it.</p>
+  <p>Sharing these counts is your choice, and you can turn it off at any time, which stops sending at once. To have the counts already sent deleted, send us your ID from <code>~/.happy/usage-id</code> (it doesn't identify you, so it's safe to post) and we'll delete every event with it.</p>
+
+  <h2 id="website">This website</h2>
+  <p>This site sets no cookies and uses no analytics or trackers. To show the page, your browser loads fonts from Google Fonts and asks GitHub for Happy's star count and contributor pictures, so Google and GitHub see your internet address and browser, as with any page. The download buttons get the files from GitHub. Sponsoring goes through GitHub Sponsors, under <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>. The service that hosts this site may keep ordinary server logs, such as internet addresses and the times of visits.</p>
+
+  <h2 id="children">Children</h2>
+  <p>Happy isn't made for children under 13, or under the age you can agree to this yourself where you live. We don't knowingly receive information from them.</p>
+
+  <h2 id="choices">Your choices and rights</h2>
+  <p>Because what Happy keeps is on your computer, you control it directly:</p>
+  <ul>
+    <li><b>See it.</b> Open the panel, or run <code>happy history</code>.</li>
+    <li><b>Delete it.</b> Quit Happy and delete the <code>.happy</code> folder. To unlink WhatsApp, use Unlink in the settings, or remove the device under Linked devices on your phone.</li>
+    <li><b>Limit it.</b> Turn the wake word off, choose a model on your own machine so requests never leave your computer, or remove a service you added.</li>
+    <li><b>Stop sharing counts</b> with the switch under Privacy, and ask us to delete what was sent.</li>
+  </ul>
+  <p>Depending on where you live, laws such as the GDPR or CCPA give you rights to see, correct, delete or move information about you, and to object to how it's used. The only information about you that reaches the developer is the optional counts, which we receive because you agreed to share them. Contact us to use any of these rights, and you can complain to your local data protection authority.</p>
+
+  <h2 id="security">Security</h2>
+  <p>Happy keeps its folder and keys readable by your account alone, and its WhatsApp bridge answers only Happy on your own computer. If you find a security problem, please <a href="https://github.com/thepropotato/happy/security/advisories/new">report it privately</a>. Our <a href="https://github.com/thepropotato/happy/security/policy">security policy</a> has the details.</p>
+
+  <h2 id="changes">Changes to this policy</h2>
+  <p>If what Happy sends changes, this page changes first, with a new date at the top, and the release notes say so. The history of every change is on <a href="https://github.com/thepropotato/happy/commits/main/website/privacy.html">GitHub</a>.</p>
+
+  <h2 id="contact">Contact</h2>
+  <p>For questions or requests about privacy, <a href="https://github.com/thepropotato/happy/issues/new">open an issue on GitHub</a>. For a security problem, use the <a href="https://github.com/thepropotato/happy/security/advisories/new">private report</a> instead.</p>
+</main>
+
+<div class="band">
+  <div class="wrap">
+    <footer class="foot legal-foot">
+      <span>Happy 0.1 · Free and open source under the MIT license.</span>
+      <span class="foot-links"><a href="privacy.html" aria-current="page">Privacy</a><a href="terms.html">Terms</a><a href="https://github.com/thepropotato/happy/security/policy">Security</a><a href="https://github.com/thepropotato/happy">Source on GitHub</a></span>
+    </footer>
+  </div>
+</div>
+</body>
+</html>

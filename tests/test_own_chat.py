@@ -40,14 +40,14 @@ def bridge(monkeypatch):
     state = {"groups": [{"id": "1@g.us", "name": "Happy"}], "messages": [], "pushed": [], "sent": [], "made": [],
              "renamed": [], "photos": []}
 
-    def get(url, params=None, timeout=None):
+    def get(url, params=None, headers=None, timeout=None):
         if url.endswith("/groups"):
             return Reply(state["groups"])
         if url.endswith("/pushed"):
             return Reply(state["pushed"])
         return Reply(list(reversed(state["messages"])))
 
-    def post(url, json=None, timeout=None):
+    def post(url, json=None, headers=None, timeout=None):
         if url.endswith("/create-group"):
             state["made"].append(json["name"])
             state["groups"].append({"id": "2@g.us", "name": json["name"]})

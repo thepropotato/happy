@@ -9,6 +9,7 @@ from typing import Any
 from urllib.parse import quote
 
 from whatsapp_server import contacts as knowledge
+from whatsapp_server import key as bridge_key
 from whatsapp_server import nearing
 
 import httpx
@@ -45,7 +46,7 @@ def clean_surrogates(obj):
 
 BRIDGE_PORT = int(os.environ.get("WHATSAPP_BRIDGE_PORT") or 3001)
 BRIDGE_BASE = f"http://127.0.0.1:{BRIDGE_PORT}"
-BRIDGE_HEADERS = {"X-Bridge-Key": os.environ.get("INTERNAL_API_SECRET", "")}
+BRIDGE_HEADERS = {"X-Bridge-Key": bridge_key.read()}
 
 # HOW LONG A SEND IS GIVEN TO BE ACKNOWLEDGED BEFORE THIS SIDE GIVES UP ON IT. A SLOW SEND
 # THAT SUCCEEDS A FEW SECONDS LATE USED TO BE REPORTED AS FAILED BECAUSE THE OLD LIMIT WAS

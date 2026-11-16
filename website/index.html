@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https://avatars.githubusercontent.com; connect-src https://api.github.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Happy</title>
 <meta name="description" content="Happy is a voice for your computer. Say what you want, and it does it on your Mac or PC, out loud and on screen. Free and open source.">
 <meta property="og:title" content="Happy">
@@ -267,7 +269,7 @@ cd happy
       </details>
       <details>
         <summary>Does Happy collect anything?</summary>
-        <div class="answer"><p>Not unless you turn on “Help make Happy better” under Privacy in the settings. Then each turn sends anonymous counts: which tools ran, how long it took, and whether it worked. Never your words, Happy's replies, files or contacts, and the settings show exactly what was last sent.</p></div>
+        <div class="answer"><p>Not unless you turn on “Help make Happy better” under Privacy in the settings. Then each turn sends anonymous counts: which tools ran, how long it took, and whether it worked. Never your words, Happy's replies, files or contacts, and the settings show exactly what was last sent. The <a href="privacy.html">privacy policy</a> has everything that leaves your computer.</p></div>
       </details>
       <details>
         <summary>Can I use it without speaking?</summary>
@@ -289,7 +291,7 @@ cd happy
     </div>
     <footer class="foot">
       <span>Happy 0.1 · Free and open source under the MIT license.<span data-support hidden> If Happy saves you time, <a data-support-link href="#">support the developer</a>.</span></span>
-      <span><a href="https://github.com/thepropotato/happy">Source on GitHub</a></span>
+      <span class="foot-links"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="https://github.com/thepropotato/happy/security/policy">Security</a><a href="https://github.com/thepropotato/happy">Source on GitHub</a></span>
     </footer>
   </div>
 </section>

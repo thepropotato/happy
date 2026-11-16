@@ -49,7 +49,7 @@ class Chat:
         """Happy's group: the one made before, else one with his name, else a new one with nobody else in it."""
         if self.id and time.monotonic() - self.synced < SYNC_SECONDS:
             return self.id
-        groups = httpx.get(f"{whatsapp.BASE}/groups", timeout=10).json()
+        groups = httpx.get(f"{whatsapp.BASE}/groups", headers=whatsapp.headers(), timeout=10).json()
         known = {g["id"]: g for g in groups}
         if self.id not in known:
             found = [g for g in groups if self.plain(g.get("name")) == self.plain(self.name)]
@@ -60,7 +60,7 @@ class Chat:
             self.sync(known.get(self.id, {}).get("name", ""))
         elif time.monotonic() - self.tried > AGAIN_SECONDS:
             self.tried = time.monotonic()
-            made = httpx.post(f"{whatsapp.BASE}/create-group", json={"name": self.name}, timeout=20).json()
+            made = httpx.post(f"{whatsapp.BASE}/create-group", json={"name": self.name}, headers=whatsapp.headers(), timeout=20).json()
             if made.get("id"):
                 self.id = made["id"]
                 self.keep("own_chat_id", self.id)
@@ -76,7 +76,7 @@ class Chat:
         self.synced = time.monotonic()
         name = self.name
         if shown and shown != name:
-            done = httpx.post(f"{whatsapp.BASE}/set-group-name", json={"group": self.id, "name": name}, timeout=20).json()
+            done = httpx.post(f"{whatsapp.BASE}/set-group-name", json={"group": self.id, "name": name}, headers=whatsapp.headers(), timeout=20).json()
             log.info("renamed the WhatsApp group to %s%s", name, f" ({done['error']})" if done.get("error") else "")
         colour = self.cfg.get("colour") or "#658761"
         wanted = f"{colour}/{PICTURE}"
@@ -84,7 +84,7 @@ class Chat:
             from happy.ui.picture import smile_jpeg
 
             photo = base64.b64encode(smile_jpeg(colour)).decode()
-            done = httpx.post(f"{whatsapp.BASE}/set-group-photo", json={"group": self.id, "photo": photo}, timeout=30).json()
+            done = httpx.post(f"{whatsapp.BASE}/set-group-photo", json={"group": self.id, "photo": photo}, headers=whatsapp.headers(), timeout=30).json()
             if done.get("error"):
                 log.warning("could not set the WhatsApp group's picture: %s", done["error"])
             else:
@@ -94,8 +94,8 @@ class Chat:
         """New messages the person wrote into the group since Happy started, never Happy's own answers."""
         if not whatsapp.listening() or not self.find():
             return []
-        found = httpx.get(f"{whatsapp.BASE}/messages/{self.id}", params={"limit": 10}, timeout=10).json()
-        mine = {p["id"] for p in httpx.get(f"{whatsapp.BASE}/pushed", params={"since": self.since - 60}, timeout=10).json()}
+        found = httpx.get(f"{whatsapp.BASE}/messages/{self.id}", params={"limit": 10}, headers=whatsapp.headers(), timeout=10).json()
+        mine = {p["id"] for p in httpx.get(f"{whatsapp.BASE}/pushed", params={"since": self.since - 60}, headers=whatsapp.headers(), timeout=10).json()}
         new = []
         for message in reversed(found if isinstance(found, list) else []):
             ident = message.get("id")
@@ -111,7 +111,7 @@ class Chat:
         if not self.id or not text.strip():
             return False
         try:
-            reply = httpx.post(f"{whatsapp.BASE}/send-group", json={"groupId": self.id, "message": text}, timeout=20).json()
+            reply = httpx.post(f"{whatsapp.BASE}/send-group", json={"groupId": self.id, "message": text}, headers=whatsapp.headers(), timeout=20).json()
         except (httpx.HTTPError, ValueError) as error:
             log.warning("could not answer on WhatsApp: %s", error)
             return False

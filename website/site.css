@@ -307,3 +307,34 @@ h3 { font: 400 26px/1.1 var(--serif); }
 .btn-sponsor { gap: 8px; background: transparent; color: var(--ground); border: 1.5px solid var(--ground); }
 .btn-sponsor:hover { color: var(--ground); background: rgba(14, 18, 14, 0.08); }
 .btn-sponsor svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+
+/* PRIVACY AND TERMS: ONE COLUMN OF PROSE, EVERY RULE SCOPED TO THE LEGAL PAGES */
+.brand-mark { width: 46px; height: 24px; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.foot-links a { color: var(--soft); text-decoration: none; }
+.foot-links a:hover { color: var(--ink); }
+main.legal { max-width: 760px; padding-block: 32px 72px; }
+main.legal h1 { font: 400 clamp(44px, 7vw, 68px)/1 var(--serif); letter-spacing: -0.015em; }
+main.legal .legal-date { margin-top: 14px; font-size: 15px; color: var(--faint); }
+main.legal .legal-short { margin-top: 32px; padding: 22px 24px; border-radius: var(--round); background: var(--raised); border: 1px solid var(--line); }
+main.legal .legal-short p { color: var(--ink); }
+main.legal h2 { margin-top: 56px; font-size: clamp(30px, 4vw, 38px); scroll-margin-top: 24px; }
+main.legal h3 { margin-top: 28px; font-size: 23px; }
+main.legal p, main.legal li, main.legal dd { color: var(--soft); }
+main.legal h2 + p, main.legal h3 + p, main.legal p + p, main.legal ul + p, main.legal dl + p { margin-top: 14px; }
+main.legal ul { display: grid; gap: 8px; margin-top: 14px; }
+main.legal li { position: relative; padding-left: 20px; }
+main.legal li::before { content: ''; position: absolute; left: 2px; top: 0.7em; width: 6px; height: 6px; border-radius: 50%; background: var(--sage-deep); }
+main.legal b { color: var(--ink); font-weight: 600; }
+main.legal code { font: 14px/1.4 var(--mono); color: var(--code); overflow-wrap: anywhere; }
+main.legal .legal-contents { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 24px; font-size: 15px; }
+main.legal .legal-contents a { color: var(--soft); }
+main.legal dl { margin: 18px 0 0; border-top: 1px solid var(--line); }
+main.legal dl > div { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 6px 24px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+main.legal dt { color: var(--ink); font-weight: 600; }
+main.legal dd { margin: 0; }
+@media (max-width: 720px) {
+  main.legal dl > div { grid-template-columns: minmax(0, 1fr); }
+  main.legal .legal-short { padding: 18px; }
+}
+.legal-foot { padding-bottom: 40px; border-top: 1px solid var(--line); }

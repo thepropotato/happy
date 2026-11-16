@@ -25,6 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger("whatsapp-bridge")
 
 from neonize import NewClient
+from whatsapp_server import key as bridge_key
 from whatsapp_server import recipients
 from neonize.utils.jid import build_jid, Jid2String
 from neonize.proto.Neonize_pb2 import (
@@ -66,6 +67,9 @@ app.config["JSON_AS_ASCII"] = False
 
 @app.before_request
 def require_bridge_key():
+    # A WEB PAGE CAN POINT ITS OWN NAME AT THIS MACHINE, SO ONLY A REQUEST ADDRESSED TO THE LOOPBACK ITSELF IS ANSWERED.
+    if request.host not in (f"127.0.0.1:{PORT}", f"localhost:{PORT}", f"[::1]:{PORT}"):
+        return jsonify({"error": "Forbidden"}), 403
     # is_bridge_running() POLLS THIS WITHOUT THE KEY, AND IT LEAKS NOTHING.
     if request.path == "/health":
         return
@@ -73,10 +77,10 @@ def require_bridge_key():
     # ANYBODY NOT HOLDING THE PHONE.
     if request.path.endswith("/scan"):
         return
-    if not BRIDGE_SECRET:
-        return
+    # NO KEY MEANS NO ANSWER: ANY PROGRAM OR PAGE ON THIS MACHINE CAN REACH THE PORT.
+    secret = bridge_secret()
     provided = request.headers.get("X-Bridge-Key", "")
-    if not hmac.compare_digest(provided, BRIDGE_SECRET):
+    if not secret or not hmac.compare_digest(provided.encode(), secret.encode()):
         return jsonify({"error": "Unauthorized"}), 401
 
 
@@ -98,8 +102,15 @@ DATA_DIR = Path(os.environ.get("HAPPY_WHATSAPP") or Path.home() / ".happy" / "wh
 
 PORT = int(os.environ.get("WHATSAPP_BRIDGE_PORT") or 3001)
 
-# NOTHING BUT THIS MACHINE CAN REACH THE PORT, SO THE KEY IS OPTIONAL AND OFF BY DEFAULT.
-BRIDGE_SECRET = os.environ.get("INTERNAL_API_SECRET", "")
+BRIDGE_SECRET = ""
+
+
+def bridge_secret():
+    """Happy's key for the bridge, read until it is there, since Happy may make it after the bridge starts."""
+    global BRIDGE_SECRET
+    if not BRIDGE_SECRET:
+        BRIDGE_SECRET = bridge_key.read()
+    return BRIDGE_SECRET
 
 # HOW LONG A QR CODE IS WORTH SHOWING.
 QR_FIRST = 60

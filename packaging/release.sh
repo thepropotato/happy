@@ -20,6 +20,11 @@ if [ -n "$run" ]; then
   [ -f dist/Happy-Setup.exe ] && files="$files dist/Happy-Setup.exe"
 fi
 
+# THE BUILDS ARE NOT SIGNED YET, SO THESE SUMS ARE HOW ANYONE CAN CHECK A DOWNLOAD IS THE ONE PUBLISHED HERE.
+# shellcheck disable=SC2086
+(cd dist && shasum -a 256 $(for each in $files; do basename "$each"; done) > SHA256SUMS.txt)
+files="$files dist/SHA256SUMS.txt"
+
 if gh release view "$tag" -R "$repo" >/dev/null 2>&1; then
   # shellcheck disable=SC2086
   gh release upload "$tag" $files -R "$repo" --clobber

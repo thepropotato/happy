@@ -4,6 +4,10 @@ name: Windows installer
 on:
   workflow_dispatch:
 
+# THE BUILD ONLY READS THE CODE; NOTHING IT RUNS CAN WRITE TO THE REPO.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: windows-latest

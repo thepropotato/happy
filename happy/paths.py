@@ -10,3 +10,13 @@ SECRETS = HOME / "secrets.toml"
 LOG = HOME / "happy.log"
 LOCK = HOME / "happy.pid"
 REPO = Path(__file__).resolve().parents[1]
+
+
+def keep_private():
+    """Makes Happy's folder readable by this account alone, since it holds the history, the linked WhatsApp and the keys."""
+    HOME.mkdir(parents=True, exist_ok=True)
+    if os.name != "nt":
+        try:
+            os.chmod(HOME, 0o700)
+        except OSError:
+            pass
