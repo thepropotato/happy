@@ -198,14 +198,16 @@ def sign_in_with_claude(name):
     return f"Opened Claude Code's MCP screen. Pick {name} there and sign in."
 
 
-def connectors():
-    """The claude.ai connectors on the person's account, as {name: connected}; they live there, in no file here."""
+def connectors(timeout=45):
+    """The claude.ai connectors on the person's account, as {name: connected}, or None when they could not be listed."""
     if not claude():
         return {}
+    # `claude mcp list` HEALTH-CHECKS EVERY SERVER FIRST, SO ONE SLOW SERVER HOLDS BACK THE WHOLE LIST.
     try:
-        listed = subprocess.run([claude(), "mcp", "list"], capture_output=True, text=True, timeout=15).stdout
+        listed = subprocess.run([claude(), "mcp", "list"], capture_output=True, text=True, timeout=timeout,
+                                stdin=subprocess.DEVNULL).stdout
     except (OSError, subprocess.SubprocessError):
-        return {}
+        return None
     found = {}
     for line in listed.splitlines():
         if line.startswith("claude.ai ") and ":" in line:

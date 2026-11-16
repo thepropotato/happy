@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import json
+import logging
 import subprocess
 import sys
 import threading
@@ -16,6 +17,8 @@ from happy.agent.prompt import owner
 from happy.config import Config, SPEECH_SPEEDS, save_secret, speech_speed
 from happy.speech import models
 
+log = logging.getLogger("happy.settings")
+
 KEYS = [("right_option", "Right Option"), ("right_command", "Right Command"), ("right_ctrl", "Right Control"),
         ("right_shift", "Right Shift"), ("fn", "Fn")] if sys.platform == "darwin" else \
        [("right_ctrl", "Right Ctrl"), ("right_alt", "Right Alt"), ("right_shift", "Right Shift")]
@@ -25,6 +28,8 @@ PANES = {
     "screen": "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
 }
 SERVICE_CHECK = 20
+# services.connectors GIVES `claude mcp list` THE SAME 45 SECONDS.
+CONNECTOR_CHECK = 45
 SERVICES_FRESH = 300
 SERVICES_SEEN = paths.HOME / "services.json"
 
@@ -156,7 +161,7 @@ class Settings:
         self.send()
 
     def check_services(self):
-        """Every MCP server, each given a few seconds to answer, the whole check never more than SERVICE_CHECK."""
+        """Every MCP server within SERVICE_CHECK, shown at once; the claude.ai connectors follow within CONNECTOR_CHECK."""
         from happy.integrations import discovered, services
         from happy.integrations.mcp import Hub
 
@@ -178,13 +183,9 @@ class Settings:
             jobs = {name: asyncio.create_task(one(name, source)) for name, (spec, source) in found.items()
                     if not spec.get("codex_only")}
             listing = asyncio.create_task(asyncio.to_thread(services.connectors))
-            await asyncio.wait([*jobs.values(), listing], timeout=SERVICE_CHECK - 4)
+            if jobs:
+                await asyncio.wait(jobs.values(), timeout=SERVICE_CHECK - 4)
             rows = []
-            # A CONNECTOR ON THE CLAUDE ACCOUNT REACHES HAPPY THROUGH CLAUDE CODE, WHICHEVER MODEL IS THINKING.
-            for name, connected in (listing.result() if listing.done() and not listing.exception() else {}).items():
-                rows.append({"name": name, "source": "claude.ai", "removable": False,
-                             "state": "connected" if connected else "sign in on claude.ai",
-                             "detail": "through Claude" if connected else ""})
             for name, job in jobs.items():
                 if job.done() and not job.exception():
                     rows.append(job.result())
@@ -200,10 +201,25 @@ class Settings:
                 await asyncio.wait_for(hub.close(), 3)
             except (asyncio.TimeoutError, Exception):
                 pass
-            return rows
+            # THE CONNECTORS LIST WAITS ON EVERY SERVER'S HEALTH, SO UNTIL IT COMES BACK THE LAST ONES SEEN STAND IN.
+            earlier = [row for row in (self.services or remembered_services() or []) if row.get("source") == "claude.ai"]
+            if not listing.done():
+                self.services = earlier + rows
+                self.send()
+            try:
+                listed = await listing
+            except Exception:
+                listed = None
+            if listed is None:
+                log.warning("the claude.ai connectors could not be listed; keeping the last ones seen")
+                return earlier + rows
+            # A CONNECTOR ON THE CLAUDE ACCOUNT REACHES HAPPY THROUGH CLAUDE CODE, WHICHEVER MODEL IS THINKING.
+            return [{"name": name, "source": "claude.ai", "removable": False,
+                     "state": "connected" if connected else "sign in on claude.ai",
+                     "detail": "through Claude" if connected else ""} for name, connected in listed.items()] + rows
 
         try:
-            self.services = asyncio.run(asyncio.wait_for(check(), SERVICE_CHECK))
+            self.services = asyncio.run(asyncio.wait_for(check(), SERVICE_CHECK + CONNECTOR_CHECK))
             remember_services(self.services)
         except Exception as error:
             self.services = self.services or []
