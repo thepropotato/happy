@@ -1,0 +1,48 @@
+# Builds the Windows installer on a Windows machine, then installs it and runs Happy's setup there to prove it works.
+name: Windows installer
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stage Happy's committed code
+        shell: pwsh
+        run: |
+          $version = (Select-String -Path pyproject.toml -Pattern '^version = "(.*)"').Matches[0].Groups[1].Value
+          "HAPPY_VERSION=$version" >> $env:GITHUB_ENV
+          New-Item -ItemType Directory -Force -Path dist\windows\app | Out-Null
+          git archive HEAD happy whatsapp_server pyproject.toml uv.lock setup.ps1 README.md LICENSE -o dist\windows\app.tar
+          tar -xf dist\windows\app.tar -C dist\windows\app
+          Remove-Item dist\windows\app.tar
+          Set-Content -NoNewline -Path dist\windows\app\.app-version -Value $version
+
+      - name: Build the installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+          & $iscc "/DAppVersion=$env:HAPPY_VERSION" packaging\windows\happy.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Install it and run setup, as a person would
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist\Happy-Setup-*.exe | Select-Object -First 1
+          Start-Process $setup.FullName -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART" -Wait
+          $installed = Join-Path $env:LOCALAPPDATA "Programs\Happy"
+          if (-not (Test-Path "$installed\launch.ps1")) { throw "The installer did not put Happy in $installed" }
+          $env:HAPPY_NO_START = "1"
+          Copy-Item "$installed\app" "$env:RUNNER_TEMP\happy-check" -Recurse
+          powershell -NoProfile -ExecutionPolicy Bypass -File "$env:RUNNER_TEMP\happy-check\setup.ps1"
+          & "$env:RUNNER_TEMP\happy-check\.venv\Scripts\python.exe" -c "import happy.cli, happy.app; print('Happy imports on Windows')"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: happy-windows
+          path: dist/Happy-Setup-*.exe
