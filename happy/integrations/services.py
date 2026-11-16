@@ -157,15 +157,37 @@ def add_gmail(client_id, client_secret):
 
 
 def remove(name):
-    ok, message = run(["remove", name, "-s", "user"])
-    return ok, (f"Removed {name}." if ok else message)
+    from happy.integrations import discovered
+
+    source = discovered.everything().get(name, ({}, ""))[1]
+    if source == "Codex":
+        cli = shutil.which("codex")
+        if not cli:
+            return False, "Codex CLI is needed to remove this server."
+        try:
+            done = subprocess.run([cli, "mcp", "remove", name], capture_output=True, text=True, timeout=60,
+                                  stdin=subprocess.DEVNULL)
+        except (OSError, subprocess.SubprocessError) as error:
+            return False, f"Could not remove {name} from Codex: {error}"
+        output = (done.stdout + done.stderr).strip().splitlines()
+        message = output[-1] if output else ""
+        return done.returncode == 0, f"Removed {name}." if done.returncode == 0 else message or f"Could not remove {name} from Codex."
+    if source == "Claude Code":
+        ok, message = run(["remove", name, "-s", "user"])
+        return ok, f"Removed {name}." if ok else message or f"Could not remove {name} from Claude Code."
+    return False, f"Could not find {name} in the discovered MCP servers."
 
 
 def removable():
-    """Servers Happy itself can take away again: the ones in Claude Code's user list."""
+    """Servers Happy itself can take away again from Claude Code or Codex."""
     from happy.integrations.discovered import read, HOME
 
-    return set((read(HOME / ".claude.json").get("mcpServers") or {}))
+    found = set(read(HOME / ".claude.json").get("mcpServers") or {})
+    if shutil.which("codex"):
+        from happy.integrations import discovered
+
+        found.update(name for name, (_, source) in discovered.everything().items() if source == "Codex")
+    return found
 
 
 def sign_in_with_claude(name):

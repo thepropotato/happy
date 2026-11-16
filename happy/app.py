@@ -152,6 +152,8 @@ class Happy:
             else:
                 log.warning("the WhatsApp bridge did not start; see ~/.happy/whatsapp-bridge.log")
         for name, (server, source) in discovered.everything().items():
+            if server.get("codex_only"):
+                continue
             hub.add(name, server, source)
             if source != "Claude Code":
                 self.extra_servers[name] = server

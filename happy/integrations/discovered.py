@@ -1,11 +1,14 @@
-"""The MCP servers already set up on this computer for Claude, Cursor, VS Code and Windsurf."""
+"""The MCP servers already set up on this computer for Claude, Codex, Cursor, VS Code and Windsurf."""
 
 import json
+import logging
 import os
 import sys
+import tomllib
 from pathlib import Path
 
 HOME = Path.home()
+log = logging.getLogger("happy.integrations")
 
 
 def support(*parts):
@@ -30,8 +33,53 @@ def claude_code():
     return servers
 
 
+def codex():
+    """The user's Codex MCP servers, with environment values filled in for this run."""
+    path = Path(os.environ["CODEX_HOME"]) / "config.toml" if os.environ.get("CODEX_HOME") else HOME / ".codex" / "config.toml"
+    try:
+        configured = tomllib.loads(path.read_text(encoding="utf-8")).get("mcp_servers") or {}
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError):
+        log.debug("Could not read Codex MCP config: %s", path)
+        return {}
+    if not isinstance(configured, dict):
+        return {}
+
+    found = {}
+    for name, entry in configured.items():
+        if not isinstance(entry, dict) or entry.get("enabled") is False:
+            continue
+        if entry.get("url"):
+            spec = {"url": entry["url"]}
+            headers = dict(entry.get("http_headers") or {})
+            for header, variable in (entry.get("env_http_headers") or {}).items():
+                if isinstance(variable, str) and variable in os.environ:
+                    headers[header] = os.environ[variable]
+            variable = entry.get("bearer_token_env_var")
+            if isinstance(variable, str) and variable in os.environ:
+                headers["Authorization"] = f"Bearer {os.environ[variable]}"
+            if headers:
+                spec["headers"] = headers
+        else:
+            spec = {key: entry[key] for key in ("command", "args", "cwd") if key in entry}
+            env = dict(entry.get("env") or {})
+            env_vars = entry.get("env_vars") or []
+            if isinstance(env_vars, (str, dict)):
+                env_vars = [env_vars]
+            for item in env_vars:
+                variable = item if isinstance(item, str) else item.get("name") if isinstance(item, dict) else None
+                if isinstance(variable, str) and variable in os.environ:
+                    env[variable] = os.environ[variable]
+            if env:
+                spec["env"] = env
+        if entry.get("auth") == "chatgpt":
+            spec["codex_only"] = True
+        found[name] = spec
+    return found
+
+
 SOURCES = {
     "Claude Code": claude_code,
+    "Codex": codex,
     "Claude Desktop": lambda: read(support("Claude", "claude_desktop_config.json")).get("mcpServers") or {},
     "Cursor": lambda: read(HOME / ".cursor" / "mcp.json").get("mcpServers") or {},
     "VS Code": lambda: read(support("Code", "User", "mcp.json")).get("servers") or {},
@@ -40,13 +88,13 @@ SOURCES = {
 
 
 def usable(spec):
-    if not isinstance(spec, dict) or spec.get("disabled"):
+    if not isinstance(spec, dict) or spec.get("disabled") or spec.get("codex_only"):
         return False
     return bool(spec.get("command") or spec.get("url") or spec.get("serverUrl"))
 
 
 def normalised(spec):
-    out = {k: spec[k] for k in ("command", "args", "env", "cwd", "headers") if k in spec}
+    out = {k: spec[k] for k in ("command", "args", "env", "cwd", "headers", "codex_only") if k in spec}
     url = spec.get("url") or spec.get("serverUrl")
     if url:
         out["url"] = url
@@ -62,6 +110,6 @@ def everything():
         except Exception:
             continue
         for name, spec in servers.items():
-            if usable(spec) and name not in found:
+            if (usable(spec) or isinstance(spec, dict) and spec.get("codex_only")) and name not in found:
                 found[name] = (normalised(spec), source)
     return found
