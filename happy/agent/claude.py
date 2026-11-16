@@ -93,10 +93,10 @@ class Claude(Backend):
         servers = {"happy": own}
         known = discovered.claude_code()
         for name, spec in self.extra_servers.items():
-            if name in known:
+            if name in known or spec.get("codex_only"):
                 continue
             if spec.get("url"):
-                servers[name] = {"type": "http", "url": spec["url"]}
+                servers[name] = {"type": "http", "url": spec["url"], **({"headers": spec["headers"]} if spec.get("headers") else {})}
             else:
                 servers[name] = {"type": "stdio", "command": spec["command"], "args": spec.get("args") or [],
                                  "env": spec.get("env") or {}}

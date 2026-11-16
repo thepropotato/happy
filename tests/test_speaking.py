@@ -132,6 +132,12 @@ def test_nothing_unspeakable_is_queued(spoken):
     assert speaker.say("**") == ""
 
 
+def test_a_wake_up_before_the_voice_has_loaded_is_silent():
+    speaker = voice.Speaker("alba")
+    speaker.blip()
+    assert not speaker.audio
+
+
 def test_the_wake_chime_is_not_happy_talking(spoken):
     speaker, _, talking = spoken
     speaker.stop()

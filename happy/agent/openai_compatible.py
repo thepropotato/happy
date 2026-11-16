@@ -66,6 +66,19 @@ def repair(raw):
         return None
 
 
+def unwrapped(args, params):
+    """The real arguments, when a small model buried them in an envelope like {"called": true, "called_with": {...}}."""
+    if not isinstance(args, dict) or not params or set(args) <= set(params):
+        return args
+    nested = [value for value in args.values() if isinstance(value, dict)]
+    while nested:
+        inner = nested.pop(0)
+        if set(inner) & set(params) and set(inner) <= set(params):
+            return inner
+        nested += [value for value in inner.values() if isinstance(value, dict)]
+    return args
+
+
 class OpenAICompatible(Backend):
     def __init__(self, cfg, base_url, model, api_key="none", local=True):
         self.cfg = cfg
@@ -257,6 +270,8 @@ class OpenAICompatible(Backend):
         name = call["function"]["name"]
         args = repair(call["function"]["arguments"])
         registered = tools.REGISTRY.get(name)
+        if registered is not None:
+            args = unwrapped(args, registered.params)
         if args is None:
             result = "Error: the arguments were not valid JSON. Call the tool again with plain JSON."
         elif registered is None:

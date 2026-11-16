@@ -30,6 +30,9 @@ async def mcp_servers(only=None):
     rows = []
 
     async def check(name, source):
+        spec = found[name][0]
+        if spec.get("codex_only"):
+            return name, source, "only works inside Codex", ""
         if name in claude_servers:
             return name, source, claude_servers[name], ""
         server = hub.get(name)
@@ -85,8 +88,8 @@ async def everything(model_name="", about=""):
 
             account = [name for name in await asyncio.to_thread(services.connectors) if "mail" in name.lower()]
             if account:
-                lines.append(f"Email: {', '.join(account)} is connected on the Claude account, but Happy can only use it with Claude "
-                             "as the model; with this model, add an email MCP server in Settings > Services")
+                how = "" if services.using_claude() else "; account_connector reads, searches, drafts and sends it"
+                lines.append(f"Email: {', '.join(account)} is connected on the Claude account{how}")
             else:
                 lines.append("Email: no email service added (add Gmail or another email MCP server in Settings > Services)")
         for name, source, state, detail in await mcp_servers(mailers) if mailers else []:

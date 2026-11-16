@@ -26,6 +26,8 @@ TAP = 0.35
 STALLED = 2.0
 # THIS MUCH OF THEIR VOICE OVER HAPPY PAUSES HIM; A CLICK OR A COUGH IS SHORTER.
 ONSET = 0.3
+# HOW OFTEN WHAT IS SAID OVER HIM IS TRANSCRIBED, SINCE ONLY WORDS PAUSE HIM AND TYPING PASSES FOR A VOICE.
+LOOK_EVERY = 0.3
 
 log = logging.getLogger("happy.listener")
 
@@ -351,6 +353,15 @@ class Listener:
         self.peeks = list(PEEKS)
         self.woken = False
         self.barged = False
+        self.next_look = 0.0
+
+    def worth_pausing(self):
+        """Whether what has been said over him so far is words that could change what he does."""
+        text = self.stt(np.concatenate(self.capture))
+        if not re.search(r"[a-zA-Z]", text) or self.mic is not None and not self.headphones and self.echo(text):
+            return False
+        by_name = self.mic is not None and not self.headphones and not self.holding
+        return not by_name or meaning(text, self.name, True)[0] != "carry on"
 
     def overhear(self, block, mode):
         """Follows speech in the room: the name wakes Happy the moment it is said, and while Happy is
@@ -391,10 +402,13 @@ class Listener:
             self.capture = list(self.ring)[-10:]
         else:
             self.capture.append(block)
-        if self.barging and not self.barged and self.segment.last_speech - self.segment.started >= ONSET:
-            self.barged = True
-            log.info("paused for speech (%s)", "headphones" if self.headphones else "held" if self.holding else "echo cancellation")
-            self.on_barge()
+        if (self.barging and not self.barged and self.segment.last_speech - self.segment.started >= ONSET
+                and self.segment.heard >= self.next_look):
+            self.next_look = self.segment.heard + LOOK_EVERY
+            self.barged = self.worth_pausing()
+            if self.barged:
+                log.info("paused for speech (%s)", "headphones" if self.headphones else "held" if self.holding else "echo cancellation")
+                self.on_barge()
         if verdict == "done":
             audio = np.concatenate(self.capture)
             how = "barge" if self.barged else "aside" if self.barging else "woken" if self.woken else "overheard"
@@ -417,6 +431,8 @@ class Listener:
         if how not in ("overheard", "aside"):
             self.on_state("transcribing")
         text = self.stt(audio)
+        if how == "aside" and not text:
+            return
         if how in ("barge", "aside"):
             # ON HEADPHONES NOTHING OF HIS COMES BACK, SO WORDS OF HIS THEY REPEAT ARE THEIRS.
             if self.mic is not None and not self.headphones and self.echo(text):

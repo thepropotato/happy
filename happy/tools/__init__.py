@@ -38,6 +38,8 @@ class Tool:
         return self.check(args) if self.check else None
 
     def show(self, args):
+        if callable(self.label):
+            return self.label(args)
         try:
             return (self.label or self.name.replace("_", " ")).format(**{k: v for k, v in args.items() if v not in (None, "")})
         except (KeyError, IndexError):
@@ -46,6 +48,8 @@ class Tool:
 
 REGISTRY: dict[str, Tool] = {}
 reporter: contextvars.ContextVar[Callable[[str], None] | None] = contextvars.ContextVar("reporter", default=None)
+# THE TURN'S OWN EVENT SINK, SO A TOOL THAT WORKS THROUGH ANOTHER AGENT SHOWS EACH OF ITS STEPS AS A ROW.
+shown: contextvars.ContextVar[Callable | None] = contextvars.ContextVar("shown", default=None)
 # WHAT THE PERSON SAID THIS TURN, FOR A TOOL THAT MUST NOT GO BEYOND IT; None WHEN THE BACKEND CANNOT SAY.
 asked: contextvars.ContextVar[str | None] = contextvars.ContextVar("asked", default=None)
 # WHAT EVERY TOOL HANDED BACK THIS TURN, SO A NAME A TOOL SHOWED COUNTS AS KNOWN.

@@ -6,9 +6,10 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from happy.system import Failed, native
+from happy import tools
 from happy.tools import Image, tool
 
 
@@ -76,66 +77,200 @@ def type_text(text: Annotated[str, "exactly what to type"], then_enter: bool = F
     return "Typed it."
 
 
-PRESSABLE = {"AXButton", "AXLink", "AXMenuItem", "AXMenuBarItem", "AXCheckBox", "AXRadioButton", "AXTab",
-             "AXPopUpButton", "AXCell", "AXRow", "AXStaticText", "AXImage", "AXTextField", "AXDisclosureTriangle"}
+# THE LAST LISTING, SO "CLICK 4" MEANS THE FOURTH THING look SHOWED IN THAT SAME APP.
+listing = {"pid": None, "items": []}
 
 
-def ax(element, name):
-    from ApplicationServices import AXUIElementCopyAttributeValue
-
-    err, value = AXUIElementCopyAttributeValue(element, name, None)
-    return None if err else value
-
-
-def candidates(root, words, budget=4000):
-    """Elements in the front window whose name contains the words, nearest the top first."""
-    found, queue, seen = [], [(root, 0)], 0
-    while queue and seen < budget:
-        element, depth = queue.pop(0)
-        seen += 1
-        role = ax(element, "AXRole") or ""
-        label = " ".join(str(ax(element, k) or "") for k in ("AXTitle", "AXDescription", "AXValue", "AXHelp"))
-        if role in PRESSABLE and words in label.lower():
-            found.append((role, label.strip(), element, depth))
-        for child in ax(element, "AXChildren") or []:
-            queue.append((child, depth + 1))
-    rank = {"AXButton": 0, "AXLink": 0, "AXMenuItem": 1, "AXTab": 1, "AXCheckBox": 1, "AXRadioButton": 1}
-    return sorted(found, key=lambda f: (rank.get(f[0], 2), len(f[1]), f[3]))
+def all_controls(win):
+    controls = win.via
+    found = controls.controls(win)
+    if len(found) < 3:
+        # CHROME AND ELECTRON APPS BUILD THEIR TREE A MOMENT AFTER BEING ASKED FOR IT.
+        time.sleep(0.8)
+        found = controls.controls(win)
+    return found
 
 
-def click_at(element):
-    from Quartz import (CGEventCreateMouseEvent, CGEventPost, kCGEventLeftMouseDown, kCGEventLeftMouseUp,
-                        kCGHIDEventTap, kCGMouseButtonLeft)
-    from ApplicationServices import AXValueGetValue, kAXValueCGPointType, kAXValueCGSizeType
-
-    _, point = AXValueGetValue(ax(element, "AXPosition"), kAXValueCGPointType, None)
-    _, size = AXValueGetValue(ax(element, "AXSize"), kAXValueCGSizeType, None)
-    centre = (point.x + size.width / 2, point.y + size.height / 2)
-    for kind in (kCGEventLeftMouseDown, kCGEventLeftMouseUp):
-        CGEventPost(kCGHIDEventTap, CGEventCreateMouseEvent(None, kind, centre, kCGMouseButtonLeft))
-        time.sleep(0.03)
+def words_of(text):
+    return [w for w in re.split(r"[^\w']+", text.lower()) if w]
 
 
-@tool(label="Clicking {target}")
-def click(target: Annotated[str, "the words on the button, link or item to click"]):
-    """Click a button, link, tab or menu item in the front app by the words on it."""
-    if sys.platform != "darwin":
-        return "Clicking by name needs a Mac for now."
-    from AppKit import NSWorkspace
-    from ApplicationServices import AXUIElementCreateApplication, AXUIElementPerformAction, AXUIElementSetAttributeValue
+# WORDS THAT SAY WHAT KIND OF CONTROL IT IS, NOT WHICH ONE: "THE SEND BUTTON" IS THE BUTTON CALLED SEND.
+KIND_WORDS = {"the", "a", "an", "button", "link", "tab", "box", "field", "checkbox", "check", "icon", "option", "item", "menu",
+              "dropdown", "toggle", "switch", "control", "text", "input", "on", "this", "page", "window"}
 
-    if not native.trusted():
-        return "Happy needs Accessibility permission to click: System Settings, Privacy & Security, Accessibility."
-    if native.front_is_happy():
-        return "Happy's own panel is in front, so there is nothing of theirs to click. Ask them to bring up the app they mean."
-    app = NSWorkspace.sharedWorkspace().frontmostApplication()
-    root = AXUIElementCreateApplication(app.processIdentifier())
-    AXUIElementSetAttributeValue(root, "AXManualAccessibility", True)
-    window = ax(root, "AXFocusedWindow") or root
-    hits = candidates(window, target.lower().strip())
+
+def ranked(found, target, fields=False):
+    """The controls the words could mean, best first: the whole name, then its start, then every word in it."""
+    hits = matches(found, words_of(target), fields)
+    bare = [w for w in words_of(target) if w not in KIND_WORDS]
+    return hits or (matches(found, bare, fields) if bare else [])
+
+
+def matches(found, words, fields):
+    wanted = " ".join(words)
+    scored = []
+    for control in found:
+        name = " ".join(words_of(control.label))
+        if not name:
+            continue
+        fit = 0 if name == wanted else 1 if name.startswith(wanted) else 2 if wanted in name else \
+            3 if all(w in name.split() for w in wanted.split()) else None
+        if fit is None:
+            continue
+        kind = 0 if (control.field if fields else control.listed) else 1
+        scored.append((fit, kind, not control.enabled, len(name), control))
+    # TYPING WANTS A FIELD: INSTAGRAM'S "SEARCH" LINK NAMED EXACTLY BEAT ITS "SEARCH INPUT" FIELD.
+    order = (lambda s: (s[1], s[0], s[2], s[3])) if fields else (lambda s: s[:4])
+    return [s[-1] for s in sorted(scored, key=order)]
+
+
+def pick(win, target, fields=False, found=None):
+    """The control a target names, by the number look gave it or by its words."""
+    from happy.system import Failed
+
+    number = target.strip().lstrip("#")
+    if number.isdigit():
+        if listing["pid"] != win.pid or not 0 < int(number) <= len(listing["items"]):
+            raise Failed(f"There is no number {number} from a look at {win.app}. Look at it first, or name the control by its words.")
+        return listing["items"][int(number) - 1]
+    found = found if found is not None else all_controls(win)
+    if not found:
+        raise Failed(f"{win.app} does not show its controls to other apps, so nothing in it can be named. "
+                     "Keyboard shortcuts or a look at the screen are the way in.")
+    hits = ranked(found, target, fields)
     if not hits:
-        return f"Could not find anything labelled {target} in {app.localizedName()}."
-    role, label, element, _ = hits[0]
-    if AXUIElementPerformAction(element, "AXPress") != 0:
-        click_at(element)
-    return f"Clicked {label[:80]} ({role.removeprefix('AX').lower()})."
+        kinds = "fields" if fields else "controls"
+        near = ", ".join(c.label[:40] for c in found if (c.field if fields else c.listed))[:500]
+        raise Failed(f"Nothing called {target} in {win.app}. Its {kinds} include: {near or 'none with names'}.")
+    return hits[0]
+
+
+def state(win, found=None):
+    controls = win.via
+    return controls.title(win), [(c.label, c.value) for c in (found if found is not None else controls.controls(win))]
+
+
+def change(before, after, control, window):
+    """What visibly changed after an action, in words, or None."""
+    controls = window.via
+    if not controls.alive(window):
+        return "The window closed."
+    if after[0] != before[0]:
+        return f"The window is now {after[0] or 'untitled'}."
+    if not controls.alive(control) or len(after[1]) != len(before[1]):
+        return "The window changed."
+    if after[1] != before[1]:
+        return "Something in the window changed."
+    return None
+
+
+def look(win):
+    found = all_controls(win)
+    items = [c for c in found if c.listed]
+    listing.update(pid=win.pid, items=items)
+    if not items:
+        return (f"{win.app} does not show its controls to other apps, so nothing in it can be named. "
+                "Keyboard shortcuts or a look at the screen are the way in.")
+    lines = []
+    for n, c in enumerate(items[:80], 1):
+        held = f": {c.value[:60]!r}" if c.field and c.value and c.value != c.label else ""
+        lines.append(f"{n}. {c.kind} {c.label[:70]}{held}{'' if c.enabled else ' (greyed out)'}")
+    more = f"\n…and {len(items) - 80} more; name one by its words." if len(items) > 80 else ""
+    return (f"{win.app}, window {win.title or 'untitled'}{'' if win.front else ' (behind other windows)'}. "
+            f"Its controls, top to bottom; a number here clicks or types into that one:\n" + "\n".join(lines) + more)
+
+
+def labelled(args):
+    action, target, app = args.get("action", ""), args.get("target", ""), args.get("app", "")
+    where = f" in {app}" if app else ""
+    return {"look": f"Looking at the controls{where}", "click": f"Clicking {target}{where}",
+            "type": f"Typing into {target}{where}", "menu": f"Choosing {target}{where}",
+            "scroll": f"Scrolling {target or 'down'}{where}"}.get(action, "Using the app")
+
+
+@tool(label=labelled)
+def use_app(
+    action: Literal["look", "click", "type", "menu", "scroll"],
+    target: Annotated[str, "the words on the control, its number from look, a menu path like View > as List, or top, bottom, up or down"] = "",
+    text: str = "",
+    app: str = "",
+    then_enter: bool = False,
+):
+    """Click, type into, pick a menu item or scroll inside an app by the words on the control, even with the app behind; look lists its controls first."""
+    from happy.system import controls, web_controls
+
+    if controls is None:
+        return "Working inside apps needs a Mac or Windows."
+    if not native.trusted():
+        return "Happy needs Accessibility permission for that: System Settings, Privacy & Security, Accessibility."
+    front = app or native.frontmost()
+    # A PAGE IN THE PERSON'S CHROME GOES THROUGH agent-browser WHEN IT IS CONNECTED; MENUS STAY WITH THE OS.
+    via = web_controls if action != "menu" and web_controls.usable(front) else controls
+    said = act(via, action, target, text, app, then_enter)
+    return said + ("" if via is web_controls or action == "menu" else web_controls.not_let_in(front))
+
+
+def act(controls, action, target, text, app, then_enter):
+    from happy.system import Failed
+
+    try:
+        win = controls.window(app)
+        win.via = controls
+        if action == "click" and re.search(r"\S\s*(?:>|→)\s*\S", target):
+            # "VIEW > AS LIST" IS A MENU PATH, WHATEVER THE ACTION SAID.
+            action = "menu"
+        if action == "look":
+            return look(win)
+        if action == "menu":
+            path = [p.strip() for p in re.split(r"\s*(?:>|→|/|,)\s*", target) if p.strip()]
+            if not path:
+                return "Say which menu item, like File > Export."
+            # AN APP GREYS OUT ITS MENUS WHILE IT IS NOT THE ONE IN FRONT.
+            controls.bring_forward(win)
+            walked = controls.menu(win, path)
+            return f"Chose {' > '.join(walked)} in {win.app}."
+        if action == "scroll":
+            where = next((w for w in ("top", "bottom", "up", "down") if w in target.lower()), "down")
+            said = " ".join(words_of(tools.asked.get() or ""))
+            # "SCROLL TO THE BOTTOM" SENT AS "DOWN" WOULD MOVE A QUARTER AND BE CALLED THE BOTTOM.
+            if where == "down" and re.search(r"\b(bottom|end)\b", said):
+                where = "bottom"
+            elif where == "up" and re.search(r"\b(top|beginning|start)\b", said):
+                where = "top"
+            spot = controls.scroll(win, where)
+            at = "" if spot is None else " It is at the top." if spot <= 0.01 else " It is at the bottom." if spot >= 0.99 else ""
+            return f"Scrolled {where} in {win.app}.{at}"
+        if not target.strip():
+            return f"Say which {'field' if action == 'type' else 'control'} in {win.app}, by its words or its number from look."
+        if action == "type":
+            field = pick(win, target, fields=True)
+            if not field.field:
+                # A SEARCH BUTTON THAT OPENS INTO A FIELD, AS IN FINDER: PRESS IT, THEN THE FIELD IS THERE.
+                controls.press(field, win)
+                time.sleep(0.4)
+                opened = controls.focused_field(win)
+                if opened is None:
+                    return f"{field.label} in {win.app} is a {field.kind}, not somewhere to type, and pressing it opened no field."
+                field = opened
+            if not controls.set_text(field, text, win):
+                return f"Typed into {field.label} in {win.app}, but it does not show the text back, so it could not be checked."
+            if then_enter:
+                if hasattr(controls, "enter"):
+                    controls.enter(win)
+                else:
+                    controls.bring_forward(win)
+                    native.press("return")
+            return f"{field.label} in {win.app} now says {text[:200]!r}{' and Return was pressed' if then_enter else ''}."
+        found = all_controls(win)
+        control = pick(win, target, found=found)
+        if not control.enabled:
+            return f"The {control.kind} {control.label} in {win.app} is greyed out, so it cannot be pressed right now."
+        before = state(win, found)
+        how = controls.press(control, win)
+        time.sleep(0.4)
+        seen = change(before, state(win), control, win)
+        done = f"{how.capitalize()} the {control.kind} {control.label[:80]} in {win.app}."
+        return f"{done} {seen}" if seen else f"{done} Nothing in the window changed that could be seen, so check before saying it worked."
+    except Failed as error:
+        return str(error)

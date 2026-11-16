@@ -7,7 +7,7 @@ import re
 import threading
 import time
 
-from happy import history, reminders, routines, timing, tools
+from happy import history, learned, reminders, routines, timing, tools
 from happy.agent import Act, Acted, Problem, Text, choose, quick
 from happy.integrations import discovered, whatsapp
 from happy.integrations.mcp import hub
@@ -155,6 +155,8 @@ class Happy:
             else:
                 log.warning("the WhatsApp bridge did not start; see ~/.happy/whatsapp-bridge.log")
         for name, (server, source) in discovered.everything().items():
+            if server.get("codex_only"):
+                continue
             hub.add(name, server, source)
             if source != "Claude Code":
                 self.extra_servers[name] = server
@@ -577,6 +579,9 @@ class Happy:
             return text, how
         self.last_spoken = (f"{earlier} {text}", time.monotonic())
         log.info("correction of %r: %r", earlier, text)
+        # WHAT WAS CORRECTED WAS NOT WHAT THEY WANTED, SO ITS STEPS ARE NOT KEPT FOR NEXT TIME.
+        if learned.forget(earlier):
+            log.info("forgot the learned steps for %r", earlier)
         return (f'{text}\n\n(This corrects what they said just before: "{earlier}". '
                 f"Act only on the corrected request; the earlier one is replaced.)"), "correction"
 
@@ -657,10 +662,12 @@ class Happy:
             self.quiet = False
             await self.settle(listen=how != "whatsapp")
             return
+        plan = None if found or routine or how in ("routine", "correction") else await asyncio.to_thread(learned.match, bare)
         self.face.state("thinking")
         started = time.monotonic()
         self.steps, self.reply, self.streamed, failed = [], "", "", False
-        record = await asyncio.to_thread(history.begin, shown, how, "quick" if found else self.backend.name if self.backend else "")
+        record = await asyncio.to_thread(history.begin, shown, how, "quick" if found else "learned" if plan else
+                                         self.backend.name if self.backend else "")
         self.record = record
         try:
             if found:
@@ -680,7 +687,17 @@ class Happy:
                 self.reply = "I don't have a model to think with yet. Pick one in Setup."
                 self.say(self.reply)
             else:
-                await self.think(text + ("" if how == "whatsapp" else self.leftover_note()), started)
+                note = "" if how == "whatsapp" else self.leftover_note()
+                if plan and not await self.replay(plan, bare, started):
+                    stopped = self.steps[-1]
+                    # THE MODEL CARRIES ON FROM WHERE THE SAVED STEPS STOPPED, RATHER THAN REPEATING WHAT ALREADY RAN.
+                    note += (f"\n\n(Saved steps for this request ran first and stopped at {stopped['label']}: "
+                             f"{stopped['result'][:300]} Carry on from there.)")
+                    plan = None
+                if not plan:
+                    await self.think(text + note, started)
+                    if how not in ("routine", "correction") and await asyncio.to_thread(learned.learn, bare, self.steps):
+                        log.info("learned the steps for %r", bare)
         except asyncio.CancelledError:
             failed = True
             # WHAT WAS ALREADY ON SCREEN IS THE REPLY, SO A TALKED-OVER ANSWER KEEPS ITS WORDS.
@@ -698,6 +715,36 @@ class Happy:
                 await asyncio.to_thread(self.chat.send, self.reply or "I didn't come up with an answer for that.")
             self.quiet = False
             await self.settle(listen=how != "whatsapp")
+
+    async def replay(self, plan, request, started):
+        """Runs the steps these words learned, each as its own row; False, and forgotten, the moment one does not work."""
+        results = []
+        for n, step in enumerate(plan):
+            name, args = step["tool"], step["args"]
+            registered = tools.REGISTRY.get(name)
+            if registered is None:
+                await asyncio.to_thread(learned.forget, request)
+                return False
+            label, call = registered.show(args), f"learned{n}"
+            self.face.began(call, name, label, args)
+            self.face.state("working")
+            result = str(await tools.call(name, args))
+            ok = not learned.failed(result)
+            self.steps.append({"tool": name, "label": label, "args": args, "result": result[:500], "ok": ok})
+            self.face.ended(call, name, label, args, result[:2000], ok)
+            if not ok:
+                await asyncio.to_thread(learned.forget, request)
+                log.info("learned steps for %r stopped at %s: %s", request, name, result[:200])
+                return False
+            results.append(result)
+        await asyncio.to_thread(learned.used, request)
+        self.reply = " ".join(results)
+        self.face.reply(self.reply)
+        self.say(self.plain(self.reply))
+        if self.backend:
+            self.backend.heard(request, self.reply)
+        log.info("replayed learned steps for %r (%.0f ms)", request, (time.monotonic() - started) * 1000)
+        return True
 
     async def think(self, text, started):
         sentences = Sentences()
@@ -758,6 +805,7 @@ class Happy:
             await self.backend.refresh()
         self.prompted = prompt
         guard = asyncio.create_task(self.keep_talking(started))
+        tools.shown.set(emit)
         try:
             final = await self.backend.turn(text, emit)
         finally:

@@ -444,14 +444,14 @@ const Settings = (() => {
   }
 
   function permissions(list) {
-    const missing = list.filter((each) => !each.granted).length
+    const missing = list.filter((each) => !each.granted && !each.optional).length
     const block = section('permissions', 'Permissions', missing ? `${missing} to allow` : 'all allowed', missing ? 'wait' : 'good')
 
     for (const each of list) {
       const line = row(block, each.title, escape(each.why))
 
       if (each.granted) line.append(element('span', 'good', 'allowed'))
-      else line.append(button('Allow', () => ask({ do: 'allow', what: each.key }), true))
+      else line.append(button(each.optional ? 'Open' : 'Allow', () => ask({ do: 'allow', what: each.key }), !each.optional))
     }
   }
 

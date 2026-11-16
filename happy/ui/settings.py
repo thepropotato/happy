@@ -8,6 +8,7 @@ import sys
 import threading
 import time
 from functools import cache
+from pathlib import Path
 
 from happy import paths
 from happy import persona
@@ -163,7 +164,8 @@ class Settings:
             hub = Hub()
             found = discovered.everything()
             for name, (spec, source) in found.items():
-                hub.add(name, spec, source)
+                if not spec.get("codex_only"):
+                    hub.add(name, spec, source)
             mine = services.removable()
 
             async def one(name, source):
@@ -173,17 +175,16 @@ class Settings:
                 return {"name": name, "source": source, "state": state, "removable": name in mine,
                         "detail": f"{len(server.tools)} tools" if ok else (server.error or "did not answer")[:90]}
 
-            jobs = {name: asyncio.create_task(one(name, source)) for name, (_, source) in found.items()}
+            jobs = {name: asyncio.create_task(one(name, source)) for name, (spec, source) in found.items()
+                    if not spec.get("codex_only")}
             listing = asyncio.create_task(asyncio.to_thread(services.connectors))
             await asyncio.wait([*jobs.values(), listing], timeout=SERVICE_CHECK - 4)
             rows = []
-            # A CONNECTOR ON THE CLAUDE ACCOUNT REACHES HAPPY ONLY THROUGH CLAUDE CODE, SO ONLY WITH CLAUDE AS THE MODEL.
-            claude = services.using_claude()
+            # A CONNECTOR ON THE CLAUDE ACCOUNT REACHES HAPPY THROUGH CLAUDE CODE, WHICHEVER MODEL IS THINKING.
             for name, connected in (listing.result() if listing.done() and not listing.exception() else {}).items():
-                working = claude and connected
                 rows.append({"name": name, "source": "claude.ai", "removable": False,
-                             "state": "connected" if working else "only with Claude as the model" if connected else "sign in on claude.ai",
-                             "detail": "through Claude" if working else ""})
+                             "state": "connected" if connected else "sign in on claude.ai",
+                             "detail": "through Claude" if connected else ""})
             for name, job in jobs.items():
                 if job.done() and not job.exception():
                     rows.append(job.result())
@@ -191,6 +192,10 @@ class Settings:
                     job.cancel()
                     rows.append({"name": name, "source": found[name][1], "state": "failing", "detail": "did not answer in time",
                                  "removable": name in mine})
+            for name, (spec, source) in found.items():
+                if spec.get("codex_only"):
+                    rows.append({"name": name, "source": source, "state": "only works inside Codex",
+                                 "detail": "", "removable": name in mine})
             try:
                 await asyncio.wait_for(hub.close(), 3)
             except (asyncio.TimeoutError, Exception):
@@ -394,10 +399,17 @@ class Settings:
     def permissions(self):
         if sys.platform != "darwin":
             return []
-        return [{"key": key, "title": title, "why": why, "granted": granted(key)} for key, title, why in (
+        listed = [{"key": key, "title": title, "why": why, "granted": granted(key)} for key, title, why in (
             ("microphone", "Microphone", "To hear you."),
             ("accessibility", "Accessibility", "For the talk key, typing and clicking."),
             ("screen", "Screen Recording", "To look at the screen when you ask."))]
+        from happy.system import web_controls
+
+        if web_controls.binary() and Path("/Applications/Google Chrome.app").exists():
+            # ONLY CHROME CAN TURN THIS ON: THE BUTTON OPENS ITS SWITCH, AND ITS OWN PROMPT FOLLOWS ON FIRST USE.
+            listed.append({"key": "chrome", "title": "Chrome pages", "optional": True, "granted": web_controls.allowed(),
+                           "why": "Optional. To work inside pages in your Chrome: switch on remote debugging there, then allow Chrome's prompt."})
+        return listed
 
     def allow(self, what):
         if what == "microphone":
@@ -414,6 +426,14 @@ class Settings:
             from Quartz import CGRequestScreenCaptureAccess
 
             CGRequestScreenCaptureAccess()
+        elif what == "chrome":
+            from happy.system import Failed, web_controls
+
+            try:
+                web_controls.open_inspect()
+            except Failed as error:
+                self.notice = f"Chrome would not open its remote debugging page: {error}"
+            self.send()
         if what in PANES:
             subprocess.Popen(["open", PANES[what]])
 
@@ -468,6 +488,10 @@ def voices():
 
 def granted(key):
     try:
+        if key == "chrome":
+            from happy.system import web_controls
+
+            return web_controls.allowed()
         if key == "microphone":
             from AVFoundation import AVCaptureDevice, AVMediaTypeAudio
 

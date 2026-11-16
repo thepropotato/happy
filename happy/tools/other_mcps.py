@@ -1,13 +1,16 @@
 """The person's other MCP servers, reached by local models through a search instead of a giant tool list."""
 
+import asyncio
 import json
 import math
+import os
 import re
 from collections import Counter
 from typing import Annotated
 
+from happy import paths
 from happy.integrations.mcp import hub
-from happy.tools import report, tool
+from happy.tools import report, shown, tool
 
 
 def any_inherited():
@@ -42,7 +45,7 @@ def compact(schema):
 
 @tool(label="Looking for a tool to {need}", local_only=True, needs=any_inherited)
 async def find_service_tool(need: Annotated[str, "what you want to do, in a few words"]):
-    """Search the extra services set up on this computer (from Claude, Cursor and others) for a tool that can do something."""
+    """Search the extra MCP services set up on this computer for a tool that can do something. Asking Claude or Codex to do a job is hand_off_coding, not a service."""
     tools = await catalogue()
     if not tools:
         names = ", ".join(f"{s.name} ({s.error})" for s in hub.inherited())
@@ -116,3 +119,79 @@ def register_direct(most=40):
                                   local_only=True, params=schema.get("properties") or {})
             added += 1
     return added
+
+
+# CLAUDE'S OWN TOOLS ARE SHUT OFF, SO THE CONNECTOR IS ALL IT CAN TOUCH.
+BUILT_IN = "Bash Edit Write Read Glob Grep WebFetch WebSearch NotebookEdit Task Agent Skill"
+
+
+def account_connectors():
+    """The claude.ai connectors the settings window last found, which reach any model through Claude Code."""
+    try:
+        rows = json.loads((paths.HOME / "services.json").read_text())
+    except (OSError, ValueError):
+        return []
+    return [row["name"] for row in rows if row.get("source") == "claude.ai" and row.get("state") != "sign in on claude.ai"]
+
+
+def through_claude():
+    from happy.integrations import services
+
+    return not services.using_claude() and services.claude() is not None and bool(account_connectors())
+
+
+def result_text(content):
+    if isinstance(content, list):
+        return "\n".join(part.get("text", "") for part in content if isinstance(part, dict))
+    return str(content or "")
+
+
+@tool(say="Working on it.", label="Through Claude: {request}", local_only=True, needs=through_claude)
+async def account_connector(
+    service: Annotated[str, "the connector as named: Gmail, Google Drive and so on"],
+    request: Annotated[str, "the whole job in plain words, with every name, address and wording they gave"],
+):
+    """Use a connector on the person's Claude account (Gmail, Google Drive and the like) to read, search, draft or send. Claude does the job with that connector alone, and every step it takes shows on screen."""
+    from happy.agent import Act, Acted
+    from happy.integrations import services
+
+    names = account_connectors()
+    name = next((n for n in names if n.lower() == service.lower()), None) or next((n for n in names if service.lower() in n.lower()), None)
+    if not name:
+        return f"No connector called {service}. The ones on the Claude account: {', '.join(names) or 'none'}."
+    prefix = "mcp__claude_ai_" + re.sub(r"[^A-Za-z0-9]", "_", name)
+    env = {k: v for k, v in os.environ.items() if k != "ELECTRON_RUN_AS_NODE"}
+    done = await asyncio.create_subprocess_exec(
+        services.claude(), "-p", request, "--output-format", "stream-json", "--verbose", "--no-session-persistence",
+        "--allowedTools", prefix, "--disallowedTools", BUILT_IN,
+        "--append-system-prompt", f"Use only the {name} tools. Do exactly what is asked and nothing more. Answer in a few plain sentences, without markdown.",
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env, limit=16 * 1024 * 1024, cwd=str(paths.HOME))
+    sink, open_calls, answer, failed = shown.get(), {}, "", False
+    async for raw in done.stdout:
+        try:
+            event = json.loads(raw)
+        except ValueError:
+            continue
+        if event.get("type") == "result":
+            answer, failed = event.get("result") or "", event.get("is_error") or event.get("subtype") != "success"
+            continue
+        for block in (event.get("message") or {}).get("content") or [] if event.get("type") in ("assistant", "user") else []:
+            if not isinstance(block, dict):
+                continue
+            # ONLY THE CONNECTOR'S OWN CALLS ARE ACTIONS; CLAUDE LOOKING ITS TOOLS UP IS PLUMBING.
+            if block.get("type") == "tool_use" and block.get("name", "").startswith(prefix + "__"):
+                step = block["name"].removeprefix(prefix + "__")
+                row = tool_name(name, step)
+                open_calls[block.get("id")] = row
+                report(f"{name}: {step.replace('_', ' ')}")
+                if sink:
+                    sink(Act(tool=row, args=block.get("input") or {}, label=f"{name}: {step.replace('_', ' ')}"))
+            elif block.get("type") == "tool_result" and block.get("tool_use_id") in open_calls:
+                row = open_calls.pop(block["tool_use_id"])
+                if sink:
+                    sink(Acted(tool=row, result=result_text(block.get("content"))[:2000], ok=not block.get("is_error")))
+    await done.wait()
+    if failed or not answer:
+        problem = answer or (await done.stderr.read()).decode(errors="replace").strip()[-300:] or "Claude stopped without an answer."
+        raise RuntimeError(problem)
+    return answer
