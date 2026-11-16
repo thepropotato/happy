@@ -274,3 +274,32 @@ h3 { font: 400 26px/1.1 var(--serif); }
   .caret { animation: none; }
   .clicks li, .spared, .steps li, .btn, .face-hero, .stage-step { transition: none; animation: none; }
 }
+
+/* GITHUB IN THE NAV, WITH ITS LIVE STAR COUNT */
+.links .star-link { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px; border: 1px solid var(--line); color: var(--soft); }
+.links .star-link:hover { color: var(--ink); border-color: var(--sage-deep); }
+.star-link svg { width: 15px; height: 15px; fill: none; stroke: var(--sage); stroke-width: 1.8; stroke-linejoin: round; }
+.star-count { font-variant-numeric: tabular-nums; color: var(--ink); padding-left: 7px; border-left: 1px solid var(--line); }
+
+/* THE PEOPLE WHO BUILT IT, READ FROM GITHUB AS THE PAGE LOADS */
+.people { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; margin-top: 8px; }
+.faces-row { display: flex; padding-left: 10px; }
+.faces-row a { display: block; width: 40px; height: 40px; margin-left: -10px; border-radius: 50%; border: 2px solid var(--sage); background: var(--ground); overflow: hidden; transition: transform 0.15s; }
+.faces-row a:hover, .faces-row a:focus-visible { transform: translateY(-3px); position: relative; z-index: 1; }
+.faces-row img { display: block; width: 100%; height: 100%; }
+.faces-row .more { display: grid; place-items: center; font-size: 13px; font-weight: 600; color: var(--ink); text-decoration: none; }
+.people-line { font-size: 15px; color: rgba(14, 18, 14, 0.78); }
+.people-line b { color: var(--ground); font-weight: 600; }
+
+@media (max-width: 1040px) {
+  .nav-extra { display: none; }
+}
+
+/* ONE LINE TO INSTALL, FOR EITHER COMPUTER */
+.os-pick { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--raised); border: 1px solid var(--line); }
+.os-pick button { font: inherit; font-size: 13px; font-weight: 500; color: var(--soft); background: transparent; border: 0; border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+.os-pick button[aria-selected="true"] { background: var(--sage); color: var(--ground); }
+.one-line { display: flex; align-items: flex-start; gap: 12px; padding: 14px 14px 14px 16px; border-radius: 14px; background: var(--well); border: 1px solid var(--line); }
+.one-line pre { flex: 1; min-width: 0; font-size: 14px; line-height: 1.6; }
+.one-line .copy { flex: none; }
+.code-source a { color: var(--code); }

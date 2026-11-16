@@ -21,10 +21,15 @@
     <nav class="nav">
       <a class="brand" href="#top" aria-label="Happy, home"><canvas class="face face-nav" aria-hidden="true"></canvas><span>Happy</span></a>
       <div class="links">
-        <a class="nav-extra" href="#asking">How it works</a>
+        <a class="nav-extra" href="#more">Features</a>
+        <a class="nav-extra" href="#connects">Integrations</a>
         <a class="nav-extra" href="#brains">Privacy</a>
+        <a class="nav-extra" href="#open">Open source</a>
         <a class="nav-extra" href="#faq">FAQ</a>
-        <a class="nav-extra" href="https://github.com/thepropotato/happy">GitHub</a>
+        <a class="star-link" href="https://github.com/thepropotato/happy" aria-label="Happy on GitHub">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"></path></svg>
+          <span class="star-word">GitHub</span><span class="star-count" data-stars hidden></span>
+        </a>
         <a class="pill-link" href="#download">Download</a>
       </div>
     </nav>
@@ -43,7 +48,7 @@
           <a class="btn btn-main" data-os="mac" href="https://github.com/thepropotato/happy/releases/latest">Download for Mac</a>
           <a class="btn btn-quiet" data-os="windows" href="https://github.com/thepropotato/happy/releases/latest">Download for Windows</a>
         </div>
-        <p class="after">Setup is one window. It finds your model, gets the speech models ready, and you press Start.</p>
+        <p class="after">Or install with <a href="#install">one line in a terminal</a>. Setup is one window: it finds your model, gets the speech models ready, and you press Start.</p>
       </div>
       <div class="stage" data-stage>
         <canvas class="aurora" aria-hidden="true"></canvas>
@@ -214,13 +219,25 @@
       <h2>Open source, every line</h2>
       <p>Happy is free under the MIT license: the app, its prompts and its setup. Read it, change it, and send improvements back.</p>
       <a class="btn btn-quiet" href="https://github.com/thepropotato/happy">View on GitHub</a>
+      <div class="people" data-people hidden>
+        <div class="faces-row" data-faces></div>
+        <p class="people-line" data-people-line></p>
+      </div>
     </div>
-    <div class="open-code">
-      <div class="code-top"><span class="code-label">Install from source</span><button type="button" class="copy" data-copy>Copy</button></div>
-      <pre><code data-code>git clone https://github.com/thepropotato/happy.git
-cd happy
-./setup.sh</code></pre>
-      <p class="code-note">On Windows, run <code>.\setup.ps1</code> instead.</p>
+    <div class="open-code" id="install">
+      <div class="code-top">
+        <span class="code-label">Install in one line</span>
+        <div class="os-pick" role="tablist" aria-label="Your computer" data-os-pick>
+          <button type="button" role="tab" aria-selected="true" data-os-tab="mac">Mac</button>
+          <button type="button" role="tab" aria-selected="false" data-os-tab="windows">Windows</button>
+        </div>
+      </div>
+      <div class="one-line">
+        <pre><code data-code data-line-mac="curl -fsSL https://raw.githubusercontent.com/thepropotato/happy/main/install.sh | sh" data-line-windows="irm https://raw.githubusercontent.com/thepropotato/happy/main/install.ps1 | iex">curl -fsSL https://raw.githubusercontent.com/thepropotato/happy/main/install.sh | sh</code></pre>
+        <button type="button" class="copy" data-copy>Copy</button>
+      </div>
+      <p class="code-note" data-os-note>Paste it into Terminal. It fetches Happy, sets everything up and opens the setup window. Run it again any time to update.</p>
+      <p class="code-note code-source">Prefer to read first? <a href="https://github.com/thepropotato/happy/blob/main/install.sh" data-source-link>See the script</a>, or <code>git clone</code> the repo and run <code>./setup.sh</code>.</p>
     </div>
   </div>
 </section>

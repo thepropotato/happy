@@ -341,6 +341,62 @@
     })
   })
 
+  // STARS AND THE PEOPLE WHO BUILT HAPPY, READ FROM GITHUB AS THE PAGE LOADS; BOTH STAY HIDDEN IF GITHUB DOES NOT ANSWER.
+  const REPO = 'thepropotato/happy'
+  const short = (n) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1).replace(/\.0$/, '')}k` : String(n))
+  const github = (path) => fetch(`https://api.github.com/repos/${REPO}${path}`, { headers: { Accept: 'application/vnd.github+json' } })
+    .then((answer) => (answer.ok ? answer.json() : null))
+    .catch(() => null)
+
+  Promise.all([github(''), github('/contributors?per_page=100')]).then(([repo, list]) => {
+    const stars = repo && typeof repo.stargazers_count === 'number' ? repo.stargazers_count : null
+    if (stars !== null) {
+      const count = $('[data-stars]')
+      count.textContent = short(stars)
+      count.hidden = false
+      $('.star-link').setAttribute('aria-label', `Happy on GitHub, ${stars} star${stars === 1 ? '' : 's'}`)
+    }
+    const builders = (Array.isArray(list) ? list : []).filter((person) => person && person.type !== 'Bot' && person.login)
+    if (!builders.length) return
+    const SHOWN = 12
+    const row = $('[data-faces]')
+    builders.slice(0, SHOWN).forEach((person) => {
+      const link = Object.assign(document.createElement('a'), { href: person.html_url, target: '_blank', rel: 'noopener' })
+      const commits = person.contributions
+      link.setAttribute('aria-label', `${person.login}, ${commits} commit${commits === 1 ? '' : 's'}`)
+      link.title = person.login
+      link.append(Object.assign(document.createElement('img'), { src: `${person.avatar_url}&s=80`, alt: '', width: 40, height: 40 }))
+      row.append(link)
+    })
+    if (builders.length > SHOWN) {
+      row.append(Object.assign(document.createElement('a'), {
+        className: 'more', href: `https://github.com/${REPO}/graphs/contributors`, target: '_blank', rel: 'noopener', textContent: `+${builders.length - SHOWN}`,
+      }))
+    }
+    const line = $('[data-people-line]')
+    line.innerHTML = `Built by <b></b>${stars !== null ? ' \u00b7 <b></b> on GitHub' : ''}`
+    const parts = line.querySelectorAll('b')
+    parts[0].textContent = `${builders.length} ${builders.length === 1 ? 'person' : 'people'}`
+    if (parts[1]) parts[1].textContent = `${short(stars)} star${stars === 1 ? '' : 's'}`
+    $('[data-people]').hidden = false
+  })
+
+  // THE INSTALL LINE FOR THE VISITOR'S OWN COMPUTER, SWITCHABLE.
+  const NOTES = {
+    mac: 'Paste it into Terminal. It fetches Happy, sets everything up and opens the setup window. Run it again any time to update.',
+    windows: 'Paste it into PowerShell. It fetches Happy, sets everything up and opens the setup window. Run it again any time to update.',
+  }
+  const line = $('[data-code]')
+  const osTabs = $$('[data-os-tab]')
+  function system(name) {
+    osTabs.forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.osTab === name)))
+    line.textContent = line.dataset[name === 'mac' ? 'lineMac' : 'lineWindows']
+    $('[data-os-note]').textContent = NOTES[name]
+    $('[data-source-link]').href = `https://github.com/thepropotato/happy/blob/main/install.${name === 'mac' ? 'sh' : 'ps1'}`
+  }
+  osTabs.forEach((tab) => tab.addEventListener('click', () => system(tab.dataset.osTab)))
+  system(windows ? 'windows' : 'mac')
+
   run(0, true)
 })()
 
