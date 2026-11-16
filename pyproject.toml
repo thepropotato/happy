@@ -28,7 +28,7 @@ dependencies = [
     "ddgs>=9.16.1",
     "trafilatura>=2.3.1",
     "curl-cffi>=0.16.3",
-    "pypdf>=6.21.2",
+    "pypdf>=6.21.4",
 ]
 
 [project.scripts]
