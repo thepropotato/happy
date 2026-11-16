@@ -495,25 +495,89 @@
 }
 
 /* WHAT "HELP MAKE HAPPY BETTER" LAST SENT, FOLDED UNDER ITS ROW. */
-.row .label .shared {
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--faint);
+.row .shared {
+  flex-basis: 100%;
+  margin-top: -2px;
 }
 
-.row .label .shared summary {
-  cursor: pointer;
+.row .shared summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px 3px 5px;
+  margin-left: -5px;
+  border-radius: 6px;
   color: var(--glow);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
 }
 
-.row .label .shared pre {
-  margin: 6px 0 0;
-  padding: 8px 10px;
-  max-height: 180px;
-  overflow: auto;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.25);
+.row .shared summary::-webkit-details-marker {
+  display: none;
+}
+
+.row .shared summary:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.row .shared .shared-chevron {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  transition: transform 0.18s ease;
+}
+
+.row .shared[open] .shared-chevron {
+  transform: rotate(90deg);
+}
+
+.row .shared-body {
+  margin-top: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.row .shared-list {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 14px;
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.row .shared-list dt {
+  color: var(--faint);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 10.5px;
+}
+
+.row .shared-list dd {
+  margin: 0;
   color: var(--dim);
-  font: 10.5px/1.5 ui-monospace, Menlo, monospace;
-  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.row .shared-empty {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--faint);
+  font-size: 11px;
+}
+
+/* A ROW THAT GROWS DOWNWARDS KEEPS ITS SWITCH LEVEL WITH ITS TITLE. */
+.row.row-top {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+.row.row-top > .switch {
+  margin-top: 2px;
 }

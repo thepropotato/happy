@@ -165,7 +165,7 @@ const Settings = (() => {
     whatsapp(word.whatsapp)
     services(word.services, word.services_checking)
 
-    if (word.permissions && word.permissions.length) permissions(word.permissions)
+    privacy(word)
 
     if (word.first) {
       const end = element('div', 'begin')
@@ -360,18 +360,6 @@ const Settings = (() => {
       toggle(word.login, (on) => ask({ do: 'set', key: 'start_at_login', value: on })),
     )
 
-    // WHAT IS SHARED FOLDS OPEN IN PLACE, SO NOBODY HAS TO TAKE THE DESCRIPTION ON TRUST.
-    const sharing = row(block, 'Help make Happy better',
-      'Sends anonymous counts of how each turn went: which tools ran, how long it took, whether it worked. Never your words, replies or files.')
-    sharing.append(toggle(word.share, (on) => ask({ do: 'set', key: 'share_usage', value: on })))
-    if (word.share) {
-      const sent = element('details', 'shared')
-
-      sent.append(element('summary', '', 'What was last sent'))
-      sent.append(element('pre', '', word.shared ? JSON.stringify(word.shared, null, 2) : 'Nothing yet. One is sent each time a turn ends.'))
-      sharing.querySelector('.label').append(sent)
-    }
-
     const keyed = row(block, 'Hold to talk', 'Hold it anywhere, talk, let go.')
     const keys = element('select')
 
@@ -455,9 +443,44 @@ const Settings = (() => {
     block.append(adding)
   }
 
-  function permissions(list) {
+  // WHAT LEAVES THIS COMPUTER AND WHAT HAPPY MAY TOUCH ON IT, IN ONE PLACE.
+  function privacy(word) {
+    const list = word.permissions || []
     const missing = list.filter((each) => !each.granted && !each.optional).length
-    const block = section('permissions', 'Permissions', missing ? `${missing} to allow` : 'all allowed', missing ? 'wait' : 'good')
+    const shared = word.share ? 'sharing on' : 'sharing off'
+    const summary = list.length ? `${missing ? `${missing} to allow` : 'all allowed'} · ${shared}` : shared
+    const block = section('permissions', 'Privacy', summary, missing ? 'wait' : 'good')
+
+    // WHAT IS SHARED FOLDS OPEN IN PLACE, SO NOBODY HAS TO TAKE THE DESCRIPTION ON TRUST.
+    const sharing = row(block, 'Help make Happy better',
+      'Sends anonymous counts of how each turn went: which tools ran, how long it took, whether it worked. Never your words, replies or files.')
+    sharing.classList.add('row-top')
+    sharing.append(toggle(word.share, (on) => ask({ do: 'set', key: 'share_usage', value: on })))
+    if (word.share) {
+      const sent = element('details', 'shared')
+      const opener = element('summary')
+      const body = element('div', 'shared-body')
+
+      // THE SAME DRAWN CHEVRON AS THE SECTION HEADS, TURNING DOWN WHEN IT OPENS.
+      opener.innerHTML = '<svg class="shared-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6" /></svg>'
+      opener.append(element('span', '', 'What was last sent'))
+      if (word.shared) {
+        // EVERY FIELD AS IT WAS SENT, ONE PER LINE: THE NAME ON THE LEFT, THE VALUE ON THE RIGHT.
+        const list = element('dl', 'shared-list')
+
+        for (const [name, value] of Object.entries(word.shared)) {
+          const shown = Array.isArray(value) ? (value.length ? value.join(', ') : 'none') : String(value)
+
+          list.append(element('dt', '', name), element('dd', '', shown))
+        }
+        body.append(list)
+      } else {
+        body.append(element('p', 'shared-empty', 'Nothing yet. One is sent each time a turn ends.'))
+      }
+      sent.append(opener, body)
+      // AFTER THE SWITCH, SO IT WRAPS ONTO ITS OWN LINE AND RUNS THE WHOLE WIDTH OF THE ROW.
+      sharing.append(sent)
+    }
 
     for (const each of list) {
       const line = row(block, each.title, escape(each.why))
