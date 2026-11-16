@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Happy</title>
+<meta name="description" content="Happy is a voice for your computer. Say what you want, and it does it on your Mac or PC, out loud and on screen. Free and open source.">
+<meta property="og:title" content="Happy">
+<meta property="og:description" content="Stop clicking. Start asking. A free, open-source voice for your Mac or PC.">
+<meta name="theme-color" content="#0E120E">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<!--page-->
+<div class="band">
+  <div class="wrap">
+    <nav class="nav">
+      <a class="brand" href="#top" aria-label="Happy, home"><canvas class="face face-nav" aria-hidden="true"></canvas><span>Happy</span></a>
+      <div class="links">
+        <a class="nav-extra" href="#asking">How it works</a>
+        <a class="nav-extra" href="#brains">Privacy</a>
+        <a class="nav-extra" href="#faq">FAQ</a>
+        <a class="nav-extra" href="https://github.com/thepropotato/happy">GitHub</a>
+        <a class="pill-link" href="#download">Download</a>
+      </div>
+    </nav>
+
+    <header class="hero" id="top">
+      <div class="hero-text">
+        <p class="badge"><span class="badge-dot" data-dot></span>Stop clicking. Start asking.</p>
+        <h1 class="headline" aria-label="Hey Happy, set the brightness to 40.">
+          <span class="headline-call">Hey <span data-name>Happy</span>,</span>
+          <span class="headline-ask" aria-hidden="true" data-room>
+            <span class="ask-typed"><span data-typed>set the brightness to 40.</span><span class="caret"></span></span>
+          </span>
+        </h1>
+        <p class="lede">Say what you want out loud. Happy does it on your computer, tells you how it went, and shows every step. Free and open source, for Mac and Windows.</p>
+        <div class="ctas" data-downloads>
+          <a class="btn btn-main" data-os="mac" href="https://github.com/thepropotato/happy/releases/latest">Download for Mac</a>
+          <a class="btn btn-quiet" data-os="windows" href="https://github.com/thepropotato/happy/releases/latest">Download for Windows</a>
+        </div>
+        <p class="after">Setup is one window. It finds your model, gets the speech models ready, and you press Start.</p>
+      </div>
+      <div class="stage" data-stage>
+        <canvas class="aurora" aria-hidden="true"></canvas>
+        <div class="stage-face">
+          <canvas class="face face-hero" role="img" aria-label="Happy's face"></canvas>
+          <p class="stage-word" data-word>Ready when you are</p>
+        </div>
+        <p class="stage-step" data-stage-step aria-hidden="true"></p>
+      </div>
+    </header>
+
+    <ul class="proof" aria-label="At a glance">
+      <li><b>Free</b> and open source</li>
+      <li>Speech-to-text runs <b>on your computer</b></li>
+      <li>Claude, <b>any API key</b>, or a <b>local model</b></li>
+      <li><b>Mac</b> and <b>Windows</b></li>
+    </ul>
+  </div>
+</div>
+
+<section class="band band-raised" id="asking">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Six steps, or <em>one sentence.</em></h2>
+      <p>Pick something you do every day. Happy finishes while the old way is still going.</p>
+    </div>
+
+    <div class="controls">
+      <div class="switch" role="group" aria-label="Pick a job" data-tabs></div>
+      <button type="button" class="pause" data-pause aria-pressed="false">Pause</button>
+    </div>
+
+    <div class="demo">
+      <div class="demo-long">
+        <div class="demo-label"><span>The old way</span><span class="demo-count" data-count>0 of 6 done</span></div>
+        <ol class="clicks" data-clicks></ol>
+        <p class="spared" data-spared>Six steps you get to skip.</p>
+      </div>
+      <div class="demo-happy">
+        <div class="demo-label demo-label-happy"><canvas class="face face-panel" aria-hidden="true"></canvas><span class="panel-name">Happy</span><span class="panel-word" data-word>Ready when you are</span></div>
+        <div class="demo-talk">
+          <p class="said" data-said-bubble aria-hidden="true"></p>
+          <ul class="steps" data-steps></ul>
+          <p class="reply" data-reply aria-hidden="true"></p>
+          <p class="sr-only" data-reply-spoken aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+
+    <ol class="how" aria-label="How it works">
+      <li><h3>Ask</h3><p>Say “Hey Happy” and keep talking, or hold the right Option key (right Ctrl on Windows). Typing works too.</p></li>
+      <li><h3>Watch</h3><p>Happy picks the tools for the job. Click its smile and every step is there, with what went in and what came back.</p></li>
+      <li><h3>Hear</h3><p>It answers out loud, and says what it's doing on longer jobs. Say “wait” and it holds; ask something new and it listens.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="band" id="more">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Ask it for anything you'd do yourself</h2>
+      <p>Brightness, volume and play/pause don't even wait for a model, so they happen the moment you finish speaking.</p>
+    </div>
+    <ul class="asks">
+      <li><span class="ask-where">Your computer</span><span class="ask-said">Pause YouTube and turn the volume down.</span></li>
+      <li><span class="ask-where">Inside apps</span><span class="ask-said">In Finder, switch to list view.</span></li>
+      <li><span class="ask-where">WhatsApp</span><span class="ask-said">Do I have any unread messages?</span></li>
+      <li><span class="ask-where">Files</span><span class="ask-said">Find my resume and send it to me on WhatsApp.</span></li>
+      <li><span class="ask-where">Email</span><span class="ask-said">Did my bank email me today?</span></li>
+      <li><span class="ask-where">Weather</span><span class="ask-said">Will it rain this afternoon?</span></li>
+      <li><span class="ask-where">The web</span><span class="ask-said">Download a picture of the Eiffel Tower.</span></li>
+      <li><span class="ask-where">Your screen</span><span class="ask-said">What's on my screen right now?</span></li>
+      <li><span class="ask-where">Coding</span><span class="ask-said">Build me a snake game.</span></li>
+      <li><span class="ask-where">Reminders</span><span class="ask-said">Remind me to drink water every hour.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="band band-raised" id="connects">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>It works with what you already use</h2>
+      <p>Happy finds what's set up on your computer, and you can add more in a minute.</p>
+    </div>
+    <div class="cards cards-2">
+      <div class="card">
+        <h3>WhatsApp, built in</h3>
+        <p>Link it once with a QR code, then read, search and send messages and files by voice. Away from your desk? Text Happy's own chat from your phone and it does the job on your computer.</p>
+      </div>
+      <div class="card">
+        <h3>Gmail, Notion and more</h3>
+        <p>Happy speaks MCP, the standard most AI tools use to reach services. Paste the install line a service gives you, and it's ready. Already use Claude Desktop or Cursor? Your services come with you.</p>
+      </div>
+      <div class="card">
+        <h3>Your browser and apps</h3>
+        <p>It works pages in your own Chrome, signed in as you, and clicks, types and picks menus in your apps by the words on their buttons.</p>
+      </div>
+      <div class="card">
+        <h3>Your coding agent</h3>
+        <p>Ask for something to be built and Happy hands it to Claude Code, Codex or another agent you have, in a Terminal window you can watch.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="brains">
+  <div class="wrap">
+    <div class="brains">
+      <div class="brains-side">
+        <div class="section-head">
+          <h2>Your model. Your privacy.</h2>
+          <p>Choose what Happy thinks with. Each choice shows what it needs and where your requests go.</p>
+        </div>
+        <div class="brain-pick" role="tablist" aria-label="Pick a model" data-brains>
+          <button type="button" role="tab" id="brain-claude" aria-controls="brain-panel" aria-selected="true" data-brain="0">Claude</button>
+          <button type="button" role="tab" id="brain-key" aria-controls="brain-panel" aria-selected="false" data-brain="1">An API key</button>
+          <button type="button" role="tab" id="brain-local" aria-controls="brain-panel" aria-selected="false" data-brain="2">On your machine</button>
+        </div>
+      </div>
+      <div class="brains-main">
+        <div class="brain-panel" id="brain-panel" role="tabpanel" aria-labelledby="brain-claude" data-brain-panel>
+          <dl class="brain-facts">
+            <div><dt>What you need</dt><dd data-brain-need>Claude Code, signed in with a Pro or Max plan.</dd></div>
+            <div><dt>What it costs</dt><dd data-brain-cost>Nothing extra. It uses the plan you already have.</dd></div>
+            <div><dt>Where your requests go</dt><dd data-brain-where>To Anthropic, through your own Claude Code.</dd></div>
+            <div><dt>Good to know</dt><dd data-brain-note>Your claude.ai connectors, like Gmail and Drive, come along.</dd></div>
+          </dl>
+        </div>
+        <div class="always">
+          <h3>Whichever you choose, these stay on your computer</h3>
+          <ul>
+            <li><b>Your voice.</b> Speech becomes text on your computer, and it's only acted on when you talk to Happy.</li>
+            <li><b>Happy's voice.</b> The voice you hear is made on your computer.</li>
+            <li><b>Your history.</b> Every request, step and answer is saved in a file here, not in an account.</li>
+            <li><b>Your keys.</b> API keys and sign-ins are stored here and never shown again in full.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band band-raised" id="yours">
+  <div class="wrap shape">
+    <div class="shape-memory">
+      <h2>Yours to shape</h2>
+      <p class="shape-lede">Tell Happy something once and it keeps it. Give it a name and a voice, and it's yours.</p>
+      <ul class="remember">
+        <li><span class="remember-say">“My brother is John in my contacts.”</span><span>Tomorrow, “text my brother” just works.</span></li>
+        <li><span class="remember-say">“Remind me to call the dentist at four.”</span><span>Said back in full, so a wrong guess is heard. Daily, hourly or on weekdays.</span></li>
+        <li><span class="remember-say">“Save that as a routine called morning brief.”</span><span>Then “morning brief”, or “run it every weekday at 7”.</span></li>
+        <li><span class="remember-say">“From now on, talk like a knight.”</span><span>Or paste a whole script, and it learns the way people talk in it.</span></li>
+      </ul>
+    </div>
+    <div class="card name-card">
+      <label class="name-field" for="name-try"><span>Rename it</span>
+        <input id="name-try" type="text" maxlength="16" autocomplete="off" spellcheck="false" placeholder="Type a name, like Max" data-name-input>
+      </label>
+      <p class="name-call">“Hey <span data-name>Happy</span>, what's the weather?”</p>
+      <p class="name-note">The name is the wake word, so “<span data-name>Happy</span>” in the middle of a sentence to someone else does nothing. Then pick one of 14 voices and how fast it talks.</p>
+    </div>
+  </div>
+</section>
+
+<section class="band band-open" id="open">
+  <div class="wrap open">
+    <div class="open-text">
+      <h2>Open source, every line</h2>
+      <p>Happy is free under the MIT license: the app, its prompts and its setup. Read it, change it, and send improvements back.</p>
+      <a class="btn btn-quiet" href="https://github.com/thepropotato/happy">View on GitHub</a>
+    </div>
+    <div class="open-code">
+      <div class="code-top"><span class="code-label">Install from source</span><button type="button" class="copy" data-copy>Copy</button></div>
+      <pre><code data-code>git clone https://github.com/thepropotato/happy.git
+cd happy
+./setup.sh</code></pre>
+      <p class="code-note">On Windows, run <code>.\setup.ps1</code> instead.</p>
+    </div>
+  </div>
+</section>
+
+<section class="band" id="faq">
+  <div class="wrap">
+    <h2 class="faq-title">Questions</h2>
+    <div class="faq-list">
+      <details>
+        <summary>Is it really free?</summary>
+        <div class="answer"><p>Yes. Happy costs nothing. If you use Claude or an API key, you pay that provider as usual; a model on your own machine is free.</p></div>
+      </details>
+      <details>
+        <summary>Is it always listening?</summary>
+        <div class="answer"><p>It listens for its name and turns speech into text on your computer, acting only when you address it. Turn the wake word off and it listens only while you hold the key.</p></div>
+      </details>
+      <details>
+        <summary>Will it do things without asking?</summary>
+        <div class="answer"><p>It does what you asked, and every step is on screen. When a message could reach the wrong person, like a name that fits two contacts or someone you've never messaged, it checks first.</p></div>
+      </details>
+      <details>
+        <summary>Does it work offline?</summary>
+        <div class="answer"><p>With a model on your own machine, everything on your computer works offline: apps, files, settings and reminders. Web searches, WhatsApp and email need the internet.</p></div>
+      </details>
+      <details>
+        <summary>Which model should I pick?</summary>
+        <div class="answer"><p>Whatever you have. Claude is the most capable. On a Mac with 24 GB of memory, a local model like gpt-oss:20b works well and keeps everything at home.</p></div>
+      </details>
+      <details>
+        <summary>Can I use it without speaking?</summary>
+        <div class="answer"><p>Yes. Type in the panel, or write to Happy's own WhatsApp chat from your phone. It answers there, quietly.</p></div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div class="closer" id="download">
+      <div class="closer-face"><canvas class="face face-closer" aria-hidden="true"></canvas></div>
+      <h2>Ready when <em>you are.</em></h2>
+      <div class="ctas" data-downloads>
+        <a class="btn btn-ink" data-os="mac" href="https://github.com/thepropotato/happy/releases/latest">Download for Mac</a>
+        <a class="btn btn-ink-quiet" data-os="windows" href="https://github.com/thepropotato/happy/releases/latest">Download for Windows</a>
+      </div>
+    </div>
+    <footer class="foot">
+      <span>Happy 0.1 · Free and open source under the MIT license.<span data-support hidden> If Happy saves you time, <a data-support-link href="#">support the developer</a>.</span></span>
+      <span><a href="https://github.com/thepropotato/happy">Source on GitHub</a></span>
+    </footer>
+  </div>
+</section>
+<!--/page-->
+<script src="face/aurora.js"></script>
+<script src="face/shapes.js"></script>
+<script src="face/drawing.js"></script>
+<script src="face/mouth.js"></script>
+<script src="face/life.js"></script>
+<script src="site.js"></script>
+</body>
+</html>
