@@ -852,7 +852,10 @@ class Happy:
                 continue
             doing = self.saying.rstrip(".").strip() or self.activity.split(":")[0].strip()
             if doing.split(" ")[0].lower().endswith("ing"):
-                self.narrate(f"Still {doing[0].lower()}{doing[1:]}.")
+                # "STILL" ONLY AFTER THE PLAIN LINE WAS HEARD, WHICH IS SKIPPED WHEN THE MODEL OR "ONE SEC" SPOKE FIRST.
+                first = f"{doing[0].upper()}{doing[1:]}."
+                said = first.lower() in self.narrated or self.saying.lower() in self.narrated
+                self.narrate(f"Still {doing[0].lower()}{doing[1:]}." if said else first)
 
     def narrate(self, line):
         """Says what Happy is doing once per turn; the same words again are noise, not news."""
