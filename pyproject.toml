@@ -27,7 +27,7 @@ dependencies = [
     "pyside6-webengine>=6.12",
     "ddgs>=9.16.1",
     "trafilatura>=2.3.1",
-    "curl-cffi>=0.16.3",
+    "curl-cffi>=0.17.0",
     "pypdf>=6.21.2",
 ]
 
