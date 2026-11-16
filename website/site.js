@@ -302,17 +302,22 @@
     $$('[data-name]').forEach((each) => { each.textContent = name })
   })
 
+  // THE COPY ICON TURNS INTO A TICK FOR A MOMENT; WHERE THE CLIPBOARD IS REFUSED, THE COMMANDS ARE SELECTED INSTEAD.
   const copy = $('[data-copy]')
   copy.addEventListener('click', async () => {
     const code = $('[data-code]')
     try {
       await navigator.clipboard.writeText(code.textContent)
-      copy.textContent = 'Copied'
+      copy.classList.add('copied')
+      copy.setAttribute('aria-label', 'Copied')
     } catch {
       getSelection().selectAllChildren(code)
-      copy.textContent = 'Select and copy'
+      copy.setAttribute('aria-label', 'Selected, press copy')
     }
-    setTimeout(() => { copy.textContent = 'Copy' }, 1800)
+    setTimeout(() => {
+      copy.classList.remove('copied')
+      copy.setAttribute('aria-label', 'Copy the commands')
+    }, 1600)
   })
 
   // AN ANSWER GROWS OPEN AND SHRINKS SHUT, AND THE PLUS TURNS THE MOMENT IT IS CLICKED.
@@ -380,22 +385,6 @@
     if (parts[1]) parts[1].textContent = `${short(stars)} star${stars === 1 ? '' : 's'}`
     $('[data-people]').hidden = false
   })
-
-  // THE INSTALL LINE FOR THE VISITOR'S OWN COMPUTER, SWITCHABLE.
-  const NOTES = {
-    mac: 'Paste it into Terminal. It fetches Happy, sets everything up and opens the setup window. Run it again any time to update.',
-    windows: 'Paste it into PowerShell. It fetches Happy, sets everything up and opens the setup window. Run it again any time to update.',
-  }
-  const line = $('[data-code]')
-  const osTabs = $$('[data-os-tab]')
-  function system(name) {
-    osTabs.forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.osTab === name)))
-    line.textContent = line.dataset[name === 'mac' ? 'lineMac' : 'lineWindows']
-    $('[data-os-note]').textContent = NOTES[name]
-    $('[data-source-link]').href = `https://github.com/thepropotato/happy/blob/main/install.${name === 'mac' ? 'sh' : 'ps1'}`
-  }
-  osTabs.forEach((tab) => tab.addEventListener('click', () => system(tab.dataset.osTab)))
-  system(windows ? 'windows' : 'mac')
 
   run(0, true)
 })()
