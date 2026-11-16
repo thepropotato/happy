@@ -19,7 +19,11 @@ Happy's face is its smile, in the bottom-right corner of the screen; drag it any
 
 ## Install
 
-**Mac** (macOS 13 or later): download [Happy-0.1.0.dmg](https://github.com/thepropotato/releases/releases/download/happy-v0.1.0/Happy-0.1.0.dmg), drag Happy into Applications and open it. It isn't signed by Apple yet, so the first time allow it under **System Settings → Privacy & Security → Open Anyway**. The first launch sets everything up (about 3 GB, a few minutes) and opens the setup window. The Windows installer is coming to the same [release](https://github.com/thepropotato/releases/releases/tag/happy-v0.1.0).
+**Mac** (macOS 13 or later): download [Happy.dmg](https://github.com/thepropotato/happy/releases/latest/download/Happy.dmg), drag Happy into Applications and open it. It isn't signed by Apple yet, so the first time allow it under **System Settings → Privacy & Security → Open Anyway**.
+
+**Windows** (10 or 11): download [Happy-Setup.exe](https://github.com/thepropotato/happy/releases/latest/download/Happy-Setup.exe) and run it. If Windows says it protected your PC, choose **More info → Run anyway**.
+
+On either, the first launch sets everything up (about 3 GB, a few minutes) and opens the setup window. Every version is on the [releases page](https://github.com/thepropotato/happy/releases).
 
 Or run it from source:
 

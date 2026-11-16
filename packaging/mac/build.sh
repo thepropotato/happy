@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds dist/Happy-<version>.dmg: a small Happy.app carrying Happy's committed code, which sets itself up on first open.
+# Builds dist/Happy.dmg: a small Happy.app carrying Happy's committed code, which sets itself up on first open.
 set -eu
 
 cd "$(dirname "$0")/../.."
@@ -8,7 +8,7 @@ out="dist"
 stage="$out/mac"
 app="$stage/Happy.app"
 
-rm -rf "$stage" "$out/Happy-$version.dmg"
+rm -rf "$stage" "$out/Happy.dmg"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/app"
 
 # ONLY WHAT IS COMMITTED GOES IN, SO NOTHING LOCAL OR SECRET RIDES ALONG.
@@ -45,6 +45,6 @@ PLIST
 codesign --force --deep --sign - "$app"
 
 ln -s /Applications "$stage/Applications"
-hdiutil create -quiet -volname "Happy" -srcfolder "$stage" -format UDZO -ov "$out/Happy-$version.dmg"
+hdiutil create -quiet -volname "Happy" -srcfolder "$stage" -format UDZO -ov "$out/Happy.dmg"
 rm -rf "$stage"
-echo "$out/Happy-$version.dmg"
+echo "$out/Happy.dmg"

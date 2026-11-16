@@ -1,4 +1,4 @@
-; Builds dist\Happy-Setup-<version>.exe: installs Happy's code for this user only and adds a Start menu shortcut that sets it up on first open.
+; Builds dist\Happy-Setup.exe: installs Happy's code for this user only and adds a Start menu shortcut that sets it up on first open.
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
@@ -15,7 +15,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\..\dist
-OutputBaseFilename=Happy-Setup-{#AppVersion}
+OutputBaseFilename=Happy-Setup
 SetupIconFile=happy.ico
 UninstallDisplayIcon={app}\happy.ico
 UninstallDisplayName=Happy
