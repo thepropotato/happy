@@ -7,7 +7,7 @@ import re
 import threading
 import time
 
-from happy import history, learned, reminders, routines, timing, tools
+from happy import history, learned, reminders, routines, timing, tools, usage
 from happy.agent import Act, Acted, Problem, Text, choose, quick
 from happy.integrations import discovered, whatsapp
 from happy.integrations.mcp import hub
@@ -666,6 +666,7 @@ class Happy:
         self.face.state("thinking")
         started = time.monotonic()
         self.steps, self.reply, self.streamed, failed = [], "", "", False
+        self.silent = False
         record = await asyncio.to_thread(history.begin, shown, how, "quick" if found else "learned" if plan else
                                          self.backend.name if self.backend else "")
         self.record = record
@@ -711,6 +712,9 @@ class Happy:
             self.say(f"Something went wrong. {self.plain(str(error))}")
         finally:
             await asyncio.to_thread(history.finish, record, self.reply, self.steps, time.monotonic() - started, failed)
+            usage.turn(self.cfg, how=how, path="quick" if found else "none" if self.backend is None else "learned" if plan else "model",
+                       steps=self.steps, seconds=time.monotonic() - started, failed=failed, silent=self.silent,
+                       model=self.backend.name if self.backend else "")
             if how == "whatsapp" and self.chat:
                 await asyncio.to_thread(self.chat.send, self.reply or "I didn't come up with an answer for that.")
             self.quiet = False
@@ -827,6 +831,7 @@ class Happy:
             self.answered = True
             self.say(rest)
         if not self.answered:
+            self.silent = True
             self.reply = self.fallback()
             self.face.reply(self.reply)
             self.say(self.reply)

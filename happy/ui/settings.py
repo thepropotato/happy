@@ -13,6 +13,7 @@ from pathlib import Path
 
 from happy import paths
 from happy import persona
+from happy import usage
 from happy.agent.prompt import owner
 from happy.config import Config, SPEECH_SPEEDS, save_secret, speech_speed
 from happy.speech import models
@@ -83,6 +84,8 @@ class Settings:
             "colour": cfg.get("colour") or "#658761",
             "wake": bool(cfg.get("wake_word")),
             "login": cfg.get("start_at_login") is not False,
+            "share": cfg.get("share_usage") is True,
+            "shared": usage.last(),
             "key": cfg.get("push_to_talk"),
             "voice": cfg.get("voice") or "alba",
             "speech_speed": cfg.get("speech_speed"),

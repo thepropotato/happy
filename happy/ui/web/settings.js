@@ -360,6 +360,18 @@ const Settings = (() => {
       toggle(word.login, (on) => ask({ do: 'set', key: 'start_at_login', value: on })),
     )
 
+    // WHAT IS SHARED FOLDS OPEN IN PLACE, SO NOBODY HAS TO TAKE THE DESCRIPTION ON TRUST.
+    const sharing = row(block, 'Help make Happy better',
+      'Sends anonymous counts of how each turn went: which tools ran, how long it took, whether it worked. Never your words, replies or files.')
+    sharing.append(toggle(word.share, (on) => ask({ do: 'set', key: 'share_usage', value: on })))
+    if (word.share) {
+      const sent = element('details', 'shared')
+
+      sent.append(element('summary', '', 'What was last sent'))
+      sent.append(element('pre', '', word.shared ? JSON.stringify(word.shared, null, 2) : 'Nothing yet. One is sent each time a turn ends.'))
+      sharing.querySelector('.label').append(sent)
+    }
+
     const keyed = row(block, 'Hold to talk', 'Hold it anywhere, talk, let go.')
     const keys = element('select')
 

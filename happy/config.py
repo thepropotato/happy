@@ -28,6 +28,7 @@ DEFAULTS = {
     "call_me": "",
     "wake_word": True,
     "start_at_login": True,
+    "share_usage": False,
     "push_to_talk": "right_option" if MAC else "right_ctrl",
     "voice": "alba",
     "speech_speed": 1.0,
@@ -47,6 +48,7 @@ COMMENTS = {
     "speech_speed": "Speaking speed, keeping the pitch: 0.75, 1.0, 1.25, 1.5 or 1.75.",
     "persona": "Path to a text file whose way of talking Happy should copy.",
     "start_at_login": "Start Happy when you log in, so reminders go off even after a restart.",
+    "share_usage": "Send anonymous counts of how each turn went, never your words, to help make Happy better.",
     "projects": "Folder where new coding projects are created. Empty means it is worked out.",
 }
 

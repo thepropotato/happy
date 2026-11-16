@@ -493,3 +493,27 @@
   color: var(--glow);
   background: var(--block-open);
 }
+
+/* WHAT "HELP MAKE HAPPY BETTER" LAST SENT, FOLDED UNDER ITS ROW. */
+.row .label .shared {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--faint);
+}
+
+.row .label .shared summary {
+  cursor: pointer;
+  color: var(--glow);
+}
+
+.row .label .shared pre {
+  margin: 6px 0 0;
+  padding: 8px 10px;
+  max-height: 180px;
+  overflow: auto;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--dim);
+  font: 10.5px/1.5 ui-monospace, Menlo, monospace;
+  white-space: pre-wrap;
+}
