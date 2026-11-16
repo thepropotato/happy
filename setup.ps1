@@ -32,4 +32,5 @@ $bin = "$env:USERPROFILE\.local\bin"
 New-Item -ItemType Directory -Force -Path $bin | Out-Null
 Set-Content -Path "$bin\happy.cmd" -Value "@`"$PSScriptRoot\.venv\Scripts\happy.exe`" %*"
 
-uv run happy setup
+# THE WINDOWS INSTALLER RUNS SETUP ITSELF AND STARTS HAPPY ITS OWN WAY, SO IT ASKS FOR SETUP ALONE.
+if (-not $env:HAPPY_NO_START) { uv run happy setup }

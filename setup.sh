@@ -41,4 +41,5 @@ case ":$PATH:" in
   *) echo "Add ~/.local/bin to your PATH to run 'happy' from anywhere." ;;
 esac
 
-uv run happy start --settings
+# THE MAC APP RUNS SETUP ITSELF AND STARTS HAPPY ITS OWN WAY, SO IT ASKS FOR SETUP ALONE.
+[ -n "${HAPPY_NO_START:-}" ] || uv run happy start --settings
