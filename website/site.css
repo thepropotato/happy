@@ -302,3 +302,8 @@ h3 { font: 400 26px/1.1 var(--serif); }
   .nav-extra { display: none; }
 }
 
+
+/* SPONSOR, BESIDE VIEW ON GITHUB IN THE SAGE BAND */
+.btn-sponsor { gap: 8px; background: transparent; color: var(--ground); border: 1.5px solid var(--ground); }
+.btn-sponsor:hover { color: var(--ground); background: rgba(14, 18, 14, 0.08); }
+.btn-sponsor svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }

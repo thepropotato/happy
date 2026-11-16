@@ -137,6 +137,10 @@ uv run python evals/choice.py claude sonnet   # the same on Claude, through your
 
 The panel's text is set in [Inter](https://rsms.me/inter/) (SIL Open Font License, `happy/ui/web/fonts`). Answers are drawn with [marked](https://marked.js.org) (MIT) and cleaned by [DOMPurify](https://github.com/cure53/DOMPurify) (Apache 2.0 / MPL 2.0).
 
+## Support
+
+Happy is free and always will be. If it saves you time, you can support it on [GitHub Sponsors](https://github.com/sponsors/thepropotato).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

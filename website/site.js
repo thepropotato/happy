@@ -1,7 +1,7 @@
 // The page's one Happy: the app's own mouth and light, walked through everyday requests.
 (() => {
   // A LINK HERE SHOWS THE "SUPPORT THE DEVELOPER" LINE IN THE FOOTER; EMPTY HIDES IT.
-  const SUPPORT = ''
+  const SUPPORT = 'https://github.com/sponsors/thepropotato'
 
   const JOBS = [
     { label: 'Brightness', ask: 'set the brightness to 40.', steps: [['set_brightness', 'screen to 40%']], reply: 'Brightness set to 40%.',
