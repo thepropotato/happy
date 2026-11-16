@@ -10,6 +10,7 @@ log="$home/install.log"
 version="$(cat "$source/.app-version")"
 
 # AN APP OPENED FROM FINDER GETS A BARE PATH; THE LOGIN SHELL'S ONE IS WHERE claude, ollama AND uv LIVE.
+# shellcheck disable=SC2016
 login_path="$("${SHELL:-/bin/zsh}" -lc 'printf %s "$PATH"' 2>/dev/null || true)"
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:${login_path:-/usr/bin:/bin:/usr/sbin:/sbin}"
 unset ELECTRON_RUN_AS_NODE
@@ -40,6 +41,6 @@ fi
 
 python="$app/.venv/bin/python"
 [ -x "$python" ] || trouble "Its Python environment is missing."
-cd "$app"
+cd "$app" || trouble "Its folder could not be opened."
 # HAPPY REFUSES A SECOND COPY OF ITSELF, SO OPENING THE APP AGAIN WHILE IT RUNS IS HARMLESS.
 exec "$python" -m happy run --quiet $first
