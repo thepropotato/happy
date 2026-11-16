@@ -23,7 +23,7 @@ dependencies = [
     "screen-brightness-control>=0.24; sys_platform == 'win32'",
     "uiautomation>=2.0.29; sys_platform == 'win32'",
     "pynput>=1.8; sys_platform != 'darwin'",
-    "pyobjc-framework-avfoundation>=11 ; sys_platform == 'darwin'",
+    "pyobjc-framework-avfoundation>=13.0 ; sys_platform == 'darwin'",
     "pyside6-webengine>=6.12",
     "ddgs>=9.16.1",
     "trafilatura>=2.3.1",
