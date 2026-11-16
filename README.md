@@ -80,6 +80,8 @@ Settings live in `~/.happy/config.toml`: `voice` (14 Kyutai Pocket TTS voices), 
 
 Remembered facts go in `~/.happy/memory.md`, the persona in `~/.happy/persona.md`, and secrets in `~/.happy/secrets.toml` (readable only by you).
 
+**Help make Happy better** (off by default, in the settings or `share_usage = true`): each turn sends anonymous counts to PostHog, namely how it was asked, which tools ran (services you added are just "mcp"), how long it took, whether it failed or went silent, the model name, OS and Happy version. Never your words, replies, tool arguments, files or contacts. The settings show the last one sent, and `happy/usage.py` is the whole of it.
+
 ## Commands
 
 | | |
