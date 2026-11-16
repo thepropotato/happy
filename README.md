@@ -19,19 +19,10 @@ Happy's face is its smile, in the bottom-right corner of the screen; drag it any
 
 ## Install
 
-One line in a terminal installs Happy in `~/.happy/app`, and running it again updates it:
-
 ```sh
-curl -fsSL https://raw.githubusercontent.com/thepropotato/happy/main/install.sh | sh
+git clone https://github.com/thepropotato/happy.git && cd happy
+./setup.sh          # Windows: .\setup.ps1
 ```
-
-On Windows, in PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/thepropotato/happy/main/install.ps1 | iex
-```
-
-Or from a clone: `git clone https://github.com/thepropotato/happy.git && cd happy && ./setup.sh` (Windows: `.\setup.ps1`).
 
 `setup.sh` installs [uv](https://docs.astral.sh/uv/) and Claude Code if needed, puts a `happy` command in `~/.local/bin`, and starts Happy with its settings open. Everything Happy can work out is already filled in: the model it found, the speech models it's downloading (about 500 MB), WhatsApp, your MCP servers, and macOS permissions. You press **Start Happy**, and only scan a QR code if you want WhatsApp. No developer account or app signing is involved.
 
