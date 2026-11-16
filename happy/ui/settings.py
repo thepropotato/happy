@@ -29,6 +29,7 @@ PANES = {
     "screen": "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
 }
 SERVICE_CHECK = 20
+SPONSOR = "https://github.com/sponsors/thepropotato"
 # services.connectors GIVES `claude mcp list` THE SAME 45 SECONDS.
 CONNECTOR_CHECK = 45
 SERVICES_FRESH = 300
@@ -304,6 +305,10 @@ class Settings:
             self.later(lambda: self.sign_in(order.get("name", "")))
         elif kind == "allow":
             self.allow(order.get("what", ""))
+        elif kind == "support":
+            import webbrowser
+
+            webbrowser.open(SPONSOR)
 
     def choose_model(self, order, cfg):
         if order.get("id") == "key":

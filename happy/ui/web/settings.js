@@ -167,6 +167,15 @@ const Settings = (() => {
 
     privacy(word)
 
+    // HAPPY IS FREE; ONE QUIET LINE AT THE FOOT SAYS HOW TO SAY THANKS, AND NOTHING EVER ASKS.
+    const thanks = element('div', 'support')
+    const link = element('button', 'support-link', 'Support Happy on GitHub Sponsors')
+
+    link.type = 'button'
+    link.onclick = () => ask({ do: 'support' })
+    thanks.append(element('span', '', 'Happy is free and open source.'), link)
+    group.append(thanks)
+
     if (word.first) {
       const end = element('div', 'begin')
 
