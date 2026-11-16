@@ -72,21 +72,23 @@ def options():
     return found
 
 
-def backend(cfg, extra_servers=None):
+def backend(cfg, extra_servers=None, posthog_client=None, ai_session_id=None):
     """The brain named in the config, or the best one found."""
     kind = cfg.get("brain.kind") or "auto"
     if kind == "claude" or (kind == "auto" and claude_ready()):
         from happy.agent.claude import Claude
 
-        return Claude(cfg, extra_servers)
+        return Claude(cfg, extra_servers, posthog_client=posthog_client, ai_session_id=ai_session_id)
     from happy.agent.openai_compatible import OpenAICompatible
 
     if cfg.get("brain.base_url"):
         url = cfg.get("brain.base_url")
         key = secrets().get("api_key") or ""
         local = "localhost" in url or "127.0.0.1" in url
-        return OpenAICompatible(cfg, url, cfg.get("brain.model"), key, local=local)
+        return OpenAICompatible(cfg, url, cfg.get("brain.model"), key, local=local,
+                                posthog_client=posthog_client, ai_session_id=ai_session_id)
     for found_kind, _, settings in options():
         if found_kind == "openai":
-            return OpenAICompatible(cfg, settings["base_url"], settings["model"], settings.get("key", ""), local=settings["local"])
+            return OpenAICompatible(cfg, settings["base_url"], settings["model"], settings.get("key", ""), local=settings["local"],
+                                    posthog_client=posthog_client, ai_session_id=ai_session_id)
     return None

@@ -11,6 +11,7 @@ from happy import history, learned, reminders, routines, timing, tools
 from happy.agent import Act, Acted, Problem, Text, choose, quick
 from happy.integrations import discovered, whatsapp
 from happy.integrations.mcp import hub
+from happy.observability import create_posthog_client, new_session_id
 from happy.speech.spoken_text import Sentences
 
 log = logging.getLogger("happy")
@@ -75,6 +76,8 @@ class Happy:
         self.streamed = ""
         self.leftover = ([], 0.0)
         self.hold_timer = None
+        self.posthog_client = create_posthog_client()
+        self.ai_session_id = new_session_id("happy")
 
     def run(self):
         asyncio.run(self.main())
@@ -86,7 +89,7 @@ class Happy:
         self.face.progress(self.waiting, 0.02)
         await asyncio.to_thread(self.wake_up)
         await self.connect_services()
-        self.backend = choose.backend(self.cfg, self.extra_servers)
+        self.backend = choose.backend(self.cfg, self.extra_servers, self.posthog_client, self.ai_session_id)
         self.brain = brain(self.cfg)
         from happy.tools import status
 
@@ -116,6 +119,11 @@ class Happy:
         if self.backend:
             await self.backend.close()
         await hub.close()
+        if self.posthog_client:
+            try:
+                self.posthog_client.shutdown()
+            except Exception as error:
+                log.warning("PostHog AI Observability shutdown failed: %s", type(error).__name__)
 
     async def connect_services(self):
         """Starts the person's MCP servers together, so local models get their tools from the first request."""
@@ -298,7 +306,7 @@ class Happy:
             except BaseException:
                 pass
         self.brain = brain(self.cfg)
-        old, self.backend = self.backend, choose.backend(self.cfg, self.extra_servers)
+        old, self.backend = self.backend, choose.backend(self.cfg, self.extra_servers, self.posthog_client, self.ai_session_id)
         if self.backend is not None:
             try:
                 await self.backend.start()

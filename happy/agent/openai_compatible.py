@@ -6,11 +6,13 @@ import re
 import time
 
 from openai import APIError, AsyncOpenAI
+from posthog.ai.openai import AsyncOpenAI as PostHogAsyncOpenAI
 
 from happy import tools
 from happy.agent import Act, Acted, Backend, Problem, Text
 from happy.agent.deeds import correction, unbacked
 from happy.agent.prompt import stamped, system_prompt
+from happy.observability import new_session_id, new_trace_id, provider_for
 from happy.tools import Image
 
 log = logging.getLogger("happy.agent")
@@ -80,17 +82,59 @@ def unwrapped(args, params):
 
 
 class OpenAICompatible(Backend):
-    def __init__(self, cfg, base_url, model, api_key="none", local=True):
+    def __init__(self, cfg, base_url, model, api_key="none", local=True, posthog_client=None, ai_session_id=None):
         self.cfg = cfg
         self.name = model
         self.model = model
         self.local = local
-        self.client = AsyncOpenAI(base_url=base_url, api_key=api_key or "none", timeout=300)
+        self.posthog_client = posthog_client
+        self.ai_session_id = ai_session_id or new_session_id("happy")
+        self.ai_trace_id = None
+        if posthog_client:
+            self.client = PostHogAsyncOpenAI(
+                base_url=base_url, api_key=api_key or "none", timeout=300, posthog_client=posthog_client
+            )
+        else:
+            self.client = AsyncOpenAI(base_url=base_url, api_key=api_key or "none", timeout=300)
+        self.provider = provider_for(base_url)
         self.ollama = ":11434" in base_url
         self.history = []
         self.last = 0.0
         self.cancelled = False
         self.done_calls = {}
+
+    def ai_call_options(self, trace_id):
+        """Observability context shared by every generation in one user turn."""
+        if not self.posthog_client:
+            return {}
+        options = {
+            "posthog_trace_id": trace_id,
+            "posthog_properties": {"$ai_session_id": self.ai_session_id},
+            "posthog_privacy_mode": False,
+        }
+        if self.provider:
+            options["posthog_provider_override"] = self.provider
+        return options
+
+    def capture_tool_span(self, name, args, result, latency, failed=False):
+        """Join a dispatched tool run to the model trace without affecting the tool."""
+        if not self.posthog_client or not self.ai_trace_id:
+            return
+        properties = {
+            "$ai_trace_id": self.ai_trace_id,
+            "$ai_session_id": self.ai_session_id,
+            "$ai_span_id": new_trace_id(),
+            "$ai_span_name": name,
+            "$ai_input_state": json.dumps(args, default=str),
+            "$ai_output_state": result,
+            "$ai_latency": latency,
+        }
+        if failed:
+            properties["$ai_error"] = "tool_execution_failed"
+        try:
+            self.posthog_client.capture("$ai_span", properties=properties)
+        except Exception as error:
+            log.debug("could not capture tool span: %s", type(error).__name__)
 
     async def roomy(self):
         """The same model with a window that fits Happy; Ollama loads 4096 by default, which cut answers short and dropped turns."""
@@ -148,6 +192,7 @@ class OpenAICompatible(Backend):
         return {"reasoning_effort": "low"} if "gpt-oss" in self.model else {}
 
     async def turn(self, text, emit):
+        self.ai_trace_id = new_trace_id()
         self.cancelled = False
         tools.asked.set(text)
         tools.seen.set([])
@@ -203,7 +248,7 @@ class OpenAICompatible(Backend):
     async def step(self, emit, said):
         stream = await self.client.chat.completions.create(
             model=self.model, messages=[self.system] + self.history, tools=self.schemas, stream=True,
-            temperature=0.2, extra_body=self.extra())
+            temperature=0.2, extra_body=self.extra(), **self.ai_call_options(self.ai_trace_id))
         content, calls = [], {}
         # A SENTENCE IS SPOKEN ONLY ONCE IT IS SEEN NOT TO CLAIM SOMETHING NO TOOL DID; FROM A CLAIM ON, THE ROUND IS HELD.
         pending, held = "", ""
@@ -284,7 +329,13 @@ class OpenAICompatible(Backend):
             result = registered.refuse(args)
         else:
             emit(Act(name, args, registered.show(args), registered.say))
-            result = await tools.call(name, args)
+            started = time.time()
+            try:
+                result = await tools.call(name, args)
+            except Exception:
+                self.capture_tool_span(name, args, "", time.time() - started, failed=True)
+                raise
+            self.capture_tool_span(name, args, str(result.note if isinstance(result, Image) else result), time.time() - started)
             self.done_calls[(name, json.dumps(args, sort_keys=True))] = str(result.note if isinstance(result, Image) else result)
         if isinstance(result, Image):
             result = result.note or "Took a screenshot, but this model cannot see pictures."

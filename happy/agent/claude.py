@@ -10,11 +10,13 @@ import time
 from claude_agent_sdk import (AssistantMessage, ClaudeAgentOptions, ClaudeSDKClient, PermissionResultAllow,
                               PermissionResultDeny, ResultMessage, StreamEvent, SystemMessage, ToolResultBlock,
                               ToolUseBlock, UserMessage, create_sdk_mcp_server, tool as sdk_tool)
+from posthog.ai.claude_agent_sdk import PostHogClaudeSDKClient
 
 from happy import paths, tools
 from happy.agent import Act, Acted, Backend, Problem, Text
 from happy.agent.prompt import stamped, system_prompt
 from happy.integrations import discovered
+from happy.observability import new_session_id
 from happy.tools import Image
 
 log = logging.getLogger("happy.agent")
@@ -54,11 +56,13 @@ def available():
 class Claude(Backend):
     sees = True
 
-    def __init__(self, cfg, extra_servers=None):
+    def __init__(self, cfg, extra_servers=None, posthog_client=None, ai_session_id=None):
         self.cfg = cfg
         self.model = cfg.get("brain.model") or "sonnet"
         self.name = f"Claude ({self.model})"
         self.extra_servers = extra_servers or {}
+        self.posthog_client = posthog_client
+        self.ai_session_id = ai_session_id or new_session_id("happy")
         self.client = None
         self.emit = lambda event: None
         self.last = 0.0
@@ -135,7 +139,15 @@ class Claude(Backend):
 
     async def start(self):
         if self.client is None:
-            self.client = ClaudeSDKClient(options=self.options())
+            if self.posthog_client:
+                self.client = PostHogClaudeSDKClient(
+                    self.options(),
+                    posthog_client=self.posthog_client,
+                    posthog_properties={"$ai_session_id": self.ai_session_id},
+                    posthog_privacy_mode=False,
+                )
+            else:
+                self.client = ClaudeSDKClient(options=self.options())
             await self.client.connect()
 
     async def reset(self):

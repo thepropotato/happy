@@ -7,6 +7,7 @@ from pathlib import Path
 
 from happy import paths
 from happy.config import Config
+from happy.observability import create_posthog_client, new_session_id, new_trace_id
 
 DISTILL = """Here are lines of dialogue. Describe how these characters talk so an assistant can talk the same way.
 Write at most 120 words of plain style notes: tone, rhythm, sentence length, typical words and turns of phrase, how they address people.
@@ -35,18 +36,42 @@ def dialogue(text):
 async def complete(cfg, prompt):
     from happy.agent import choose
 
-    if cfg.get("brain.kind") in ("auto", "claude") and choose.claude_ready():
-        from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query
+    posthog_client = create_posthog_client()
+    session_id = new_session_id("persona")
+    try:
+        if cfg.get("brain.kind") in ("auto", "claude") and choose.claude_ready():
+            from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query as claude_query
 
-        out = []
-        options = ClaudeAgentOptions(tools=[], model="sonnet", setting_sources=[], cli_path=shutil.which("claude"))
-        async for message in query(prompt=prompt, options=options):
-            if isinstance(message, AssistantMessage):
-                out += [b.text for b in message.content if isinstance(b, TextBlock)]
-        return "\n".join(out)
-    backend = choose.backend(cfg)
-    reply = await backend.client.chat.completions.create(model=backend.model, messages=[{"role": "user", "content": prompt}])
-    return reply.choices[0].message.content
+            query = claude_query
+            kwargs = {}
+            if posthog_client:
+                from posthog.ai.claude_agent_sdk import query
+
+                kwargs = {
+                    "posthog_client": posthog_client,
+                    "posthog_trace_id": new_trace_id(),
+                    "posthog_properties": {"$ai_session_id": session_id},
+                    "posthog_privacy_mode": False,
+                }
+            out = []
+            options = ClaudeAgentOptions(tools=[], model="sonnet", setting_sources=[], cli_path=shutil.which("claude"))
+            async for message in query(prompt=prompt, options=options, **kwargs):
+                if isinstance(message, AssistantMessage):
+                    out += [b.text for b in message.content if isinstance(b, TextBlock)]
+            return "\n".join(out)
+        backend = choose.backend(cfg, posthog_client=posthog_client, ai_session_id=session_id)
+        reply = await backend.client.chat.completions.create(
+            model=backend.model,
+            messages=[{"role": "user", "content": prompt}],
+            **backend.ai_call_options(new_trace_id()),
+        )
+        return reply.choices[0].message.content
+    finally:
+        if posthog_client:
+            try:
+                posthog_client.shutdown()
+            except Exception:
+                pass
 
 
 FILE = paths.HOME / "persona.md"

@@ -1,4 +1,5 @@
 """THE HALF THAT HOLDS THE WHATSAPP CONNECTION."""
+import atexit
 import base64
 import hmac
 import io
@@ -15,7 +16,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import segno
+from dotenv import load_dotenv
 from flask import Flask, request, jsonify
+from posthog import Posthog
+from posthog.integrations.flask import PosthogFlaskIntegration
 
 logging.basicConfig(
     level=logging.INFO,
@@ -59,6 +63,60 @@ RECEIPTS_THAT_CLEAR_UNREAD = {
 }
 
 
+
+load_dotenv()
+
+POSTHOG_PROJECT_TOKEN = os.environ.get("POSTHOG_PROJECT_TOKEN")
+POSTHOG_HOST = os.environ.get("POSTHOG_HOST")
+posthog_client = None
+posthog_log_provider = None
+posthog_log = logging.getLogger("posthog.whatsapp_bridge")
+
+
+def shutdown_posthog_logs():
+    if posthog_log_provider:
+        posthog_log_provider.shutdown()
+
+
+if POSTHOG_PROJECT_TOKEN and POSTHOG_HOST:
+    from opentelemetry._logs import set_logger_provider
+    from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+    from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+    from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
+
+    posthog_client = Posthog(
+        api_key=POSTHOG_PROJECT_TOKEN,
+        host=POSTHOG_HOST,
+        enable_exception_autocapture=True,
+        integrations=[PosthogFlaskIntegration()],
+    )
+    posthog_log_provider = LoggerProvider()
+    set_logger_provider(posthog_log_provider)
+    posthog_log_provider.add_log_record_processor(
+        BatchLogRecordProcessor(
+            OTLPLogExporter(
+                endpoint=f"{POSTHOG_HOST.rstrip('/')}/i/v1/logs",
+                headers={"Authorization": f"Bearer {POSTHOG_PROJECT_TOKEN}"},
+            )
+        )
+    )
+    posthog_log.addHandler(LoggingHandler(logger_provider=posthog_log_provider))
+    posthog_log.setLevel(logging.INFO)
+    atexit.register(posthog_client.shutdown)
+    atexit.register(shutdown_posthog_logs)
+elif os.environ.get("FLASK_ENV") != "production":
+    if not POSTHOG_PROJECT_TOKEN:
+        logger.warning(
+            "POSTHOG_PROJECT_TOKEN variable required by PostHog is missing or un-configured, "
+            "this causes events to be silently missed. This error stops appearing once "
+            "POSTHOG_PROJECT_TOKEN is configured"
+        )
+    if not POSTHOG_HOST:
+        logger.warning(
+            "POSTHOG_HOST variable required by PostHog is missing or un-configured, this "
+            "causes events to be silently missed. This error stops appearing once POSTHOG_HOST "
+            "is configured"
+        )
 
 app = Flask(__name__)
 app.config["JSON_AS_ASCII"] = False
@@ -710,6 +768,10 @@ def register_events(session):
     @client.event(ConnectedEv)
     def on_connected(c, evt):
         logger.info(f"[conn] user={session.username} connected")
+        posthog_log.info(
+            "WhatsApp bridge connection established",
+            extra={"event": "whatsapp_bridge_connection_established"},
+        )
         session.connected = True
         session.authenticated = True
         session.qr_data = None
@@ -1666,6 +1728,15 @@ def do_sync(session):
         persist(session)
         held = sum(len(v) for v in session.messages.values())
         logger.info(f"[sync] user={session.username} done: {len(session.chats)} chats, {len(session.groups)} groups, {held} messages")
+        posthog_log.info(
+            "WhatsApp bridge sync completed",
+            extra={
+                "event": "whatsapp_bridge_sync_completed",
+                "chat_count": len(session.chats),
+                "group_count": len(session.groups),
+                "message_count": held,
+            },
+        )
 
         def background_post_sync(s):
             try:
@@ -2013,6 +2084,16 @@ def sending_jid(session, jid_val):
     return found
 
 
+def capture_bridge_event(event, properties=None):
+    """Capture anonymous bridge usage without interrupting bridge operations."""
+    if not posthog_client:
+        return
+    try:
+        posthog_client.capture(event, properties=properties or {})
+    except Exception as e:
+        logger.warning(f"[posthog] could not capture {event}: {type(e).__name__}")
+
+
 def posted(session, result, jid_val, target, **extra):
     """WHAT CAME BACK FROM A SEND, ANSWERED HONESTLY."""
     stamp = int(getattr(result, "Timestamp", 0) or 0)
@@ -2027,6 +2108,11 @@ def posted(session, result, jid_val, target, **extra):
     with session.lock:
         session.pushed.append({"chatJid": jid_val, "id": ident, "at": time.time()})
         del session.pushed[:-PUSHED]
+
+    capture_bridge_event("whatsapp_message_sent", {
+        "conversation_type": "group" if "@g.us" in jid_val else "direct",
+        "message_type": extra.get("mediaType", "text"),
+    })
 
     return jsonify({"success": True, "messageId": ident, "jid": jid_val, "sentTo": target,
                     "timestamp": stamp, **extra})
@@ -2229,8 +2315,10 @@ def scan(username):
 def start(username):
     s = get_session(username)
     if s.client and s.connect_thread and s.connect_thread.is_alive():
+        capture_bridge_event("whatsapp_bridge_started", {"already_running": True})
         return jsonify({"started": True, "already_running": True})
     start_session(s)
+    capture_bridge_event("whatsapp_bridge_started", {"already_running": False})
     return jsonify({"started": True})
 
 
@@ -2295,6 +2383,7 @@ def sync(username):
     if not s.connected:
         return jsonify({"error": "Not connected"}), 503
     threading.Thread(target=do_sync, args=(s,), daemon=True).start()
+    capture_bridge_event("whatsapp_sync_requested")
     return jsonify({"success": True, "message": "Sync started"})
 
 
@@ -2795,6 +2884,10 @@ def download_media(username):
             f.write(media_bytes)
         result = {"local_path": local_path, "filename": fname, "mime": mime, "size": len(media_bytes)}
         s.downloaded_media[message_id] = result
+        capture_bridge_event("whatsapp_media_downloaded", {
+            "media_type": mime.split("/", 1)[0],
+            "size_bytes": len(media_bytes),
+        })
         return jsonify({"success": True, **result})
     except Exception as e:
         import traceback
@@ -2928,6 +3021,7 @@ def create_group(username):
             s.chats.append({"id": gid, "name": clean(name), "isGroup": True, "unreadCount": 0, "lastMessage": "", "timestamp": 0, "archived": False})
 
     persist(s)
+    capture_bridge_event("whatsapp_group_created")
 
     return jsonify({"id": gid, "name": clean(name)})
 
@@ -2956,6 +3050,7 @@ def set_group_name(username):
                 each["name"] = clean(name)
 
     persist(s)
+    capture_bridge_event("whatsapp_group_renamed")
 
     return jsonify({"id": group, "name": clean(name)})
 
@@ -2979,6 +3074,7 @@ def set_group_photo(username):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+    capture_bridge_event("whatsapp_group_photo_updated")
     return jsonify({"id": group})
 
 
@@ -3425,12 +3521,21 @@ def handle_shutdown(signum, frame):
                 s.client.disconnect()
             except Exception:
                 pass
+    if posthog_client:
+        try:
+            posthog_client.shutdown()
+        except Exception as error:
+            logger.warning("[shutdown] PostHog flush failed: %s", error)
+    if posthog_log_provider:
+        try:
+            shutdown_posthog_logs()
+        except Exception as error:
+            logger.warning("[shutdown] PostHog log flush failed: %s", error)
     # NEONIZE'S WORKER IS NOT A DAEMON THREAD, SO sys.exit WOULD LEAVE A GHOST BRIDGE HOLDING THE DEVICE.
     os._exit(0)
 
 
 if __name__ == "__main__":
-    import atexit
     import signal
     import socket
 

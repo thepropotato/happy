@@ -3,4 +3,9 @@ httpx==0.28.1
 mcp==1.26.0
 neonize==0.5.2
 pydantic==2.12.5
+posthog>=7.69.0,<8
+python-dotenv==1.2.1
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-exporter-otlp
 segno==1.6.6

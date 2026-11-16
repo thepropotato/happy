@@ -7,3 +7,4 @@ dist/
 build/
 
 brag-output/
+.env
