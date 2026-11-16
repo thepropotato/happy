@@ -19,6 +19,9 @@ class ConsoleFace:
     def state(self, name):
         pass
 
+    def speed(self, value):
+        pass
+
     def progress(self, text, fraction=None):
         pass
 

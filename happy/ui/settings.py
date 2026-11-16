@@ -13,7 +13,7 @@ from pathlib import Path
 from happy import paths
 from happy import persona
 from happy.agent.prompt import owner
-from happy.config import Config, save_secret
+from happy.config import Config, SPEECH_SPEEDS, save_secret, speech_speed
 from happy.speech import models
 
 KEYS = [("right_option", "Right Option"), ("right_command", "Right Command"), ("right_ctrl", "Right Control"),
@@ -80,6 +80,8 @@ class Settings:
             "login": cfg.get("start_at_login") is not False,
             "key": cfg.get("push_to_talk"),
             "voice": cfg.get("voice") or "alba",
+            "speech_speed": cfg.get("speech_speed"),
+            "speech_speeds": SPEECH_SPEEDS,
             "voices": voices(),
             "microphone": cfg.get("input.device") or "",
             "speaker": cfg.get("output.device") or "",
@@ -122,7 +124,8 @@ class Settings:
             self.send()
             from happy.speech.speaker import Speaker
 
-            Speaker(Config().get("voice") or "alba").warm()
+            cfg = Config()
+            Speaker(cfg.get("voice") or "alba", speed=cfg.get("speech_speed")).warm()
             self.speech = {"ready": True, "failed": False, "progress": None, "text": ""}
         except Exception as error:
             self.speech = {"ready": False, "failed": True, "progress": None,
@@ -229,6 +232,13 @@ class Settings:
                 value = (value or "").strip().title() or "Happy"
             if key == "call_me":
                 value = (value or "").strip()
+            if key == "speech_speed":
+                try:
+                    value = speech_speed(value)
+                except (TypeError, ValueError):
+                    self.notice = "Speech speed must be a finite number."
+                    self.send()
+                    return
             cfg.set(key, value)
             cfg.save()
             if key == "colour":

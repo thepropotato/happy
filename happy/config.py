@@ -1,6 +1,7 @@
 """Settings in ~/.happy/config.toml, with defaults for anything left out."""
 
 import copy
+import math
 import os
 import sys
 
@@ -10,6 +11,17 @@ from happy import paths
 
 MAC = sys.platform == "darwin"
 WINDOWS = sys.platform == "win32"
+SPEECH_SPEEDS = (0.75, 1.0, 1.25, 1.5, 1.75)
+
+
+def speech_speed(value):
+    """The nearest supported speaking speed."""
+    if isinstance(value, bool):
+        raise ValueError("Speech speed must be a finite number.")
+    value = float(value)
+    if not math.isfinite(value):
+        raise ValueError("Speech speed must be a finite number.")
+    return min(SPEECH_SPEEDS, key=lambda step: abs(step - value))
 
 DEFAULTS = {
     "name": "Happy",
@@ -18,6 +30,7 @@ DEFAULTS = {
     "start_at_login": True,
     "push_to_talk": "right_option" if MAC else "right_ctrl",
     "voice": "alba",
+    "speech_speed": 1.0,
     "colour": "#658761",
     "persona": "",
     "projects": "",
@@ -31,6 +44,7 @@ COMMENTS = {
     "call_me": "What Happy calls you, like 'my lord'. Empty means your first name from this computer.",
     "push_to_talk": "Hold this key to talk: right_option, right_command, right_ctrl or right_shift.",
     "voice": "A Pocket TTS voice: alba, marius, javert, jean, cosette, anna, vera, charles, paul, george, mary, jane, michael, eve.",
+    "speech_speed": "Speaking speed, keeping the pitch: 0.75, 1.0, 1.25, 1.5 or 1.75.",
     "persona": "Path to a text file whose way of talking Happy should copy.",
     "start_at_login": "Start Happy when you log in, so reminders go off even after a restart.",
     "projects": "Folder where new coding projects are created. Empty means it is worked out.",
@@ -52,6 +66,7 @@ class Config:
         self.path = path
         self.doc = tomlkit.parse(path.read_text()) if path.exists() else tomlkit.document()
         self.data = merged(DEFAULTS, self.doc.unwrap())
+        self.data["speech_speed"] = speech_speed(self.data["speech_speed"])
 
     def get(self, dotted, default=None):
         node = self.data
@@ -62,6 +77,8 @@ class Config:
         return node
 
     def set(self, dotted, value):
+        if dotted == "speech_speed":
+            value = speech_speed(value)
         parts = dotted.split(".")
         node, doc = self.data, self.doc
         for part in parts[:-1]:

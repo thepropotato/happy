@@ -210,6 +210,19 @@ const Settings = (() => {
     voices.onchange = () => ask({ do: 'set', key: 'voice', value: voices.value })
     voiced.append(voices)
 
+    const paced = row(block, 'Speed', 'How quickly Happy speaks. The pitch stays the same.')
+    const speeds = element('div', 'speech-speeds')
+
+    speeds.setAttribute('role', 'group')
+    speeds.setAttribute('aria-label', 'Speaking speed')
+    for (const value of word.speech_speeds || []) {
+      const choice = button(`${value}x`, () => ask({ do: 'set', key: 'speech_speed', value }))
+
+      choice.setAttribute('aria-pressed', String(value === word.speech_speed))
+      speeds.append(choice)
+    }
+    paced.append(speeds)
+
     device(block, 'Microphone', 'What Happy hears through.', 'input.device', word.microphone, word.microphones)
     device(block, 'Speaker', 'What Happy talks through.', 'output.device', word.speaker, word.speakers)
   }
@@ -457,6 +470,13 @@ const Settings = (() => {
     hide,
 
     hear(word) {
+      if (word.is === 'speech_speed') {
+        if (last) {
+          last.speech_speed = word.speech_speed
+          if (open) draw(last)
+        }
+        return
+      }
       if (word.is === 'settings') {
         if (!last && word.first) opened = 'voice'
         last = word

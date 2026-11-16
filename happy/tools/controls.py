@@ -5,14 +5,33 @@ import re
 import subprocess
 import sys
 import time
-from typing import Annotated, Literal
+from typing import Annotated, Callable, Literal
 
+from happy.config import Config, SPEECH_SPEEDS, speech_speed
 from happy.system import Failed, native
 from happy.tools import tool
 
 Level = Annotated[int, "set it to exactly this, 0 to 100"]
 Change = Annotated[Literal["up", "down"], "turn it up or down instead of setting a level"]
 By = Annotated[int, "how much to turn it up or down by, 1 to 100; 10 if not said; a negative number means down"]
+on_speed: Callable[[float], None] | None = None
+
+
+@tool(label="Speaking speed")
+def set_speech_speed(speed: float | None = None, change: Literal["up", "down"] | None = None):
+    """Set Happy's speaking speed, keeping the pitch, or move one step up or down."""
+    cfg = Config()
+    value = speech_speed(cfg.get("speech_speed"))
+    if change:
+        index = SPEECH_SPEEDS.index(value) + (1 if change == "up" else -1)
+        value = SPEECH_SPEEDS[max(0, min(len(SPEECH_SPEEDS) - 1, index))]
+    elif speed is not None:
+        value = speech_speed(speed)
+    cfg.set("speech_speed", value)
+    cfg.save()
+    if on_speed is not None:
+        on_speed(value)
+    return f"Speaking at {value:g}x."
 
 
 def adjust(name, read, write, level, change, by):

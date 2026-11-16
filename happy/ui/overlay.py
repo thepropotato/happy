@@ -476,6 +476,8 @@ class Face(QObject):
                                    self.happy.key_cancel)
             self.keys.start()
         self.happy.retune()
+        if what == "speech_speed":
+            self.speed(self.cfg.get("speech_speed"))
         if what in ("call_me", "push_to_talk") and self.happy.ready.is_set():
             from happy.agent.prompt import owner
 
@@ -496,6 +498,9 @@ class Face(QObject):
         threading.Thread(target=self.happy.run, name="happy", daemon=True).start()
 
     # ── what the core reports, in the words the pages understand ──
+
+    def speed(self, value):
+        self.send_panel({"is": "speech_speed", "speech_speed": value})
 
     def state(self, name):
         mood = MOODS.get(name, "idle")
