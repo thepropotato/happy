@@ -140,45 +140,6 @@ def again(text):
     return None
 
 
-MEDIA = re.compile(r"(?P<verb>pause|play|resume|stop|unpause|continue) ?(?:the |this |my )?(?P<thing>video|music|song|track|movie|playback|audio|it|youtube|spotify|podcast)?(?: playing)?")
-
-
-def media(text):
-    match = MEDIA.fullmatch(text)
-    if match:
-        verb = match.group("verb")
-        if verb == "play" and not match.group("thing"):
-            return "media", {"action": "play"}
-        if verb == "play" and match.group("thing") not in ("it", "video", "music", "audio"):
-            return None
-        return "media", {"action": "pause" if verb in ("pause", "stop") else "play"}
-    loose = media_loose(text)
-    if loose:
-        return loose
-    if re.fullmatch(r"(?:next|skip)(?: (?:this |the )?(?:song|track|video|one))?|skip it|play the next (?:song|track)", text):
-        return "media", {"action": "next"}
-    if re.fullmatch(r"(?:previous|last|go back a|play the previous) (?:song|track)|previous", text):
-        return "media", {"action": "previous"}
-    return None
-
-
-ON_SCREEN = r"\b(?:this|that|the|it|my)\b"
-THINGS = r"\b(?:video|videos|music|song|track|movie|film|episode|playback|audio|podcast|it|this|that)\b"
-ELSEWHERE = r"\b(?:on youtube|on spotify|search|some|by|playlist|album|new|another|next|previous|open|find|called)\b"
-
-
-def media_loose(text):
-    """A short request to play or pause whatever is already on screen, said any of the usual ways."""
-    words = text.split()
-    if len(words) > 10 or re.search(ELSEWHERE, text) or not re.search(THINGS, text):
-        return None
-    if re.search(r"\b(?:pause|stop|hold)\b", text) and not re.search(r"\b(?:play|resume|continue|unpause)\b", text):
-        return "media", {"action": "pause"}
-    if re.search(r"\b(?:resume|continue|unpause|keep playing|carry on)\b", text) or re.search(r"\bplay\b", text) and re.search(ON_SCREEN, text):
-        return "media", {"action": "play"}
-    return None
-
-
 def browser(text):
     if re.fullmatch(r"close (?:this |the |that |current |the current )?tab", text):
         return "browser_tabs", {"action": "close"}
@@ -405,7 +366,7 @@ def match(text):
         return "stop", {}
     if said in GREETINGS:
         return "reply", {"text": GREETINGS[said]}
-    for rule in (speed, levels, media, browser, keys, machine, connected, computer, forecast, reminded, apps, clock):
+    for rule in (speed, levels, browser, keys, machine, connected, computer, forecast, reminded, apps, clock):
         try:
             found = rule(said)
         except Exception:

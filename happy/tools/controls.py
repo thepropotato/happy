@@ -114,7 +114,15 @@ def media(action: Literal["pause", "play", "toggle", "next", "previous"]):
     native.media_key("toggle")
     if action == "toggle":
         return "Pressed play/pause."
-    return f"Paused {', '.join(playing)}." if action == "pause" and playing else ("Paused." if action == "pause" else "Playing.")
+    if action == "pause":
+        return f"Paused {', '.join(playing)}." if playing else "Paused."
+    # THE KEY RESUMES ONLY WHAT WAS PAUSED, SO "PLAYING" IS SAID ONLY ONCE SOUND IS SEEN TO START.
+    for _ in range(6):
+        time.sleep(0.25)
+        started = playing_apps()
+        if started or started is None:
+            return f"Playing {', '.join(started)}." if started else "Pressed play."
+    return "Nothing started playing; there was nothing paused to resume."
 
 
 @tool(label="{action}")
