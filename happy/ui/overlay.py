@@ -65,6 +65,19 @@ def see_through(widget):
         log.exception("could not clear the window")
 
 
+def come_forward():
+    """On macOS: make Happy the active app, or the first click on any of his windows only activates him."""
+    if not native():
+        return
+    from AppKit import NSApplication
+
+    app = NSApplication.sharedApplication()
+    if hasattr(app, "activate"):
+        app.activate()
+    else:
+        app.activateIgnoringOtherApps_(True)
+
+
 def float_above_everything(widget):
     """On macOS: show on every Space, over full-screen apps."""
     if not native():
@@ -164,6 +177,8 @@ class Grip(QWidget):
         self.pressed_at = None
 
     def contextMenuEvent(self, event):
+        # THE SMILE NEVER TAKES FOCUS, SO WITHOUT THIS THE CLICK ON A MENU ITEM IS SPENT ACTIVATING HAPPY.
+        come_forward()
         self.face.menu().exec(event.globalPos())
 
     def mouseMoveEvent(self, event):
@@ -347,15 +362,7 @@ class Face(QObject):
         self.panel.show()
         self.panel.raise_()
         self.panel.activateWindow()
-        if native():
-            from AppKit import NSApplication
-
-            # WITHOUT A REAL ACTIVATION THE PANEL GETS NO HOVER, AND ITS FIRST CLICK ONLY ACTIVATES IT.
-            app = NSApplication.sharedApplication()
-            if hasattr(app, "activate"):
-                app.activate()
-            else:
-                app.activateIgnoringOtherApps_(True)
+        come_forward()
         self.send_panel({"is": "shown"})
 
     def toggle_panel(self):
