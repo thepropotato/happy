@@ -1,6 +1,8 @@
 # Happy
 
-A voice agent that lives on your computer, not inside a project folder. Bring your own MCP servers: anything you can add to Claude Code or Codex, Happy can use by voice, with Claude or with a model running on your own machine. Say **"Hey Happy, …"** or hold the **right Option** key (right Ctrl on Windows), and it does the thing, out loud and on screen:
+A voice agent that lives on your computer, not inside a project folder. Bring your own MCP servers: anything you can add to Claude Code or Codex, Happy can use by voice, with Claude or with a model running on your own machine. Say **"Hey Happy, …"** or hold the **right Option** key (right Ctrl on Windows), and it does the thing, out loud and on screen.
+
+## What you can say
 
 - "Set the brightness to 20." "Turn the keyboard light off." "Mute."
 - "Pause the video." "Next song." "Close this tab." "Switch to the Gmail tab."
@@ -14,6 +16,8 @@ A voice agent that lives on your computer, not inside a project folder. Bring yo
 - "What does my resume say about my last job?" "Delete old notes." "Bring it back."
 - "Download a picture of Tyrion Lannister." "Download this" (a link you give, or the page in front).
 - "Save that as a routine called morning brief." Then "morning brief", or "run my morning brief every weekday at 7".
+
+## The smile and the panel
 
 Happy's face is its smile, in the bottom-right corner of the screen; drag it anywhere. The smile moves with what Happy is doing: listening, working something out, talking (the mouth follows the voice), pleased when a turn ends, and sorry when one goes wrong. Click it and the panel opens down the right edge of the screen, a quarter of the screen wide. The panel shows the whole conversation, every request with the steps Happy took (click a step to see what went in and what came back) and the answer. There's a box for typing too. The settings open in the same panel. A menu-bar icon opens it as well.
 
