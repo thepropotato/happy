@@ -2,6 +2,8 @@
 
 A voice agent that lives on your computer, not inside a project folder. Bring your own MCP servers: anything you can add to Claude Code or Codex, Happy can use by voice, with Claude or with a model running on your own machine. Say **"Hey Happy, …"** or hold the **right Option** key (right Ctrl on Windows), and it does the thing, out loud and on screen.
 
+https://github.com/user-attachments/assets/1dd26595-ba60-4191-a712-92f5a7c52670
+
 ## What you can say
 
 - "Set the brightness to 20." "Turn the keyboard light off." "Mute."
