@@ -1,5 +1,6 @@
 #!/bin/sh
-# Builds dist/Happy.dmg: a small Happy.app carrying Happy's committed code, which sets itself up on first open.
+# Builds dist/Happy.dmg: a small Happy.app carrying Happy's committed code, which sets itself up on first open
+# in a window that shows what is being installed. Needs the Xcode command line tools for swiftc.
 set -eu
 
 cd "$(dirname "$0")/../.."
@@ -15,8 +16,14 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/app"
 git archive HEAD happy whatsapp_server pyproject.toml uv.lock setup.sh README.md LICENSE | tar -x -C "$app/Contents/Resources/app"
 printf '%s\n' "$version" > "$app/Contents/Resources/app/.app-version"
 
-cp packaging/mac/launch.sh "$app/Contents/MacOS/Happy"
-chmod +x "$app/Contents/MacOS/Happy"
+# ONE BINARY FOR BOTH KINDS OF MAC, SO THE SETUP WINDOW OPENS ON INTEL TOO.
+for arch in arm64 x86_64; do
+  swiftc -O -target "$arch-apple-macos13.0" -framework AppKit packaging/mac/Happy.swift -o "$stage/Happy-$arch"
+done
+lipo -create "$stage/Happy-arm64" "$stage/Happy-x86_64" -output "$app/Contents/MacOS/Happy"
+rm -f "$stage/Happy-arm64" "$stage/Happy-x86_64"
+cp packaging/mac/launch.sh "$app/Contents/Resources/launch.sh"
+chmod +x "$app/Contents/Resources/launch.sh"
 cp packaging/mac/Happy.icns "$app/Contents/Resources/Happy.icns"
 
 cat > "$app/Contents/Info.plist" <<PLIST

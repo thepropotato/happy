@@ -25,7 +25,7 @@ def claude_ready():
     if os.environ.get("ANTHROPIC_API_KEY"):
         return True
     try:
-        return bool(json.loads((Path.home() / ".claude.json").read_text()).get("oauthAccount"))
+        return bool(json.loads((Path.home() / ".claude.json").read_text(encoding="utf-8")).get("oauthAccount"))
     except (OSError, ValueError):
         return False
 

@@ -8,7 +8,7 @@ A voice for your computer: say what you want, and Happy does it, out loud and on
 
 - Windows may show "Windows protected your PC" the first time, because the installer isn't signed yet. Click **More info**, then **Run anyway**.
 
-On either computer, the first launch sets Happy up: it installs its Python packages and speech models (about 3 GB, a few minutes, needs the internet), then opens the setup window. After that it starts straight away.
+On either computer, the first launch shows a window with what it's installing: Python packages, speech models and the voice (about 3 GB, a few minutes, needs the internet). Happy opens by himself when it's done, ready to listen and talk. After that he starts straight away.
 
 To check a download, compare `shasum -a 256 Happy.dmg` on a Mac, or `Get-FileHash Happy-Setup.exe` on Windows, with the line for it in `SHA256SUMS.txt`. Only download Happy from this page or its website.
 

@@ -35,9 +35,9 @@ def fetch(url, into, progress=None):
                 done += len(chunk)
                 if progress:
                     progress(done, whole)
-                elif whole and sys.stdout.isatty():
+                elif whole and sys.stdout and sys.stdout.isatty():
                     print(f"\r  {into.name}: {done * 100 // whole}%", end="", flush=True)
-    if not progress and sys.stdout.isatty():
+    if not progress and sys.stdout and sys.stdout.isatty():
         print()
 
 

@@ -29,7 +29,7 @@ Happy's face is its smile, in the bottom-right corner of the screen; drag it any
 
 **Windows** (10 or 11): download [Happy-Setup.exe](https://github.com/thepropotato/happy/releases/latest/download/Happy-Setup.exe) and run it. If Windows says it protected your PC, choose **More info → Run anyway**.
 
-On either, the first launch sets everything up (about 3 GB, a few minutes) and opens the setup window. Every version is on the [releases page](https://github.com/thepropotato/happy/releases).
+On either, the first launch shows a small window with what it's installing (about 3 GB, a few minutes), then opens Happy ready to listen and talk. Every version is on the [releases page](https://github.com/thepropotato/happy/releases).
 
 Or run it from source:
 
@@ -38,7 +38,7 @@ git clone https://github.com/thepropotato/happy.git && cd happy
 ./setup.sh          # Windows: .\setup.ps1
 ```
 
-`setup.sh` installs [uv](https://docs.astral.sh/uv/) and Claude Code if needed, puts a `happy` command in `~/.local/bin`, and starts Happy with its settings open. Everything Happy can work out is already filled in: the model it found, the speech models it's downloading (about 500 MB), WhatsApp, your MCP servers, and macOS permissions. You press **Start Happy**, and only scan a QR code if you want WhatsApp. No developer account or app signing is involved.
+`setup.sh` installs [uv](https://docs.astral.sh/uv/) and Claude Code if needed, puts a `happy` command in `~/.local/bin`, and starts Happy with its settings open. Setup downloads the speech models (about 500 MB) and the voice before Happy opens, so everything Happy can work out is already filled in: the model it found, WhatsApp, your MCP servers, and macOS permissions. You press **Start Happy**, and only scan a QR code if you want WhatsApp. No developer account or app signing is involved.
 
 ## Brains
 

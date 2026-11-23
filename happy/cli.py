@@ -27,20 +27,55 @@ def logging_to(level=logging.INFO, console=True):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
+def alive(pid):
+    """Whether a process is running. On Windows os.kill(pid, 0) is no check: it ends that process."""
+    if os.name == "nt":
+        import ctypes
+
+        kernel = ctypes.windll.kernel32
+        handle = kernel.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return False
+        code = ctypes.c_ulong()
+        try:
+            return bool(kernel.GetExitCodeProcess(handle, ctypes.byref(code))) and code.value == 259  # STILL_ACTIVE
+        finally:
+            kernel.CloseHandle(handle)
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
 def running_pid():
     try:
         pid = int(paths.LOCK.read_text())
-        os.kill(pid, 0)
-        return pid
     except (OSError, ValueError):
         return None
+    return pid if alive(pid) else None
+
+
+def tell_failure(text):
+    """Puts a startup failure on screen: opened from Finder or the Start menu, Happy has no terminal to print it in."""
+    try:
+        if sys.platform == "win32":
+            import ctypes
+
+            ctypes.windll.user32.MessageBoxW(None, text, "Happy could not start", 0x10)
+        elif sys.platform == "darwin":
+            quoted = text.replace("\\", "\\\\").replace('"', '\\"')
+            subprocess.run(["/usr/bin/osascript", "-e", f'display alert "Happy could not start" message "{quoted}" as critical'],
+                           timeout=600, capture_output=True)
+    except Exception:
+        pass
 
 
 def run(args):
     other = running_pid()
     if other and other != os.getpid():
         print(f"Happy is already running (pid {other}). Stop it with: happy stop")
-        return 1
+        return 0
     paths.LOCK.parent.mkdir(parents=True, exist_ok=True)
     paths.LOCK.write_text(str(os.getpid()))
     os.environ.pop("ELECTRON_RUN_AS_NODE", None)
@@ -51,6 +86,13 @@ def run(args):
         from happy.ui.overlay import launch
 
         return launch(Config(), settings_first=getattr(args, "settings", False))
+    except Exception as error:
+        logging.getLogger("happy").exception("Happy could not start")
+        if not args.quiet:
+            raise
+        tell_failure(f"{type(error).__name__}: {error}\n\nThe details are in {paths.LOG}.")
+        # THE WINDOWS LAUNCHER READS 3 AS "ALREADY TOLD THE PERSON", SO NO SECOND DIALOG FOLLOWS.
+        return 3
     finally:
         if running_pid() == os.getpid():
             paths.LOCK.unlink(missing_ok=True)
@@ -116,6 +158,12 @@ def setup(args):
     args.quiet = False
     args.settings = True
     return run(args)
+
+
+def prepare(args):
+    from happy.prepare import main as fetch_everything
+
+    return fetch_everything()
 
 
 def doctor(args):
@@ -205,6 +253,7 @@ def main():
         p.add_argument("--verbose", action="store_true")
         p.set_defaults(go=lambda a, once=once: text_mode(a, once))
     sub.add_parser("setup", help="open the setup window").set_defaults(go=setup)
+    sub.add_parser("prepare", help="download the speech models and the voice now").set_defaults(go=prepare)
     sub.add_parser("doctor", help="check every connection").set_defaults(go=doctor)
     p = sub.add_parser("history", help="show past conversations")
     p.add_argument("search", nargs="?", default="")
@@ -222,5 +271,7 @@ def main():
     args = parser.parse_args()
     if not args.command:
         args = parser.parse_args(["run"])
+    # WINDOWS READS FILES AS CP1252 UNLESS TOLD OTHERWISE; EVERY PROCESS HAPPY STARTS FROM HERE GETS UTF-8.
+    os.environ.setdefault("PYTHONUTF8", "1")
     paths.keep_private()
     sys.exit(args.go(args) or 0)

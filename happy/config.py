@@ -66,7 +66,7 @@ def merged(base, extra):
 class Config:
     def __init__(self, path=paths.CONFIG):
         self.path = path
-        self.doc = tomlkit.parse(path.read_text()) if path.exists() else tomlkit.document()
+        self.doc = tomlkit.parse(path.read_text(encoding="utf-8")) if path.exists() else tomlkit.document()
         self.data = merged(DEFAULTS, self.doc.unwrap())
         self.data["speech_speed"] = speech_speed(self.data["speech_speed"])
 
@@ -95,19 +95,19 @@ class Config:
 
     def save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(tomlkit.dumps(self.doc))
+        self.path.write_text(tomlkit.dumps(self.doc), encoding="utf-8")
 
 
 def secrets():
     if not paths.SECRETS.exists():
         return {}
-    return tomlkit.parse(paths.SECRETS.read_text()).unwrap()
+    return tomlkit.parse(paths.SECRETS.read_text(encoding="utf-8")).unwrap()
 
 
 def save_secret(key, value):
     data = secrets()
     data[key] = value
     paths.SECRETS.parent.mkdir(parents=True, exist_ok=True)
-    paths.SECRETS.write_text(tomlkit.dumps(data))
+    paths.SECRETS.write_text(tomlkit.dumps(data), encoding="utf-8")
     if not WINDOWS:
         os.chmod(paths.SECRETS, 0o600)
