@@ -56,6 +56,20 @@ def running_pid():
     return pid if alive(pid) else None
 
 
+def hidden_console():
+    """On Windows, Happy runs windowless, so every console program it starts (claude, uv, git) would open a terminal
+    window of its own. One hidden console of Happy's own is shared by them all instead."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+
+    kernel = ctypes.windll.kernel32
+    if kernel.GetConsoleWindow():
+        return
+    if kernel.AllocConsole():
+        ctypes.windll.user32.ShowWindow(kernel.GetConsoleWindow(), 0)  # SW_HIDE
+
+
 def tell_failure(text):
     """Puts a startup failure on screen: opened from Finder or the Start menu, Happy has no terminal to print it in."""
     try:
@@ -78,6 +92,7 @@ def run(args):
         return 0
     paths.LOCK.parent.mkdir(parents=True, exist_ok=True)
     paths.LOCK.write_text(str(os.getpid()))
+    hidden_console()
     os.environ.pop("ELECTRON_RUN_AS_NODE", None)
     logging_to(console=not args.quiet)
     if not args.quiet:

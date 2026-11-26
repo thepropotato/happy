@@ -1,9 +1,6 @@
 """Chooses the brain from what this computer already has: Claude Code, an API key, Ollama or LM Studio."""
 
-import json
 import os
-import shutil
-from pathlib import Path
 
 import httpx
 
@@ -20,14 +17,9 @@ LMSTUDIO = "http://localhost:1234/v1"
 
 
 def claude_ready():
-    if not shutil.which("claude"):
-        return False
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return True
-    try:
-        return bool(json.loads((Path.home() / ".claude.json").read_text(encoding="utf-8")).get("oauthAccount"))
-    except (OSError, ValueError):
-        return False
+    from happy.agent.health import claude_status
+
+    return claude_status()["logged_in"]
 
 
 def ollama_models():
@@ -57,9 +49,8 @@ def lmstudio_models():
 
 def options():
     """Every brain this computer could use right now, best first, as (kind, label, settings)."""
-    found = []
-    if claude_ready():
-        found.append(("claude", "Claude, through your Claude Code login", {}))
+    # CLAUDE IS ALWAYS OFFERED: PICKING IT CHECKS IT, AND THE CHECK SAYS WHAT IS MISSING AND FIXES IT.
+    found = [("claude", "Claude, through Claude Code", {})]
     stored = secrets()
     for kind, (url, env, model) in HOSTED.items():
         key = os.environ.get(env) or stored.get(env.lower())
@@ -75,6 +66,8 @@ def options():
 def backend(cfg, extra_servers=None):
     """The brain named in the config, or the best one found."""
     kind = cfg.get("brain.kind") or "auto"
+    if kind == "none":
+        return None
     if kind == "claude" or (kind == "auto" and claude_ready()):
         from happy.agent.claude import Claude
 

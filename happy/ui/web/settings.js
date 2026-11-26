@@ -179,9 +179,18 @@ const Settings = (() => {
     if (word.first) {
       const end = element('div', 'begin')
 
+      // STARTING NEEDS A MODEL THAT ANSWERED, OR THE CHOICE OF NONE, AND SAYS WHICH IS MISSING.
+      const brain = word.model
+      const working = brain.chosen === 'none' || (brain.chosen && brain.check?.state === 'ready')
+      const waiting = !word.speech.ready ? 'Getting the voice ready…'
+        : !brain.chosen ? 'Choose a model under Model to start.'
+        : brain.check?.state === 'checking' ? 'Checking the model…'
+        : !working ? 'Fix the model under Model, or choose another, to start.' : ''
+
+      if (waiting) end.append(element('span', 'begin-why', waiting))
       end.append(button('Start Happy', () => ask({ do: 'begin' }), true))
 
-      if (word.first && !word.speech.ready) end.firstChild.disabled = true
+      if (waiting) end.lastChild.disabled = true
 
       box.append(end)
     }
@@ -256,11 +265,25 @@ const Settings = (() => {
     line.append(choose)
   }
 
+  // WHAT A CHECK FOUND, IN THE SECTION'S SUMMARY: GREEN WHEN IT ANSWERS, AMBER WHILE LOOKING, RED WITH A PROBLEM.
+  const CHECKED = { ready: ['ready', 'good'], checking: ['checking…', 'wait'] }
+
   function model(state) {
     const current = state.options.find((each) => each.id === state.chosen)
-    const block = section('model', 'Model', state.chosen === 'key' ? state.custom?.model || 'your service' : current ? current.label : 'looking…')
-    const line = row(block, 'Thinks with', 'Claude when you are logged in to Claude Code; otherwise whatever runs here.')
+    const check = state.check
+    const named = state.chosen === 'key' ? state.custom?.model || 'your service' : state.chosen === 'none' ? 'no model' : current ? current.label : ''
+    const [word, tone] = !state.chosen ? ['choose one', 'wait'] : check ? CHECKED[check.state] || ['needs attention', 'bad'] : [named, '']
+    const block = section('model', 'Model', state.chosen && check?.state === 'ready' ? named : word, tone)
+    const line = row(block, 'Thinks with', state.looked
+      ? 'Pick what Happy thinks with. Happy checks that it answers before you start.'
+      : 'Looking for models on this computer…')
     const choose = element('select')
+    const placeholder = element('option', '', 'Choose a model…')
+
+    placeholder.value = ''
+    placeholder.disabled = true
+    placeholder.selected = !state.chosen
+    choose.append(placeholder)
 
     for (const each of state.options) {
       const option = element('option', '', each.label)
@@ -276,25 +299,42 @@ const Settings = (() => {
     other.selected = state.chosen === 'key'
     choose.append(other)
 
+    const none = element('option', '', 'No model for now (timers, volume, apps and other everyday commands)')
+
+    none.value = 'none'
+    none.selected = state.chosen === 'none'
+    choose.append(none)
+
     choose.onchange = () => {
-      if (choose.value === 'key') draw({ ...last, model: { ...state, chosen: 'key' } })
+      if (choose.value === 'key') draw({ ...last, model: { ...state, chosen: 'key', check: null } })
       else ask({ do: 'model', id: choose.value })
     }
 
     line.append(choose)
 
-    if (state.chosen !== 'key') return
+    if (state.chosen === 'key') {
+      const adding = element('div', 'adding')
+      const url = field('model-url', 'API URL, like https://api.openai.com/v1')
+      const name = field('model-name', 'Model')
+      const key = field('model-key', 'API key', 'password')
 
-    const adding = element('div', 'adding')
-    const url = field('model-url', 'API URL, like https://api.openai.com/v1')
-    const name = field('model-name', 'Model')
-    const key = field('model-key', 'API key', 'password')
+      url.value = state.custom?.base_url || ''
+      name.value = state.custom?.model || ''
+      adding.style.flexDirection = 'column'
+      adding.append(url, name, key, button('Use it', () => ask({ do: 'model', id: 'key', base_url: url.value, model: name.value, api_key: key.value }), true))
+      block.append(adding)
+    }
 
-    url.value = state.custom?.base_url || ''
-    name.value = state.custom?.model || ''
-    adding.style.flexDirection = 'column'
-    adding.append(url, name, key, button('Use it', () => ask({ do: 'model', id: 'key', base_url: url.value, model: name.value, api_key: key.value }), true))
-    block.append(adding)
+    if (!check || !state.chosen) return
+
+    // THE CHECK'S ANSWER, AND WHEN SOMETHING IS WRONG, THE ONE BUTTON THAT FIXES IT AND ANOTHER TO LOOK AGAIN.
+    const found = row(block, check.state === 'ready' ? 'Answering' : check.state === 'checking' ? 'Checking' : 'Not working yet',
+      `<span class="${(CHECKED[check.state] || ['', 'bad'])[1]}">${escape(check.text)}</span>`)
+
+    if (check.state === 'checking') return
+
+    if (check.action?.label) found.append(button(check.action.label, () => ask({ do: 'model_fix', action: check.action }), true))
+    if (check.state !== 'ready') found.append(button('Check again', () => ask({ do: 'model_check' })))
   }
 
   const COLOURS = ['#658761', '#3f8f7a', '#4a7fb5', '#b5654a', '#c79a3e', '#8a8f98', '#d16d8f']
@@ -435,7 +475,14 @@ const Settings = (() => {
       const state = each.state === 'connected' ? `<span class="good">${escape(each.detail)}</span>` : `<span class="wait">${escape(each.state)}</span>`
       const line = row(block, each.name, `${escape(each.source)} · ${state}`)
 
-      if (each.state === 'needs sign-in') line.append(button('Sign in', () => ask({ do: 'service_signin', name: each.name }), true))
+      // WITH CLAUDE AS THE MODEL, CLAUDE CODE KEEPS THE SIGN-INS, AND ITS SIGN-IN SCREEN ONLY RUNS IN A TERMINAL: SAID UP FRONT.
+      if (each.state === 'needs sign-in') {
+        const viaClaude = last?.brain_kind === 'claude'
+        const signIn = button(viaClaude ? 'Sign in (opens Terminal)' : 'Sign in', () => ask({ do: 'service_signin', name: each.name }), true)
+
+        if (viaClaude) signIn.title = 'Opens Claude Code in a Terminal window, where you pick this service and sign in.'
+        line.append(signIn)
+      }
       if (each.removable) line.append(button('Remove', () => ask({ do: 'service_remove', name: each.name })))
     }
 
@@ -522,7 +569,7 @@ const Settings = (() => {
         return
       }
       if (word.is === 'settings') {
-        if (!last && word.first) opened = 'voice'
+        if (!last && word.first) opened = 'model'
         last = word
 
         if (word.first && !open) show()

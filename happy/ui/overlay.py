@@ -455,6 +455,11 @@ class Face(QObject):
         if self.settings and not self.settings.speech.get("ready"):
             return
         cfg = Config()
+        # THE FIRST START NEEDS A MODEL THE PERSON CHOSE, OR THEIR CHOICE OF NONE; NOTHING IS PICKED FOR THEM.
+        check = self.settings.check if self.settings else None
+        if self.settings and self.settings.first and (cfg.get("brain.kind") not in ("claude", "openai", "none") or
+                                                      cfg.get("brain.kind") != "none" and (check or {}).get("state") != "ready"):
+            return
         cfg.set("ready", True)
         cfg.save()
         self.cfg = cfg

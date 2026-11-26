@@ -97,7 +97,8 @@ class Happy:
                 await self.backend.start()
             except Exception as error:
                 log.exception("model did not start")
-                self.face.trouble(f"{self.backend.name} did not start: {error}")
+                self.face.trouble(self.brain_trouble(error))
+            await asyncio.to_thread(self.claude_present)
             from happy.agent.prompt import system_prompt
 
             self.prompted = system_prompt(self.cfg)
@@ -304,7 +305,8 @@ class Happy:
                 await self.backend.start()
             except Exception as error:
                 log.exception("model did not start")
-                self.face.trouble(f"{self.backend.name} did not start: {error}")
+                self.face.trouble(self.brain_trouble(error))
+            await asyncio.to_thread(self.claude_present)
         from happy.tools import status
 
         status.model_name = self.backend.name if self.backend else ""
@@ -797,9 +799,10 @@ class Happy:
                     facts.append(quick.SPOKEN.get(event.tool, lambda r: r)(event.result))
                 log.info("tool %s %s: %s", event.tool, "ok" if event.ok else "failed", event.result[:300].replace("\n", " | "))
             elif isinstance(event, Problem):
-                self.face.reply(event.message)
+                told = self.brain_trouble(event.message)
+                self.face.reply(told)
                 self.answered = True
-                self.say(event.message)
+                self.say(told)
 
         from happy.agent.prompt import system_prompt
 
@@ -812,6 +815,11 @@ class Happy:
         tools.shown.set(emit)
         try:
             final = await self.backend.turn(text, emit)
+        except Exception as error:
+            # A BRAIN THAT BREAKS MID-REQUEST, LIKE CLAUDE CODE MISSING OR SIGNED OUT, IS TOLD LIKE ANY OTHER PROBLEM.
+            log.exception("the model failed")
+            final = ""
+            emit(Problem(str(error)))
         finally:
             guard.cancel()
         for sentence in sentences.rest():
@@ -836,6 +844,30 @@ class Happy:
             self.face.reply(self.reply)
             self.say(self.reply)
         log.info("answer: %s (%.1fs)", self.reply[:300], time.monotonic() - started)
+
+    def claude_present(self):
+        """Claude Code uninstalled or signed out since Happy last ran shows on screen now, not on the first request."""
+        if self.cfg.get("brain.kind") != "claude":
+            return
+        from happy.agent import health
+
+        status = health.claude_status()
+        if not status["installed"] or not status["logged_in"]:
+            health.latest = health.check_claude() if status["installed"] else health.Verdict(
+                "not_installed", "Claude Code isn't installed.", {"label": "Install Claude Code", "do": "claude_install"})
+            self.face.trouble(f"{health.latest.text} Open the settings, under Model, to fix it.")
+
+    def brain_trouble(self, message):
+        """A brain's error in plain words, kept for the settings to show with its fix."""
+        from happy.agent import health
+
+        kind = "claude" if self.cfg.get("brain.kind") == "claude" or (self.backend and self.backend.name.startswith("Claude")) else "openai"
+        verdict = health.explain(message, kind, self.cfg.get("brain.base_url") or "")
+        health.latest = verdict
+        log.info("the model said: %s", str(message)[:300])
+        if verdict.state == "limit":
+            return verdict.text
+        return f"{verdict.text} Open the settings, under Model, to fix it."
 
     def fallback(self):
         """Something to say when the model finished without a word."""

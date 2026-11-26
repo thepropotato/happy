@@ -172,7 +172,7 @@ class OpenAICompatible(Backend):
                     nudged = True
                     self.history.append({"role": "user", "content": "Your last tool call could not be read. Call the tool again with plain JSON arguments, every value written out in full."})
                     continue
-                emit(Problem(f"The model failed: {message[:200]}"))
+                emit(Problem(f"{getattr(error, 'status_code', '') or ''} {message[:300]}".strip()))
                 return "".join(said)
             if not calls and not (content or "").strip() and not nudged:
                 nudged = True

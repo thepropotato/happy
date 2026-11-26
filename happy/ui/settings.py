@@ -45,6 +45,9 @@ class Settings:
         self.notice = ""
         self.speech = {"ready": not models.missing(), "progress": None, "text": "", "failed": False}
         self.brains = []
+        self.check = None
+        self.looked = False
+        self.auto = ""
         self.whatsapp = {"state": "busy", "text": "Getting WhatsApp ready…"}
         self.services = remembered_services()
         self.qr_polling = False
@@ -78,6 +81,7 @@ class Settings:
             "notice": self.notice,
             "speech": self.speech,
             "model": self.model_state(cfg),
+            "brain_kind": cfg.get("brain.kind"),
             "name": cfg.get("name") or "Happy",
             "call_me": cfg.get("call_me") or "",
             "persona": persona.read(),
@@ -104,6 +108,8 @@ class Settings:
         }
 
     def model_state(self, cfg):
+        from happy.agent import health
+
         options = [{"id": str(i), "label": label} for i, (_, label, _) in enumerate(self.brains)]
         chosen = ""
         kind, model, url = cfg.get("brain.kind"), cfg.get("brain.model"), cfg.get("brain.base_url")
@@ -112,9 +118,14 @@ class Settings:
                 chosen = str(i)
         if not chosen and kind == "openai" and url:
             chosen = "key"
-        if not chosen and options:
-            chosen = options[0]["id"]
-        return {"options": options, "chosen": chosen, "custom": {"base_url": url or "", "model": model or ""}}
+        if kind == "none":
+            chosen = "none"
+        # NOTHING IS PICKED FOR THE PERSON: THE FIRST TIME, THEY CHOOSE, AND ONLY "auto" FROM AN OLDER HAPPY IS RESOLVED.
+        if not chosen and kind == "auto" and not self.first:
+            chosen = self.auto
+        check = self.check or (health.latest.shown() if health.latest else None)
+        return {"options": options, "chosen": chosen, "custom": {"base_url": url or "", "model": model or ""},
+                "check": check, "looked": bool(self.brains) or self.looked}
 
     def prepare_speech(self):
         sizes = {"stt": 482_000_000, "vad": 2_300_000}
@@ -148,6 +159,13 @@ class Settings:
             self.brains = choose.options()
         except Exception:
             self.brains = []
+        # WHAT "auto", KEPT FROM AN OLDER HAPPY, MEANS ON THIS COMPUTER: CLAUDE WHEN SIGNED IN, ELSE THE FIRST OTHER BRAIN.
+        try:
+            self.auto = "0" if choose.claude_ready() else next((str(i) for i, (found, _, _) in enumerate(self.brains)
+                                                                 if found != "claude"), "")
+        except Exception:
+            self.auto = ""
+        self.looked = True
         self.send()
 
     def prepare_whatsapp(self):
@@ -289,6 +307,10 @@ class Settings:
                 self.send()
         elif kind == "model":
             self.choose_model(order, cfg)
+        elif kind == "model_check":
+            self.later(self.check_brain)
+        elif kind == "model_fix":
+            self.later(lambda: self.fix_brain(order.get("action") or {}))
         elif kind == "speech_retry":
             self.later(self.prepare_speech)
         elif kind == "whatsapp_link":
@@ -311,7 +333,9 @@ class Settings:
             webbrowser.open(SPONSOR)
 
     def choose_model(self, order, cfg):
-        if order.get("id") == "key":
+        if order.get("id") == "none":
+            cfg.set("brain.kind", "none")
+        elif order.get("id") == "key":
             url = (order.get("base_url") or "").strip().rstrip("/").removesuffix("/chat/completions")
             if not url or not (order.get("model") or "").strip():
                 self.notice = "A service needs its API URL and a model name."
@@ -336,6 +360,62 @@ class Settings:
         self.changed("brain")
         self.notice = ""
         self.send()
+        self.later(self.check_brain)
+
+    def check_brain(self):
+        """Asks the chosen brain one tiny question, so a missing login, key or credit shows here, not mid-request."""
+        from happy.agent import health
+
+        cfg = Config()
+        kind = cfg.get("brain.kind")
+        if kind not in ("claude", "openai"):
+            self.check = None
+            return self.send()
+        self.check = health.Verdict("checking", "Checking that it answers…").shown()
+        self.send()
+        try:
+            if kind == "claude":
+                verdict = health.check_claude(cfg.get("brain.model") or "sonnet")
+            else:
+                from happy.config import secrets
+
+                url = cfg.get("brain.base_url") or ""
+                verdict = health.check_service(url, cfg.get("brain.model"), secrets().get("api_key") or "",
+                                               local="localhost" in url or "127.0.0.1" in url)
+        except Exception as error:
+            log.exception("could not check the model")
+            verdict = health.Verdict("failed", f"Couldn't check the model: {error}")
+        health.latest = None if verdict.ok else verdict
+        self.check = verdict.shown()
+        self.send()
+
+    def fix_brain(self, action):
+        """The one button under a problem: install or sign in to Claude Code here, or open the page that fixes it."""
+        from happy.agent import health
+
+        what = action.get("do")
+        if what == "open" and str(action.get("url", "")).startswith("https://"):
+            import webbrowser
+
+            webbrowser.open(action["url"])
+            return
+        if what == "claude_install":
+            self.check = health.Verdict("checking", "Installing Claude Code. This takes a minute…").shown()
+            self.send()
+            if not health.install_claude():
+                self.check = health.Verdict("not_installed", "Claude Code couldn't be installed. Check the internet connection and try again.",
+                                            {"label": "Try again", "do": "claude_install"}).shown()
+                return self.send()
+        elif what == "claude_login":
+            self.check = health.Verdict("checking", "Finish signing in to Claude in your browser. Happy carries on by itself after.").shown()
+            self.send()
+            if not health.login_claude():
+                self.check = health.Verdict("signed_out", "The sign-in didn't finish. Try again when you're ready.",
+                                            {"label": "Sign in to Claude", "do": "claude_login"}).shown()
+                return self.send()
+        self.check_brain()
+        if self.check and self.check.get("state") == "ready":
+            self.changed("brain")
 
     def add_service(self, text):
         from happy.integrations import services
