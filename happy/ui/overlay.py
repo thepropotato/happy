@@ -257,6 +257,7 @@ class Face(QObject):
 
     posted = Signal(object)
     retuned = Signal(str)
+    leave = Signal()
 
     def __init__(self, app, cfg):
         super().__init__()
@@ -618,6 +619,14 @@ def launch(cfg, settings_first=False):
     face.settings = Settings(face.send_panel, first=first, tint=lambda colour: face.emit({"is": "tint", "colour": colour}),
                              changed=face.settings_changed)
     face.settings.start()
+    # UPDATES INSTALL ONLY ONCE HAPPY IS RUNNING AND HAS BEEN QUIET; THE FIRST-RUN SETTINGS NEVER COUNT AS QUIET.
+    from happy import updates
+
+    face.leave.connect(app.quit, Qt.QueuedConnection)
+    face.updates = updates.Keeper(quiet_for=lambda: face.happy.quiet_for() if face.happy else 0,
+                                  quit=face.leave.emit, changed=lambda state: face.settings.send())
+    face.settings.updates = face.updates
+    face.updates.start()
     face.show()
     if first or settings_first:
         face.show_panel()

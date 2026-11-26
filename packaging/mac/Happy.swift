@@ -15,6 +15,8 @@ func contents(_ path: String) -> String? {
 }
 
 func runHappy(_ extra: [String]) -> Never {
+    // WHERE THIS APP LIVES, SO HAPPY CAN REPLACE IT WITH A NEWER ONE WHEN AN UPDATE COMES.
+    setenv("HAPPY_BUNDLE", Bundle.main.bundlePath, 1)
     // EXEC, NOT A CHILD PROCESS: HAPPY STAYS THIS APP TO MACOS, SO THE MICROPHONE PROMPT NAMES "HAPPY".
     let argv = (["/bin/bash", launcher] + extra).map { strdup($0) } + [nil]
     execv("/bin/bash", argv)
@@ -30,15 +32,19 @@ if !wanted.isEmpty && contents(app + "/.app-version") == wanted && files.isExecu
     runHappy([])
 }
 let fresh = !files.fileExists(atPath: app + "/.venv")
+// AN UPDATE SAYS SO, AND WHICH VERSION; ONLY A FIRST OPEN IS "GETTING HAPPY READY".
+let title = fresh ? "Getting Happy ready" : "Updating Happy to \(wanted)"
+let blurb = fresh ? "This happens once and takes a few minutes, mostly downloading. Happy opens by himself when it's done."
+                  : "Getting what the new version needs. Happy opens by himself when it's done."
 
 // WHERE EACH STEP OF setup.sh AND `happy prepare` STARTS, SO THE BAR CAN CREEP TOWARDS THE NEXT ONE MEANWHILE.
 let milestones: [Double] = [1, 2, 5, 10, 14, 50, 86, 96, 100]
 
 final class Setup: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var window: NSWindow!
-    let heading = NSTextField(labelWithString: "Getting Happy ready")
+    let heading = NSTextField(labelWithString: title)
     let status = NSTextField(labelWithString: "Starting…")
-    let note = NSTextField(wrappingLabelWithString: "This happens once and takes a few minutes, mostly downloading. Happy opens by himself when it's done.")
+    let note = NSTextField(wrappingLabelWithString: blurb)
     let bar = NSProgressIndicator()
     let spinner = NSProgressIndicator()
     let retry = NSButton(title: "Try Again", target: nil, action: nil)
@@ -144,9 +150,9 @@ final class Setup: NSObject, NSApplicationDelegate, NSWindowDelegate {
         status.maximumNumberOfLines = 1
         status.lineBreakMode = .byTruncatingTail
         status.textColor = .secondaryLabelColor
-        heading.stringValue = "Getting Happy ready"
+        heading.stringValue = title
         status.stringValue = "Starting…"
-        note.stringValue = "This happens once and takes a few minutes, mostly downloading. Happy opens by himself when it's done."
+        note.stringValue = blurb
         for button in [retry, details, quit] { button.isHidden = true }
         spinner.isHidden = false
         spinner.startAnimation(nil)

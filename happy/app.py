@@ -48,6 +48,7 @@ class Happy:
         self.cfg = cfg
         self.face = face
         self.name = cfg.get("name") or "Happy"
+        self.began = time.monotonic()
         self.loop = None
         self.task = None
         self.last_spoken = ("", 0.0)
@@ -346,14 +347,13 @@ class Happy:
 
     def login_item(self):
         """Keeps Happy starting at login when the setting says so, which is what lets a reminder survive a restart."""
-        import sys
-
         from happy import paths
         from happy.system import native
 
         try:
-            native.start_at_login(self.cfg.get("start_at_login") is not False,
-                                  [sys.executable, "-m", "happy", "run", "--quiet"], paths.REPO)
+            from happy.updates import login_command
+
+            native.start_at_login(self.cfg.get("start_at_login") is not False, login_command(), paths.REPO)
         except Exception:
             log.exception("could not set Happy to start at login")
 
@@ -557,6 +557,12 @@ class Happy:
     def busy(self):
         return self.task is not None and not self.task.done()
 
+    def quiet_for(self):
+        """Seconds since Happy last heard a request or spoke; 0 while a request is under way."""
+        if self.busy():
+            return 0
+        return time.monotonic() - max(getattr(self, "active_at", 0.0), getattr(self, "spoken_at", 0.0), self.began)
+
     def interrupt(self):
         if self.busy():
             self.task.cancel()
@@ -667,6 +673,7 @@ class Happy:
         plan = None if found or routine or how in ("routine", "correction") else await asyncio.to_thread(learned.match, bare)
         self.face.state("thinking")
         started = time.monotonic()
+        self.active_at = started
         self.steps, self.reply, self.streamed, failed = [], "", "", False
         self.silent = False
         record = await asyncio.to_thread(history.begin, shown, how, "quick" if found else "learned" if plan else

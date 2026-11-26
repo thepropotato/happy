@@ -48,6 +48,7 @@ class Settings:
         self.check = None
         self.looked = False
         self.auto = ""
+        self.updates = None
         self.whatsapp = {"state": "busy", "text": "Getting WhatsApp ready…"}
         self.services = remembered_services()
         self.qr_polling = False
@@ -82,6 +83,7 @@ class Settings:
             "speech": self.speech,
             "model": self.model_state(cfg),
             "brain_kind": cfg.get("brain.kind"),
+            "updates": {**self.updates.state, "auto": cfg.get("auto_update") is not False} if self.updates else None,
             "name": cfg.get("name") or "Happy",
             "call_me": cfg.get("call_me") or "",
             "persona": persona.read(),
@@ -282,12 +284,11 @@ class Settings:
             if key == "colour":
                 self.tint(value)
             if key == "start_at_login":
-                import sys
-
                 from happy import paths
                 from happy.system import native
+                from happy.updates import login_command
 
-                native.start_at_login(bool(value), [sys.executable, "-m", "happy", "run", "--quiet"], paths.REPO)
+                native.start_at_login(bool(value), login_command(), paths.REPO)
             self.changed(key)
             self.send()
         elif kind == "persona":
@@ -307,6 +308,8 @@ class Settings:
                 self.send()
         elif kind == "model":
             self.choose_model(order, cfg)
+        elif kind == "update_check" and self.updates:
+            self.updates.check_now()
         elif kind == "model_check":
             self.later(self.check_brain)
         elif kind == "model_fix":

@@ -250,7 +250,8 @@ def start_at_login(on, command, folder):
         STARTUP.unlink(missing_ok=True)
         return
     # UTF-8 MODE, AS cli.main GIVES EVERY OTHER START, SINCE WINDOWS WOULD READ HAPPY'S FILES AS CP1252.
-    windowless = [command[0].replace("python.exe", "pythonw.exe"), "-X", "utf8"] + command[1:]
+    windowless = [command[0].replace("python.exe", "pythonw.exe"), "-X", "utf8"] + command[1:] \
+        if command[0].lower().endswith("python.exe") else command
     line = " ".join(f'""{part}""' for part in windowless)
     script = f'Set shell = CreateObject("WScript.Shell")\nshell.CurrentDirectory = "{folder}"\nshell.Run "{line}", 0\n'
     if STARTUP.exists() and STARTUP.read_text() == script:

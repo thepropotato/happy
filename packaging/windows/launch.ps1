@@ -33,7 +33,10 @@ if ($Work) {
     exit 0
 }
 
-function Show-Setup {
+function Show-Setup($fresh) {
+    # AN UPDATE SAYS SO, AND WHICH VERSION; ONLY A FIRST OPEN IS "GETTING HAPPY READY".
+    $script:title = if ($fresh) { "Getting Happy ready" } else { "Updating Happy to $version" }
+    $script:blurb = if ($fresh) { "This happens once and takes a few minutes, mostly downloading. Happy opens by himself when it's done." } else { "Getting what the new version needs. Happy opens by himself when it's done." }
     Add-Type -AssemblyName System.Windows.Forms, System.Drawing
     [System.Windows.Forms.Application]::EnableVisualStyles()
 
@@ -68,7 +71,7 @@ function Show-Setup {
     $form.Controls.Add($picture)
 
     $heading = New-Object System.Windows.Forms.Label
-    $heading.Text = "Getting Happy ready"
+    $heading.Text = $script:title
     $heading.Font = New-Object System.Drawing.Font($font, 13, [System.Drawing.FontStyle]::Bold)
     $heading.SetBounds(104, 22, 372, 28)
     $form.Controls.Add($heading)
@@ -114,9 +117,9 @@ function Show-Setup {
         $script:shown = 0.0
         $script:offset = 0
         $script:pending = ""
-        $heading.Text = "Getting Happy ready"
+        $heading.Text = $script:title
         $status.Text = "Starting..."
-        $note.Text = "This happens once and takes a few minutes, mostly downloading. Happy opens by himself when it's done."
+        $note.Text = $script:blurb
         $bar.Value = 0
         $bar.Visible = $true
         $status.AutoEllipsis = $true
@@ -216,10 +219,12 @@ $first = @()
 $installed = if (Test-Path $stamp) { (Get-Content $stamp -Raw).Trim() } else { "" }
 if ($installed -ne $version -or -not (Test-Path $pythonw)) {
     if (-not (Test-Path (Join-Path $app ".venv"))) { $first = @("--settings") }
-    if (-not (Show-Setup)) { exit 1 }
+    if (-not (Show-Setup ($first.Count -gt 0))) { exit 1 }
 }
 
 if (-not (Test-Path $pythonw)) { Remove-Item -Force -ErrorAction SilentlyContinue $stamp; Trouble "Its Python environment is missing; open Happy again to set it up." }
+# WHERE HAPPY IS INSTALLED, SO HE CAN RUN A NEWER INSTALLER WHEN AN UPDATE COMES.
+$env:HAPPY_INSTALLED = $PSScriptRoot
 # HAPPY REFUSES A SECOND COPY OF ITSELF, SO OPENING THE SHORTCUT AGAIN WHILE IT RUNS IS HARMLESS.
 $happy = Start-Process $pythonw -ArgumentList (@("-m", "happy", "run", "--quiet") + $first) -WorkingDirectory $app -PassThru
 # PYTHONW HAS NO CONSOLE, SO A HAPPY THAT DIES AS HE STARTS WOULD OTHERWISE JUST NEVER APPEAR. EXIT CODE 3 MEANS

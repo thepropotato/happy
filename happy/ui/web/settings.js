@@ -42,6 +42,7 @@ const Settings = (() => {
     talking: '<path d="M20 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.5l1.3-4.6A7.5 7.5 0 1 1 20 11.5z" />',
     whatsapp: '<rect x="7" y="2.5" width="10" height="19" rx="2.5" /><path d="M11 18h2" />',
     services: '<path d="M9 2.5V7M15 2.5V7M6 7h12v4a6 6 0 0 1-12 0V7zM12 17v4.5" />',
+    updates: '<path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" />',
     permissions: '<path d="M12 3l7.5 3v5.5c0 4.3-3.2 8-7.5 9-4.3-1-7.5-4.7-7.5-9V6L12 3z" /><path d="M9 12l2 2 4-4" />',
   }
 
@@ -166,6 +167,7 @@ const Settings = (() => {
     services(word.services, word.services_checking)
 
     privacy(word)
+    updates(word.updates)
 
     // HAPPY IS FREE; ONE QUIET LINE AT THE FOOT SAYS HOW TO SAY THANKS, AND NOTHING EVER ASKS.
     const thanks = element('div', 'support')
@@ -500,6 +502,26 @@ const Settings = (() => {
   }
 
   // WHAT LEAVES THIS COMPUTER AND WHAT HAPPY MAY TOUCH ON IT, IN ONE PLACE.
+  // UPDATES ARRIVE BY THEMSELVES; THIS SAYS WHICH VERSION THIS IS, WHAT IS UNDER WAY, AND LETS IT BE TURNED OFF.
+  const UPDATE_TONE = { current: 'good', updated: 'good', idle: 'good', checking: 'wait', downloading: 'wait', ready: 'wait', installing: 'wait', available: 'wait', failed: 'bad' }
+
+  function updates(state) {
+    if (!state) return
+
+    const busy = ['checking', 'downloading', 'installing'].includes(state.state)
+    const summary = state.state === 'downloading' || state.state === 'installing' ? 'updating…'
+      : state.state === 'ready' ? 'update ready' : state.state === 'available' ? 'update available' : `Happy ${state.version}`
+    const block = section('updates', 'Updates', summary, UPDATE_TONE[state.state] || '')
+    const now = row(block, `Happy ${escape(state.version)}`, escape(state.text || 'Checks for a new version a minute after it starts, then every few hours.'))
+
+    if (!busy) now.append(button('Check now', () => ask({ do: 'update_check' })))
+    if (!state.own) return
+
+    const auto = row(block, 'Update automatically', 'Downloads a new version in the background and installs it when Happy has been quiet for a few minutes.')
+
+    auto.append(toggle(state.auto, (on) => ask({ do: 'set', key: 'auto_update', value: on })))
+  }
+
   function privacy(word) {
     const list = word.permissions || []
     const missing = list.filter((each) => !each.granted && !each.optional).length

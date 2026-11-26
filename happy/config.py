@@ -29,6 +29,7 @@ DEFAULTS = {
     "wake_word": True,
     "start_at_login": True,
     "share_usage": False,
+    "auto_update": True,
     "push_to_talk": "right_option" if MAC else "right_ctrl",
     "voice": "alba",
     "speech_speed": 1.0,
